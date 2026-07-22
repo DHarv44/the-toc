@@ -896,6 +896,33 @@ export function newMoveGroup() { return groupSeq++ }
 // contact, so the convoy travels mounted instead of crawling on foot. A unit the
 // player MANUALLY dismounted has autoDismounted=false and stays dismounted until
 // the player mounts it again. Call before pathing so it routes with vehicle mobility.
+// Read the player's routing intent from where they clicked. Dropping the pin on a road
+// means "use the network" — hold the roads the whole way. Dropping it out in the open
+// means they want that spot, so go direct rather than detouring along a road that
+// happens to be cheaper. Callers that already know what they want (the enemy AI's
+// cross-country moves, an explicit roads-only order) are left alone.
+const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
+
+function nearRoad(x, y, r = ROAD_SNAP) {
+  const m = S.map, GRID = m.GRID
+  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL)
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const nx = cx + dx, ny = cy + dy
+      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue
+      if (m.road[ny * GRID + nx]) return true
+    }
+  }
+  return false
+}
+
+function roadIntent(x, y, opts) {
+  if (opts.crossCountry || opts.roadsOnly || opts.roadBias || opts.offRoad) return opts
+  return nearRoad(x, y)
+    ? { ...opts, roadBias: 3 }    // clicked the network — stay on it
+    : { ...opts, offRoad: true }  // clicked open ground — go there direct
+}
+
 function autoRemount(u) {
   if (u.autoDismounted && !u.targetId && !u.mounted && UNIT_TYPES[u.type].carrier) {
     u.mounted = true
@@ -911,7 +938,14 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
   autoRemount(u)
   x = clampWorld(x); y = clampWorld(y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1] : u
-  const p = findPath(S.map, from.x, from.y, x, y, effStats(u).mob, opts)
+  const mob = effStats(u).mob
+  let p = findPath(S.map, from.x, from.y, x, y, mob, roadIntent(x, y, opts))
+  // a roads-only order to somewhere the network doesn't reach shouldn't just refuse —
+  // run the trunk as far as it goes and say why the rest is cross-country
+  if (!p && opts.roadsOnly) {
+    p = findPath(S.map, from.x, from.y, x, y, mob, { ...opts, roadsOnly: false, roadBias: 3 })
+    if (p && u.side === 'friend') toast('NO ROAD ROUTE — MOVING CROSS-COUNTRY')
+  }
   // only surface the toast for player-issued orders; the enemy AI re-drives idle
   // units every tick, so an unreachable hostile objective would spam it forever
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }

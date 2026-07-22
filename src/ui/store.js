@@ -14,6 +14,8 @@ export const useUI = create((set, get) => ({
   mode: 'select',
   cmdMode: 'move',         // 'move' | 'attack' — what a ground/target click means
   setCmdMode: (cmdMode) => set({ cmdMode }),
+  roadsOnly: false,        // force move orders onto the road network
+  toggleRoadsOnly: () => set((s) => ({ roadsOnly: !s.roadsOnly })),
   ctxMenu: null,           // {x, y, unitId} — screen coords
   feeds: [],               // no feed shown until the player opens one (or deploys a drone)
   night: false,

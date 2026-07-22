@@ -231,7 +231,7 @@ export default function MapView() {
             const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
             const px = wx0 + ldx * t, py = wy0 + ldy * t
             if (S.drones.includes(o)) orderDroneMove(o.id, px, py, false)
-            else orderMove(o.id, px, py, false, attack, gid)
+            else orderMove(o.id, px, py, false, attack, gid, { roadsOnly: ui.roadsOnly })
           })
         }
         return
@@ -329,10 +329,11 @@ export default function MapView() {
       const gid = units.length > 1 ? newMoveGroup() : null
       const cols = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / cols)
+      const roadsOnly = useUI.getState().roadsOnly
       units.forEach((u, k) => {
         const ox = ((k % cols) - (cols - 1) / 2) * 90
         const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
-        orderMove(u.id, wx + ox, wy + oy, append, attack, gid)
+        orderMove(u.id, wx + ox, wy + oy, append, attack, gid, { roadsOnly })
       })
     }
 

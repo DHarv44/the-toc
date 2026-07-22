@@ -234,6 +234,8 @@ function SelectionTray() {
           <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
           <button style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
             onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
+          <button style={optBtn(ui.roadsOnly)} title="Force move orders onto the road network"
+            onClick={ui.toggleRoadsOnly}>ROADS ONLY</button>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ON CONTACT:</span>
           {[['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']].map(([roe, label]) => (
             <button key={roe}
