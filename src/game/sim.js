@@ -318,13 +318,18 @@ export function deployStructure(kind, x, y) {
   // a supply truck on site lets an engineer establish a FOB forward of the base network
   const supplyOnSite = kind === 'FOB' && S.units.some(u => u.side === 'friend' && u.type === 'LOG'
     && u.strength > 0 && Math.hypot(u.x - x, u.y - y) <= 500)
+  // airfields are a strategic asset — only the HQ can stand one up
+  const nearHQ = kind === 'AFLD' && S.structures.some(s => s.side === 'friend' && s.kind === 'HQ'
+    && s.buildT <= 0 && Math.hypot(s.x - x, s.y - y) <= spec.near)
   const nearOk = kind === 'OP'
     ? (S.units.some(u => u.side === 'friend' && Math.hypot(u.x - x, u.y - y) <= spec.near) || nearStruct)
-    : (nearStruct || supplyOnSite)
+    : kind === 'AFLD' ? nearHQ
+      : (nearStruct || supplyOnSite)
   if (!nearOk) return toast(
     kind === 'OP' ? 'TOO FAR FROM FRIENDLY FORCES'
-      : kind === 'FOB' ? 'TOO FAR FROM BASE — NEEDS A SUPPLY TRUCK ON SITE'
-        : 'TOO FAR FROM EXISTING BASE')
+      : kind === 'AFLD' ? 'AIRFIELD MUST BE ESTABLISHED NEAR THE HQ'
+        : kind === 'FOB' ? 'TOO FAR FROM BASE — NEEDS A SUPPLY TRUCK ON SITE'
+          : 'TOO FAR FROM EXISTING BASE')
   S.resources -= spec.cost
   const s = addStructure('friend', kind, x, y)
   toast(s.label + ' — CONSTRUCTION STARTED')
@@ -1442,6 +1447,28 @@ export function tick(dt) {
     }
     u.strMark = Math.min(u.strMark, u.strength)
   }
+
+  // surrender: a worn-down unit under fire may throw in the towel instead of fighting on.
+  // Rolled once, when strength first crosses below ~30% while in/just out of contact.
+  for (let i = S.units.length - 1; i >= 0; i--) {
+    const u = S.units[i]
+    if (u.strength <= 0 || u.surrenderRolled) continue
+    if (u.strength > 30) continue
+    if (u.targetId == null && S.t - (u.lastCombatT ?? -99) > 12) continue // not under duress
+    u.surrenderRolled = true
+    const p = 0.01 + Math.random() * 0.04 // 1–5%
+    if (Math.random() < p) {
+      S.contacts.delete(u.id)
+      if (u.side === 'friend') {
+        radio(u.label, 'loss', 'ELEMENTS SURRENDERING — WE ARE COMBAT INEFFECTIVE', u.x, u.y)
+        toast(u.label + ' SURRENDERED')
+      } else {
+        radio('NET', 'spot', `ENEMY ELEMENT SURRENDERING — GRID ${grid(u.x, u.y)}`, u.x, u.y)
+      }
+      S.units.splice(i, 1)
+    }
+  }
+
   for (const s of S.structures) {
     if (s.side !== 'friend') continue
     if (s.strMark == null) s.strMark = 1

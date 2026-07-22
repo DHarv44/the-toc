@@ -114,15 +114,15 @@ export const STRUCTURES = {
 // `endurance` = seconds ON STATION before mandatory RTB (transit time is free).
 export const DRONE_TYPES = {
   SHADOW: {
-    key: 'SHADOW', name: 'RQ-7 Shadow', abbr: 'SHD', src: 'airfield', cost: 200,
+    key: 'SHADOW', name: 'RQ-7 Shadow', abbr: 'SHD', src: 'airfield', cost: 350,
     speed: 45, alt: 550, sight: 1500, endurance: 600, orbitR: 420,
   },
   SENTINEL: {
-    key: 'SENTINEL', name: 'RQ-4 Sentinel', abbr: 'SEN', src: 'airfield', cost: 350,
+    key: 'SENTINEL', name: 'RQ-4 Sentinel', abbr: 'SEN', src: 'airfield', cost: 650,
     speed: 55, alt: 1250, sight: 2600, endurance: 1200, orbitR: 700,
   },
   VIPER: {
-    key: 'VIPER', name: 'MQ-1 Viper', abbr: 'VPR', src: 'airfield', cost: 500,
+    key: 'VIPER', name: 'MQ-1 Viper', abbr: 'VPR', src: 'airfield', cost: 900,
     speed: 42, alt: 650, sight: 1500, endurance: 720, orbitR: 450,
     weapons: { ammo: 2, range: 2200, dmg: 55, blast: 70, flight: 7 },
   },
@@ -137,7 +137,7 @@ export const DRONE_TYPES = {
   },
   // tethered at a FOB/HQ (1 per site): persistent high stare, cannot move
   AEROSTAT: {
-    key: 'AEROSTAT', name: 'PTDS Aerostat', abbr: 'BLN', src: 'tether', cost: 400,
+    key: 'AEROSTAT', name: 'PTDS Aerostat', abbr: 'BLN', src: 'tether', cost: 600,
     speed: 0, alt: 950, sight: 2400, endurance: Infinity, orbitR: 50, tetherRange: 500,
   },
   // AC-130 gunship: orbits on-station with a three-gun suite. The player selects the
@@ -145,7 +145,7 @@ export const DRONE_TYPES = {
   // hold); the 105mm is fired manually round-by-round like a UAV munition.
   // `rof` = rounds/sec, `spread` = aim scatter (m), `ammo` = rounds carried.
   SPECTRE: {
-    key: 'SPECTRE', name: 'AC-130 Spectre', abbr: 'SPC', src: 'airfield', cost: 900,
+    key: 'SPECTRE', name: 'AC-130 Spectre', abbr: 'SPC', src: 'airfield', cost: 1500,
     speed: 36, alt: 1100, sight: 2000, endurance: 900, orbitR: 850,
     gunship: {
       order: ['GAU12', 'BOFORS', 'M102'],

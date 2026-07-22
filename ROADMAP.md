@@ -542,6 +542,18 @@ battlefield:
 - Design notes: a fixed hand-authored (or fixed-seed + scripted) map with a dev-mode loader that
   pre-places representative units/structures; wire it behind the existing DEV controls.
 
+### Scenario Builder
+A proper in-app editor to lay out a battle instead of hand-placing everything by console:
+- **Place forces for both sides** — friendly and enemy units, structures, and drones anywhere on
+  the map, set their facing/posture/mount state, and drop wrecks/smoke/effects for staging.
+- **Set starting conditions** — map seed, supply/economy, fog on/off, objectives, and each side's
+  order of battle.
+- **Save / load scenarios** (seed + placements as data) so they're repeatable and shareable;
+  feeds custom battles, feature testing, and staged screenshots/demos.
+- Design notes: an editor mode that writes to the same `S` (units/structures/drones) via the
+  existing deploy paths but side-agnostic and position-free; serialize a scenario to JSON;
+  pairs with the mode selector, seeded maps, and the dev/test map.
+
 ## Installations
 
 ### FOB / HQ Built-in Defenses
@@ -634,7 +646,19 @@ flight path** — so they disagree and the lock lands off from where the sensor 
 - Fix: derive the lock point (and `feedRayToGround` / `feedProjectToScreen`) from the drone's
   *current, state-aware* camera look-at — the same one `DroneCamera` uses (transit looks ahead;
   on-station/lock look at `tx`/lock point) — so LOCK and the reticle agree in every state. (Or
-  simplest: only allow LOCK once on-station.)
+  simplest: only allow LOCK once on-station.) **(fixed — LOCK now gated to on-station.)**
+
+### "ROUTE IMPASSABLE" Toast Spam
+"ROUTE IMPASSABLE" toasts stack up and never clear. Likely more than one cause:
+- **Fires for any side** — `orderMove` calls `toast('ROUTE IMPASSABLE')` regardless of side, so an
+  *enemy AI* pathfinding failure is shown to the player (it shouldn't be surfaced at all).
+- **A stuck unit re-issues the order** — a unit (often the AI, which uses the same order
+  functions) keeps trying to reach an unreachable point, firing the toast on every failed
+  `findPath` — hence the pile-up.
+- Possibly toasts aren't expiring/being de-duped either.
+- Fix: gate the toast to the player's own (friendly) units, like radio/netRadio; throttle/de-dupe
+  repeat toasts and confirm they have a TTL; and give a unit whose route is impassable a fallback
+  (re-plan, try cross-country, or abort) instead of hammering the same failing path each tick.
 
 ## Later / Deferred
 

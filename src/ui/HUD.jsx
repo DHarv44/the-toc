@@ -82,12 +82,12 @@ export default function HUD() {
 
       {/* deploy palette */}
       <div style={{
-        ...panel, position: 'absolute', top: 44, left: 10, width: 176,
-        maxHeight: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 10,
+        ...panel, position: 'absolute', top: 44, bottom: 0, left: 0, width: 210,
+        padding: '0 8px 0 0', borderRadius: 0, overflowY: 'auto', zIndex: 10,
       }}>
         {CATS.map((cat) => (
           <div key={cat}>
-            <div style={{ color: '#54708a', fontSize: 9, letterSpacing: 2, margin: '5px 0 3px' }}>{cat}</div>
+            <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>{cat}</div>
             {Object.values(UNIT_TYPES).filter(t => t.cat === cat).map((t) => (
               <PaletteRow key={t.key} label={t.name} cost={t.cost}
                 active={ui.mode === 'deploy:' + t.key}
@@ -95,13 +95,13 @@ export default function HUD() {
             ))}
           </div>
         ))}
-        <div style={{ color: '#54708a', fontSize: 9, letterSpacing: 2, margin: '5px 0 3px' }}>INSTALLATIONS</div>
+        <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>INSTALLATIONS</div>
         {Object.values(STRUCTURES).map((st) => (
           <PaletteRow key={st.key} label={st.name} cost={st.cost}
             active={ui.mode === 'build:' + st.key}
             onClick={() => ui.setMode(ui.mode === 'build:' + st.key ? 'select' : 'build:' + st.key)} />
         ))}
-        <div style={{ color: '#54708a', fontSize: 9, letterSpacing: 2, margin: '5px 0 3px' }}>AVIATION — UAS</div>
+        <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>AVIATION — UAS</div>
         {Object.values(DRONE_TYPES).map((dt) => (
           <PaletteRow key={dt.key}
             label={`${dt.name}${dt.weapons ? ' ⚔' : dt.kamikaze ? ' ✸' : dt.gunship ? ' ✹' : ''}${dt.src === 'field' ? ' ▽' : ''}`}
@@ -577,8 +577,8 @@ function DroneMenu() {
 function PaletteRow({ label, cost, active, onClick }) {
   return (
     <div onClick={onClick} style={{
-      display: 'flex', justifyContent: 'space-between', padding: '3px 6px',
-      cursor: 'pointer', borderRadius: 2, marginBottom: 2, fontSize: 10.5,
+      display: 'flex', justifyContent: 'space-between', padding: '5px 8px',
+      cursor: 'pointer', borderRadius: 2, marginBottom: 3, fontSize: 13,
       background: active ? '#2a5a8a' : '#141e28',
       border: '1px solid #26384a',
     }}>
@@ -925,7 +925,7 @@ function FeedWindow({ feed, index }) {
             {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
           </button>
         )}
-        {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
+        {drone && drone.state === 'onstation' && (
           <button
             style={{
               ...btn(!!drone.lock),
