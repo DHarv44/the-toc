@@ -15,7 +15,7 @@ export function drawUnitSymbol(ctx, x, y, opts) {
   const {
     side = 'friend', glyph = 'inf', scale = 1,
     selected = false, stale = false, label = '', strength = 100,
-    echelon = 'plt', dug = 0, showStrength = true,
+    echelon = 'plt', dug = 0, showStrength = true, contact = 0,
   } = opts
   ctx.save()
   ctx.translate(x, y)
@@ -25,6 +25,20 @@ export function drawUnitSymbol(ctx, x, y, opts) {
 
   const fill = stale ? COLORS.stale : (side === 'friend' ? COLORS.friend : COLORS.hostile)
   const edge = side === 'friend' ? COLORS.friendEdge : COLORS.hostileEdge
+
+  // In contact: a ring outside the frame that sits red and snaps to muzzle-yellow as the
+  // unit fires. `contact` is 0 (out of contact) → 1 (firing this instant), so the flicker
+  // is driven by actual gunfire rather than a decorative timer — a unit trading shots
+  // strobes, one pinned but not shooting glows steady red.
+  if (contact > 0) {
+    const k = Math.min(1, contact)
+    const r = Math.round(255)
+    const g = Math.round(40 + 195 * k)   // red -> yellow
+    ctx.strokeStyle = `rgba(${r},${g},60,${0.55 + 0.45 * k})`
+    ctx.lineWidth = 1.6 + 2.2 * k
+    ctx.strokeRect(-FW / 2 - 3, -FH / 2 - 3, FW + 6, FH + 6)
+    ctx.lineWidth = 1.6
+  }
 
   if (selected) {
     ctx.strokeStyle = '#ffe97a'

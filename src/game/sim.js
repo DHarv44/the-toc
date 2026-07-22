@@ -2195,6 +2195,13 @@ function spawnBattlegroup() {
   // The OPFOR buys its battlegroups. It can only field what it has banked, so it can't
   // put everything on the board at once — and because it pays upkeep on what's already
   // out, a large standing force starves the next group. Same constraint the player has.
+  // You can't field from a base you no longer hold — the same rule the player plays by.
+  // Battlegroups muster at a live hostile HQ/FOB; lose them all and the OPFOR is done
+  // reinforcing, whatever it has banked.
+  const base = S.structures.find(s => s.side === 'hostile' && s.buildT <= 0
+    && (s.kind === 'HQ' || s.kind === 'FOB'))
+  if (!base) return null
+
   // and it lives under the same force cap — a template that would breach it isn't fielded
   const room = forceCap('hostile') - forceCount('hostile')
   const affordable = BG_TEMPLATES.filter(t =>
@@ -2208,7 +2215,8 @@ function spawnBattlegroup() {
     musterT: 10 + S.rng() * 8, retaskT: 0, objective: null,
     members: [], initStr: tpl.comp.length * 100, dead: false,
   }
-  const bx = S.map.enemyBase.x, by = S.map.enemyBase.y
+  // muster at the base that's actually fielding them, not a fixed map coordinate
+  const bx = base.x, by = base.y
   for (const t of tpl.comp) {
     const u = spawnEnemy(t, bx + (S.rng() - 0.5) * 500, by + (S.rng() - 0.5) * 300 + 150)
     u.aiRole = 'bg'

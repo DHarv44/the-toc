@@ -872,6 +872,17 @@ export default function MapView() {
         }
       }
 
+      // In-contact indicator: 0 when clear, rising toward 1 on each shot fired, so the
+      // symbol's ring strobes with the unit's own gunfire and settles to a steady red
+      // while it's engaged but not shooting.
+      const contactLevel = (u) => {
+        if (u.strength <= 0) return 0
+        const engaged = S.t - Math.max(u.lastCombatT ?? -99, u.underFireT ?? -99) < 3
+        if (!engaged) return 0
+        const since = u.lastFiredT == null ? 99 : S.t - u.lastFiredT
+        return since < 0.35 ? 1 - since / 0.35 : 0.12
+      }
+
       // friendly units (always shown — it's blue force tracking)
       for (const u of S.units) {
         if (u.side !== 'friend') continue
@@ -879,7 +890,7 @@ export default function MapView() {
         drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
           side: 'friend', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
           strength: u.strength, selected: ui.selectedIds.includes(u.id),
-          dug: u.posture === 'dig' ? u.digT : 0,
+          dug: u.posture === 'dig' ? u.digT : 0, contact: contactLevel(u),
         })
       }
 
@@ -900,7 +911,7 @@ export default function MapView() {
           const type = UNIT_TYPES[u.type]
           drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
             side: 'hostile', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
-            strength: u.strength,
+            strength: u.strength, contact: contactLevel(u),
           })
         }
       }
