@@ -588,6 +588,20 @@ Bases shouldn't be passive HP sponges — give FOBs and HQs organic protection:
   visible hostile, resolving against the element model like unit fire; render tower
   icons on the map and models in the drone feed.
 
+### C-RAM at FOBs and HQs
+Counter-Rocket, Artillery and Mortar defence for the bases, so incoming indirect fire isn't a
+guaranteed hit:
+- **Intercepts inbound indirect fire** — a C-RAM at a FOB/HQ engages mortar/artillery/rocket
+  rounds inbound to its protected radius, destroying some fraction of the salvo before impact
+  (with the characteristic burst of fire in the drone feed and on the map).
+- **Not a hard shield** — a saturating salvo or counter-battery on the C-RAM itself gets through;
+  intercept chance falls off with volume, and the system has ammo/reload limits.
+- Makes enemy artillery a problem to *suppress* (counter-battery, SEAD-style strikes on the C-RAM)
+  rather than an unanswerable attack, and gives HQ/FOB placement more meaning.
+- Design notes: a per-structure interceptor with a protected radius and per-round hit chance,
+  checked against `S.shells` in flight before their `impactT`; pairs with FOB/HQ Built-in Defenses
+  and Counter-Battery.
+
 ### Helipad Installation
 A rotary-wing base for the attack helicopters (and future utility/lift helos):
 - **Placed near an HQ or FOB** (like other installations, within a `near` radius of an
@@ -634,6 +648,21 @@ inconsistent:
   a big selection instead of showing N full cards); make it scrollable/collapsible.
 - Consistent styling with the rest of the HUD (the restyled deploy panel is the reference), and
   make the common orders faster to reach.
+
+### Unit Wiki (Friendly & Enemy)
+An in-game reference so the player can actually learn the order of battle instead of guessing:
+- **Every unit, both sides** — friendly and enemy entries with the MIL-STD-2525 symbol, name and
+  abbreviation, role, mobility/speed, sight and weapon ranges, firepower vs soft/hard targets,
+  protection, crew/vic counts, cost, and any special abilities (bridging, indirect fire, organic
+  UAS, dig-in posture).
+- **Also cover UAS, installations and munitions** — airframes (endurance, altitude, sensor range,
+  armament), structures (build time, deploy zone, supply), and shell/weapon types.
+- **Reachable in context** — open from a unit's context menu / the deploy palette / the selection
+  tray, and browsable as a standalone codex; enemy entries reveal progressively as you identify
+  them (tie to fog/contacts so it doubles as an intel log).
+- Design notes: it's mostly a read-only view over `UNIT_TYPES` / `DRONE_TYPES` / `STRUCTURES`, so
+  the data already exists — render it with the shared symbol drawing (`PaletteIcon`) and Mantine;
+  pairs with the TS rewrite (typed models make this trivial to generate).
 
 ### Off-Map Backdrop — Match the Splash Screen
 The off-map area shown on **fit-to-screen** (the letterbox where the square map doesn't fill the

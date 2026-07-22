@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { Box, Group, Button, ActionIcon, Menu, Text } from '@mantine/core'
+import { Box, Group, Button, ActionIcon, Menu, Text, Divider } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
@@ -505,41 +505,6 @@ function StructMenu() {
   )
 }
 
-// The UAV context menu (Mantine Menu on the ⚙ button). Sensor lock / track are on
-// the header LOCK / FOLLOW buttons; this covers altitude, orbit width, RTB, and
-// centering the map on the UAV. ALT/ORBIT are segmented rows (don't close the menu);
-// Center / RTB are items (close on click).
-function FeedGearMenu({ drone }) {
-  const spec = DRONE_TYPES[drone.type]
-  const seg = (label, opts, cur, apply) => (
-    <Group gap={6} wrap="nowrap" px="xs" py={5}>
-      <Text span fz={9} c="dark.3" w={40} style={{ letterSpacing: 1 }}>{label}</Text>
-      <Button.Group>
-        {opts.map(([val, lab]) => (
-          <Button key={lab} size="compact-xs" variant={Math.abs(cur - val) < 0.01 ? 'filled' : 'default'}
-            onClick={() => apply(val)} styles={{ label: { fontSize: 9 } }}>{lab}</Button>
-        ))}
-      </Button.Group>
-    </Group>
-  )
-  return (
-    <Menu shadow="md" width={210} position="bottom-end" withArrow={false} trapFocus={false}>
-      <Menu.Target>
-        <ActionIcon size="md" variant="default" title="Drone controls"
-          onPointerDown={(e) => e.stopPropagation()} style={{ fontSize: 13 }}>⚙</ActionIcon>
-      </Menu.Target>
-      <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
-        {seg('ALT', [[0.6, 'LOW'], [1, 'MED'], [1.6, 'HIGH']], drone.altMul || 1, (v) => droneSet(drone.id, { altMul: v }))}
-        {spec.src !== 'tether' && seg('ORBIT', [[0.5, 'TIGHT'], [1, 'STD'], [1.8, 'WIDE']], drone.orbitMul || 1, (v) => droneSet(drone.id, { orbitMul: v }))}
-        <Menu.Divider />
-        <Menu.Item onClick={() => { const v = window.__view; if (v) { v.cx = drone.x; v.cy = drone.y } }}>Center map on UAV</Menu.Item>
-        <Menu.Item color="orange" disabled={drone.state === 'rtb' || drone.state === 'striking'}
-          onClick={() => droneRTB(drone.id)}>RTB now</Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
-  )
-}
-
 function PaletteHeader({ label }) {
   return (
     <div style={{
@@ -565,9 +530,8 @@ function droneTag(dt) {
 
 // tiny canvas that renders the same MIL-STD-2525 symbol used on the map, so the
 // palette doubles as a symbol key
-function PaletteIcon({ unit, struct, drone }) {
+function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale = 1 }) {
   const ref = useRef(null)
-  const W = 40, H = 26
   useEffect(() => {
     const cv = ref.current
     if (!cv) return
@@ -576,16 +540,19 @@ function PaletteIcon({ unit, struct, drone }) {
     const ctx = cv.getContext('2d')
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, W, H)
-    const cx = W / 2, cy = H / 2
+    // draw centred, then scale about the centre so the same art fits any box size
+    ctx.save()
+    ctx.translate(W / 2, H / 2)
+    ctx.scale(scale, scale)
     if (unit) {
-      drawUnitSymbol(ctx, cx, cy + 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon: 'plt', showStrength: false, label: '' })
+      drawUnitSymbol(ctx, 0, 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon: 'plt', showStrength: false, label: '' })
     } else if (struct) {
-      ctx.save(); ctx.translate(cx, cy + 3); ctx.scale(0.72, 0.72)
-      drawStructure(ctx, 0, 0, { side: 'friend', kind: struct.key, label: '' })
-      ctx.restore()
+      ctx.scale(0.72, 0.72)
+      drawStructure(ctx, 0, 3, { side: 'friend', kind: struct.key, label: '' })
     } else if (drone) {
-      drawDroneIcon(ctx, cx, cy, -Math.PI / 2, '', false, drone.key)
+      drawDroneIcon(ctx, 0, 0, -Math.PI / 2, '', false, drone.key)
     }
+    ctx.restore()
   })
   return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
 }
@@ -817,38 +784,52 @@ function TargetReticles({ drone, feed, w, h }) {
   })
 }
 
-// AC-130 fire-control strip: pick the active weapon, set a gun's fire mode, or fire
-// the howitzer manually. Only the selected weapon is live.
-function GunshipPanel({ drone }) {
-  const g = DRONE_TYPES[drone.type].gunship
-  if (!g) return null
-  const w = g.weapons[drone.gunSel]
-  const ammo = (drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0
+// Feed footer: sensor/flight controls for every UAS — altitude, orbit width — plus
+// the AC-130 fire-control strip (weapon / fire mode / ammo) when it's the gunship.
+function FeedFooter({ drone }) {
+  const spec = DRONE_TYPES[drone.type]
+  const g = spec.gunship
+  const w = g && g.weapons[drone.gunSel]
+  const ammo = g ? ((drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0) : 0
   const hasTgt = drone.targets && drone.targets.length > 0
+  const lbl = { letterSpacing: 1 }
   return (
     <Group gap={7} wrap="nowrap" px={10} py={5} onPointerDown={(e) => e.stopPropagation()}
       style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderTop: '1px solid #223240', overflow: 'hidden' }}>
-      <Text span fz={8} c="dark.2" style={{ letterSpacing: 1 }}>WPN</Text>
-      <FeedSelect title="Weapon" value={drone.gunSel}
-        options={g.order.map((k) => ({ val: k, label: g.weapons[k].short }))}
-        onSelect={(k) => gunshipSelectWeapon(drone.id, k)} color="#c8b088" minWidth={56} />
-      <Box style={{ width: 1, height: 14, background: '#3a4a58' }} />
-      {w.kind === 'gun' ? (
+      <Text span fz={8} c="dark.2" style={lbl}>ALT</Text>
+      <FeedSelect title="Altitude" value={drone.altMul || 1}
+        options={[{ val: 0.6, label: 'LOW' }, { val: 1, label: 'MED' }, { val: 1.6, label: 'HIGH' }]}
+        onSelect={(v) => droneSet(drone.id, { altMul: v })} color="#8fb0c8" minWidth={52} />
+      {spec.src !== 'tether' && (
         <>
-          <Text span fz={8} c="dark.2" style={{ letterSpacing: 1 }}>MODE</Text>
-          <FeedSelect title="Fire mode" value={drone.fireMode || 'hold'}
-            options={[{ val: 'will', label: 'WILL' }, { val: 'designated', label: 'DESIG' }, { val: 'hold', label: 'HOLD' }]}
-            onSelect={(m) => gunshipSetMode(drone.id, m)} color="#ffb257" minWidth={62} />
+          <Text span fz={8} c="dark.2" style={lbl}>ORBIT</Text>
+          <FeedSelect title="Orbit width" value={drone.orbitMul || 1}
+            options={[{ val: 0.5, label: 'TIGHT' }, { val: 1, label: 'STD' }, { val: 1.8, label: 'WIDE' }]}
+            onSelect={(v) => droneSet(drone.id, { orbitMul: v })} color="#8fb0c8" minWidth={58} />
         </>
-      ) : (
-        <Button size="compact-xs" color="red.9" disabled={!hasTgt || ammo <= 0}
-          styles={{ label: { fontSize: 9, fontWeight: 700 } }}
-          title={hasTgt ? 'Fire a 105mm round on each designated vic' : 'Click vics in the feed to designate'}
-          onClick={() => droneFire(drone.id)}>◎ FIRE 105</Button>
       )}
-      <Text span ml="auto" fz={9} c={ammo <= 0 ? 'red.5' : 'lime.3'} style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>
-        {w.short} · {ammo}
-      </Text>
+      {g && (
+        <>
+          <Box style={{ width: 1, height: 14, background: '#3a4a58' }} />
+          <Text span fz={8} c="dark.2" style={lbl}>WPN</Text>
+          <FeedSelect title="Weapon" value={drone.gunSel}
+            options={g.order.map((k) => ({ val: k, label: g.weapons[k].short }))}
+            onSelect={(k) => gunshipSelectWeapon(drone.id, k)} color="#c8b088" minWidth={56} />
+          {w.kind === 'gun' ? (
+            <>
+              <Text span fz={8} c="dark.2" style={lbl}>MODE</Text>
+              <FeedSelect title="Fire mode" value={drone.fireMode || 'hold'}
+                options={[{ val: 'will', label: 'WILL' }, { val: 'designated', label: 'DESIG' }, { val: 'hold', label: 'HOLD' }]}
+                onSelect={(m) => gunshipSetMode(drone.id, m)} color="#ffb257" minWidth={62} />
+            </>
+          ) : (
+            <Button size="compact-xs" color="red.9" disabled={!hasTgt || ammo <= 0} ml="auto"
+              styles={{ label: { fontSize: 9, fontWeight: 700 } }}
+              title={hasTgt ? 'Fire a 105mm round on each designated vic' : 'Click vics in the feed to designate'}
+              onClick={() => droneFire(drone.id)}>◎ FIRE 105</Button>
+          )}
+        </>
+      )}
     </Group>
   )
 }
@@ -858,26 +839,86 @@ function GunshipPanel({ drone }) {
 // picking one applies it and closes. Mantine's Menu handles positioning (auto-flips
 // up near the bottom footer), click-outside, and portalling out of the feed's clip.
 // options: [{ val, label }]
-function FeedSelect({ value, options, onSelect, color = 'dark.1', minWidth = 48, title }) {
+function FeedSelect({ value, options, onSelect, color = 'dark.1', minWidth = 48, title, placeholder }) {
   const cur = options.find((o) => o.val === value)
+  const withIcons = options.some((o) => o.icon)
+  const nowrap = { whiteSpace: 'nowrap' }
   return (
-    <Menu shadow="md" width={Math.max(minWidth, 80)} position="bottom-start" withArrow={false} trapFocus={false}>
+    <Menu shadow="md" width={withIcons ? 'auto' : Math.max(minWidth, 80)}
+      position="bottom-start" withArrow={false} trapFocus={false}>
       <Menu.Target>
         <Button size="compact-xs" variant="default" c={color} title={title}
+          leftSection={cur?.icon}
           rightSection={<Text span fz={8} c="dimmed">▾</Text>}
           onPointerDown={(e) => e.stopPropagation()}
-          styles={{ root: { minWidth, paddingInline: 6, fontWeight: 400 }, label: { fontSize: 9 } }}>
-          {cur ? cur.label : value}
+          styles={{
+            root: { minWidth, paddingInline: 6, fontWeight: 400 },
+            label: { fontSize: 9, ...nowrap },
+            section: { marginInlineEnd: 4 },
+          }}>
+          {cur ? cur.label : (placeholder ?? value)}
         </Button>
       </Menu.Target>
       <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
         {options.map((o) => (
           <Menu.Item key={String(o.val)} onClick={() => onSelect(o.val)}
+            leftSection={o.icon}
             bg={o.val === value ? 'toc.7' : undefined}
-            styles={{ item: { padding: '4px 10px' }, itemLabel: { fontSize: 10 } }}>
+            styles={{ item: { padding: '3px 10px' }, itemLabel: { fontSize: 10, ...nowrap }, itemSection: { marginInlineEnd: 6 } }}>
             {o.label}
           </Menu.Item>
         ))}
+      </Menu.Dropdown>
+    </Menu>
+  )
+}
+
+// Collapsed header controls (hamburger) shown when the header is too narrow for the
+// full button row: sensor mode + follow / lock / center / rtb / fire.
+function HeaderMenu({ feed, drone, camMode }) {
+  const ui = useUI()
+  const spec = DRONE_TYPES[drone.type]
+  const armed = spec.weapons || spec.kamikaze
+  const hasTargets = drone.targets && drone.targets.length > 0
+  const onStation = drone.state === 'onstation'
+  const flying = onStation || drone.state === 'transit'
+  return (
+    <Menu shadow="md" width={210} position="bottom-end" withArrow={false} trapFocus={false}>
+      <Menu.Target>
+        <ActionIcon size="md" variant="default" title="Drone controls" style={{ fontSize: 14 }}
+          onPointerDown={(e) => e.stopPropagation()}>☰</ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
+        <Group gap={4} wrap="nowrap" px="xs" py={5}>
+          <Text span fz={9} c="dark.3" w={44} style={{ letterSpacing: 1 }}>SENSOR</Text>
+          <Button.Group>
+            {CAM_MODES.map((m) => (
+              <Button key={m} size="compact-xs" variant={camMode === m ? 'filled' : 'default'}
+                onClick={() => ui.setDroneMode(drone.id, m)} styles={{ label: { fontSize: 9 } }}>{m}</Button>
+            ))}
+          </Button.Group>
+        </Group>
+        <Menu.Divider />
+        {flying && (
+          <Menu.Item color="teal" disabled={!drone.followId && !hasTargets}
+            onClick={() => { if (drone.followId) { droneFollow(drone.id, null); return } const t = (drone.targets || [])[0]; if (t) droneFollow(drone.id, t.unitId) }}>
+            {drone.followId ? 'Unfollow' : 'Follow contact'}
+          </Menu.Item>
+        )}
+        {onStation && (
+          <Menu.Item color="orange"
+            onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}>
+            {drone.lock ? 'Unlock sensor' : 'Lock sensor'}
+          </Menu.Item>
+        )}
+        <Menu.Item onClick={() => { const v = window.__view; if (v) { v.cx = drone.x; v.cy = drone.y } }}>Center map on UAV</Menu.Item>
+        {drone.state !== 'rtb' && drone.state !== 'striking' && (
+          <Menu.Item color="orange" onClick={() => droneRTB(drone.id)}>RTB now</Menu.Item>
+        )}
+        {flying && armed && (
+          <Menu.Item color="red" disabled={!hasTargets || (spec.weapons && drone.ammo <= 0)}
+            onClick={() => droneFire(drone.id)}>{spec.weapons ? `Fire (${drone.ammo})` : 'Fire'}</Menu.Item>
+        )}
       </Menu.Dropdown>
     </Menu>
   )
@@ -893,6 +934,11 @@ function FeedWindow({ feed, index }) {
   // measure the actual sensor-view region so target reticles stay accurate at any
   // window size / mode (the view flexes between the header and footer)
   const { ref: contentRef, width: cw, height: ch } = useElementSize()
+  // measure the header; when it can't fit the full control row, collapse the feed
+  // tabs into a dropdown and the action buttons into a hamburger menu
+  const { ref: headerRef, width: headerW } = useElementSize()
+  const needFull = 130 + S.drones.length * 62 + (drone ? 330 : 0)
+  const compact = headerW > 0 && headerW < needFull
 
   // platform ambient: each airframe's engine loop runs while its feed is open
   const droneType = drone ? drone.type : null
@@ -1023,65 +1069,97 @@ function FeedWindow({ feed, index }) {
       background: '#020304', zIndex: 40, // UAV window sits above the map controls / other HUD
     }}>
       {/* ---- HEADER (drag handle) ---- */}
-      <Group gap={5} wrap="nowrap" px={8} py={4} align="center"
+      <Group ref={headerRef} gap={5} wrap="nowrap" pl={8} pr={12} py={4} align="center"
         onPointerDown={startDrag} onPointerMove={onPointerMove} onPointerUp={endDrag}
         style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderBottom: '1px solid #223240', cursor: 'grab', overflow: 'hidden' }}>
         <Text span fz={9} c="dark.2" style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>FEED {index + 1}</Text>
-        {S.drones.map((d) => (
-          <Button key={d.id} size="compact-xs" variant={drone && drone.id === d.id ? 'filled' : 'default'}
-            onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { droneId: d.id })}
-            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
-            {d.label} {d.state === 'transit' ? '→' : d.state === 'rtb' ? 'RTB' : d.state === 'striking' ? '✸' : !isFinite(d.endurance) ? '⚓' : Math.ceil(d.endurance) + 's'}
-          </Button>
-        ))}
-        {drone && (
-          <FeedSelect title="Sensor mode" value={camMode}
-            options={CAM_MODES.map((m) => ({ val: m, label: m }))}
-            onSelect={(m) => ui.setDroneMode(drone.id, m)} color="#8fd4a8" minWidth={52} />
+        {/* feed tabs — collapse to a dropdown when the header is tight */}
+        {compact ? (
+          <FeedSelect title="Feed source" value={feed.droneId} placeholder="— SELECT —" minWidth={84}
+            options={S.drones.map((d) => ({
+              val: d.id,
+              label: `${d.label} ${d.state === 'transit' ? '→' : d.state === 'rtb' ? 'RTB' : d.state === 'striking' ? '✸' : !isFinite(d.endurance) ? '⚓' : Math.ceil(d.endurance) + 's'}`,
+              icon: <PaletteIcon drone={DRONE_TYPES[d.type]} w={26} h={16} scale={0.6} />,
+            }))}
+            onSelect={(id) => ui.setFeed(feed.id, { droneId: id })} />
+        ) : (
+          S.drones.map((d) => (
+            <Button key={d.id} size="compact-xs" variant={drone && drone.id === d.id ? 'filled' : 'default'}
+              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { droneId: d.id })}
+              styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
+              {d.label} {d.state === 'transit' ? '→' : d.state === 'rtb' ? 'RTB' : d.state === 'striking' ? '✸' : !isFinite(d.endurance) ? '⚓' : Math.ceil(d.endurance) + 's'}
+            </Button>
+          ))
         )}
-        {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
-          <Button size="compact-xs" variant={drone.followId ? 'filled' : 'default'} c="#5ac8aa"
-            disabled={!drone.followId && !hasTargets}
-            title={drone.followId ? 'Stop tracking the contact' : hasTargets ? 'Track the designated contact' : 'Click a contact in the feed to designate it first'}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => { if (drone.followId) { droneFollow(drone.id, null); return } const t = (drone.targets || [])[0]; if (t) droneFollow(drone.id, t.unitId) }}
-            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
-            {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
-          </Button>
-        )}
-        {drone && drone.state === 'onstation' && (
-          <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}
-            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
-            {drone.lock ? 'UNLOCK' : 'LOCK'}
-          </Button>
-        )}
-        {drone && (drone.state === 'onstation' || drone.state === 'transit') && armed && (
-          <Button size="compact-xs" color="red.9" variant={hasTargets ? 'filled' : 'default'} ml="auto"
-            disabled={!hasTargets || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
-            title={hasTargets ? 'Fire on the designated vics' : 'Click vics in the feed to designate targets'}
-            onPointerDown={(e) => e.stopPropagation()} onClick={() => droneFire(drone.id)}
-            styles={{ label: { fontSize: 9, fontWeight: 700 } }} style={{ flex: '0 0 auto' }}>
-            {DRONE_TYPES[drone.type].weapons ? `FIRE (${drone.ammo})` : 'FIRE'}
-          </Button>
-        )}
-        <Group gap={3} wrap="nowrap" ml={armed ? 0 : 'auto'} style={{ flex: '0 0 auto' }}>
-          {drone && <FeedGearMenu drone={drone} />}
-          {winMode !== 'min' && (
-            <ActionIcon size="md" variant="default" title="Minimize" style={winIcon}
-              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'min' })}>—</ActionIcon>
+        {/* everything past the feed tabs is right-aligned */}
+        <Group gap={5} wrap="nowrap" ml="auto" style={{ flex: '0 0 auto' }}>
+          {/* action controls — collapse to a hamburger when the header is tight */}
+          {compact ? (
+            drone && <HeaderMenu feed={feed} drone={drone} camMode={camMode} />
+          ) : (
+            <>
+              {drone && (
+                <FeedSelect title="Sensor mode" value={camMode}
+                  options={CAM_MODES.map((m) => ({ val: m, label: m }))}
+                  onSelect={(m) => ui.setDroneMode(drone.id, m)} color="#8fd4a8" minWidth={52} />
+              )}
+              {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
+                <Button size="compact-xs" variant={drone.followId ? 'filled' : 'default'} c="#5ac8aa"
+                  disabled={!drone.followId && !hasTargets}
+                  title={drone.followId ? 'Stop tracking the contact' : hasTargets ? 'Track the designated contact' : 'Click a contact in the feed to designate it first'}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => { if (drone.followId) { droneFollow(drone.id, null); return } const t = (drone.targets || [])[0]; if (t) droneFollow(drone.id, t.unitId) }}
+                  styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
+                  {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
+                </Button>
+              )}
+              {drone && drone.state === 'onstation' && (
+                <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}
+                  styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
+                  {drone.lock ? 'UNLOCK' : 'LOCK'}
+                </Button>
+              )}
+              {drone && (
+                <Button size="compact-xs" variant="default" c="#8fb0c8" title="Center map on UAV"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => { const v = window.__view; if (v) { v.cx = drone.x; v.cy = drone.y } }}
+                  styles={{ label: { fontSize: 15, lineHeight: 1 } }} style={{ flex: '0 0 auto' }}>⌖</Button>
+              )}
+              {drone && drone.state !== 'rtb' && drone.state !== 'striking' && (
+                <Button size="compact-xs" variant="default" color="orange" title="Return to base"
+                  onPointerDown={(e) => e.stopPropagation()} onClick={() => droneRTB(drone.id)}
+                  styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>RTB</Button>
+              )}
+              {drone && (drone.state === 'onstation' || drone.state === 'transit') && armed && (
+                <Button size="compact-xs" color="red.9" variant={hasTargets ? 'filled' : 'default'}
+                  disabled={!hasTargets || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
+                  title={hasTargets ? 'Fire on the designated vics' : 'Click vics in the feed to designate targets'}
+                  onPointerDown={(e) => e.stopPropagation()} onClick={() => droneFire(drone.id)}
+                  styles={{ label: { fontSize: 9, fontWeight: 700 } }} style={{ flex: '0 0 auto' }}>
+                  {DRONE_TYPES[drone.type].weapons ? `FIRE (${drone.ammo})` : 'FIRE'}
+                </Button>
+              )}
+            </>
           )}
-          {winMode !== 'max' && (
-            <ActionIcon size="md" variant="default" title="Maximize" style={winIcon}
-              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'max' })}>▢</ActionIcon>
-          )}
-          {winMode !== 'win' && (
-            <ActionIcon size="md" variant="default" title="Restore to window" style={winIcon}
-              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'win' })}>❐</ActionIcon>
-          )}
-          <ActionIcon size="md" variant="default" title="Close" style={winIcon}
-            onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.closeFeed(feed.id)}>×</ActionIcon>
+          {drone && <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center', marginInline: 4 }} />}
+          <Group gap={3} wrap="nowrap" style={{ flex: '0 0 auto' }}>
+            {winMode !== 'min' && (
+              <ActionIcon size="md" variant="default" title="Minimize" style={winIcon}
+                onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'min' })}>—</ActionIcon>
+            )}
+            {winMode !== 'max' && (
+              <ActionIcon size="md" variant="default" title="Maximize" style={winIcon}
+                onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'max' })}>▢</ActionIcon>
+            )}
+            {winMode !== 'win' && (
+              <ActionIcon size="md" variant="default" title="Restore to window" style={winIcon}
+                onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'win' })}>❐</ActionIcon>
+            )}
+            <ActionIcon size="md" variant="default" title="Close" style={winIcon}
+              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.closeFeed(feed.id)}>×</ActionIcon>
+          </Group>
         </Group>
       </Group>
 
@@ -1113,6 +1191,17 @@ function FeedWindow({ feed, index }) {
                   drone.state === 'transit' ? 'TRANSIT' : drone.state === 'rtb' ? 'RTB' : drone.state === 'striking' ? 'TERMINAL' : 'ON STA'}
                 {' · '}{(38 / feed.fov).toFixed(1)}×{(feed.gx || feed.gy) ? ' · OFFSET' : ''}
               </div>
+              {/* gunship: selected weapon + remaining rounds, read off the imagery */}
+              {DRONE_TYPES[drone.type].gunship && (() => {
+                const g = DRONE_TYPES[drone.type].gunship
+                const gw = g.weapons[drone.gunSel]
+                const gammo = (drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0
+                return (
+                  <div style={{ position: 'absolute', top: 8, right: 26, color: gammo <= 0 ? '#ff6a52' : '#c8d8a0', fontSize: 9, letterSpacing: 1, fontWeight: 'bold' }}>
+                    {gw.short} · {gammo}
+                  </div>
+                )
+              })()}
               <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9 }}>
                 {drone.state === 'rtb'
                   ? <span style={{ fontWeight: 'bold', letterSpacing: 1, opacity: ui.tick % 8 < 4 ? 1 : 0.12 }}>RTB</span>
@@ -1166,7 +1255,7 @@ function FeedWindow({ feed, index }) {
       )}
 
       {/* ---- FOOTER (gunship fire-control) ---- */}
-      {drone && winMode !== 'min' && <GunshipPanel drone={drone} feed={feed} />}
+      {drone && winMode !== 'min' && <FeedFooter drone={drone} />}
     </Box>
   )
 }
