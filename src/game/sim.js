@@ -34,6 +34,7 @@ export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   radio: [],               // net traffic: {t, callsign, kind, msg, x, y}
   won: false, lost: false,
   nextWave: 60,
+  airCooldown: {},         // drone type -> sim time the type is available again
   enemyGroups: [],         // hostile battlegroups (task-organized elements)
   rng: null,
   version: 0,
@@ -65,6 +66,7 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large) {
   S.resources = 50000
   S.won = false; S.lost = false
   S.nextWave = 60
+  S.airCooldown = {}
   S.enemyGroups = []
   S.rng = makeRng(seed ^ 0xBEEF)
   nextId = 1
@@ -403,10 +405,43 @@ export function deployStructure(kind, x, y) {
   return s
 }
 
+// mm:ss for a turnaround readout — cooldowns run to 15 minutes, so bare seconds read badly
+export function fmtCooldown(s) {
+  const m = Math.floor(s / 60), r = Math.ceil(s % 60)
+  return m > 0 ? `${m}:${String(r).padStart(2, '0')}` : `${r}s`
+}
+
+// Availability of an airframe type: how many are up against its cap, and whether the
+// type is still in turnaround from the last sortie. Used both to gate deployDrone and
+// to render the palette, so the player sees the block before clicking rather than after.
+export function airAvailability(typeKey) {
+  const spec = DRONE_TYPES[typeKey]
+  const active = S.drones.reduce((n, d) => n + (d.type === typeKey ? 1 : 0), 0)
+  const max = spec && spec.maxActive != null ? spec.maxActive : Infinity
+  const until = S.airCooldown[typeKey] || 0
+  const cooldown = Math.max(0, until - S.t)
+  return { active, max, cooldown, capped: active >= max, ready: active < max && cooldown <= 0 }
+}
+
+// Stamp the turnaround clock when a sortie ends — RTB recovery, bingo, shootdown or
+// crash all count. Called from every path that removes a drone from S.drones.
+function endSortie(d) {
+  const spec = DRONE_TYPES[d.type]
+  if (spec && spec.cooldown) S.airCooldown[d.type] = S.t + spec.cooldown
+}
+
 export function deployDrone(typeKey, x, y) {
   x = clampWorld(x); y = clampWorld(y)
   const spec = DRONE_TYPES[typeKey]
   if (!spec) return null
+  // structural scarcity: concurrent cap, then turnaround from the last sortie
+  const avail = airAvailability(typeKey)
+  if (avail.capped) {
+    return toast(`${spec.abbr} AT LIMIT — ${avail.active}/${avail.max} AIRBORNE`)
+  }
+  if (avail.cooldown > 0) {
+    return toast(`${spec.abbr} IN TURNAROUND — ${fmtCooldown(avail.cooldown)}`)
+  }
   let ox, oy
   let tether = null
   let launcherId = null
@@ -516,6 +551,7 @@ export function droneRTB(droneId) {
   if (d.tether) {
     // balloons don't fly home — winch down and recover
     radio(d.label, 'move', 'AEROSTAT WINCHED DOWN', d.x, d.y)
+    endSortie(d)
     S.drones.splice(S.drones.indexOf(d), 1)
     return
   }
@@ -1617,6 +1653,7 @@ export function tick(dt) {
       for (let k = S.drones.length - 1; k >= 0; k--) {
         if (S.drones[k].tether === s.id) {
           radio(S.drones[k].label, 'loss', `AEROSTAT LOST WITH ${s.label}`, s.x, s.y)
+          endSortie(S.drones[k])
           S.drones.splice(k, 1)
         }
       }
@@ -1732,6 +1769,7 @@ export function tick(dt) {
         if (!home) {
           radio(d.label, 'loss', 'NO RECOVERY UNIT — AIRFRAME LOST', d.x, d.y)
           S.impacts.push({ x: d.x, y: d.y, t: S.t }) // crash puff
+          endSortie(d)
           S.drones.splice(i, 1)
           continue
         }
@@ -1741,6 +1779,7 @@ export function tick(dt) {
       const dist = Math.hypot(dx, dy)
       if (dist < 80) {
         radio(d.label, 'arrive', 'RECOVERED', hx, hy)
+        endSortie(d)
         S.drones.splice(i, 1)
       } else { d.x += (dx / dist) * spec.speed * dt; d.y += (dy / dist) * spec.speed * dt }
     } else if (d.state === 'striking') {
@@ -1759,6 +1798,7 @@ export function tick(dt) {
           if (sd < k.blast) s.hp -= k.dmg * (1 - sd / k.blast) * 0.7
         }
         radio(d.label, 'fires', `IMPACT — GRID ${grid(d.sx, d.sy)}`, d.sx, d.sy)
+        endSortie(d)
         S.drones.splice(i, 1)
       } else { d.x += (dx / dist) * spec.speed * 1.7 * dt; d.y += (dy / dist) * spec.speed * 1.7 * dt }
     }
@@ -1946,7 +1986,7 @@ export function advance(seconds) {
 if (typeof window !== 'undefined') {
   window.__game = {
     S, initGame, initDevGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
-    orderDroneMove, droneDropWp, droneSet, droneRTB,
+    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
     fog: (on) => { S.fogEnabled = on },

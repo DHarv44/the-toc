@@ -2,7 +2,7 @@
 // chrome, and the rules for what a given selection is allowed to field.
 import { useRef, useEffect } from 'react'
 import { Box, Group, Text, UnstyledButton } from '@mantine/core'
-import { S } from '../game/sim.js'
+import { S, airAvailability, fmtCooldown } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols.js'
 
@@ -37,11 +37,12 @@ export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale =
   return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
 }
 
-export function PaletteRow({ icon, label, tag, cost, active, onClick }) {
+export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note }) {
   return (
-    <UnstyledButton component="div" onClick={onClick}
+    <UnstyledButton component="div" onClick={disabled ? undefined : onClick}
       style={{
-        display: 'block', width: '100%', cursor: 'pointer',
+        display: 'block', width: '100%', cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
         borderLeft: `2px solid ${active ? 'var(--mantine-color-toc-3)' : 'transparent'}`,
         background: active ? 'var(--mantine-color-toc-8)' : undefined,
       }}>
@@ -51,6 +52,10 @@ export function PaletteRow({ icon, label, tag, cost, active, onClick }) {
           <Text fz={12} lh={1.2} truncate c={active ? 'white' : 'dark.0'}>{label}</Text>
           {tag && <Text fz={8.5} c="dark.3" style={{ letterSpacing: 0.5 }}>{tag}</Text>}
         </Box>
+        {note && (
+          <Text span fz={8.5} c={disabled ? 'orange.5' : 'dark.2'}
+            style={{ flex: '0 0 auto', letterSpacing: 0.5 }}>{note}</Text>
+        )}
         {cost !== '' && cost != null && (
           <Text span fz={12} c="yellow.4" style={{ flex: '0 0 auto' }}>{cost}</Text>
         )}
@@ -69,7 +74,19 @@ export function droneTag(dt) {
 }
 
 export const unitItem = (t) => ({ mode: 'deploy:' + t.key, label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} /> })
-export const droneItem = (dt) => ({ mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: dt.cost, icon: <PaletteIcon drone={dt} /> })
+// Drone rows carry live availability: `used/total` while airframes are up, or the
+// remaining turnaround, so a blocked platform reads as blocked before it's clicked.
+export const droneItem = (dt) => {
+  const a = airAvailability(dt.key)
+  const capped = isFinite(a.max)
+  const note = a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}`
+    : capped ? `${a.active}/${a.max}`
+    : null
+  return {
+    mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: dt.cost,
+    icon: <PaletteIcon drone={dt} />, note, disabled: !a.ready,
+  }
+}
 export const structItem = (st) => ({ mode: 'build:' + st.key, label: st.name, tag: st.abbr, cost: st.cost, icon: <PaletteIcon struct={st} /> })
 
 const groundSections = () => CATS.map(cat => ({

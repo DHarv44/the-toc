@@ -18,15 +18,16 @@ self-reported. Last audited 2026-07-22.
 
 ## Status at a Glance
 
-**✅ Shipped (16)** — AC-130 Spectre gunship · Drones shadow enemy units · Surrender ·
+**✅ Shipped (17)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
+Drones shadow enemy units · Surrender ·
 Airfield placement restricted to HQ · Dev / test map · Off-map backdrop · Persistent left
 command panel · NET log as full-height right panel · Collapsible side panels · Move UAV
 resize handle to footer · Per-feed mute · Radio chatter & CIC soundscape · Radio chatter
 audio (squelch + mumble) · Rest & refit at a FOB *(main bullet)* · Sensor-lock transit bug
 *(fixed)* · ROUTE IMPASSABLE toast spam *(fixed)*
 
-**🟡 Partial (14)** — Attack & Defend *(win/lose yes, no mode selector)* · Air asset cost &
-access · Air asset caps & cooldowns *(magazine balance only)* · Drone team & organic UAS ·
+**🟡 Partial (13)** — Attack & Defend *(win/lose yes, no mode selector)* · Air asset cost &
+access · Drone team & organic UAS ·
 Drone airframe types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF
 only)* · Enemy AI / OPFOR · Engineers build roads & bridges *(bridges only)* · Radio chatter
 library & message factory · Seed-generated maps *(seed not surfaced)* · Installation-gated
@@ -49,9 +50,7 @@ reads ground truth — there is no enemy contact model).
    the origin slides with altitude. Small, visible, and wrong in every gunship sortie.
 2. **Deployment & fielding mechanics** — the **+** one-click flow off the new installations
    roster. The rail that makes it natural now exists; fielding is still click-the-map.
-3. **Air asset caps & re-tasking cooldowns** — the magazine is already halved; caps and
-   cooldown are the remaining two levers to make the AC-130 a real decision.
-4. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
+3. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
    and the only one that degrades badly with a large selection.
 
 ### Next — the enablers
@@ -205,7 +204,7 @@ Air power is a premium capability, not something you spam:
 - Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
   for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
 
-### Air Asset Caps & Re-Tasking Cooldowns 🟡 *(magazine halved; caps + cooldown not built)*
+### Air Asset Caps & Re-Tasking Cooldowns ✅
 Cost alone doesn't gate air power — once the economy is healthy you can simply buy another
 gunship. Scarcity should be structural: a limited number of airframes, and a wait before the
 next sortie.
@@ -223,11 +222,13 @@ next sortie.
 - **Balance pass alongside it** — the gunship's magazine was halved (25mm 500→250, 40mm
   100→50, 105mm 10→5) so a single sortie is a decisive commitment rather than an endless
   orbit. Caps + cooldown + a finite magazine are the three levers; tune together.
-- Design notes: add `maxActive` and `cooldown` to the `DRONE_TYPES` specs; track per-type
-  `S.airCooldown[type]` stamped at despawn (RTB landing, shootdown, endurance-out) and count
-  live airframes from `S.drones`; gate in `deployDrone` with a toast on refusal, and mirror
-  the state in `deployContext`/`PaletteRow` so the palette reflects it. Pairs with Air Asset
-  Cost & Access and Installation-Gated Unlocks.
+- **Shipped as:** `maxActive`/`cooldown` on the `DRONE_TYPES` specs — AC-130 1 airborne with a
+  15-minute turnaround, Shadow 3/2 min, Sentinel 2/4 min, Viper 2/5 min; Raven, Switchblade and
+  the aerostat stay uncapped. `airAvailability(type)` is the single source of truth, used both to
+  gate `deployDrone` (refusal toast naming the limit or the remaining turnaround) and to render
+  the palette row, which shows `used/total` or `⟳ m:ss` and greys out when unavailable.
+  `endSortie()` stamps `S.airCooldown[type]` from every despawn path — recovery, bingo, tether
+  loss, and crash — so a lost airframe costs the same wait as a clean recovery.
 
 ### Drone Team & Organic UAS 🟡 *(carrier units + organic launch/RTB/follow shipped; no drone-team unit type, no FPV airframe)*
 Put the airfield-independent drones in the hands of units:

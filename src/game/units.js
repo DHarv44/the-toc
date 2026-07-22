@@ -112,19 +112,26 @@ export const STRUCTURES = {
 // UAS catalog. `src: 'airfield'` launches from an active airfield; `src: 'field'`
 // is hand-launched by the friendly unit nearest the orbit point (within ctrlRange).
 // `endurance` = seconds ON STATION before mandatory RTB (transit time is free).
+// `maxActive` = how many of this airframe may be airborne at once (omit = unlimited).
+// `cooldown` = seconds the type is unavailable after a sortie ends (RTB, loss, or
+// bingo), i.e. turnaround and rearm. Scarcity is structural, not just economic — the
+// stronger the platform, the fewer of them and the longer the wait.
 export const DRONE_TYPES = {
   SHADOW: {
     key: 'SHADOW', name: 'RQ-7 Shadow', abbr: 'SHD', src: 'airfield', cost: 350,
     speed: 45, alt: 550, sight: 1500, endurance: 600, orbitR: 420,
+    maxActive: 3, cooldown: 120,
   },
   SENTINEL: {
     key: 'SENTINEL', name: 'RQ-4 Sentinel', abbr: 'SEN', src: 'airfield', cost: 650,
     speed: 55, alt: 1250, sight: 2600, endurance: 1200, orbitR: 700,
+    maxActive: 2, cooldown: 240,
   },
   VIPER: {
     key: 'VIPER', name: 'MQ-1 Viper', abbr: 'VPR', src: 'airfield', cost: 900,
     speed: 42, alt: 650, sight: 1500, endurance: 720, orbitR: 450,
     weapons: { ammo: 2, range: 2200, dmg: 55, blast: 70, flight: 7 },
+    maxActive: 2, cooldown: 300,
   },
   RAVEN: {
     key: 'RAVEN', name: 'RQ-11 Raven', abbr: 'RVN', src: 'field', cost: 75,
@@ -147,6 +154,9 @@ export const DRONE_TYPES = {
   SPECTRE: {
     key: 'SPECTRE', name: 'AC-130 Spectre', abbr: 'SPC', src: 'airfield', cost: 1500,
     speed: 36, alt: 1100, sight: 2000, endurance: 900, orbitR: 850,
+    // the outlier: persistent area fire over a whole grid square. One at a time, and a
+    // 15-minute turnaround, so committing it is a decision rather than a habit.
+    maxActive: 1, cooldown: 900,
     gunship: {
       order: ['GAU12', 'BOFORS', 'M102'],
       // guns fire ballistic rounds: `disp` = dispersion sigma (m) at the target — these

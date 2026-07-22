@@ -82,6 +82,7 @@ function DeploySection() {
         <RailSection key={si} label={sec.header}>
           {sec.items.map(it => (
             <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
+              note={it.note} disabled={it.disabled}
               active={ui.mode === it.mode} onClick={() => pick(it.mode)} />
           ))}
         </RailSection>
