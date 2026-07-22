@@ -525,8 +525,14 @@ function UnitsLayer({ feedRef, mode }) {
       }
       for (const im of S.impacts) {
         const age = S.t - im.t
-        if (age > 2.5) continue
-        flash(im.x, im.y, 3, 6 + age * 30, Math.max(0, 1 - age / 2.5) * 2)
+        if (im.gun) {
+          // small, brief cannon-round spark
+          if (age > 0.4) continue
+          flash(im.x, im.y, 1.2, (1.6 + age * 6) * (im.sz || 1), Math.max(0, 1 - age / 0.4) * 1.5)
+        } else {
+          if (age > 2.5) continue
+          flash(im.x, im.y, 3, 6 + age * 30, Math.max(0, 1 - age / 2.5) * 2)
+        }
       }
       for (const u of S.units) {
         if (!u.targetId) continue
@@ -578,6 +584,20 @@ function UnitsLayer({ feedRef, mode }) {
           pos[vi2++] = qx; pos[vi2++] = groundY(qx, qy) + 2.5; pos[vi2++] = qy
           segs++
         }
+      }
+      // gunship cannon rounds in flight: a short tracer dash at the round's position,
+      // streaking from the (moving) aircraft muzzle to its impact point
+      for (const r of S.gunRounds) {
+        if (segs >= MAXSEG) break
+        if (Math.hypot(r.x - cx, r.y - cy) > 3400) continue
+        const life = r.impactT - r.t0
+        const f = life > 0 ? Math.min(1, (S.t - r.t0) / life) : 1
+        const f2 = Math.max(0, f - 0.03)
+        const mx = r.fromX, mz = r.fromY, my = groundY(r.fromX, r.fromY) + r.mAlt
+        const gx = r.x, gz = r.y, gy = groundY(r.x, r.y) + 1.5
+        pos[vi2++] = mx + (gx - mx) * f;  pos[vi2++] = my + (gy - my) * f;  pos[vi2++] = mz + (gz - mz) * f
+        pos[vi2++] = mx + (gx - mx) * f2; pos[vi2++] = my + (gy - my) * f2; pos[vi2++] = mz + (gz - mz) * f2
+        segs++
       }
       tracerGeo.setDrawRange(0, segs * 2)
       tracerGeo.attributes.position.needsUpdate = true

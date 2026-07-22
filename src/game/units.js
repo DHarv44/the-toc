@@ -140,6 +140,27 @@ export const DRONE_TYPES = {
     key: 'AEROSTAT', name: 'PTDS Aerostat', abbr: 'BLN', src: 'tether', cost: 400,
     speed: 0, alt: 950, sight: 2400, endurance: Infinity, orbitR: 50, tetherRange: 500,
   },
+  // AC-130 gunship: orbits on-station with a three-gun suite. The player selects the
+  // active weapon (only one fires at a time). Guns run a fire mode (will/designated/
+  // hold); the 105mm is fired manually round-by-round like a UAV munition.
+  // `rof` = rounds/sec, `spread` = aim scatter (m), `ammo` = rounds carried.
+  SPECTRE: {
+    key: 'SPECTRE', name: 'AC-130 Spectre', abbr: 'SPC', src: 'airfield', cost: 900,
+    speed: 36, alt: 1100, sight: 2000, endurance: 900, orbitR: 850,
+    gunship: {
+      order: ['GAU12', 'BOFORS', 'M102'],
+      // guns fire ballistic rounds: `disp` = dispersion sigma (m) at the target — these
+      // are area weapons, not pinpoint; `muzzleV` sets time-of-flight so the circling
+      // aircraft must lead. `blast` = small lethal radius; `flash` scales the impact.
+      // `burst` = [min,max] rounds per burst, `gap` = seconds between bursts. Ranges are
+      // generous so a wide, high orbit still reaches the target.
+      weapons: {
+        GAU12:  { name: '25mm GAU-12', short: '25mm', kind: 'gun', rof: 16, dmg: 46, blast: 14, disp: 8, muzzleV: 1030, flash: 1.0, range: 3800, burst: [3, 7], gap: 0.9, ammo: 900 },
+        BOFORS: { name: '40mm Bofors', short: '40mm', kind: 'gun', rof: 2.4, dmg: 64, blast: 24, disp: 6, muzzleV: 1005, flash: 1.7, range: 4000, burst: [2, 4], gap: 1.2, ammo: 256 },
+        M102:   { name: '105mm M102', short: '105mm', kind: 'howitzer', dmg: 72, blast: 130, range: 4200, flight: 3, ammo: 100 },
+      },
+    },
+  },
 }
 
 // Terrain movement factors: effective speed = base speed / factor.

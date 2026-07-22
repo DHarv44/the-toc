@@ -742,16 +742,36 @@ export default function MapView() {
         ctx.fill()
       }
 
-      // arty impacts
+      // arty impacts (cannon rounds render as a small brief flash, not a blast ring)
       for (const im of S.impacts) {
         const age = S.t - im.t
-        if (age > 4) continue
         const x = w2sX(im.x), y = w2sY(im.y)
-        ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.arc(x, y, 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
-        ctx.stroke()
+        if (im.gun) {
+          if (age > 0.4) continue
+          ctx.fillStyle = `rgba(255,210,120,${1 - age / 0.4})`
+          ctx.beginPath()
+          ctx.arc(x, y, 1.5 + (im.sz || 1), 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          if (age > 4) continue
+          ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(x, y, 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+      }
+
+      // gunship cannon rounds in flight: a short amber tracer dash from muzzle to impact
+      for (const r of S.gunRounds) {
+        const life = r.impactT - r.t0
+        const f = life > 0 ? Math.min(1, (S.t - r.t0) / life) : 1
+        const f2 = Math.max(0, f - 0.06)
+        const hx = w2sX(r.fromX + (r.x - r.fromX) * f), hy = w2sY(r.fromY + (r.y - r.fromY) * f)
+        const tx = w2sX(r.fromX + (r.x - r.fromX) * f2), ty = w2sY(r.fromY + (r.y - r.fromY) * f2)
+        ctx.strokeStyle = 'rgba(255,210,120,0.85)'
+        ctx.lineWidth = 1.2
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke()
       }
 
       // drones: orbit rings + icons

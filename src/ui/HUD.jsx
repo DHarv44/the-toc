@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
+import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { useUI } from './store.js'
 import DroneView from '../drone/DroneView.jsx'
@@ -98,7 +98,7 @@ export default function HUD() {
         <div style={{ color: '#54708a', fontSize: 9, letterSpacing: 2, margin: '5px 0 3px' }}>AVIATION — UAS</div>
         {Object.values(DRONE_TYPES).map((dt) => (
           <PaletteRow key={dt.key}
-            label={`${dt.name}${dt.weapons ? ' ⚔' : dt.kamikaze ? ' ✸' : ''}${dt.src === 'field' ? ' ▽' : ''}`}
+            label={`${dt.name}${dt.weapons ? ' ⚔' : dt.kamikaze ? ' ✸' : dt.gunship ? ' ✹' : ''}${dt.src === 'field' ? ' ▽' : ''}`}
             cost={dt.cost}
             active={ui.mode === 'deploy:DRONE:' + dt.key}
             onClick={() => ui.setMode(ui.mode === 'deploy:DRONE:' + dt.key ? 'select' : 'deploy:DRONE:' + dt.key)} />
@@ -697,6 +697,59 @@ function TargetReticles({ drone, feed }) {
   })
 }
 
+// AC-130 fire-control strip: pick the active weapon, set a gun's fire mode, or fire
+// the howitzer manually. Only the selected weapon is live.
+function GunshipPanel({ drone }) {
+  const g = DRONE_TYPES[drone.type].gunship
+  if (!g) return null
+  const w = g.weapons[drone.gunSel]
+  const ammo = (drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0
+  const hasTgt = drone.targets && drone.targets.length > 0
+  const tab = (active, dry) => ({
+    background: active ? '#8a5a1a' : '#16222e', color: dry ? '#7a6a5a' : active ? '#fff' : '#c8b088',
+    border: '1px solid ' + (active ? '#c88a30' : '#3a4a58'), borderRadius: 2, padding: '1px 5px',
+    fontSize: 9, cursor: 'pointer',
+  })
+  const mode = (active, col) => ({
+    background: active ? col : '#16222e', color: active ? '#0b1016' : col,
+    border: '1px solid ' + col, borderRadius: 2, padding: '1px 5px', fontSize: 9, fontWeight: 'bold', cursor: 'pointer',
+  })
+  return (
+    <div onPointerDown={(e) => e.stopPropagation()} style={{
+      position: 'absolute', left: 6, right: 6, bottom: 6, zIndex: 3,
+      display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap',
+      background: 'rgba(8,12,16,0.85)', border: '1px solid #3a2a20', borderRadius: 3, padding: '3px 5px',
+    }}>
+      {g.order.map((k) => (
+        <button key={k} style={tab(drone.gunSel === k, ((drone.gunAmmo && drone.gunAmmo[k]) || 0) <= 0)}
+          onClick={() => gunshipSelectWeapon(drone.id, k)}>{g.weapons[k].short}</button>
+      ))}
+      <span style={{ width: 1, height: 13, background: '#3a4a58' }} />
+      {w.kind === 'gun' ? (
+        <>
+          <button style={mode(drone.fireMode === 'will', '#ff7a52')} onClick={() => gunshipSetMode(drone.id, 'will')}>WILL</button>
+          <button style={mode(drone.fireMode === 'designated', '#ffb257')} onClick={() => gunshipSetMode(drone.id, 'designated')}>DESIG</button>
+          <button style={mode(!drone.fireMode || drone.fireMode === 'hold', '#7fd0b0')} onClick={() => gunshipSetMode(drone.id, 'hold')}>HOLD</button>
+        </>
+      ) : (
+        <button
+          disabled={!hasTgt || ammo <= 0}
+          style={{
+            background: hasTgt && ammo > 0 ? '#8a2a20' : '#16222e',
+            color: hasTgt && ammo > 0 ? '#fff' : '#7a5a50',
+            border: '1px solid #6a4030', borderRadius: 2, padding: '1px 8px', fontSize: 9, fontWeight: 'bold',
+            cursor: hasTgt && ammo > 0 ? 'pointer' : 'default',
+          }}
+          title={hasTgt ? 'Fire a 105mm round on each designated vic' : 'Click vics in the feed to designate'}
+          onClick={() => droneFire(drone.id)}>◎ FIRE 105</button>
+      )}
+      <span style={{ marginLeft: 'auto', color: ammo <= 0 ? '#ff6a52' : '#c8d8a0', fontSize: 9, letterSpacing: 1 }}>
+        {w.short} · {ammo}
+      </span>
+    </div>
+  )
+}
+
 function FeedWindow({ feed, index }) {
   const ui = useUI()
   const boxRef = useRef(null)
@@ -738,7 +791,7 @@ function FeedWindow({ feed, index }) {
     // a drag slews the sensor; a clean click designates a target in the viewer
     if (!g || !drone || g.moved) return
     const spec = DRONE_TYPES[drone.type]
-    if (!spec.weapons && !spec.kamikaze) return
+    if (!spec.weapons && !spec.kamikaze && !spec.gunship) return
     const rect = e.currentTarget.getBoundingClientRect()
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top
     const w = rect.width, h = rect.height
@@ -912,6 +965,7 @@ function FeedWindow({ feed, index }) {
       </div>
 
       {drone ? (
+        <>
         <div style={{ position: 'absolute', inset: 0, top: 22, zIndex: 2, pointerEvents: 'none' }}>
           <div style={{
             position: 'absolute', inset: 0,
@@ -970,6 +1024,8 @@ function FeedWindow({ feed, index }) {
             {fmtClock(S.t)}
           </div>
         </div>
+        <GunshipPanel drone={drone} feed={feed} />
+        </>
       ) : (
         <div style={{
           position: 'absolute', inset: 0, top: 22, zIndex: 2, display: 'flex',

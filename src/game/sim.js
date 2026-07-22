@@ -44,6 +44,7 @@ export function initGame(seed = 1337) {
   S.structures = []
   S.drones = []
   S.shells = []
+  S.gunRounds = []
   S.impacts = []
   S.smoke = []
   S.wrecks = []
@@ -355,6 +356,14 @@ export function deployDrone(typeKey, x, y) {
     ammo: spec.weapons ? spec.weapons.ammo : 0,
     label: spec.abbr + '-' + (id % 100),
   }
+  if (spec.gunship) {
+    d.gunSel = spec.gunship.order[0]        // active weapon
+    d.fireMode = 'hold'                      // guns start safe until the player commits
+    d.gunCd = 0
+    d.gunAmmo = {}
+    for (const k of spec.gunship.order) d.gunAmmo[k] = spec.gunship.weapons[k].ammo
+    d.targets = []
+  }
   S.drones.push(d)
   radio(d.label, 'move', tether
     ? `${spec.name.toUpperCase()} ALOFT AT ${tether.label}`
@@ -494,7 +503,7 @@ export function droneToggleTarget(droneId, unitId, ei) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
   const spec = DRONE_TYPES[d.type]
-  if (!spec.weapons && !spec.kamikaze) return
+  if (!spec.weapons && !spec.kamikaze && !spec.gunship) return
   if (!d.targets) d.targets = []
   const i = d.targets.findIndex(t => t.unitId === unitId && t.ei === ei)
   if (i >= 0) d.targets.splice(i, 1)
@@ -516,8 +525,10 @@ function targetPoint(t) {
 // the target set is NOT cleared — reticles stay put; targets drop only when destroyed.
 export function droneFire(droneId) {
   const d = S.drones.find(d => d.id === droneId)
-  if (!d || !d.targets || !d.targets.length) return
+  if (!d) return
   const spec = DRONE_TYPES[d.type]
+  if (spec.gunship) return gunshipHowitzerFire(d) // manual round on the selected big gun
+  if (!d.targets || !d.targets.length) return
   const live = d.targets.filter(t => targetPoint(t))
   if (!live.length) return
   if (spec.kamikaze) {
@@ -532,6 +543,108 @@ export function droneFire(droneId) {
     const p = targetPoint(t)
     droneStrike(droneId, p.x, p.y)
   }
+}
+
+// --- AC-130 gunship ---
+export function gunshipSelectWeapon(droneId, key) {
+  const d = S.drones.find(d => d.id === droneId)
+  const g = d && DRONE_TYPES[d.type].gunship
+  if (!g || !g.weapons[key]) return
+  d.gunSel = key
+}
+export function gunshipSetMode(droneId, mode) {
+  const d = S.drones.find(d => d.id === droneId)
+  if (d) d.fireMode = mode
+}
+// manual fire for the selected howitzer: one round per designated vic, until winchester
+function gunshipHowitzerFire(d) {
+  const g = DRONE_TYPES[d.type].gunship
+  const w = g.weapons[d.gunSel]
+  if (!w || w.kind !== 'howitzer') return
+  if (!d.targets || !d.targets.length) return
+  const live = d.targets.filter(t => targetPoint(t))
+  for (const t of live) {
+    if ((d.gunAmmo[d.gunSel] || 0) <= 0) { toast(d.label + ' — ' + w.short + ' WINCHESTER'); break }
+    const p = targetPoint(t)
+    if (Math.hypot(d.x - p.x, d.y - p.y) > w.range) continue
+    d.gunAmmo[d.gunSel]--
+    S.shells.push({
+      fromX: d.x, fromY: d.y, x: p.x, y: p.y,
+      impactT: S.t + w.flight, dmg: w.dmg, blast: w.blast, side: 'friend', splashFrom: d.label,
+    })
+    d.strikeMark = { x: p.x, y: p.y, until: S.t + w.flight }
+    radio(d.label, 'fires', `SHOT — ${w.short} GRID ${grid(p.x, p.y)}`, p.x, p.y)
+  }
+}
+// the gunship flies a pylon turn with the guns pointed inboard, so it can only
+// engage the killbox INSIDE its orbit ring — not everything within gun range
+function inKillbox(d, x, y) {
+  const spec = DRONE_TYPES[d.type]
+  const oR = spec.orbitR * (d.orbitMul || 1)
+  return Math.hypot(x - d.tx, y - d.ty) <= oR * 1.15
+}
+// nearest visible hostile vic/troop inside the turn and within range (weapons-free acquire)
+function gunshipAcquire(d, range) {
+  let best = null, bd = range
+  for (const u of S.units) {
+    if (u.side === 'friend' || u.strength <= 0 || !u.elements) continue
+    if (S.fogEnabled) { const c = S.contacts.get(u.id); if (!c || !c.live) continue }
+    for (const el of u.elements) {
+      if (!el.alive || !elemExposed(u, el)) continue
+      const w = elemWorld(u, el)
+      if (!inKillbox(d, w.x, w.y)) continue          // only inward of the turn
+      const dd = Math.hypot(w.x - d.x, w.y - d.y)
+      if (dd < bd) { bd = dd; best = { x: w.x, y: w.y } }
+    }
+  }
+  return best
+}
+// per-tick automatic gun fire for the selected 25mm/40mm gun by its fire mode
+function updateGunship(d, dt) {
+  const spec = DRONE_TYPES[d.type]
+  const g = spec.gunship
+  const w = g.weapons[d.gunSel]
+  if (!w || w.kind !== 'gun') return           // howitzer is manual only
+  if (d.fireMode === 'hold' || !d.fireMode) return
+  if ((d.gunAmmo[d.gunSel] || 0) <= 0) return
+  d.gunCd -= dt
+  if (d.gunCd > 0) return
+  let aim = null
+  if (d.fireMode === 'will') {
+    aim = gunshipAcquire(d, w.range)           // engage anything visible in range
+  } else if (d.fireMode === 'designated') {
+    // only the vics the player has target-selected — nearest live one inside the turn
+    let bd = w.range
+    for (const t of (d.targets || [])) {
+      const p = targetPoint(t); if (!p) continue
+      if (!inKillbox(d, p.x, p.y)) continue
+      const dd = Math.hypot(p.x - d.x, p.y - d.y)
+      if (dd <= bd) { bd = dd; aim = p }
+    }
+  }
+  if (!aim) { d.burstLeft = 0; return }   // nothing to shoot — end any burst in progress
+  // fire in bursts, not a continuous stream: N rounds at ROF, then an inter-burst pause
+  if (!(d.burstLeft > 0)) {
+    d.burstLeft = w.burst[0] + Math.floor(Math.random() * (w.burst[1] - w.burst[0] + 1))
+  }
+  d.gunAmmo[d.gunSel]--
+  d.burstLeft--
+  // within a burst rounds come at the ROF; after the last round hold for the gap
+  d.gunCd = d.burstLeft > 0 ? 1 / w.rof : w.gap + Math.random() * 0.5
+  // dispersed aim: Gaussian scatter (sum of uniforms) — area fire, never pinpoint
+  const gs = () => (Math.random() + Math.random() + Math.random() - 1.5) * (2 / 1.5)
+  const ix = clampWorld(aim.x + gs() * w.disp)
+  const iy = clampWorld(aim.y + gs() * w.disp)
+  // ballistic round from the (moving) aircraft muzzle; time-of-flight forces lead,
+  // damage/flash resolve on impact, not at the trigger pull
+  const mAlt = spec.alt * (d.altMul || 1)
+  const dist = Math.hypot(ix - d.x, iy - d.y, mAlt)
+  S.gunRounds.push({
+    fromX: d.x, fromY: d.y, mAlt, x: ix, y: iy,
+    t0: S.t, impactT: S.t + dist / w.muzzleV,
+    blast: w.blast, dmg: w.dmg, flash: w.flash,
+  })
+  if (S.gunRounds.length > 260) S.gunRounds.shift()
 }
 
 let groupSeq = 1
@@ -1194,6 +1307,16 @@ export function tick(dt) {
       if (sh.splashFrom) radio(sh.splashFrom, 'fires', `SPLASH — TGT GRID ${grid(sh.x, sh.y)}`, sh.x, sh.y)
     }
   }
+  // gunship cannon rounds land after their time-of-flight: small blast, small flash
+  for (let i = S.gunRounds.length - 1; i >= 0; i--) {
+    const r = S.gunRounds[i]
+    if (S.t < r.impactT) continue
+    S.gunRounds.splice(i, 1)
+    for (const u of S.units) {
+      if (Math.hypot(u.x - r.x, u.y - r.y) < r.blast + 60) precisionBlast(u, r.x, r.y, r.blast, r.dmg, 'HE')
+    }
+    S.impacts.push({ x: r.x, y: r.y, t: S.t, gun: true, sz: r.flash })
+  }
   while (S.impacts.length && S.t - S.impacts[0].t > 6) S.impacts.shift()
   // smoke dissipates
   for (let i = S.smoke.length - 1; i >= 0; i--) {
@@ -1333,6 +1456,8 @@ export function tick(dt) {
     const spec = DRONE_TYPES[d.type]
     // drop designated targets only once the vic is actually destroyed
     if (d.targets && d.targets.length) d.targets = d.targets.filter(t => targetPoint(t))
+    // AC-130 automatic gun fire (selected gun + fire mode)
+    if (spec.gunship && d.state === 'onstation') updateGunship(d, dt)
     // sensor track maintenance: follow the locked unit, degrade to point lock if lost
     if (d.lock && d.lock.unitId != null) {
       const lu = S.units.find(x => x.id === d.lock.unitId)
@@ -1385,8 +1510,10 @@ export function tick(dt) {
       // rate-limited spiral toward the commanded radius
       const maxStep = spec.speed * 0.5 * dt
       d.orbR += Math.max(-maxStep, Math.min(maxStep, oR - d.orbR))
-      // angular rate keeps true airspeed roughly constant (balloons just sway)
-      d.angle += dt * ((spec.speed || 3) / Math.max(80, d.orbR))
+      // angular rate keeps true airspeed roughly constant (balloons just sway).
+      // gunships fly a left-hand (counter-clockwise) pylon turn so the guns face inboard
+      const turnDir = spec.gunship ? -1 : 1
+      d.angle += turnDir * dt * ((spec.speed || 3) / Math.max(80, d.orbR))
       d.x = d.tx + Math.cos(d.angle) * d.orbR
       d.y = d.ty + Math.sin(d.angle) * d.orbR
       if (d.endurance <= 0) {
@@ -1601,7 +1728,7 @@ export function advance(seconds) {
 
 if (typeof window !== 'undefined') {
   window.__game = {
-    S, initGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, droneFollow, droneLock,
+    S, initGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
