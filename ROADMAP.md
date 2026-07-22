@@ -1,4 +1,4 @@
-# War of Dots — Roadmap
+# TOC — Roadmap
 
 Planned features and directions. The current build is a real-time C2 game: a
 Blue Force Tracker map with MIL-STD-2525 symbology, recon-driven fog, deployable
@@ -182,6 +182,17 @@ ammunition cook-off that throws the turret clear:
 - Design notes: on a `veh` (armored) element kill, roll 0.3 → spawn a short-lived ballistic
   turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
   hull.
+
+### Drones Shadow Enemy Units
+Extend the overwatch/follow tasking to hostiles — task a UAV to **follow and track a moving enemy
+unit**, keeping its orbit and sensor on the target as it maneuvers (ISR shadowing), not just
+friendly overwatch:
+- The drone's orbit anchor chases the enemy contact and the sensor stays on it.
+- If the enemy goes dark (contact lost under fog), the drone holds the last-known position like a
+  broken track until it's re-acquired.
+- Great for keeping eyes on a spotted force before a strike/ambush, or watching a withdrawal.
+- Design notes: let `droneFollow` accept hostile units (currently friend-only); gate on a live
+  contact and fall back to LKP when the track breaks; pairs with the sensor lock/track and fog.
 
 ## Combat & Tactics
 

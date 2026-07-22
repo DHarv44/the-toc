@@ -49,7 +49,7 @@ export default function HUD() {
         background: 'rgba(10,14,18,0.94)', borderBottom: '1px solid #2a3a48',
         color: '#c8d8e8', fontSize: 12, zIndex: 20,
       }}>
-        <b style={{ color: '#7ec8ff', letterSpacing: 2 }}>WAR OF DOTS // C2</b>
+        <b style={{ color: '#7ec8ff', letterSpacing: 2 }}>TOC // C2</b>
         <span>SUPPLY <b style={{ color: '#ffd67e' }}>{Math.floor(S.resources)}</b></span>
         <span>{fmtClock(S.t)}</span>
         <span style={{ display: 'flex', gap: 4 }}>
