@@ -90,6 +90,40 @@ export function rumble(gain = 0.25, freq = 55) {
   o.connect(og).connect(master); o.start(t); o.stop(t + 0.52)
 }
 
+// ground-unit weapons fire heard from a UAS sensor overhead. Small arms crackle
+// in a short burst; vehicle guns are fewer, deeper thumps. Everything is heavily
+// low-passed so it reads as muffled/distant through the sensor, never sharp.
+export function gunfire(gain = 0.12, heavy = false) {
+  if (muted || !audioReady()) return
+  const t = ctx.currentTime
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'
+  lp.frequency.value = heavy ? 600 : 950   // muffle
+  const out = ctx.createGain(); out.gain.value = Math.min(0.5, gain)
+  lp.connect(out).connect(master)
+  const pops = heavy ? (1 + (Math.random() * 2 | 0)) : (3 + (Math.random() * 4 | 0))
+  const step = heavy ? 0.1 : 0.05
+  for (let i = 0; i < pops; i++) {
+    const tt = t + i * step * (0.7 + Math.random() * 0.6)
+    const amp = heavy ? 0.9 : 0.5 + Math.random() * 0.4
+    const dur = heavy ? 0.15 : 0.06
+    // filtered noise crack
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf
+    n.playbackRate.value = heavy ? 0.5 + Math.random() * 0.2 : 1 + Math.random() * 0.5
+    const ng = ctx.createGain()
+    ng.gain.setValueAtTime(amp, tt); ng.gain.exponentialRampToValueAtTime(0.001, tt + dur)
+    n.connect(ng).connect(lp)
+    n.start(tt, Math.random()); n.stop(tt + dur + 0.02)
+    // low tonal body for weight
+    const o = ctx.createOscillator(); o.type = 'sine'
+    const f = heavy ? 68 : 150
+    o.frequency.setValueAtTime(f * 1.6, tt); o.frequency.exponentialRampToValueAtTime(f * 0.7, tt + 0.08)
+    const og = ctx.createGain()
+    og.gain.setValueAtTime(amp * 0.5, tt); og.gain.exponentialRampToValueAtTime(0.001, tt + dur)
+    o.connect(og).connect(lp)
+    o.start(tt); o.stop(tt + dur + 0.02)
+  }
+}
+
 // --- radio net chatter ---
 // The net readout stays; this is the SOUND of it. No real words: a keyed-mic click, a
 // procedural "mumble" voice that tracks the message's cadence/inflection (military, not

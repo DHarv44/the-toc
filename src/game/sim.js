@@ -342,6 +342,7 @@ export function deployDrone(typeKey, x, y) {
   if (!spec) return null
   let ox, oy
   let tether = null
+  let launcherId = null
   if (spec.src === 'tether') {
     // aerostat: raised at a FOB/HQ, one per site
     const site = S.structures
@@ -366,6 +367,7 @@ export function deployDrone(typeKey, x, y) {
       .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
     if (!launcher) return toast('NO FRIENDLY UNIT IN CONTROL RANGE')
     ox = launcher.x; oy = launcher.y
+    launcherId = launcher.id
   }
   if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
   S.resources -= spec.cost
@@ -378,6 +380,9 @@ export function deployDrone(typeKey, x, y) {
     endurance: spec.endurance, angle: 0,
     ammo: spec.weapons ? spec.weapons.ammo : 0,
     label: spec.abbr + '-' + (id % 100),
+    // a unit-launched bird recovers to its parent unit, and stays over it by default
+    launcherId,
+    followId: launcherId,
   }
   if (spec.gunship) {
     d.gunSel = spec.gunship.order[0]        // active weapon
@@ -692,9 +697,23 @@ let groupSeq = 1
 // allocate a shared movement-group id so co-issued units hold to the slowest pace
 export function newMoveGroup() { return groupSeq++ }
 
+// A carrier that AUTO-dismounted in contact climbs back in when re-tasked out of
+// contact, so the convoy travels mounted instead of crawling on foot. A unit the
+// player MANUALLY dismounted has autoDismounted=false and stays dismounted until
+// the player mounts it again. Call before pathing so it routes with vehicle mobility.
+function autoRemount(u) {
+  if (u.autoDismounted && !u.targetId && !u.mounted && UNIT_TYPES[u.type].carrier) {
+    u.mounted = true
+    u.autoDismounted = false
+    syncElements(u, true)
+    netRadio(u, 'move', 'REMOUNTING', u.x, u.y)
+  }
+}
+
 export function orderMove(unitId, x, y, append = false, attack = false, groupId = null, opts = {}) {
   const u = S.units.find(u => u.id === unitId)
   if (!u) return
+  autoRemount(u)
   x = clampWorld(x); y = clampWorld(y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1] : u
   const p = findPath(S.map, from.x, from.y, x, y, effStats(u).mob, opts)
@@ -704,7 +723,9 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
   u.bridging = null
   u.heldRoute = null
   u.breaking = false
-  u.autoDismounted = false
+  // don't clear autoDismounted here — autoRemount() already remounted it if it was
+  // clear of contact; if it's still in contact the flag must survive so it climbs
+  // back in once the fight is over (see the auto-remount drill in the tick)
   u.convoy = null
   u.attackId = null
   u.attackMove = attack
@@ -729,10 +750,11 @@ export function orderAttack(unitId, enemyId, groupId = null) {
   if (!u) return
   const e = S.units.find(x => x.id === enemyId && x.side !== u.side)
   if (!e) return
+  autoRemount(u)
   const p = findPath(S.map, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
   u.bridging = null; u.heldRoute = null; u.breaking = false
-  u.autoDismounted = false; u.convoy = null
+  u.convoy = null // autoDismounted survives (see autoRemount / the remount drill)
   u.groupId = groupId
   u.attackId = enemyId
   u.attackMove = true
@@ -1634,10 +1656,23 @@ export function tick(dt) {
         radio(d.label, 'move', `BINGO — RTB`, d.x, d.y)
       }
     } else if (d.state === 'rtb') {
-      const dx = d.ox - d.x, dy = d.oy - d.y
+      // unit-launched birds recover to the unit that launched them (it may have
+      // moved). If that unit is gone/dead there is no one to recover it — it crashes.
+      let hx = d.ox, hy = d.oy
+      if (d.launcherId != null) {
+        const home = S.units.find(u => u.id === d.launcherId && u.side === 'friend' && u.strength > 0)
+        if (!home) {
+          radio(d.label, 'loss', 'NO RECOVERY UNIT — AIRFRAME LOST', d.x, d.y)
+          S.impacts.push({ x: d.x, y: d.y, t: S.t }) // crash puff
+          S.drones.splice(i, 1)
+          continue
+        }
+        hx = home.x; hy = home.y
+      }
+      const dx = hx - d.x, dy = hy - d.y
       const dist = Math.hypot(dx, dy)
       if (dist < 80) {
-        radio(d.label, 'arrive', 'RECOVERED', d.ox, d.oy)
+        radio(d.label, 'arrive', 'RECOVERED', hx, hy)
         S.drones.splice(i, 1)
       } else { d.x += (dx / dist) * spec.speed * dt; d.y += (dy / dist) * spec.speed * dt }
     } else if (d.state === 'striking') {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { S, elemWorld, elemExposed } from '../game/sim.js'
-import { muzzle, rumble, audioReady } from '../game/audio.js'
+import { muzzle, rumble, gunfire, audioReady } from '../game/audio.js'
 import { UNIT_TYPES, DRONE_TYPES, STRUCTURES } from '../game/units.js'
 import { GRID, CELL, WORLD, T_FIELD, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 
@@ -480,6 +480,20 @@ function UnitsLayer({ feedRef, mode }) {
         } else {
           rumble(vol * 0.55, 42) // shell / HE — big deep rumble
         }
+      }
+      // ground-unit weapons fire — a firefight in view should be audible, but muffled.
+      // combat is DPS-based (no per-shot event), so we sound a burst per firing unit,
+      // throttled per unit so a big contact doesn't machine-gun the mixer.
+      for (const u of S.units) {
+        if (u.strength <= 0 || u.lastFiredT == null || S.t - u.lastFiredT > 0.5) continue
+        const dd = Math.hypot(u.x - cx, u.y - cy)
+        if (dd > R) continue
+        const heavy = (UNIT_TYPES[u.type]?.soft ?? 1) < 0.4   // armor/vehicle guns vs small arms
+        const gap = heavy ? 1.3 : 0.7
+        if (u._sndFireT != null && S.t - u._sndFireT < gap) continue
+        u._sndFireT = S.t
+        const vol = Math.max(0.15, 1 - dd / R)
+        gunfire((heavy ? 0.12 : 0.085) * vol, heavy)
       }
     }
     const cnt = { tank: 0, ifv: 0, truck: 0, spg: 0, eng: 0 }
