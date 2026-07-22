@@ -56,5 +56,23 @@ export const DIFFICULTIES = {
   },
 }
 
+// Force caps by map size. Upkeep already limits army *value*, but cheap units let you
+// blob around it — a count cap limits density, which is what actually makes a small map
+// unplayable. Roughly tracks map area without scaling linearly with it.
+export const MAP_FORCE_CAP = { 96: 14, 160: 20, 256: 28 }
+
+// per-difficulty multipliers on that cap: yours, and the OPFOR's manoeuvre force
+export const CAP_MUL = {
+  recruit: { player: 1.3, enemy: 0.6 },
+  regular: { player: 1, enemy: 1 },
+  veteran: { player: 0.9, enemy: 1.25 },
+  elite: { player: 0.75, enemy: 1.6 },
+}
+
+// Seconds a unit type is unavailable after one is fielded, derived from its price, so
+// armour and guns come out in a trickle while riflemen keep pace. Stops a banked pile of
+// supply becoming ten platoons in ten seconds.
+export const fieldCooldownFor = (cost) => Math.round(cost / 10)
+
 export const DIFFICULTY_ORDER = ['recruit', 'regular', 'veteran', 'elite']
 export const DEFAULT_DIFFICULTY = 'regular'

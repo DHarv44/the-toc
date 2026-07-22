@@ -2,7 +2,7 @@
 // chrome, and the rules for what a given selection is allowed to field.
 import { useRef, useEffect } from 'react'
 import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
-import { S, airAvailability, fmtCooldown } from '../game/sim.js'
+import { S, airAvailability, unitAvailability, fmtCooldown } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols.js'
 
@@ -85,10 +85,15 @@ export function droneTag(dt) {
 // no map click. The selected installation is the origin.
 // No sub-label: the symbol and the name already say what it is, the abbreviation just
 // repeated it.
-export const unitItem = (t) => ({
-  mode: 'deploy:' + t.key, key: t.key, field: true,
-  label: t.name, cost: t.cost, icon: <PaletteIcon unit={t} />,
-})
+export const unitItem = (t) => {
+  const a = unitAvailability(t.key)
+  return {
+    mode: 'deploy:' + t.key, key: t.key, field: true,
+    label: t.name, cost: t.cost, icon: <PaletteIcon unit={t} />,
+    note: a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}` : a.capped ? `${a.used}/${a.max}` : null,
+    disabled: !a.ready,
+  }
+}
 // Drone rows carry live availability: `used/total` while airframes are up, or the
 // remaining turnaround, so a blocked platform reads as blocked before it's clicked.
 export const droneItem = (dt) => {

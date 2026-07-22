@@ -2,7 +2,7 @@ import { genMap, T_FOREST, T_URBAN, T_WATER, CELL, MAP_SIZES } from './mapgen.js
 import { findPath } from './pathfinding.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from './units.js'
 import { makeRng } from './rng.js'
-import { DIFFICULTIES, DEFAULT_DIFFICULTY } from './difficulty.js'
+import { DIFFICULTIES, DEFAULT_DIFFICULTY, MAP_FORCE_CAP, CAP_MUL, fieldCooldownFor } from './difficulty.js'
 import { radioMsg } from './audio.js'
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,9 @@ export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   // so it can't put more on the board than it can afford — same rules as the player
   enemyResources: 0,
   enemySupplyLift: 30,
+  forceCap: 20,            // max ground units each side may have fielded at once
+  enemyForceCap: 20,
+  fieldCooldown: {},       // 'friend'/'hostile' -> { UNIT_KEY: sim time it's available }
   units: [],               // both sides
   structures: [],          // FOBs, HQs, airfields, OPs — both sides
   drones: [],
@@ -80,6 +83,12 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large, difficulty = D
   // difficulty is economic asymmetry, not hidden rules: the OPFOR's rate is the lever
   S.enemySupplyLift = diff.enemySupplyLift
   S.enemyResources = diff.enemyStart
+  // force caps: map size sets the room, difficulty tilts who gets more of it
+  const base = MAP_FORCE_CAP[gridSize] || MAP_FORCE_CAP[160]
+  const mul = CAP_MUL[diff.key] || CAP_MUL.regular
+  S.forceCap = Math.round(base * mul.player)
+  S.enemyForceCap = Math.round(base * mul.enemy)
+  S.fieldCooldown = {}
   S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
   S.resources = diff.supplies
   S.won = false; S.lost = false
@@ -426,6 +435,11 @@ export function fieldUnit(typeKey, structId) {
   if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
   if (st.kind !== 'HQ' && st.kind !== 'FOB') return toast(`${st.label} CANNOT FIELD GROUND UNITS`)
 
+  // force cap and per-type turnaround, same shape as the airframe limits
+  const av = unitAvailability(typeKey, 'friend')
+  if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
+  if (av.cooldown > 0) return toast(`${type.abbr} REFITTING — ${fmtCooldown(av.cooldown)}`)
+
   // forward bases spend their own stock; the HQ draws on the theatre pool
   if (st.kind === 'FOB') {
     if ((st.stock || 0) < type.cost) {
@@ -441,6 +455,7 @@ export function fieldUnit(typeKey, structId) {
   const spawn = nearestLand(st.x, st.y, mob)
   const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)
   S.units.push(u)
+  stampFieldCooldown(typeKey, 'friend')
 
   const r = rallyPoint(st, mob)
   netRadio(u, 'move', `FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
@@ -507,6 +522,37 @@ export function upkeepPerMin(side = 'friend') {
 // what a battlegroup template costs to field, from its members' own prices
 export function templateCost(comp) {
   return comp.reduce((n, t) => n + (UNIT_TYPES[t]?.cost || 0), 0)
+}
+
+// Ground force headroom for a side. Hostile garrisons don't count — they're the map's
+// furniture, not the OPFOR's manoeuvre force, and counting them would cap the attack
+// out of existence on a town-heavy map.
+export function forceCount(side = 'friend') {
+  let n = 0
+  for (const u of S.units) {
+    if (u.side !== side || u.strength <= 0) continue
+    if (side === 'hostile' && u.bgGroup == null) continue
+    n++
+  }
+  return n
+}
+
+export function forceCap(side = 'friend') {
+  return side === 'hostile' ? (S.enemyForceCap || 0) : (S.forceCap || 0)
+}
+
+// Availability of a ground unit type: force headroom plus its per-type cooldown. Mirrors
+// airAvailability, so the palette can grey a row before it's clicked either way.
+export function unitAvailability(typeKey, side = 'friend') {
+  const cd = (S.fieldCooldown[side] || {})[typeKey] || 0
+  const cooldown = Math.max(0, cd - S.t)
+  const used = forceCount(side), max = forceCap(side)
+  return { used, max, cooldown, capped: used >= max, ready: used < max && cooldown <= 0 }
+}
+
+function stampFieldCooldown(typeKey, side) {
+  if (!S.fieldCooldown[side]) S.fieldCooldown[side] = {}
+  S.fieldCooldown[side][typeKey] = S.t + fieldCooldownFor(UNIT_TYPES[typeKey]?.cost || 0)
 }
 
 // gross supply per minute before upkeep
@@ -2149,7 +2195,10 @@ function spawnBattlegroup() {
   // The OPFOR buys its battlegroups. It can only field what it has banked, so it can't
   // put everything on the board at once — and because it pays upkeep on what's already
   // out, a large standing force starves the next group. Same constraint the player has.
-  const affordable = BG_TEMPLATES.filter(t => templateCost(t.comp) <= S.enemyResources)
+  // and it lives under the same force cap — a template that would breach it isn't fielded
+  const room = forceCap('hostile') - forceCount('hostile')
+  const affordable = BG_TEMPLATES.filter(t =>
+    templateCost(t.comp) <= S.enemyResources && t.comp.length <= room)
   if (!affordable.length) return null
   const tpl = affordable[Math.floor(S.rng() * affordable.length)]
   S.enemyResources -= templateCost(tpl.comp)
@@ -2293,7 +2342,7 @@ export function advance(seconds) {
 if (typeof window !== 'undefined') {
   window.__game = {
     S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
-    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability, incomePerMin, upkeepPerMin,
+    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
     fog: (on) => { S.fogEnabled = on },

@@ -2,7 +2,7 @@
 // installations roster and the contextual deploy palette as sections. Replaces the
 // transient deploy panel that only existed while something deployable was selected.
 import { Box, Text } from '@mantine/core'
-import { S, fieldUnit } from '../game/sim.js'
+import { S, fieldUnit, forceCount, forceCap } from '../game/sim.js'
 import { STRUCTURES } from '../game/units.js'
 import { useUI } from './store.js'
 import { RAIL_W } from './styles.js'
@@ -15,7 +15,14 @@ export default function CommandPanel() {
   const ui = useUI()
   return (
     <Rail side="left" title="COMMAND" width={RAIL_W.left} open={ui.leftOpen} onToggle={ui.toggleLeft}
-      footer={<Text fz={9} c="dark.2" lh={1.5}>{deployHint(ui.mode)}</Text>}>
+      footer={
+        <>
+          <Text fz={9} c={forceCount() >= forceCap() ? 'orange.5' : 'dark.2'} lh={1.5}>
+            FORCE {forceCount()}/{forceCap()}
+          </Text>
+          <Text fz={9} c="dark.2" lh={1.5}>{deployHint(ui.mode)}</Text>
+        </>
+      }>
       <InstallationsRoster />
       <DeploySection />
       <Box h={8} />
