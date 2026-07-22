@@ -2,7 +2,7 @@
 // installations roster and the contextual deploy palette as sections. Replaces the
 // transient deploy panel that only existed while something deployable was selected.
 import { Box, Text } from '@mantine/core'
-import { S } from '../game/sim.js'
+import { S, fieldUnit } from '../game/sim.js'
 import { STRUCTURES } from '../game/units.js'
 import { useUI } from './store.js'
 import { RAIL_W } from './styles.js'
@@ -80,11 +80,18 @@ function DeploySection() {
       </RailSection>
       {ctx.sections.map((sec, si) => (
         <RailSection key={si} label={sec.header}>
-          {sec.items.map(it => (
-            <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
-              note={it.note} disabled={it.disabled}
-              active={ui.mode === it.mode} onClick={() => pick(it.mode)} />
-          ))}
+          {sec.items.map(it => {
+            // ground units field immediately from the selected site — no deploy mode,
+            // no map click. Everything else still picks a spot on the map.
+            const oneClick = it.field && ctx.sourceId != null
+            const short = oneClick && ctx.purse != null && ctx.purse < it.cost
+            return (
+              <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
+                note={it.note} plus={oneClick} disabled={it.disabled || short}
+                active={!oneClick && ui.mode === it.mode}
+                onClick={() => (oneClick ? fieldUnit(it.key, ctx.sourceId) : pick(it.mode))} />
+            )
+          })}
         </RailSection>
       ))}
     </>

@@ -489,24 +489,25 @@ not each pathfind independently to its own offset:
   offset (fall back to their own route only if separated); keep the existing slowest-member
   pace cap so the column stays together.
 
-### Deployment & Fielding Mechanics
+### Deployment & Fielding Mechanics 🟡 *(HQ/FOB one-click fielding + rally shipped; engineer and carrier radius gating still open)*
 Right now a fielded ground unit can be placed anywhere inside a base's deploy zone. It should
 instead **originate from the fielding source and move out** to where the player wants it:
-- **HQ / FOB ground units** — spawn **at** the HQ/FOB and then road-march/move a short distance
-  out to a rally point near the base, rather than teleporting to an arbitrary spot in the zone.
-  (Optionally the player clicks a nearby rally point and the unit spawns at the base and moves
-  there.)
+- ~~**HQ / FOB ground units** — spawn **at** the HQ/FOB and then move out to a rally point near
+  the base~~ ✅ — `fieldUnit(type, structId)` builds the unit on the site and issues its own
+  `orderMove` to a rally ~340 m out, facing the map interior. Successive units fan left/right of
+  that bearing so a queue spreads instead of stacking (verified: three units out at 335/350/354 m,
+  112–269 m apart). A player-draggable rally point is still the natural follow-on.
 - **Airfield aircraft** — unchanged: launched from the strip and sent to a specific orbit point,
   exactly as it works now.
 - **Engineer installations** — buildable only **within a radius of the engineer** (the engineer
   emplaces it), not anywhere on the map.
 - **Carrier-launched UAS** — same as the engineer: the drone launches **within a radius of the
   carrying unit**, so hand-launched birds actually come off the unit that carries them.
-- **One-click fielding, no map click** — the whole "select the unit type, then click a spot on
-  the map" ritual goes away. Select an HQ/FOB (on the map *or* from the panel roster), then hit
-  the **+** next to a unit in the palette and it's ordered: it spawns at that installation and
-  moves out to a rally point just clear of the base on its own. Fielding becomes one click from
-  a known source, the way an RTS production queue works, instead of a two-step placement mode.
+- ~~**One-click fielding, no map click**~~ ✅ — select an HQ/FOB (map or roster) and the ground
+  rows carry a **⊕**; clicking the row fields it immediately. No deploy mode, no map click. The
+  aerostat keeps its map click (it picks a site), as do airfield aircraft and engineer builds.
+  FOB rows grey out when the site's own stock can't cover the cost, so the block is visible
+  before the click.
 - **The installation is the context** — because the source is already selected, the palette is
   already filtered to what that installation can field (which it does today), so the **+** never
   needs to ask "from where?". Airfield aircraft keep their orbit-point click, since *where* they

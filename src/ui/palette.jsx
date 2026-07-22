@@ -37,7 +37,7 @@ export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale =
   return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
 }
 
-export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note }) {
+export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note, plus }) {
   return (
     <UnstyledButton component="div" onClick={disabled ? undefined : onClick}
       style={{
@@ -59,6 +59,10 @@ export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, 
         {cost !== '' && cost != null && (
           <Text span fz={12} c="yellow.4" style={{ flex: '0 0 auto' }}>{cost}</Text>
         )}
+        {/* one-click fielding: the row IS the order, the ⊕ makes that legible */}
+        {plus && (
+          <Text span fz={15} lh={1} c={disabled ? 'dark.4' : 'toc.3'} style={{ flex: '0 0 auto' }}>⊕</Text>
+        )}
       </Group>
     </UnstyledButton>
   )
@@ -73,7 +77,12 @@ export function droneTag(dt) {
   return 'ISR'
 }
 
-export const unitItem = (t) => ({ mode: 'deploy:' + t.key, label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} /> })
+// Ground units are fielded straight from the palette (`field: true`) — no deploy mode,
+// no map click. The selected installation is the origin.
+export const unitItem = (t) => ({
+  mode: 'deploy:' + t.key, key: t.key, field: true,
+  label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} />,
+})
 // Drone rows carry live availability: `used/total` while airframes are up, or the
 // remaining turnaround, so a blocked platform reads as blocked before it's clicked.
 export const droneItem = (dt) => {
@@ -107,7 +116,12 @@ export function deployContext(selectedIds) {
     }
     if (st.kind === 'HQ' || st.kind === 'FOB') {
       const aerostat = { header: 'TETHERED ISR', items: [droneItem(DRONE_TYPES.AEROSTAT)] }
-      return { title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`, sections: [...groundSections(), aerostat] }
+      return {
+        title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
+        // ground units field straight from this site; the aerostat still needs its map click
+        sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
+        sections: [...groundSections(), aerostat],
+      }
     }
     return null // OP fields nothing
   }
@@ -134,5 +148,5 @@ export function deployHint(mode) {
   }
   if (mode.startsWith('deploy:')) return 'CLICK INSIDE THE DEPLOY ZONE'
   if (mode.startsWith('build:')) return mode === 'build:OP' ? 'PLACE NEAR FRIENDLY FORCES' : 'PLACE NEAR AN ACTIVE BASE'
-  return 'PICK AN ITEM, THEN CLICK THE MAP TO PLACE IT'
+  return '⊕ FIELDS A UNIT AT THE SELECTED SITE — IT MOVES OUT TO A RALLY ON ITS OWN'
 }

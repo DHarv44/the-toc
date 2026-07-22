@@ -109,16 +109,18 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large, difficulty = D
 
 // spiral out from a target point to the nearest cell a tracked vehicle can occupy,
 // so staged units/bases never land in water regardless of the seed's terrain
-function nearestLand(x, y) {
+// nearest spot a given mobility class can actually occupy — used to keep spawns and
+// rally points off water/no-go terrain
+function nearestLand(x, y, mob = 'tracked') {
   x = clampWorld(x); y = clampWorld(y)
-  if (isFinite(S.map.moveFactor(x, y, 'tracked'))) return { x, y }
+  if (isFinite(S.map.moveFactor(x, y, mob))) return { x, y }
   for (let r = 1; r < 50; r++) {
     const n = r * 8
     for (let a = 0; a < n; a++) {
       const ang = (a / n) * Math.PI * 2
       const px = clampWorld(x + Math.cos(ang) * r * 120)
       const py = clampWorld(y + Math.sin(ang) * r * 120)
-      if (isFinite(S.map.moveFactor(px, py, 'tracked'))) return { x: px, y: py }
+      if (isFinite(S.map.moveFactor(px, py, mob))) return { x: px, y: py }
     }
   }
   return { x, y }
@@ -382,6 +384,56 @@ export function deployUnit(typeKey, x, y, free = false) {
   }
   const u = newUnit(typeKey, 'friend', x, y)
   S.units.push(u)
+  return u
+}
+
+// Rally point for a unit fielded at a site: a spot just clear of the base, facing the
+// map interior. Successive units fan left/right of that bearing so a production queue
+// spreads out instead of stacking on one grid square.
+function rallyPoint(st, mob) {
+  st.rallySeq = (st.rallySeq || 0) + 1
+  const toward = Math.atan2(S.map.WORLD / 2 - st.y, S.map.WORLD / 2 - st.x)
+  const n = st.rallySeq
+  const spread = Math.ceil(n / 2) * (n % 2 ? 1 : -1) * 0.3
+  for (const rad of [340, 460, 600, 780]) {
+    const x = clampWorld(st.x + Math.cos(toward + spread) * rad)
+    const y = clampWorld(st.y + Math.sin(toward + spread) * rad)
+    if (isFinite(S.map.moveFactor(x, y, mob))) return { x, y }
+  }
+  return nearestLand(st.x + Math.cos(toward) * 340, st.y + Math.sin(toward) * 340, mob)
+}
+
+// Field a ground unit from a specific installation — the one-click flow. The unit is
+// built AT the site and then moves out to a rally point on its own, rather than being
+// placed by the player somewhere inside the deploy zone. No map click, no deploy mode:
+// the selected installation already says where it comes from.
+export function fieldUnit(typeKey, structId) {
+  const type = UNIT_TYPES[typeKey]
+  if (!type) return null
+  const st = S.structures.find(s => s.id === structId && s.side === 'friend')
+  if (!st) return toast('NO FIELDING SITE SELECTED')
+  if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
+  if (st.kind !== 'HQ' && st.kind !== 'FOB') return toast(`${st.label} CANNOT FIELD GROUND UNITS`)
+
+  // forward bases spend their own stock; the HQ draws on the theatre pool
+  if (st.kind === 'FOB') {
+    if ((st.stock || 0) < type.cost) {
+      return toast(`${st.label} LOW ON SUPPLY — ${type.abbr} NEEDS ${type.cost}, HAS ${Math.floor(st.stock || 0)}`)
+    }
+    st.stock -= type.cost
+  } else {
+    if (S.resources < type.cost) return toast('INSUFFICIENT SUPPLY')
+    S.resources -= type.cost
+  }
+
+  const mob = type.carrier ? type.carrier.mob : type.mob
+  const spawn = nearestLand(st.x, st.y, mob)
+  const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)
+  S.units.push(u)
+
+  const r = rallyPoint(st, mob)
+  netRadio(u, 'move', `FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
+  orderMove(u.id, r.x, r.y)
   return u
 }
 
@@ -2000,7 +2052,7 @@ export function advance(seconds) {
 
 if (typeof window !== 'undefined') {
   window.__game = {
-    S, initGame, initDevGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
+    S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
