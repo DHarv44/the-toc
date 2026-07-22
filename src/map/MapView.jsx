@@ -1,0 +1,962 @@
+import { useEffect, useRef } from 'react'
+import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneStrike, droneFollow, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
+import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
+import { renderTerrainLayer, TERRAIN_PX } from './mapRender.js'
+import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols.js'
+import { useUI } from '../ui/store.js'
+import { CELL, GRID } from '../game/mapgen.js'
+
+export default function MapView() {
+  const canvasRef = useRef(null)
+  const viewRef = useRef(null) // {cx, cy, ppm}
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const terrainLayer = renderTerrainLayer(S.map)
+    const view = viewRef.current = {
+      cx: S.map.fob.x, cy: S.map.fob.y - 2000,
+      ppm: Math.max(0.02, Math.min(window.innerWidth || 1280, window.innerHeight || 720) / 9000),
+    }
+    window.__view = view // dev hook
+
+    function resize() {
+      const w = canvas.clientWidth || window.innerWidth || 1280
+      const h = canvas.clientHeight || window.innerHeight || 720
+      if (w < 2 || h < 2) return // hidden pane: keep last known size
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w
+        canvas.height = h
+      }
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // keep the view inside world bounds: zoom floor = world fills the screen,
+    // center clamped so no out-of-world area shows
+    function clampView() {
+      if (canvas.width < 2 || canvas.height < 2) return
+      if (!isFinite(view.cx) || !isFinite(view.cy) || !isFinite(view.ppm) || view.ppm <= 0) {
+        view.cx = S.map.fob.x; view.cy = S.map.fob.y - 2000
+        view.ppm = Math.max(0.02, Math.min(canvas.width, canvas.height) / 9000)
+      }
+      const minPpm = Math.max(canvas.width, canvas.height) / S.map.WORLD
+      view.ppm = Math.max(minPpm, Math.min(1.2, view.ppm))
+      const hw = canvas.width / 2 / view.ppm
+      const hh = canvas.height / 2 / view.ppm
+      view.cx = Math.max(hw, Math.min(S.map.WORLD - hw, view.cx))
+      view.cy = Math.max(hh, Math.min(S.map.WORLD - hh, view.cy))
+    }
+
+    const w2sX = (x) => (x - view.cx) * view.ppm + canvas.width / 2
+    const w2sY = (y) => (y - view.cy) * view.ppm + canvas.height / 2
+    const s2wX = (sx) => (sx - canvas.width / 2) / view.ppm + view.cx
+    const s2wY = (sy) => (sy - canvas.height / 2) / view.ppm + view.cy
+
+    function pickUnit(wx, wy) {
+      const pickR = 18 / view.ppm
+      let picked = null, pd = Infinity
+      for (const u of S.units) {
+        if (u.side !== 'friend') continue
+        const d = Math.hypot(u.x - wx, u.y - wy)
+        if (d < pickR && d < pd) { picked = u; pd = d }
+      }
+      return picked
+    }
+
+    function pickDrone(wx, wy) {
+      const pickR = 16 / view.ppm
+      let picked = null, pd = Infinity
+      for (const d of S.drones) {
+        const dd = Math.hypot(d.x - wx, d.y - wy)
+        if (dd < pickR && dd < pd) { picked = d; pd = dd }
+      }
+      return picked
+    }
+
+    // nearest of unit/drone under the cursor
+    function pickAny(wx, wy) {
+      const u = pickUnit(wx, wy), d = pickDrone(wx, wy)
+      if (u && d) {
+        return Math.hypot(u.x - wx, u.y - wy) <= Math.hypot(d.x - wx, d.y - wy)
+          ? { kind: 'unit', obj: u } : { kind: 'drone', obj: d }
+      }
+      if (u) return { kind: 'unit', obj: u }
+      if (d) return { kind: 'drone', obj: d }
+      return null
+    }
+
+    // hostiles are clickable only if we can actually see them
+    function pickEnemy(wx, wy) {
+      const pickR = 18 / view.ppm
+      let picked = null, pd = Infinity
+      for (const u of S.units) {
+        if (u.side !== 'hostile') continue
+        if (S.fogEnabled) {
+          const c = S.contacts.get(u.id)
+          if (!c || !c.live) continue
+        }
+        const d = Math.hypot(u.x - wx, u.y - wy)
+        if (d < pickR && d < pd) { picked = u; pd = d }
+      }
+      return picked
+    }
+
+    function pickStructure(wx, wy) {
+      const pickR = 24 / view.ppm
+      let picked = null, pd = Infinity
+      for (const s of S.structures) {
+        if (s.side !== 'friend') continue
+        const d = Math.hypot(s.x - wx, s.y - wy)
+        if (d < pickR && d < pd) { picked = s; pd = d }
+      }
+      return picked
+    }
+
+    function selectedFriendlies() {
+      const ids = useUI.getState().selectedIds
+      return ids.map(id => S.units.find(u => u.id === id && u.side === 'friend')).filter(Boolean)
+    }
+
+    function selectedDrones() {
+      const ids = useUI.getState().selectedIds
+      return ids.map(id => S.drones.find(d => d.id === id)).filter(Boolean)
+    }
+
+    // ---- input ----
+    let panDrag = false, dragMoved = false, lastMx = 0, lastMy = 0
+    let leftDown = null   // {x, y, onUnit, hadSel, ctrl}
+    let marquee = null    // {x0, y0, x1, y1} in screen coords
+    let lineDrag = null   // {x0, y0, x1, y1} in screen coords — formation spread
+    const mouse = { x: 0, y: 0 }
+
+    function onDown(e) {
+      useUI.getState().closeMenu()
+      if (e.button === 1 || e.button === 2) {
+        panDrag = true; dragMoved = false
+        lastMx = e.clientX; lastMy = e.clientY
+        if (e.button === 1) e.preventDefault()
+      } else if (e.button === 0) {
+        const ui = useUI.getState()
+        leftDown = {
+          x: e.clientX, y: e.clientY,
+          onUnit: !!pickUnit(s2wX(e.clientX), s2wY(e.clientY)),
+          hadSel: ui.selectedIds.length > 0 && ui.mode === 'select',
+          ctrl: e.ctrlKey,
+        }
+      }
+    }
+    function onMove(e) {
+      mouse.x = e.clientX; mouse.y = e.clientY
+      if (panDrag) {
+        const dx = e.clientX - lastMx, dy = e.clientY - lastMy
+        if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true
+        if (dragMoved) {
+          view.cx -= dx / view.ppm
+          view.cy -= dy / view.ppm
+          lastMx = e.clientX; lastMy = e.clientY
+        }
+      } else if (leftDown && useUI.getState().mode === 'select' && !leftDown.onUnit) {
+        const moved = Math.hypot(e.clientX - leftDown.x, e.clientY - leftDown.y)
+        if (leftDown.hadSel && !leftDown.ctrl) {
+          // drag with a selection: spread the units along the drawn line
+          if (lineDrag || moved > 18) {
+            lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: e.clientX, y1: e.clientY }
+          }
+        } else if (marquee || moved > 6) {
+          marquee = { x0: leftDown.x, y0: leftDown.y, x1: e.clientX, y1: e.clientY }
+        }
+      }
+    }
+    function onUp(e) {
+      if (e.button === 1 || e.button === 2) {
+        panDrag = false
+        if (e.button === 2 && !dragMoved) {
+          const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+          const hit = pickAny(wx, wy)
+          const ui = useUI.getState()
+          if (hit && hit.kind === 'unit') {
+            ui.setSelected([hit.obj.id])
+            ui.openMenu({ x: e.clientX, y: e.clientY, unitId: hit.obj.id })
+          } else if (hit && hit.kind === 'drone') {
+            ui.setSelected([hit.obj.id])
+            ui.openMenu({ x: e.clientX, y: e.clientY, droneId: hit.obj.id })
+          } else if (pickStructure(wx, wy) && !selectedFriendlies().length && !selectedDrones().length) {
+            ui.openMenu({ x: e.clientX, y: e.clientY, structId: pickStructure(wx, wy).id })
+          } else {
+            // right-click ground: clear the selection
+            ui.closeMenu()
+            ui.setSelected([])
+          }
+        }
+        return
+      }
+      if (e.button !== 0) return
+      const wasMarquee = marquee
+      const wasLine = lineDrag
+      marquee = null
+      lineDrag = null
+      leftDown = null
+      const ui = useUI.getState()
+
+      // formation spread: distribute the selection evenly along the dragged line
+      if (wasLine) {
+        const sel = [...selectedFriendlies(), ...selectedDrones()]
+        if (sel.length) {
+          const wx0 = s2wX(wasLine.x0), wy0 = s2wY(wasLine.y0)
+          const wx1 = s2wX(wasLine.x1), wy1 = s2wY(wasLine.y1)
+          const ldx = wx1 - wx0, ldy = wy1 - wy0
+          // assign slots by projection along the line to minimize crossing
+          const sorted = [...sel].sort((a, b) =>
+            ((a.x - wx0) * ldx + (a.y - wy0) * ldy) - ((b.x - wx0) * ldx + (b.y - wy0) * ldy))
+          const attack = ui.cmdMode === 'attack'
+          const groundCount = sorted.filter(o => !S.drones.includes(o)).length
+          const gid = groundCount > 1 ? newMoveGroup() : null
+          sorted.forEach((o, i) => {
+            const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
+            const px = wx0 + ldx * t, py = wy0 + ldy * t
+            if (S.drones.includes(o)) orderDroneMove(o.id, px, py, false)
+            else orderMove(o.id, px, py, false, attack, gid)
+          })
+        }
+        return
+      }
+
+      // marquee selection
+      if (wasMarquee) {
+        const wx0 = s2wX(Math.min(wasMarquee.x0, wasMarquee.x1))
+        const wx1 = s2wX(Math.max(wasMarquee.x0, wasMarquee.x1))
+        const wy0 = s2wY(Math.min(wasMarquee.y0, wasMarquee.y1))
+        const wy1 = s2wY(Math.max(wasMarquee.y0, wasMarquee.y1))
+        const ids = S.units
+          .filter(u => u.side === 'friend' && u.x >= wx0 && u.x <= wx1 && u.y >= wy0 && u.y <= wy1)
+          .map(u => u.id)
+        const dIds = S.drones
+          .filter(d => d.x >= wx0 && d.x <= wx1 && d.y >= wy0 && d.y <= wy1)
+          .map(d => d.id)
+        ids.push(...dIds)
+        ui.setSelected(e.ctrlKey ? [...new Set([...ui.selectedIds, ...ids])] : ids)
+        return
+      }
+
+      const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+
+      if (ui.mode.startsWith('deploy:')) {
+        const what = ui.mode.slice(7)
+        if (what.startsWith('DRONE:')) {
+          const d = deployDrone(what.slice(6), wx, wy)
+          if (d) { ui.bindDrone(d.id); useUI.setState({ mode: 'select' }) }
+        } else {
+          const u = deployUnit(what, wx, wy)
+          if (u) useUI.setState({ selectedIds: [u.id], mode: 'select' })
+        }
+        return
+      }
+      if (ui.mode.startsWith('strike:')) {
+        droneStrike(Number(ui.mode.slice(7)), wx, wy)
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode.startsWith('follow:')) {
+        const target = pickUnit(wx, wy)
+        if (target) droneFollow(Number(ui.mode.slice(7)), target.id)
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode.startsWith('convoy:')) {
+        const fob = pickStructure(wx, wy)
+        if (fob && fob.kind === 'FOB') orderConvoy(Number(ui.mode.slice(7)), fob.id)
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode.startsWith('lock:')) {
+        const droneId = Number(ui.mode.slice(5))
+        // prefer a unit track: friendlies directly, hostiles only if a live contact
+        const pickR = 18 / view.ppm
+        let best = null, bd = Infinity
+        for (const u of S.units) {
+          const d = Math.hypot(u.x - wx, u.y - wy)
+          if (d > pickR || d > bd) continue
+          if (u.side === 'friend') { best = u; bd = d }
+          else {
+            const c = S.contacts.get(u.id)
+            if ((c && c.live) || !S.fogEnabled) { best = u; bd = d }
+          }
+        }
+        droneLock(droneId, best ? { unitId: best.id } : { x: wx, y: wy })
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode.startsWith('build:')) {
+        const s = deployStructure(ui.mode.slice(6), wx, wy)
+        if (s) useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode === 'bridge') {
+        const eng = selectedFriendlies().find(u => UNIT_TYPES[u.type].canBridge)
+        if (eng) orderBridge(eng.id, wx, wy)
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode === 'target') {
+        for (const u of selectedFriendlies()) {
+          if (UNIT_TYPES[u.type].indirect) fireMission(u.id, wx, wy, ui.fireOpts)
+        }
+        useUI.setState({ mode: 'select' })
+        return
+      }
+
+      // left click: select friendlies, or issue orders for the current selection
+      const picked = pickAny(wx, wy)
+      const sel = selectedFriendlies()
+      const selD = selectedDrones()
+      if (picked && !(sel.length && e.shiftKey)) {
+        if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
+        else ui.setSelected([picked.obj.id])
+        return
+      }
+      if (sel.length || selD.length) {
+        // attack mode: clicking a visible hostile designates it for the whole selection
+        if (ui.cmdMode === 'attack') {
+          const enemy = pickEnemy(wx, wy)
+          if (enemy) {
+            const gid = sel.length > 1 ? newMoveGroup() : null
+            sel.forEach(u => orderAttack(u.id, enemy.id, gid))
+            return
+          }
+        }
+        issueMoves(sel, wx, wy, e.shiftKey, ui.cmdMode === 'attack')
+        selD.forEach((d, k) => {
+          orderDroneMove(d.id, wx + (k % 2) * 300 - 150 * (k > 0 ? 1 : 0), wy + Math.floor(k / 2) * 300, e.shiftKey)
+        })
+      }
+    }
+
+    function issueMoves(units, wx, wy, append, attack = false) {
+      const gid = units.length > 1 ? newMoveGroup() : null
+      const cols = Math.ceil(Math.sqrt(units.length))
+      const rows = Math.ceil(units.length / cols)
+      units.forEach((u, k) => {
+        const ox = ((k % cols) - (cols - 1) / 2) * 90
+        const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
+        orderMove(u.id, wx + ox, wy + oy, append, attack, gid)
+      })
+    }
+
+    function onWheel(e) {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18
+      const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+      view.ppm = Math.min(1.2, view.ppm * factor)
+      view.cx = wx - (e.clientX - canvas.width / 2) / view.ppm
+      view.cy = wy - (e.clientY - canvas.height / 2) / view.ppm
+      clampView()
+    }
+    const heldKeys = new Set()
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        useUI.setState({ mode: 'select', selectedIds: [], ctxMenu: null })
+      }
+      if (e.key === 'Delete') {
+        for (const u of selectedFriendlies()) removeLastWaypoint(u.id)
+        for (const d of selectedDrones()) droneDropWp(d.id)
+      }
+      const k = e.key.toLowerCase()
+      if ('wasd'.includes(k)) heldKeys.add(k)
+      if (k === 'q') useUI.getState().setCmdMode('move')
+      if (k === 'e') useUI.getState().setCmdMode('attack')
+    }
+    function onKeyUp(e) { heldKeys.delete(e.key.toLowerCase()) }
+    function onBlur() { heldKeys.clear() }
+    // WASD pan: constant screen-speed regardless of zoom
+    const panTimer = setInterval(() => {
+      if (!heldKeys.size) return
+      const step = 700 * 0.04 / view.ppm // 700 px/s in world meters
+      if (heldKeys.has('w')) view.cy -= step
+      if (heldKeys.has('s')) view.cy += step
+      if (heldKeys.has('a')) view.cx -= step
+      if (heldKeys.has('d')) view.cx += step
+      clampView()
+    }, 40)
+    canvas.addEventListener('mousedown', onDown)
+    window.addEventListener('mousemove', onMove)
+    canvas.addEventListener('mouseup', onUp)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    // suppress the native context menu everywhere — right-click is a command input
+    const noCtx = (e) => e.preventDefault()
+    window.addEventListener('contextmenu', noCtx)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+
+    // ---- render loop ----
+    let raf
+    function draw() {
+      raf = requestAnimationFrame(draw)
+      resize()
+      clampView()
+      const night = useUI.getState().night
+      const W = canvas.width, H = canvas.height
+      ctx.fillStyle = night ? '#0b1016' : '#b8c4cc'
+      ctx.fillRect(0, 0, W, H)
+
+      // terrain (dimmed + desaturated at night)
+      const mpp = CELL / TERRAIN_PX
+      ctx.imageSmoothingEnabled = view.ppm * mpp < 1
+      if (night) ctx.filter = 'brightness(0.42) saturate(0.5) contrast(1.05)'
+      ctx.drawImage(
+        terrainLayer,
+        w2sX(0), w2sY(0),
+        terrainLayer.width * mpp * view.ppm,
+        terrainLayer.height * mpp * view.ppm,
+      )
+      ctx.filter = 'none'
+
+      // 1 km grid + labels
+      ctx.strokeStyle = night ? 'rgba(140,180,220,0.14)' : 'rgba(30,40,60,0.18)'
+      ctx.lineWidth = 1
+      ctx.font = '9px Consolas, monospace'
+      ctx.fillStyle = night ? 'rgba(150,190,230,0.5)' : 'rgba(30,40,60,0.5)'
+      ctx.beginPath()
+      for (let m = 0; m <= S.map.WORLD; m += 1000) {
+        ctx.moveTo(w2sX(m), w2sY(0)); ctx.lineTo(w2sX(m), w2sY(S.map.WORLD))
+        ctx.moveTo(w2sX(0), w2sY(m)); ctx.lineTo(w2sX(S.map.WORLD), w2sY(m))
+      }
+      ctx.stroke()
+      if (view.ppm > 0.03) {
+        for (let m = 0; m < S.map.WORLD; m += 1000) {
+          ctx.fillText(String(m / 1000).padStart(2, '0'), w2sX(m) + 3, 12)
+          ctx.fillText(String(m / 1000).padStart(2, '0'), 4, w2sY(m) + 10)
+        }
+      }
+
+      // town names
+      ctx.font = 'bold 10px Consolas, monospace'
+      ctx.fillStyle = night ? 'rgba(160,195,225,0.8)' : 'rgba(40,40,45,0.85)'
+      ctx.textAlign = 'center'
+      for (const t of S.map.towns) ctx.fillText(t.name, w2sX(t.x), w2sY(t.y) - 6)
+      ctx.textAlign = 'left'
+
+      const ui = useUI.getState()
+
+      // hover cursor
+      const hover = pickAny(s2wX(mouse.x), s2wY(mouse.y))
+      canvas.style.cursor = hover ? 'pointer' : 'crosshair'
+
+      // strike targeting: weapon range ring around the armed drone + crosshair
+      if (ui.mode.startsWith('strike:')) {
+        const d = S.drones.find(x => x.id === Number(ui.mode.slice(7)))
+        const spec = d && DRONE_TYPES[d.type]
+        if (spec && spec.weapons) {
+          ctx.strokeStyle = 'rgba(220,60,40,0.6)'
+          ctx.setLineDash([8, 5])
+          ctx.beginPath()
+          ctx.arc(w2sX(d.x), w2sY(d.y), spec.weapons.range * view.ppm, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+        ctx.strokeStyle = '#e33'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(mouse.x - 12, mouse.y); ctx.lineTo(mouse.x + 12, mouse.y)
+        ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y + 12)
+        ctx.stroke()
+      }
+      // field-drone control range rings
+      if (ui.mode.startsWith('deploy:DRONE:')) {
+        const spec = DRONE_TYPES[ui.mode.slice(13)]
+        if (spec && spec.src === 'tether') {
+          ctx.strokeStyle = 'rgba(120,180,220,0.5)'
+          ctx.setLineDash([6, 4])
+          ctx.beginPath()
+          for (const s of S.structures) {
+            if (s.side !== 'friend' || s.buildT > 0) continue
+            if (s.kind !== 'FOB' && s.kind !== 'HQ') continue
+            if (S.drones.some(d => d.tether === s.id)) continue
+            ctx.moveTo(w2sX(s.x) + spec.tetherRange * view.ppm, w2sY(s.y))
+            ctx.arc(w2sX(s.x), w2sY(s.y), spec.tetherRange * view.ppm, 0, Math.PI * 2)
+          }
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+        if (spec && spec.src === 'field') {
+          ctx.strokeStyle = 'rgba(120,180,220,0.5)'
+          ctx.setLineDash([6, 4])
+          ctx.beginPath()
+          for (const u of S.units) {
+            if (u.side !== 'friend') continue
+            ctx.moveTo(w2sX(u.x) + spec.ctrlRange * view.ppm, w2sY(u.y))
+            ctx.arc(w2sX(u.x), w2sY(u.y), spec.ctrlRange * view.ppm, 0, Math.PI * 2)
+          }
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+      }
+
+      // deploy / build placement rings
+      if (ui.mode.startsWith('deploy:') && !ui.mode.startsWith('deploy:DRONE')) {
+        ctx.strokeStyle = 'rgba(40,120,220,0.6)'
+        ctx.setLineDash([6, 4])
+        ctx.beginPath()
+        for (const s of S.structures) {
+          if (s.side !== 'friend' || s.buildT > 0 || !s.deployZone) continue
+          ctx.moveTo(w2sX(s.x) + s.deployZone * view.ppm, w2sY(s.y))
+          ctx.arc(w2sX(s.x), w2sY(s.y), s.deployZone * view.ppm, 0, Math.PI * 2)
+        }
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      if (ui.mode.startsWith('build:')) {
+        const spec = STRUCTURES[ui.mode.slice(6)]
+        ctx.strokeStyle = 'rgba(120,180,90,0.55)'
+        ctx.setLineDash([6, 4])
+        ctx.beginPath()
+        for (const s of S.structures) {
+          if (s.side !== 'friend') continue
+          if (spec.key !== 'OP' && s.buildT > 0) continue
+          ctx.moveTo(w2sX(s.x) + spec.near * view.ppm, w2sY(s.y))
+          ctx.arc(w2sX(s.x), w2sY(s.y), spec.near * view.ppm, 0, Math.PI * 2)
+        }
+        if (spec.key === 'OP') {
+          for (const u of S.units) {
+            if (u.side !== 'friend') continue
+            ctx.moveTo(w2sX(u.x) + spec.near * view.ppm, w2sY(u.y))
+            ctx.arc(w2sX(u.x), w2sY(u.y), spec.near * view.ppm, 0, Math.PI * 2)
+          }
+        }
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      if (ui.mode === 'bridge') {
+        const eng = selectedFriendlies().find(u => UNIT_TYPES[u.type].canBridge)
+        if (eng) {
+          ctx.strokeStyle = 'rgba(200,150,50,0.6)'
+          ctx.setLineDash([6, 4])
+          ctx.beginPath()
+          ctx.arc(w2sX(eng.x), w2sY(eng.y), 700 * view.ppm, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+      }
+
+      // fire-mission range rings: every friendly tube on the map, selected = hot
+      if (ui.mode === 'target') {
+        const selIds = ui.selectedIds
+        ctx.setLineDash([8, 5])
+        for (const u of S.units) {
+          if (u.side !== 'friend') continue
+          const ind = UNIT_TYPES[u.type].indirect
+          if (!ind) continue
+          const isSel = selIds.includes(u.id)
+          const reloading = u.missionCooldown > 0
+          ctx.strokeStyle = reloading
+            ? 'rgba(120,120,120,0.4)'
+            : isSel ? 'rgba(220,50,30,0.7)' : 'rgba(200,110,40,0.45)'
+          ctx.lineWidth = isSel ? 2 : 1.2
+          ctx.beginPath()
+          ctx.arc(w2sX(u.x), w2sY(u.y), ind.range * view.ppm, 0, Math.PI * 2)
+          ctx.stroke()
+          // label the ring at the top with callsign + status
+          ctx.font = '9px Consolas, monospace'
+          ctx.fillStyle = reloading ? 'rgba(140,140,140,0.7)' : 'rgba(200,80,40,0.85)'
+          ctx.textAlign = 'center'
+          ctx.fillText(
+            `${u.label} ${reloading ? 'RELOAD ' + Math.ceil(u.missionCooldown) + 'S' : 'RDY'}`,
+            w2sX(u.x), w2sY(u.y) - ind.range * view.ppm - 4,
+          )
+          ctx.textAlign = 'left'
+        }
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([])
+        ctx.strokeStyle = '#c22'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(mouse.x - 12, mouse.y); ctx.lineTo(mouse.x + 12, mouse.y)
+        ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y + 12)
+        ctx.stroke()
+      }
+
+      // faint operational graphics: every moving unit's route, even unselected
+      ctx.lineWidth = 1.2
+      for (const u of S.units) {
+        if (u.side !== 'friend' || !u.path.length || ui.selectedIds.includes(u.id)) continue
+        const hostile = u.attackId != null || u.attackMove
+        ctx.strokeStyle = hostile
+          ? (night ? 'rgba(255,110,90,0.35)' : 'rgba(200,50,30,0.32)')
+          : (night ? 'rgba(110,170,255,0.3)' : 'rgba(30,90,190,0.28)')
+        ctx.beginPath()
+        ctx.moveTo(w2sX(u.x), w2sY(u.y))
+        for (const p of u.path) ctx.lineTo(w2sX(p.x), w2sY(p.y))
+        ctx.stroke()
+        const a = u.path.length > 1 ? u.path[u.path.length - 2] : { x: u.x, y: u.y }
+        const b = u.path[u.path.length - 1]
+        const ang = Math.atan2(w2sY(b.y) - w2sY(a.y), w2sX(b.x) - w2sX(a.x))
+        const bx = w2sX(b.x), by = w2sY(b.y)
+        ctx.fillStyle = hostile
+          ? (night ? 'rgba(255,110,90,0.45)' : 'rgba(200,50,30,0.42)')
+          : (night ? 'rgba(110,170,255,0.4)' : 'rgba(30,90,190,0.38)')
+        ctx.beginPath()
+        ctx.moveTo(bx + Math.cos(ang) * 8, by + Math.sin(ang) * 8)
+        ctx.lineTo(bx + Math.cos(ang + 2.6) * 6, by + Math.sin(ang + 2.6) * 6)
+        ctx.lineTo(bx + Math.cos(ang - 2.6) * 6, by + Math.sin(ang - 2.6) * 6)
+        ctx.closePath()
+        ctx.fill()
+      }
+      for (const d of S.drones) {
+        if (!d.route || !d.route.length || ui.selectedIds.includes(d.id)) continue
+        ctx.strokeStyle = 'rgba(74,208,192,0.25)'
+        ctx.setLineDash([5, 5])
+        ctx.beginPath()
+        ctx.moveTo(w2sX(d.x), w2sY(d.y))
+        for (const p of d.route) ctx.lineTo(w2sX(p.x), w2sY(p.y))
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+
+      // routes for selected units: BFT-style high-vis command graphics
+      for (const u of selectedFriendlies()) {
+        if (!u.path.length) continue
+        const hostile = u.attackId != null || u.attackMove
+        const pts = [{ x: u.x, y: u.y }, ...u.path]
+        // casing + bright route line (red for attack tasks)
+        for (const pass of [
+          { color: night ? 'rgba(44,10,10,0.95)' : 'rgba(40,8,8,0.85)', w: 5, skip: !hostile },
+          { color: night ? 'rgba(10,24,44,0.95)' : 'rgba(8,20,40,0.85)', w: 5, skip: hostile },
+          { color: hostile ? '#ff5844' : '#3f9dff', w: 2.2 },
+        ].filter(p => !p.skip)) {
+          ctx.strokeStyle = pass.color
+          ctx.lineWidth = pass.w
+          ctx.lineJoin = 'round'
+          ctx.beginPath()
+          ctx.moveTo(w2sX(pts[0].x), w2sY(pts[0].y))
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(w2sX(pts[i].x), w2sY(pts[i].y))
+          ctx.stroke()
+        }
+        // arrowhead on the final segment
+        const a = pts[pts.length - 2], b = pts[pts.length - 1]
+        const ang = Math.atan2(w2sY(b.y) - w2sY(a.y), w2sX(b.x) - w2sX(a.x))
+        const bx = w2sX(b.x), by = w2sY(b.y)
+        ctx.fillStyle = hostile ? '#ff5844' : '#3f9dff'
+        ctx.strokeStyle = hostile ? 'rgba(40,8,8,0.9)' : 'rgba(8,20,40,0.9)'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(bx + Math.cos(ang) * 13, by + Math.sin(ang) * 13)
+        ctx.lineTo(bx + Math.cos(ang + 2.5) * 10, by + Math.sin(ang + 2.5) * 10)
+        ctx.lineTo(bx + Math.cos(ang - 2.5) * 10, by + Math.sin(ang - 2.5) * 10)
+        ctx.closePath()
+        ctx.fill(); ctx.stroke()
+        // numbered waypoint pips
+        u.legs.forEach((leg, i) => {
+          const x = w2sX(leg.x), y = w2sY(leg.y)
+          ctx.beginPath()
+          ctx.arc(x, y, 8, 0, Math.PI * 2)
+          ctx.fillStyle = '#0d2a4d'
+          ctx.fill()
+          ctx.strokeStyle = '#6cb8ff'
+          ctx.lineWidth = 1.6
+          ctx.stroke()
+          ctx.fillStyle = '#dceeff'
+          ctx.font = 'bold 9px Consolas, monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(String(i + 1), x, y + 0.5)
+          ctx.textBaseline = 'alphabetic'
+          ctx.textAlign = 'left'
+        })
+      }
+
+      // routes for selected drones: straight flight legs + numbered pips
+      for (const d of selectedDrones()) {
+        if (!d.route || !d.route.length) continue
+        const pts = [{ x: d.x, y: d.y }, ...d.route]
+        for (const pass of [
+          { color: night ? 'rgba(10,34,34,0.95)' : 'rgba(8,30,30,0.8)', w: 4 },
+          { color: '#4ad0c0', w: 1.8 },
+        ]) {
+          ctx.strokeStyle = pass.color
+          ctx.lineWidth = pass.w
+          ctx.setLineDash([7, 5])
+          ctx.beginPath()
+          ctx.moveTo(w2sX(pts[0].x), w2sY(pts[0].y))
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(w2sX(pts[i].x), w2sY(pts[i].y))
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+        d.route.forEach((wp, i) => {
+          const x = w2sX(wp.x), y = w2sY(wp.y)
+          ctx.beginPath()
+          ctx.arc(x, y, 7.5, 0, Math.PI * 2)
+          ctx.fillStyle = '#0d3a36'
+          ctx.fill()
+          ctx.strokeStyle = '#5ae0d0'
+          ctx.lineWidth = 1.4
+          ctx.stroke()
+          ctx.fillStyle = '#d8fff8'
+          ctx.font = 'bold 9px Consolas, monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(String(i + 1), x, y + 0.5)
+          ctx.textBaseline = 'alphabetic'
+          ctx.textAlign = 'left'
+        })
+      }
+
+      // pontoon bridges laid by engineers
+      if (S.pontoons.length) {
+        for (const i of S.pontoons) {
+          const gx = i % GRID, gy = (i / GRID) | 0
+          const x = w2sX(gx * CELL), y = w2sY(gy * CELL)
+          const sz = CELL * view.ppm
+          ctx.fillStyle = '#b8a67e'
+          ctx.fillRect(x, y, sz, sz)
+          ctx.strokeStyle = '#26221c'
+          ctx.lineWidth = 1
+          ctx.strokeRect(x - 1, y - 1, sz + 2, sz + 2)
+        }
+      }
+
+      // structures (friendly always; hostile once spotted or fog off)
+      for (const s of S.structures) {
+        if (s.side === 'hostile' && S.fogEnabled && !S.structContacts.has(s.id)) continue
+        drawStructure(ctx, w2sX(s.x), w2sY(s.y), {
+          side: s.side, kind: s.kind,
+          label: s.side === 'friend' && s.kind === 'FOB'
+            ? `${s.label} · S:${Math.floor(s.stock || 0)}`
+            : s.label,
+          building: s.buildT > 0,
+          progress: s.buildT > 0 ? 1 - s.buildT / STRUCTURES[s.kind].buildTime : 1,
+          hpFrac: s.hp / s.maxHp,
+        })
+      }
+
+      // wrecks
+      ctx.strokeStyle = night ? 'rgba(180,170,160,0.5)' : 'rgba(60,55,50,0.55)'
+      ctx.lineWidth = 1.5
+      for (const wk of S.wrecks) {
+        const age = S.t - wk.t
+        if (age > 90) continue
+        const x = w2sX(wk.x), y = w2sY(wk.y)
+        ctx.globalAlpha = Math.max(0.15, 1 - age / 90)
+        ctx.beginPath()
+        ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5)
+        ctx.moveTo(x - 5, y + 5); ctx.lineTo(x + 5, y - 5)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+
+      // smoke screens
+      for (const sm of S.smoke) {
+        const age = S.t - sm.t
+        const fade = Math.min(1, Math.max(0, (75 - age) / 15)) // fade out last 15 s
+        const grow = Math.min(1, 0.4 + age / 8)
+        const x = w2sX(sm.x), y = w2sY(sm.y)
+        const r = sm.r * grow * view.ppm
+        const grad = ctx.createRadialGradient(x, y, r * 0.2, x, y, r)
+        grad.addColorStop(0, `rgba(200,200,205,${0.5 * fade})`)
+        grad.addColorStop(1, `rgba(170,170,178,0)`)
+        ctx.fillStyle = grad
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // arty impacts
+      for (const im of S.impacts) {
+        const age = S.t - im.t
+        if (age > 4) continue
+        const x = w2sX(im.x), y = w2sY(im.y)
+        ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(x, y, 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
+      // drones: orbit rings + icons
+      for (const d of S.drones) {
+        const spec = DRONE_TYPES[d.type]
+        const sel = ui.feeds.some(f => f.droneId === d.id) || ui.selectedIds.includes(d.id)
+        if (d.state === 'onstation') {
+          ctx.strokeStyle = sel ? 'rgba(255,215,80,0.6)' : 'rgba(60,140,220,0.4)'
+          ctx.setLineDash([4, 4])
+          ctx.beginPath()
+          ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.orbitR * (d.orbitMul || 1) * view.ppm, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.strokeStyle = 'rgba(60,140,220,0.18)'
+          ctx.beginPath()
+          ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.sight * (d.sightMul || 1) * view.ppm, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+        // sensor lock marker: small orange target diamond at the locked point
+        if (d.lock) {
+          const lx = w2sX(d.lock.x), ly = w2sY(d.lock.y)
+          ctx.strokeStyle = 'rgba(255,170,60,0.85)'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(lx, ly - 7); ctx.lineTo(lx + 7, ly); ctx.lineTo(lx, ly + 7); ctx.lineTo(lx - 7, ly)
+          ctx.closePath()
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(lx, ly - 3); ctx.lineTo(lx, ly + 3)
+          ctx.moveTo(lx - 3, ly); ctx.lineTo(lx + 3, ly)
+          ctx.stroke()
+        }
+        // overwatch tether to the assigned unit
+        if (d.followId) {
+          const fu = S.units.find(x => x.id === d.followId)
+          if (fu) {
+            ctx.strokeStyle = 'rgba(90,200,170,0.5)'
+            ctx.setLineDash([3, 5])
+            ctx.beginPath()
+            ctx.moveTo(w2sX(d.x), w2sY(d.y))
+            ctx.lineTo(w2sX(fu.x), w2sY(fu.y))
+            ctx.stroke()
+            ctx.setLineDash([])
+          }
+        }
+        if (spec.src === 'tether') {
+          // aerostat: balloon icon with tether tick
+          const bx2 = w2sX(d.x), by2 = w2sY(d.y)
+          ctx.fillStyle = sel ? '#ffe97a' : '#8fd4ff'
+          ctx.strokeStyle = '#0a3a66'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.ellipse(bx2, by2 - 3, 6, 7.5, 0, 0, Math.PI * 2)
+          ctx.fill(); ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(bx2, by2 + 4.5); ctx.lineTo(bx2, by2 + 11)
+          ctx.stroke()
+          ctx.font = '8px Consolas, monospace'
+          ctx.fillStyle = '#2a4a66'
+          ctx.textAlign = 'center'
+          ctx.fillText(d.label, bx2, by2 + 20)
+          ctx.textAlign = 'left'
+        } else {
+          const hdg = (d.state === 'transit' || d.state === 'rtb' || d.state === 'striking')
+            ? Math.atan2((d.state === 'rtb' ? d.oy : d.state === 'striking' ? d.sy : d.ty) - d.y,
+                         (d.state === 'rtb' ? d.ox : d.state === 'striking' ? d.sx : d.tx) - d.x)
+            : d.angle + Math.PI / 2
+          drawDroneIcon(ctx, w2sX(d.x), w2sY(d.y), hdg, d.label, sel)
+        }
+      }
+
+      // friendly units (always shown — it's blue force tracking)
+      for (const u of S.units) {
+        if (u.side !== 'friend') continue
+        const type = UNIT_TYPES[u.type]
+        drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
+          side: 'friend', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
+          strength: u.strength, selected: ui.selectedIds.includes(u.id),
+          dug: u.posture === 'dig' ? u.digT : 0,
+        })
+      }
+
+      // hostiles: through fog = contacts; fog off = ground truth
+      if (S.fogEnabled) {
+        for (const [id, c] of S.contacts) {
+          const type = UNIT_TYPES[c.type]
+          const age = S.t - c.lastSeen
+          drawUnitSymbol(ctx, w2sX(c.x), w2sY(c.y), {
+            side: 'hostile', glyph: type.glyph, stale: !c.live,
+            label: c.live ? type.abbr : `LKP ${Math.floor(age / 60)}M`,
+            strength: c.strength ?? 100,
+          })
+        }
+      } else {
+        for (const u of S.units) {
+          if (u.side !== 'hostile') continue
+          const type = UNIT_TYPES[u.type]
+          drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
+            side: 'hostile', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
+            strength: u.strength,
+          })
+        }
+      }
+
+      // attack designation: pulsing red diamond on targets under deliberate attack
+      {
+        const targeted = new Set()
+        for (const u of S.units) {
+          if (u.side === 'friend' && u.attackId != null) targeted.add(u.attackId)
+        }
+        for (const id of targeted) {
+          const e2 = S.units.find(x => x.id === id)
+          if (!e2) continue
+          const c = S.contacts.get(id)
+          const pos = (!S.fogEnabled || (c && c.live)) ? e2 : c
+          if (!pos) continue
+          const tx2 = w2sX(pos.x), ty2 = w2sY(pos.y)
+          const pulse = 20 + Math.sin(S.t * 4) * 3
+          ctx.strokeStyle = 'rgba(255,70,50,0.85)'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(tx2, ty2 - pulse); ctx.lineTo(tx2 + pulse, ty2)
+          ctx.lineTo(tx2, ty2 + pulse); ctx.lineTo(tx2 - pulse, ty2)
+          ctx.closePath()
+          ctx.stroke()
+        }
+      }
+
+      // formation-spread preview while dragging
+      if (lineDrag) {
+        const n = Math.max(1, useUI.getState().selectedIds.length)
+        const red = ui.cmdMode === 'attack'
+        ctx.strokeStyle = red ? 'rgba(255,88,68,0.85)' : 'rgba(63,157,255,0.85)'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(lineDrag.x0, lineDrag.y0)
+        ctx.lineTo(lineDrag.x1, lineDrag.y1)
+        ctx.stroke()
+        ctx.fillStyle = red ? 'rgba(255,88,68,0.9)' : 'rgba(63,157,255,0.9)'
+        for (let i = 0; i < n; i++) {
+          const t = n > 1 ? i / (n - 1) : 0.5
+          const px = lineDrag.x0 + (lineDrag.x1 - lineDrag.x0) * t
+          const py = lineDrag.y0 + (lineDrag.y1 - lineDrag.y0) * t
+          ctx.beginPath()
+          ctx.arc(px, py, 4, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      // marquee rectangle
+      if (marquee) {
+        const x = Math.min(marquee.x0, marquee.x1), y = Math.min(marquee.y0, marquee.y1)
+        const w = Math.abs(marquee.x1 - marquee.x0), h = Math.abs(marquee.y1 - marquee.y0)
+        ctx.fillStyle = 'rgba(80,160,255,0.12)'
+        ctx.fillRect(x, y, w, h)
+        ctx.strokeStyle = 'rgba(110,190,255,0.85)'
+        ctx.lineWidth = 1.2
+        ctx.setLineDash([5, 3])
+        ctx.strokeRect(x, y, w, h)
+        ctx.setLineDash([])
+      }
+
+      // cursor coordinates readout
+      const cwx = s2wX(mouse.x), cwy = s2wY(mouse.y)
+      if (cwx >= 0 && cwy >= 0 && cwx < S.map.WORLD && cwy < S.map.WORLD) {
+        ctx.font = '10px Consolas, monospace'
+        ctx.fillStyle = night ? 'rgba(160,200,235,0.85)' : 'rgba(20,30,40,0.75)'
+        ctx.fillText(
+          `${String(Math.floor(cwx / 100)).padStart(3, '0')} ${String(Math.floor(cwy / 100)).padStart(3, '0')}  ` +
+          S.map.terrNameAt(cwx, cwy).toUpperCase(),
+          mouse.x + 14, mouse.y + 22,
+        )
+      }
+    }
+    draw()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      clearInterval(panTimer)
+      window.removeEventListener('resize', resize)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('contextmenu', noCtx)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'crosshair' }} />
+}
