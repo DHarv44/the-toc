@@ -538,6 +538,17 @@ Real C2 runs multiple nets, not one stream — split the traffic into channels:
 - Design notes: add a `channel` field to net messages (routed from `kind`/actor); a channel
   selector on the NET panel; gate both the text feed and the chatter audio per monitored channel.
 
+### Per-Feed Mute (Individual UAV Tabs)
+Audio is currently all-or-nothing on the global mute, but up to four feeds can be open at once —
+each with its own engine ambient, gun reports and impacts.
+- **Mute a single feed** — a small mute toggle per UAV window (and per feed tab), so you can watch
+  a noisy gunship run while keeping a quiet ISR feed up, or silence a feed you're only glancing at.
+- **Independent of the global mute** — the top-bar mute still kills everything; per-feed mute is a
+  finer control layered under it. Muted state rides with the feed (and shows on its tab).
+- Design notes: `audio.js` already keys ambients by `feedId` (`setFeedAmbient`/`clearFeedAmbient`),
+  so add a per-feed gain/mute flag and check it in the feed-audio pass in `DroneView` (gun reports,
+  impacts, ground-unit fire) as well as when starting the ambient loop.
+
 ## Maps & World
 
 ### Seed-Generated Maps  *(partly implemented)*
