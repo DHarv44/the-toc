@@ -126,10 +126,16 @@ export function deployContext(selectedIds) {
       return { title: `${st.label} — AIRFIELD`, sections: [{ header: 'FIXED-WING & UAS', items: air }] }
     }
     if (st.kind === 'HQ' || st.kind === 'FOB') {
-      const aerostat = { header: 'TETHERED ISR', items: [droneItem(DRONE_TYPES.AEROSTAT)] }
+      // the aerostat tethers at this very site, so it's a one-click field like the ground
+      // units (⊕) — no map placement. One per site: greyed out when this site flies one.
+      const taken = S.drones.some(d => d.tether === st.id)
+      const aerostat = {
+        header: 'TETHERED ISR',
+        items: [{ ...droneItem(DRONE_TYPES.AEROSTAT), key: 'AEROSTAT', fieldAero: true,
+          disabled: taken, note: taken ? '1/1' : null }],
+      }
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
-        // ground units field straight from this site; the aerostat still needs its map click
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
         sections: [...groundSections(), aerostat],
       }

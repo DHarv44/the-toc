@@ -1,13 +1,13 @@
 import { useRef, useEffect, useState } from 'react'
 import { Box, Group, Button, ActionIcon, Menu, Text, Divider } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
-import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
+import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneSensorMode, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
 import { useUI, ROUTE_MODES } from './store.js'
 import { PaletteIcon } from './palette.jsx'
 import { clamp, panel, btn, fmtClock, mapColumnSize } from './styles.js'
-import DroneView from '../drone/DroneView.jsx'
+import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView.jsx'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active) => ({
@@ -179,7 +179,7 @@ function SelectionTray() {
                 background: '#12202e', border: '1px solid #35506a', borderRadius: 2,
                 padding: '3px 7px', cursor: 'pointer', minWidth: 78,
               }}>
-              <div style={{ color: '#7ec8ff', fontSize: 10 }}>{u.label} <span style={{ color: '#54708a' }}>{type.abbr}</span></div>
+              <div style={{ color: '#7ec8ff', fontSize: 10 }}>{u.label}</div>
               <div style={{ fontSize: 9, color: '#9ab8d0' }}>
                 {UNIT_TYPES[u.type].carrier ? (u.mounted ? 'MTD · ' : 'DSM · ') : ''}
                 {u.posture === 'dig' ? `DUG ${Math.round(u.digT * 100)}% · ` : ''}
@@ -730,7 +730,7 @@ function FeedWindow({ feed, index }) {
   // --- feed interaction: click = lock target, drag = slew gimbal, wheel = zoom ---
   function feedDown(e) {
     if (e.button !== 0 || !drone) return
-    gimbal.current = { sx: e.clientX, sy: e.clientY, gx: feed.gx, gy: feed.gy, moved: false }
+    gimbal.current = { sx: e.clientX, sy: e.clientY, gx: feed.gx, gy: feed.gy, a0: drone.scanAngle || 0, t0: drone.tilt ?? AEROSTAT_MIN_TILT, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   function feedMove(e) {
@@ -742,6 +742,15 @@ function FeedWindow({ feed, index }) {
       if (drone.lock) droneLock(drone.id, null) // slewing off the target breaks the lock
     }
     if (!g.moved) return
+    // aerostat FREE look: horizontal drag pans the turret bearing, vertical drag tilts it.
+    // Both inverted (drag the view, not the camera). Tilt is clamped between level — the
+    // highest it goes — and near-nadir, so the operator can only look down from horizontal.
+    if (drone.tether) {
+      if (drone.sensorMode !== 'free') droneSensorMode(drone.id, 'free')
+      const tilt = clamp((g.t0 ?? drone.tilt ?? AEROSTAT_MIN_TILT) + dy * 0.004, AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT)
+      droneSet(drone.id, { scanAngle: (g.a0 ?? drone.scanAngle ?? 0) + dx * 0.006, tilt })
+      return
+    }
     const lx = drone.tx + g.gx, ly = drone.ty + g.gy
     let fx = lx - drone.x, fy = ly - drone.y
     const fl = Math.hypot(fx, fy) || 1
@@ -904,7 +913,14 @@ function FeedWindow({ feed, index }) {
                   {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
                 </Button>
               )}
-              {drone && drone.state === 'onstation' && (
+              {/* tethered aerostat: AUTO sweep vs FREE hand-slew. Non-tether drones keep
+                  the point-lock. FOLLOW (above) handles pointing the sensor at a contact. */}
+              {drone && drone.state === 'onstation' && drone.tether && !drone.followId && (
+                <FeedSelect title="Turret" value={drone.sensorMode || 'auto'}
+                  options={[{ val: 'auto', label: 'AUTO SWEEP' }, { val: 'free', label: 'FREE LOOK' }]}
+                  onSelect={(m) => droneSensorMode(drone.id, m)} color="#8fd4a8" minWidth={72} />
+              )}
+              {drone && drone.state === 'onstation' && !drone.tether && (
                 <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, lookPoint()) }}

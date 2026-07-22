@@ -2,7 +2,7 @@
 // installations roster and the contextual deploy palette as sections. Replaces the
 // transient deploy panel that only existed while something deployable was selected.
 import { Box, Text } from '@mantine/core'
-import { S, fieldUnit, forceCount, forceCap } from '../game/sim.js'
+import { S, fieldUnit, fieldAerostat, forceCount, forceCap } from '../game/sim.js'
 import { STRUCTURES } from '../game/units.js'
 import { useUI } from './store.js'
 import { RAIL_W } from './styles.js'
@@ -90,16 +90,17 @@ function DeploySection() {
       {ctx.sections.map((sec, si) => (
         <RailSection key={si} label={sec.header}>
           {sec.items.map(it => {
-            // ground units field immediately from the selected site — no deploy mode,
-            // no map click. Everything else still picks a spot on the map.
-            const oneClick = it.field && ctx.sourceId != null
-            const short = oneClick && ctx.purse != null && ctx.purse < it.cost
+            // ground units and the aerostat field immediately from the selected site — no
+            // deploy mode, no map click. Everything else still picks a spot on the map.
+            const oneClick = (it.field || it.fieldAero) && ctx.sourceId != null
+            const short = oneClick && it.field && ctx.purse != null && ctx.purse < it.cost
+            const fire = () => (it.fieldAero ? fieldAerostat(ctx.sourceId) : fieldUnit(it.key, ctx.sourceId))
             return (
               <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
                 note={it.note} disabled={it.disabled || short}
-                onPlus={oneClick ? () => fieldUnit(it.key, ctx.sourceId) : undefined}
+                onPlus={oneClick ? fire : undefined}
                 active={!oneClick && ui.mode === it.mode}
-                onClick={() => (oneClick ? fieldUnit(it.key, ctx.sourceId) : pick(it.mode))} />
+                onClick={() => (oneClick ? fire() : pick(it.mode))} />
             )
           })}
         </RailSection>

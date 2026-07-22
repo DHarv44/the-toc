@@ -6,6 +6,10 @@ import { muzzle, rumble, gunfire, audioReady } from '../game/audio.js'
 import { UNIT_TYPES, DRONE_TYPES, STRUCTURES } from '../game/units.js'
 import { CELL, T_FIELD, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 
+// aerostat turret depression limits: level (can't tilt above the horizon) to near-nadir
+export const AEROSTAT_MIN_TILT = 0.05    // rad above 0 so the horizon look-distance stays finite
+export const AEROSTAT_MAX_TILT = 1.48    // ~85°, nearly straight down
+
 // The battlefield as seen through a UAS sensor ball. The scene is built in two
 // palettes: IR luminance (WHOT/BHOT/NVG derive from it via CSS filters) and
 // EO natural color. Detail layer: 512² micro-displaced terrain, instanced
@@ -783,11 +787,22 @@ function DroneCamera({ feedRef, droneId, gimbal }) {
       feed.cx = d.lock.x; feed.cy = d.lock.y
       camera.lookAt(d.lock.x, S.map.elevAt(d.lock.x, d.lock.y), d.lock.y)
     } else if (d.state === 'onstation' && d.tether) {
-      // the aerostat turret sweeps 360° around the mast; scanAngle advances in the sim
-      // tick (paused when locked). A manual gimbal offset rides on top of the sweep.
-      const scanR = spec.sight * 0.45
-      const a = d.scanAngle || 0
-      const lx = d.tx + Math.cos(a) * scanR + gx, ly = d.ty + Math.sin(a) * scanR + gy2
+      // aerostat turret. AUTO sweeps 360° around the mast (scanAngle advances in the sim
+      // tick); FREE holds the operator's hand-slewed bearing (gx/gy). LOCK is handled by
+      // the lock branch above.
+      // Turret is a bearing (yaw about the mast) + a depression angle. The look point is
+      // where that ray hits the ground: R = alt / tan(depression), so level looks to the
+      // horizon and near-nadir looks straight down. AUTO yaws the bearing for a clean
+      // 360° survey at a fixed working depression; FREE holds the operator's bearing and
+      // tilt. Camera stays over the mast (the aerostat never moves); world-up = level.
+      camera.up.set(0, 1, 0)
+      const alt = spec.alt * (d.altMul || 1)
+      const bearing = d.scanAngle || 0
+      const dep = d.sensorMode === 'free'
+        ? (d.tilt ?? AEROSTAT_MIN_TILT)
+        : Math.atan2(alt, spec.sight * 0.45)   // ~working survey depression
+      const R = alt / Math.tan(Math.max(AEROSTAT_MIN_TILT, dep))
+      const lx = d.tx + Math.cos(bearing) * R, ly = d.ty + Math.sin(bearing) * R
       feed.cx = lx; feed.cy = ly
       camera.lookAt(lx, S.map.elevAt(lx, ly), ly)
     } else if (d.state === 'onstation') {

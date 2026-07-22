@@ -427,6 +427,16 @@ function rallyPoint(st, mob) {
 // built AT the site and then moves out to a rally point on its own, rather than being
 // placed by the player somewhere inside the deploy zone. No map click, no deploy mode:
 // the selected installation already says where it comes from.
+// Raise the aerostat at a selected FOB/HQ — the one-click equivalent for the tethered
+// balloon. It tethers at that site anyway, so there's nothing to place on the map.
+// deployDrone enforces the cost and the one-per-site rule.
+export function fieldAerostat(structId) {
+  const st = S.structures.find(s => s.id === structId && s.side === 'friend')
+  if (!st) return toast('NO SITE SELECTED')
+  if (st.kind !== 'HQ' && st.kind !== 'FOB') return toast(`${st.label} CANNOT FLY AN AEROSTAT`)
+  return deployDrone('AEROSTAT', st.x, st.y)
+}
+
 export function fieldUnit(typeKey, structId) {
   const type = UNIT_TYPES[typeKey]
   if (!type) return null
@@ -609,8 +619,12 @@ export function deployDrone(typeKey, x, y) {
     if (!site) return toast('MUST TETHER AT A FOB OR HQ')
     if (S.drones.some(d => d.tether === site.id)) return toast(site.label + ' ALREADY FLIES AN AEROSTAT')
     tether = site
-    ox = site.x; oy = site.y
-    x = site.x; y = site.y
+    // stand the mast off to the side of the base rather than on top of its symbol, on a
+    // bearing away from the map interior (behind the base) and on passable ground
+    const away = Math.atan2(site.y - S.map.WORLD / 2, site.x - S.map.WORLD / 2)
+    const p = nearestLand(site.x + Math.cos(away) * 220, site.y + Math.sin(away) * 220, 'foot')
+    ox = p.x; oy = p.y
+    x = p.x; y = p.y
   } else if (spec.src === 'airfield') {
     const afld = S.structures
       .filter(s => s.side === 'friend' && s.buildT <= 0 && s.launchesDrones)
@@ -633,6 +647,8 @@ export function deployDrone(typeKey, x, y) {
     id, type: typeKey, x: ox, y: oy, ox, oy,
     tx: x, ty: y, state: tether ? 'onstation' : 'transit', route: [],
     tether: tether ? tether.id : null,
+    sensorMode: tether ? 'auto' : null,   // aerostat turret: free / auto / lock
+    scanAngle: 0,
     altMul: 1, sightMul: 1, orbitMul: 1,
     endurance: spec.endurance, angle: 0,
     ammo: spec.weapons ? spec.weapons.ammo : 0,
@@ -717,6 +733,19 @@ export function droneRTB(droneId) {
 }
 
 // sensor lock: camera stays on a unit (track) or a grid (point) regardless of orbit
+// Aerostat turret mode: 'auto' (continuous 360° survey sweep) or 'free' (operator slews
+// the bearing by hand). Pointing at a specific contact is FOLLOW, not a mode — designate
+// it in the feed and press FOLLOW, same as every other drone.
+export function droneSensorMode(droneId, mode) {
+  const d = S.drones.find(d => d.id === droneId)
+  if (!d) return
+  d.sensorMode = mode
+  // FREE starts level — the operator can only tilt down from the horizon
+  if (mode === 'free' && d.tilt == null) d.tilt = 0.05
+  // taking manual/auto control drops any follow-track the sensor was holding
+  if (d.followId) { d.followId = null; if (d.lock && d.lock.track) d.lock = null }
+}
+
 export function droneLock(droneId, lock) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
@@ -2094,7 +2123,8 @@ export function tick(dt) {
         // around the mast; a lock stops the sweep and holds the point (handled in
         // DroneCamera). scanAngle is the bearing the turret is currently looking down.
         d.x = d.tx; d.y = d.ty; d.orbR = 0
-        if (!d.lock) d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE
+        // sweep only in AUTO; FREE holds the manual bearing, LOCK holds the point
+        if (d.sensorMode === 'auto' && !d.lock) d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE
       } else {
         const oR = spec.orbitR * (d.orbitMul || 1)
         if (d.orbR == null) d.orbR = oR
@@ -2354,7 +2384,7 @@ export function advance(seconds) {
 if (typeof window !== 'undefined') {
   window.__game = {
     S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
-    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
+    orderDroneMove, droneDropWp, droneSet, droneRTB, droneSensorMode, fieldAerostat, airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
     fog: (on) => { S.fogEnabled = on },
