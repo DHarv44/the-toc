@@ -891,6 +891,31 @@ export default function MapView() {
         return since < 0.35 ? 1 - since / 0.35 : 0.12
       }
 
+      // weapon-range rings, drawn under the symbols so they don't obscure them. Shown
+      // for all friendly units when the global toggle is on, plus any individually
+      // toggled on. Effective range accounts for mounted firepower reach.
+      {
+        const showAll = ui.showRanges
+        const per = ui.rangeUnits || {}
+        for (const u of S.units) {
+          if (u.side !== 'friend' || u.strength <= 0) continue
+          if (!showAll && !per[u.id]) continue
+          const type = UNIT_TYPES[u.type]
+          const r = type.range
+          if (!r) continue
+          const px = w2sX(u.x), py = w2sY(u.y), rr = r * view.ppm
+          ctx.beginPath()
+          ctx.arc(px, py, rr, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(90,160,240,0.06)'
+          ctx.fill()
+          ctx.setLineDash([5, 4])
+          ctx.strokeStyle = per[u.id] ? 'rgba(255,215,90,0.55)' : 'rgba(90,160,240,0.4)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+      }
+
       // friendly units (always shown — it's blue force tracking)
       for (const u of S.units) {
         if (u.side !== 'friend') continue

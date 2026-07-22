@@ -230,6 +230,14 @@ function SelectionTray() {
       <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
         <span style={{ color: '#54708a', fontSize: 9, alignSelf: 'center' }}>{units.length + selDrones.length} SELECTED</span>
         <button style={btn(false)} onClick={() => units.forEach(u => orderHold(u.id))}>HOLD</button>
+        {units.length > 0 && (
+          <button style={btn(units.every(u => ui.rangeUnits[u.id]))}
+            title="Show this unit's weapon range on the map"
+            onClick={() => {
+              const on = units.every(u => ui.rangeUnits[u.id])
+              units.forEach(u => { if (!!ui.rangeUnits[u.id] === on) ui.toggleUnitRange(u.id) })
+            }}>RANGE</button>
+        )}
         {units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted) && (
           <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, true))}>MOUNT</button>
         )}

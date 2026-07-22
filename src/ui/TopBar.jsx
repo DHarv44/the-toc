@@ -63,6 +63,9 @@ export default function TopBar() {
         <Button variant={ui.night ? 'filled' : 'default'} onClick={ui.toggleNight}>
           {ui.night ? '☾ NIGHT' : '☀ DAY'}
         </Button>
+        <Tooltip label="Show weapon ranges for all units" withArrow>
+          <Button variant={ui.showRanges ? 'filled' : 'default'} onClick={ui.toggleRanges}>RNG</Button>
+        </Tooltip>
         <Tooltip label="Radio net" withArrow>
           <Button variant={ui.netOpen ? 'filled' : 'default'} onClick={ui.toggleNet}>NET</Button>
         </Tooltip>

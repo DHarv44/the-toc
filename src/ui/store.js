@@ -37,6 +37,8 @@ export const useUI = create((set, get) => ({
   ctxMenu: null,           // {x, y, unitId} — screen coords
   feeds: [],               // no feed shown until the player opens one (or deploys a drone)
   night: false,
+  showRanges: false,       // global weapon-range overlay for all friendly units
+  rangeUnits: {},          // unitId -> true: per-unit range ring, independent of the global
   leftOpen: true,          // side rails: collapse to their own edge, independently
   netOpen: true,
   muted: false,
@@ -57,6 +59,12 @@ export const useUI = create((set, get) => ({
   openMenu: (m) => set({ ctxMenu: m }),
   closeMenu: () => set({ ctxMenu: null }),
   toggleNight: () => set((s) => ({ night: !s.night })),
+  toggleRanges: () => set((s) => ({ showRanges: !s.showRanges })),
+  toggleUnitRange: (id) => set((s) => {
+    const r = { ...s.rangeUnits }
+    if (r[id]) delete r[id]; else r[id] = true
+    return { rangeUnits: r }
+  }),
   toggleNet: () => set((s) => ({ netOpen: !s.netOpen })),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   addFeed: (droneId = null) => {
