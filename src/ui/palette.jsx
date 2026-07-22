@@ -1,7 +1,7 @@
 // Deploy palette primitives: the shared MIL-STD-2525 icon renderer, the row/header
 // chrome, and the rules for what a given selection is allowed to field.
 import { useRef, useEffect } from 'react'
-import { Box, Group, Text, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { S, airAvailability, fmtCooldown } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols.js'
@@ -37,7 +37,7 @@ export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale =
   return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
 }
 
-export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note, plus }) {
+export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note, onPlus }) {
   return (
     <UnstyledButton component="div" onClick={disabled ? undefined : onClick}
       style={{
@@ -59,9 +59,13 @@ export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, 
         {cost !== '' && cost != null && (
           <Text span fz={12} c="yellow.4" style={{ flex: '0 0 auto' }}>{cost}</Text>
         )}
-        {/* one-click fielding: the row IS the order, the ⊕ makes that legible */}
-        {plus && (
-          <Text span fz={15} lh={1} c={disabled ? 'dark.4' : 'toc.3'} style={{ flex: '0 0 auto' }}>⊕</Text>
+        {/* one-click fielding: a real button, so the affordance is unambiguous */}
+        {onPlus && (
+          <ActionIcon size="sm" variant="light" color="toc" disabled={disabled}
+            title={`Field ${label}`} style={{ flex: '0 0 auto' }}
+            onClick={(e) => { e.stopPropagation(); onPlus() }}>
+            <Text span fz={14} lh={1} fw={700}>+</Text>
+          </ActionIcon>
         )}
       </Group>
     </UnstyledButton>
@@ -79,9 +83,11 @@ export function droneTag(dt) {
 
 // Ground units are fielded straight from the palette (`field: true`) — no deploy mode,
 // no map click. The selected installation is the origin.
+// No sub-label: the symbol and the name already say what it is, the abbreviation just
+// repeated it.
 export const unitItem = (t) => ({
   mode: 'deploy:' + t.key, key: t.key, field: true,
-  label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} />,
+  label: t.name, cost: t.cost, icon: <PaletteIcon unit={t} />,
 })
 // Drone rows carry live availability: `used/total` while airframes are up, or the
 // remaining turnaround, so a blocked platform reads as blocked before it's clicked.
@@ -96,7 +102,7 @@ export const droneItem = (dt) => {
     icon: <PaletteIcon drone={dt} />, note, disabled: !a.ready,
   }
 }
-export const structItem = (st) => ({ mode: 'build:' + st.key, label: st.name, tag: st.abbr, cost: st.cost, icon: <PaletteIcon struct={st} /> })
+export const structItem = (st) => ({ mode: 'build:' + st.key, label: st.name, cost: st.cost, icon: <PaletteIcon struct={st} /> })
 
 const groundSections = () => CATS.map(cat => ({
   header: cat,

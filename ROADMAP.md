@@ -740,26 +740,36 @@ A purpose-built sandbox for fast, accurate feature testing, reached from the spl
   choke points, and water gaps into one screen (currently rides the procedural small map).
 
 ### Tutorial Map
-TOC has a lot of surface area — deploy contexts, weapons control, ROE, dismount/remount, UAS
-tasking, fire missions, sensor lock/follow — and none of it is currently explained. A dedicated
-tutorial map, launched from the splash alongside New Game and Dev Sandbox.
-- **A staged map, not a level sequence** — one small, hand-shaped AO you're dropped into with a
-  starting force, free to play from the first second. Objectives appear as tasks you can do in
-  any order (or ignore); nothing is gated, nothing is locked behind "complete step 3."
-- **Teach through the radio net** — guidance arrives as TOC traffic in the net log, which is
-  already the game's voice, rather than modal popups that stop the sim. A quiet highlight on the
-  control being referenced is enough pointing.
-- **Cover the non-obvious** — the things a player won't discover alone: that what you click
-  determines what you can field, that recon drives fog and contacts go stale as LKP ghosts, that
-  units auto-dismount in contact and remount when clear, weapons-hold vs free, designating in the
-  feed before FIRE, and calling a fire mission with shell/rounds/sheaf.
-- **Scripted, forgiving opposition** — a small OPFOR that shows up on cue so each concept has a
-  reason to exist, with no wave clock running the player over while they read.
+TOC has a lot of surface area and none of it is currently explained. One small map, launched
+from the splash, that walks a player through a single complete operation. **Keep it simple** —
+one linear mission, not a syllabus.
+
+**The mission, in order:**
+1. **Field a task force** — deploy a Stryker Rifle Platoon, a Rifle Platoon, an Engineer
+   Platoon and a Logistics Platoon from the HQ. Teaches: select the installation, ⊕ to field,
+   units build at the base and move out to a rally.
+2. **Take the nearest town** — move the task force to the town and clear the garrison.
+   Teaches: movement orders, mounted travel vs dismounting in contact, weapons control.
+3. **Establish a FOB there** — the engineer emplaces it on the objective. Teaches: engineers
+   build installations, and a forward base extends the deploy zone.
+4. **Open a supply route** — run the logistics platoon HQ → FOB. Teaches: FOBs spend their own
+   stock, and convoys are what keep them fielding.
+5. **Put up air** — launch the organic UAS off a carrier unit, and fixed-wing off the airfield.
+   Teaches: recon drives fog, feeds are how you see ground truth, caps and cooldowns.
+6. **Destroy the enemy HQ** — the win condition, now with a supplied forward base and eyes on.
+
+- **Teach through the radio net** — each step arrives as TOC traffic in the net log, which is
+  already the game's voice, rather than modal popups that stop the sim. A quiet highlight on
+  the control being referenced is enough pointing.
+- **Non-blocking** — steps advance off sim state, not a step counter, and a player who does
+  things out of order or early just ticks them off early. Nothing is locked.
+- **Forgiving opposition** — a light town garrison and no wave clock, so nobody gets run over
+  while they read.
 - **Skippable and replayable** — never forced on first launch, always available from the splash.
-- Design notes: build on `initDevGame`'s staged-placement approach with a fixed seed and a task
-  list driven off sim state (checks like "a UAS is on station", "a contact is designated") rather
-  than a step counter; reuse `radio()`/the net log for prompts. Pairs with the Unit Wiki (the
-  reference the tutorial points at) and the Scenario Builder (same serialization/staging).
+- Design notes: fixed seed + staged placement like `initDevGame`; a task list whose checks read
+  sim state (units of type X exist, town cell cleared of hostiles, a FOB within the town radius,
+  a convoy completed, a drone on station, `S.won`). Reuse `radio()` for prompts. Pairs with the
+  Unit Wiki (what the tutorial points at) and the Scenario Builder (same staging/serialization).
 
 ### Scenario Builder
 A proper in-app editor to lay out a battle instead of hand-placing everything by console:

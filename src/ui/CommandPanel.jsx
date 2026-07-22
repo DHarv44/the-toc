@@ -43,7 +43,9 @@ function InstallationsRoster() {
           <PaletteRow key={st.id} active={active}
             icon={<PaletteIcon struct={spec} w={34} h={24} scale={0.82} />}
             label={st.label}
-            tag={st.buildT > 0 ? `${spec.abbr} · BUILDING ${Math.ceil(st.buildT)}s` : spec.abbr}
+            // no static abbreviation sub-label — the symbol and name cover it. Only the
+            // build countdown earns the second line, because it changes.
+            tag={st.buildT > 0 ? `BUILDING ${Math.ceil(st.buildT)}s` : null}
             cost=""
             onClick={() => {
               ui.select(st.id)
@@ -87,7 +89,8 @@ function DeploySection() {
             const short = oneClick && ctx.purse != null && ctx.purse < it.cost
             return (
               <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
-                note={it.note} plus={oneClick} disabled={it.disabled || short}
+                note={it.note} disabled={it.disabled || short}
+                onPlus={oneClick ? () => fieldUnit(it.key, ctx.sourceId) : undefined}
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fieldUnit(it.key, ctx.sourceId) : pick(it.mode))} />
             )
