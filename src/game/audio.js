@@ -6,6 +6,9 @@ let ctx = null
 let master = null
 let noiseBuf = null
 let muted = false // sound on by default; the HUD mute button toggles this
+let radioBus = null // narrow-band + crunch bus that all net chatter routes through
+let lastRadio = -99 // throttle timestamp so transmissions don't stack
+const RADIO_VOL = 0.7
 
 export function isMuted() { return muted }
 export function audioReady() { return !!ctx && ctx.state === 'running' }
@@ -22,8 +25,20 @@ export function ensureAudio() {
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
     const d = noiseBuf.getChannelData(0)
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    // radio bus: narrow bandpass + soft-clip crunch, so all net chatter reads as "over the net"
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 0.8
+    const shaper = ctx.createWaveShaper(); shaper.curve = crunchCurve(0.4)
+    radioBus = ctx.createGain(); radioBus.gain.value = RADIO_VOL
+    bp.connect(shaper).connect(radioBus).connect(master)
+    radioBus.inNode = bp // chatter voices connect here
   }
   if (ctx.state === 'suspended') ctx.resume()
+}
+
+function crunchCurve(amount) {
+  const n = 256, c = new Float32Array(n)
+  for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(x * (1 + amount * 4)) }
+  return c
 }
 
 export function setMuted(m) {
@@ -73,6 +88,128 @@ export function rumble(gain = 0.25, freq = 55) {
   const og = ctx.createGain()
   og.gain.setValueAtTime(gain * 0.7, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.5)
   o.connect(og).connect(master); o.start(t); o.stop(t + 0.52)
+}
+
+// --- radio net chatter ---
+// The net readout stays; this is the SOUND of it. No real words: a keyed-mic click, a
+// procedural "mumble" voice that tracks the message's cadence/inflection (military, not
+// cartoon), and a squelch tail — all through the radio bus. Global (the command net), not
+// feed-gated. `seed` (callsign) varies the speaker; `priority` gates the throttle.
+function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h }
+// a stable, distinct voice per callsign — pitch, timbre, formant color, sharpness, pace,
+// and an occasional growl — so units become identifiable by the sound of their traffic.
+function voiceProfile(seed) {
+  const h = Math.abs(hashStr(String(seed)))
+  const h2 = Math.abs(hashStr('v' + seed))
+  return {
+    pitch: 78 + (h % 92),                                          // 78..170 Hz — wide spread
+    wave: ['sawtooth', 'triangle', 'sawtooth', 'triangle', 'square'][h2 % 5], // mostly soft waves
+    q: 1.6 + (h % 20) / 10,                                        // 1.6..3.5 — broad, un-horny formants
+    rate: 0.85 + (h2 % 40) / 100,                                  // 0.85..1.24 speaking pace
+    f1: 320 + (h % 260),                                           // 320..580 first formant (vowel color)
+    f2: 880 + (h2 % 950),                                          // 880..1830 second formant
+    staticAmt: 0.02 + (h % 7) / 100,                               // 0.02..0.08 per-unit channel noise
+    growl: (h2 % 5) === 0,                                         // ~1 in 5 gets a sub-octave rasp
+  }
+}
+function sylCount(w) {
+  const m = w.toLowerCase().match(/[aeiouy]+/g)
+  return m ? Math.min(4, m.length) : Math.min(3, Math.max(1, Math.ceil(w.length / 2)))
+}
+function radioClick(t, gain) {
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 0.6
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04)
+  n.connect(bp).connect(g).connect(radioBus.inNode); n.start(t, Math.random()); n.stop(t + 0.05)
+}
+function radioStatic(t, dur, gain) {
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1100
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(gain, t); g.gain.setValueAtTime(gain, t + dur); g.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.05)
+  n.connect(hp).connect(g).connect(radioBus.inNode); n.start(t, Math.random()); n.stop(t + dur + 0.1)
+}
+function radioSquelch(t) {
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'
+  bp.frequency.setValueAtTime(2300, t); bp.frequency.exponentialRampToValueAtTime(650, t + 0.1); bp.Q.value = 0.7
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.32, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
+  n.connect(bp).connect(g).connect(radioBus.inNode); n.start(t, Math.random()); n.stop(t + 0.14)
+}
+// one syllable, in a speaker's voice `v`: a voiced source shaped by two BROAD, gliding
+// formants (mouth articulating) + a breath layer, with a decaying envelope — so it reads
+// as a mumbled syllable, not a held horn note.
+function radioSyllable(t, pitch, v, dur) {
+  const o = ctx.createOscillator(); o.type = v.wave
+  o.frequency.setValueAtTime(pitch * 1.05, t)
+  o.frequency.linearRampToValueAtTime(pitch * 0.94, t + dur) // spoken pitch fall
+  // formants glide across the syllable (vowel morph) and use a broad Q so they don't ring
+  const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = v.q
+  const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = v.q
+  f1.frequency.setValueAtTime(v.f1 * (0.8 + Math.random() * 0.4), t)
+  f1.frequency.linearRampToValueAtTime(v.f1 * (0.8 + Math.random() * 0.4), t + dur)
+  f2.frequency.setValueAtTime(v.f2 * (0.8 + Math.random() * 0.4), t)
+  f2.frequency.linearRampToValueAtTime(v.f2 * (0.8 + Math.random() * 0.4), t + dur)
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(0.8, t + 0.02)          // quick attack
+  g.gain.linearRampToValueAtTime(0.5, t + dur * 0.65)    // fall through the body (not held)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.02)
+  o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(radioBus.inNode)
+  o.start(t); o.stop(t + dur + 0.04)
+  // breath — a little filtered noise so it's a voice, not a pure tone
+  const nz = ctx.createBufferSource(); nz.buffer = noiseBuf
+  const nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = v.f2; nb.Q.value = 1
+  const ng = ctx.createGain()
+  ng.gain.setValueAtTime(0.0001, t)
+  ng.gain.linearRampToValueAtTime(0.07, t + 0.03)
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.02)
+  nz.connect(nb).connect(ng).connect(radioBus.inNode); nz.start(t, Math.random()); nz.stop(t + dur + 0.04)
+  if (v.growl) { // sub-octave rasp for a gravelly speaker
+    const sub = ctx.createOscillator(); sub.type = 'square'; sub.frequency.value = pitch * 0.5
+    const sg = ctx.createGain()
+    sg.gain.setValueAtTime(0.0001, t)
+    sg.gain.linearRampToValueAtTime(0.18, t + 0.03)
+    sg.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.03)
+    sub.connect(sg).connect(radioBus.inNode); sub.start(t); sub.stop(t + dur + 0.05)
+  }
+}
+export function radioMsg(text, seed = '', priority = 0) {
+  if (muted || !audioReady() || !radioBus) return
+  const now = ctx.currentTime
+  const gap = priority >= 2 ? 0.35 : 0.9 // urgent traffic can cut in; routine yields
+  if (now - lastRadio < gap) return
+  const v = voiceProfile(seed)
+  // urgency: contact/fires/loss (priority 2) are tenser and faster — troops-in-contact
+  // should sound dire; routine movement stays calm and measured.
+  const urgent = priority >= 2
+  const basePitch = v.pitch * (urgent ? 1.12 : 1)  // stress raises the pitch
+  const durMul = (urgent ? 0.82 : 1) * v.rate       // clipped/quicker under contact
+  const gapMul = (urgent ? 0.6 : 1) * v.rate
+  let t = now
+  radioClick(t, 0.45); t += 0.09
+  const words = String(text).replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const startVoice = t
+  let contour = urgent ? 0.16 : 0.06                // starts agitated when in contact
+  outer:
+  for (let wi = 0; wi < words.length; wi++) {
+    const n = sylCount(words[wi])
+    for (let s = 0; s < n; s++) {
+      if (t - startVoice > 3.0) break outer         // cap transmission length
+      const pitch = basePitch * (1 + contour) * (0.97 + Math.random() * (urgent ? 0.1 : 0.06))
+      const dur = (0.13 + Math.random() * 0.07) * durMul
+      radioSyllable(t, pitch, v, dur)
+      t += dur + 0.06 * gapMul
+      contour += (Math.random() - 0.5) * (urgent ? 0.08 : 0.05)
+    }
+    t += 0.16 * gapMul                              // pause between words
+    // urgent traffic stays high and jittery; routine settles down (statement inflection)
+    contour = urgent ? contour * 0.92 + Math.random() * 0.05 : contour * 0.8 - 0.02
+  }
+  // per-unit channel noise, heavier when transmitting under fire
+  radioStatic(startVoice - 0.02, (t - startVoice) + 0.06, v.staticAmt * (urgent ? 1.6 : 1))
+  radioSquelch(t + 0.02)
+  lastRadio = t + 0.05
 }
 
 // --- per-drone-type ambient platform loops (engine/prop/motor) ---

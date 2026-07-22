@@ -2,12 +2,17 @@ import { genMap, T_FOREST, T_URBAN, T_WATER, GRID, CELL } from './mapgen.js'
 import { findPath } from './pathfinding.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from './units.js'
 import { makeRng } from './rng.js'
+import { radioMsg } from './audio.js'
 
 // ---------------------------------------------------------------------------
 // Singleton mutable game state. React reads it via polling; the sim loop
 // mutates it. Kept as plain objects for speed and easy dev-console poking.
 // ---------------------------------------------------------------------------
-export const S = {
+// Preserve the live game state across Vite HMR (stashed on globalThis and reused when a hot
+// update re-runs this module) so editing this file doesn't reset your session. See the HMR
+// block at the bottom, which clears/restarts the loop and self-accepts.
+const _hmr = (typeof globalThis !== 'undefined' ? globalThis : window)
+export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   t: 0,
   map: null,
   resources: 50000,        // dev: plenty
@@ -16,6 +21,7 @@ export const S = {
   structures: [],          // FOBs, HQs, airfields, OPs — both sides
   drones: [],
   shells: [],
+  gunRounds: [],           // gunship cannon rounds in flight
   impacts: [],             // recent arty impacts (for map flash + drone view)
   smoke: [],               // active smoke clouds {x, y, t, r}
   wrecks: [],
@@ -31,9 +37,13 @@ export const S = {
   enemyGroups: [],         // hostile battlegroups (task-organized elements)
   rng: null,
   version: 0,
-}
+})
 
+// resume id allocation past any existing entities so a hot reload doesn't collide
 let nextId = 1
+for (const e of S.units) if (e.id >= nextId) nextId = e.id + 1
+for (const e of S.drones) if (e.id >= nextId) nextId = e.id + 1
+for (const e of S.structures) if (e.id >= nextId) nextId = e.id + 1
 const designators = { friend: 0, hostile: 0 }
 const FRIEND_CALLS = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA', 'JULIET', 'KILO', 'LIMA', 'MIKE', 'NOVA', 'OSCAR', 'PAPA', 'QUEBEC', 'ROMEO', 'SIERRA', 'TANGO']
 
@@ -214,7 +224,7 @@ function syncElements(u, allowRevive = false) {
 
 // precision/blast fires resolve against individual elements by distance, so a
 // direct hit kills the vic you aimed at; sub-lethal splash chips aggregate strength.
-function precisionBlast(u, ix, iy, blast, dmg, shell) {
+function precisionBlast(u, ix, iy, blast, dmg, shell, apMul = 1) {
   const type = UNIT_TYPES[u.type]
   const icm = shell === 'ICM'
   const armorFactor = icm ? type.soft * 0.55 + (1 - type.soft) * 1.0 : type.soft * 1.0 + (1 - type.soft) * 0.45
@@ -228,8 +238,10 @@ function precisionBlast(u, ix, iy, blast, dmg, shell) {
     if (!el.alive) continue
     const w = elemWorld(u, el)
     const dEl = Math.hypot(w.x - ix, w.y - iy)
-    if (dEl >= blast) continue
-    const lethality = dmg * (1 - dEl / blast) * armorFactor * cover * post
+    // exposed foot mobiles catch fragmentation over a wider radius (anti-personnel splash)
+    const elBlast = el.kind === 'troop' ? blast * apMul : blast
+    if (dEl >= elBlast) continue
+    const lethality = dmg * (1 - dEl / elBlast) * armorFactor * cover * post
     if (lethality >= 18) { killElement(u, el); killed++ }
     else residual += lethality
   }
@@ -302,11 +314,17 @@ export function deployStructure(kind, x, y) {
       && u.strength > 0 && Math.hypot(u.x - x, u.y - y) <= 500)) {
     return toast('FOB CONSTRUCTION REQUIRES ENGINEERS ON SITE')
   }
+  const nearStruct = S.structures.some(s => s.side === 'friend' && s.buildT <= 0 && Math.hypot(s.x - x, s.y - y) <= spec.near)
+  // a supply truck on site lets an engineer establish a FOB forward of the base network
+  const supplyOnSite = kind === 'FOB' && S.units.some(u => u.side === 'friend' && u.type === 'LOG'
+    && u.strength > 0 && Math.hypot(u.x - x, u.y - y) <= 500)
   const nearOk = kind === 'OP'
-    ? (S.units.some(u => u.side === 'friend' && Math.hypot(u.x - x, u.y - y) <= spec.near)
-      || S.structures.some(s => s.side === 'friend' && Math.hypot(s.x - x, s.y - y) <= spec.near))
-    : S.structures.some(s => s.side === 'friend' && s.buildT <= 0 && Math.hypot(s.x - x, s.y - y) <= spec.near)
-  if (!nearOk) return toast(kind === 'OP' ? 'TOO FAR FROM FRIENDLY FORCES' : 'TOO FAR FROM EXISTING BASE')
+    ? (S.units.some(u => u.side === 'friend' && Math.hypot(u.x - x, u.y - y) <= spec.near) || nearStruct)
+    : (nearStruct || supplyOnSite)
+  if (!nearOk) return toast(
+    kind === 'OP' ? 'TOO FAR FROM FRIENDLY FORCES'
+      : kind === 'FOB' ? 'TOO FAR FROM BASE — NEEDS A SUPPLY TRUCK ON SITE'
+        : 'TOO FAR FROM EXISTING BASE')
   S.resources -= spec.cost
   const s = addStructure('friend', kind, x, y)
   toast(s.label + ' — CONSTRUCTION STARTED')
@@ -434,19 +452,15 @@ export function droneRTB(droneId) {
 export function droneLock(droneId, lock) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
-  if (!lock) {
-    if (d.lock) radio(d.label, 'move', 'SENSOR LOCK BROKEN — RATE MODE', d.x, d.y)
-    d.lock = null
-    return
-  }
+  // sensor lock is a silent camera action — no net traffic. The transmission happens on
+  // TARGET lock instead (see droneToggleTarget), as a request for permission to fire.
+  if (!lock) { d.lock = null; return }
   if (lock.unitId != null) {
     const u = S.units.find(u => u.id === lock.unitId)
     if (!u) return
     d.lock = { unitId: u.id, x: u.x, y: u.y }
-    radio(d.label, 'spot', `SENSOR TRACKING ${u.side === 'friend' ? u.label : UNIT_TYPES[u.type].name.toUpperCase()}`, u.x, u.y)
   } else {
     d.lock = { x: lock.x, y: lock.y }
-    radio(d.label, 'spot', `SENSOR LOCKED — GRID ${grid(lock.x, lock.y)}`, lock.x, lock.y)
   }
 }
 
@@ -506,8 +520,14 @@ export function droneToggleTarget(droneId, unitId, ei) {
   if (!spec.weapons && !spec.kamikaze && !spec.gunship) return
   if (!d.targets) d.targets = []
   const i = d.targets.findIndex(t => t.unitId === unitId && t.ei === ei)
-  if (i >= 0) d.targets.splice(i, 1)
-  else d.targets.push({ unitId, ei })
+  if (i >= 0) { d.targets.splice(i, 1); return }
+  const wasEmpty = !d.targets.length
+  d.targets.push({ unitId, ei })
+  // first target of an engagement → call in a request for permission to fire
+  if (wasEmpty) {
+    const p = targetPoint({ unitId, ei })
+    if (p) radio(d.label, 'fires', `TARGET LOCKED — GRID ${grid(p.x, p.y)}, REQUEST PERMISSION TO ENGAGE`, p.x, p.y)
+  }
 }
 export function droneClearTargets(droneId) {
   const d = S.drones.find(d => d.id === droneId)
@@ -643,7 +663,7 @@ function updateGunship(d, dt) {
   S.gunRounds.push({
     fromX: d.x, fromY: d.y, mAlt, x: ix, y: iy,
     t0: S.t, impactT: S.t + dist / w.muzzleV,
-    blast: w.blast, dmg: w.dmg, flash: w.flash,
+    blast: w.blast, dmg: w.dmg, flash: w.flash, ap: w.ap || 1,
   })
   if (S.gunRounds.length > 260) S.gunRounds.shift()
 }
@@ -894,9 +914,39 @@ export function grid(x, y) {
   return String(Math.floor(x / 100)).padStart(3, '0') + ' ' + String(Math.floor(y / 100)).padStart(3, '0')
 }
 
+// net traffic urgency drives the chatter throttle: contact/loss/fires cut in, routine yields
+function radioPriority(kind) {
+  if (kind === 'contact' || kind === 'loss' || kind === 'fires') return 2
+  if (kind === 'spot' || kind === 'struct') return 1
+  return 0
+}
+
+// dress terse traffic up into a full radio transmission — addressee + self-ID, the report,
+// a range read-back for spot/contact, and a closing proword — so it reads and *sounds* like
+// real net chatter (longer transmissions = a fuller mumble voice).
+const NET_HIGHER = ['COMMAND', 'BASE', 'TOC', 'MOTHER', 'NET CONTROL']
+const RADIO_CLOSINGS = ['OVER', 'HOW COPY, OVER', 'OUT', 'ACKNOWLEDGE, OVER', 'SEND IT']
+function radioHash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h) }
+function phraseRadio(callsign, kind, msg, x, y) {
+  if (callsign === 'NET') return `ALL STATIONS, THIS IS NET CONTROL. ${msg}, OUT.`
+  const higher = NET_HIGHER[radioHash(callsign) % NET_HIGHER.length] // each element calls the same higher
+  const close = RADIO_CLOSINGS[(Math.random() * RADIO_CLOSINGS.length) | 0]
+  let dist = ''
+  if ((kind === 'spot' || kind === 'contact') && x != null) {
+    const u = S.units.find(uu => uu.label === callsign) || S.drones.find(dd => dd.label === callsign)
+    if (u) {
+      const c = Math.hypot(u.x - x, u.y - y) / 1000
+      if (c >= 0.4) dist = `, ${c < 10 ? c.toFixed(1) : c.toFixed(0)} CLICKS FROM OUR POSITION`
+    }
+  }
+  return `${higher}, THIS IS ${callsign}. ${msg}${dist}, ${close}.`
+}
+
 function radio(callsign, kind, msg, x, y) {
-  S.radio.push({ t: S.t, callsign, kind, msg, x, y })
+  const full = phraseRadio(callsign, kind, msg, x, y)
+  S.radio.push({ t: S.t, callsign, kind, msg: full, x, y })
   if (S.radio.length > 100) S.radio.shift()
+  radioMsg(full, callsign, radioPriority(kind)) // audible net chatter (no-op if muted/not ready)
 }
 
 // --- sensing --------------------------------------------------------------
@@ -1313,8 +1363,9 @@ export function tick(dt) {
     const r = S.gunRounds[i]
     if (S.t < r.impactT) continue
     S.gunRounds.splice(i, 1)
+    const reach = r.blast * (r.ap || 1) + 90 // widen so anti-personnel splash finds spread-out troops
     for (const u of S.units) {
-      if (Math.hypot(u.x - r.x, u.y - r.y) < r.blast + 60) precisionBlast(u, r.x, r.y, r.blast, r.dmg, 'HE')
+      if (Math.hypot(u.x - r.x, u.y - r.y) < reach) precisionBlast(u, r.x, r.y, r.blast, r.dmg, 'HE', r.ap || 1)
     }
     S.impacts.push({ x: r.x, y: r.y, t: S.t, gun: true, sz: r.flash })
   }
@@ -1502,6 +1553,7 @@ export function tick(dt) {
           // current distance becomes the starting radius, then spiral to standard
           d.angle = Math.atan2(d.y - d.ty, d.x - d.tx)
           d.orbR = Math.max(dist, 25)
+          radio(d.label, 'move', `ON STATION — ORBIT ESTABLISHED GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
         }
       } else { d.x += (dx / dist) * spec.speed * dt; d.y += (dy / dist) * spec.speed * dt }
     } else if (d.state === 'onstation') {
@@ -1704,7 +1756,7 @@ function enemyAI(dt) {
 
 // --- loop -----------------------------------------------------------------
 
-let loopHandle = null
+let loopHandle = _hmr.__WOD_LOOP || null // survives HMR so we don't stack loops
 export function startLoop() {
   if (loopHandle) return
   let last = performance.now()
@@ -1718,6 +1770,7 @@ export function startLoop() {
       dt -= step
     }
   }, 50)
+  _hmr.__WOD_LOOP = loopHandle
 }
 
 // Deterministic headless stepping for dev/verification (rAF-independent).
@@ -1737,4 +1790,16 @@ if (typeof window !== 'undefined') {
     setSpeed: (x) => { S.speed = x },
   }
   window.__advance = advance
+}
+
+// --- HMR: keep the session alive when this file is edited (state survives hot updates) ---
+// On a hot update, stop the old loop and let the fresh module resume it with the new code;
+// S is already preserved on globalThis, so units/map/drones/etc. carry over.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    if (loopHandle) { clearInterval(loopHandle); loopHandle = null; _hmr.__WOD_LOOP = null }
+  })
+  import.meta.hot.accept()
+  // a game is already in progress → restart the loop against this updated module
+  if (S.map) startLoop()
 }

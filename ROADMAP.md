@@ -162,6 +162,27 @@ Model drones by their real airframe rather than one generic flyer:
   hold position instead of orbiting; the FPV terminal attack reuses the kamikaze strike path
   with a player-confirmed engage step and an optional nose-cam feed.
 
+### Individual Unit Formations (UAV View)
+The sub-elements (vics/troops) currently sit in a generic staggered offset. Give units real
+tactical formations, visible in the drone feed:
+- Lay elements out in proper formations — **column, wedge, line/skirmish, echelon, herringbone
+  (halted on a road), coil/leaguer** — chosen by unit type, movement state, and posture.
+- Formation shifts with what the unit is doing: traveling column on roads, wedge or line in the
+  assault, herringbone on a short halt, dispersed/dug-in when defending; troops dismount into a
+  skirmish line, vics hold wedge/column.
+- Design notes: replace `bgOffset`/`initElements` with formation templates keyed to unit type +
+  state, oriented to heading; keep the element world positions authoritative so fires still
+  resolve against exactly what's shown in the feed.
+
+### Catastrophic Kills — Turret Toss
+When a tank/AFV vic is destroyed, a **30% chance it "blows its top"** — a catastrophic
+ammunition cook-off that throws the turret clear:
+- On that roll, spawn a **turret that launches upward, tumbles, and falls back to the ground**
+  in the drone feed (the classic catastrophic-kill signature); otherwise a normal wreck/burn.
+- Design notes: on a `veh` (armored) element kill, roll 0.3 → spawn a short-lived ballistic
+  turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
+  hull.
+
 ## Combat & Tactics
 
 ### Longer Firefights & Auto Break-Contact  *(no morale)*
@@ -195,6 +216,20 @@ Broken units don't always fight to the death or cleanly withdraw:
   instead — taken out of the fight (and potentially a POW/handling hook later).
 - Design notes: on the break-contact trigger, roll a small surrender chance; a surrendered unit
   is removed from combat (later: prisoner handling / intel value).
+
+### Foot Mobiles Seek Cover → Concealment → Prone
+Under fire, dismounted infantry actively better their position instead of standing in the open,
+in priority order:
+- **Cover first** — move to the nearest cover that actually stops rounds (buildings, walls,
+  defilade), if any is within reach.
+- **Then concealment** — if no cover is close, break to the nearest concealment (treeline, brush)
+  that degrades line of sight / detection.
+- **Then prone** — if neither is near, go prone in place (smaller signature, harder to hit).
+- Cuts casualties, makes cover/terrain matter, and reads great in the feed — troops scrambling
+  for a wall rather than standing still.
+- Design notes: on the contact/suppression trigger, per troop element pick nearest cover cell →
+  else nearest concealment cell → else set a prone flag; cover/prone lower damage-taken and
+  detectability (ties into the cover and LOS systems).
 
 ## Intelligence & EW
 
@@ -422,16 +457,41 @@ Generate authentic radio traffic that drives the JBC-P NET readout now and voice
   string (for the NET) and a structured token list (for voice); a small variant/synonym table per
   message type; replaces ad-hoc radio strings over time.
 
-**Voice / audio (later) — yes, this can be programmatic.**
-- Two paths, both of which keep the **NET text readout** regardless:
-  - **Programmatic TTS** — browser-native `speechSynthesis` (no downloaded assets, fits the
-    trusted-only rule), passed through a **radio filter** (bandpass + squelch/static/keyed-mic
-    clicks) via the existing Web Audio graph for the net effect. Fully dynamic — any generated
-    message can be spoken.
-  - **Recorded / batch-synth word bank** — alternatively I can generate a **script/word list** for
-    you to voice (or batch-synthesize) into clips that the factory stitches per message.
-- Design notes: since the factory already emits a token list, either voice path is a drop-in
-  consumer; start with `speechSynthesis` + radio filter for zero-asset dynamic voice.
+### Radio Chatter Audio (Squelch + Procedural "Mumble") — *decided direction*
+The **net readout stays**; on top of it, play the *sound* of radio traffic. **No computer
+TTS** (browser voices sound like Siri and can't route through our radio filter). Instead:
+- **Radio SFX** — a keyed-mic **click** on the front, a **static/squelch** bed, and a squelch
+  tail ("ksshh") on the back of every net transmission, with a little crunch. This alone reads
+  instantly as a command post and can never sound wrong.
+- **Procedural "mumble" voice** — a synthesized, wordless voice that tracks the *cadence and
+  inflection* of the message (Animal-Crossing "Animalese" / muted-trombone idea, but **military,
+  not cartoon**): low gruff pitch, terse clipped syllable blips driven by the message's word/
+  syllable count, gaps between words, a downward inflection at the end of a statement, run
+  through the narrow radio bandpass so it's muffled comms. You *hear* the traffic and *read* the
+  words — never intelligible speech, so it's always dynamic and never wrong.
+- **Per-speaker variation** — hash the callsign to a base pitch + formant so different elements
+  sound distinct (ties into the callsign system).
+- **Global, not feed-gated** — this is the command net; it plays regardless of which feed is
+  open (unlike weapon audio, which is gated to the feed). **Throttle + priority** so it's traffic
+  not a drone — contact/fires/loss always chirp; routine gets a short blip or is skipped. Its own
+  **radio volume**, silenced by the existing mute.
+- Design notes: build on the existing Web Audio graph; hook the friendly `radio()` net path
+  (sim.js) to a `radioMsg(text, speakerSeed, priority)` that emits click → mumble → squelch
+  through a shared radio bandpass; derive syllable timing from the text; own gain node under
+  master.
+
+### Radio Channels / Nets
+Real C2 runs multiple nets, not one stream — split the traffic into channels:
+- **Separate nets** — e.g. **Command**, **Fires**, **Air/CAS**, **Admin/Log**, and optionally a
+  **per-combat-group net** (ties into named groups). Each message is tagged to a channel by its
+  type/originator.
+- **Monitor & filter** — the JBC-P NET can filter by channel; the player chooses which channels
+  they **hear** (chatter audio) and see, with **per-channel volume/mute**. Monitor all, or focus
+  the command net and mute the log net.
+- **Immersion + control** — lets the player dial the information load and adds authenticity
+  (fires traffic on the fires net, air on the air net).
+- Design notes: add a `channel` field to net messages (routed from `kind`/actor); a channel
+  selector on the NET panel; gate both the text feed and the chatter audio per monitored channel.
 
 ## Maps & World
 

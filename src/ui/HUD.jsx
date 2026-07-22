@@ -208,7 +208,7 @@ function RadioLog() {
             borderBottom: '1px solid rgba(40,58,72,0.4)',
           }}>
           <span style={{ color: '#54708a' }}>{fmtClock(e.t).slice(3)}</span>
-          {' '}<b>{e.callsign}</b>: {e.msg}
+          {' '}{e.msg}
         </div>
       ))}
       {S.radio.length === 0 && (
