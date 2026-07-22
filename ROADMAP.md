@@ -18,13 +18,16 @@ self-reported. Last audited 2026-07-22.
 
 ## Status at a Glance
 
-**✅ Shipped (18)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
-Difficulty presets · Drones shadow enemy units · Surrender ·
-Airfield placement restricted to HQ · Dev / test map · Off-map backdrop · Persistent left
-command panel · NET log as full-height right panel · Collapsible side panels · Move UAV
-resize handle to footer · Per-feed mute · Radio chatter & CIC soundscape · Radio chatter
-audio (squelch + mumble) · Rest & refit at a FOB *(main bullet)* · Sensor-lock transit bug
-*(fixed)* · ROUTE IMPASSABLE toast spam *(fixed)*
+**✅ Shipped (26)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
+Ground force caps + refit cooldowns · Difficulty presets · One-click fielding + rally ·
+Formation column movement *(built; parked until combat groups)* · Road-aware routing + route
+modes · Economy: upkeep, stepped resupply, difficulty income · Aerostat turret (auto/free,
+follow, one-click) · Weapon-range overlay · In-contact ring · Drones shadow enemy units ·
+Surrender · Airfield placement restricted to HQ · Dev / test map · Off-map backdrop ·
+Persistent left command panel · NET log as full-height right panel · Collapsible side panels ·
+Move UAV resize handle to footer · Per-feed mute · Radio chatter & CIC soundscape · Radio
+chatter audio (squelch + mumble) · Rest & refit at a FOB *(main bullet)* · Sensor-lock transit
+bug *(fixed)* · ROUTE IMPASSABLE toast spam *(fixed)*
 
 **🟡 Partial (13)** — Attack & Defend *(win/lose yes, no mode selector)* · Air asset cost &
 access · Drone team & organic UAS ·
@@ -335,6 +338,22 @@ entire theatre.
   it by day/night and camMode (IR vs EO). Cheap and mostly a tuning pass over existing fog.
   Pairs with the map-side fog/LKP model — this is its in-feed counterpart.
 
+### Edge-of-Map Blackness in the Feed ⬜
+When a drone near the map edge looks outward, the feed shows the black void past the world —
+the R3F scene only has terrain inside the play area, so beyond it is empty background. It reads
+as a bug ("the world just ends"). Needs a deliberate treatment.
+- **Hide it, ideally** — the sensor-horizon haze above is the cleanest fix: if the fade closes
+  in before the edge is reachable in frame, the void is never seen. For a high aerostat or
+  Sentinel parked near the boundary, that may not be enough on its own.
+- **Frame the boundary when it does show** — a horizon band / atmospheric wash at the world edge
+  so it reads as distance/haze rather than a hard black wall, and/or skirt the play area with a
+  low-detail "beyond the AO" apron (a few km of neutral terrain that isn't part of the sim).
+- **Or keep drones off the rim** — clamp orbit/tether points far enough inside the boundary that
+  the edge stays out of any sensor's reach; simplest, but limits where you can post ISR.
+- Design notes: same Canvas as *Sensor Horizon* — tackle them together. Match the fog/background
+  colour to the horizon band so the seam disappears. Decide first whether haze alone hides it at
+  the highest altitude before building an apron.
+
 ### Better Three.js Assets, Particles & Effects
 The drone feed carries the game's only real "ground truth" imagery, but its scene is built from
 merged primitive boxes and a handful of sprites. It should look like an actual EO/IR downlink.
@@ -408,12 +427,13 @@ being viable immediately — and the player then *has* to find a flank, prep wit
 fix-and-maneuver. That gives every system already built a job: UAS to find the gap, artillery to
 soften it, smoke to cross open ground, engineers to force a crossing. No new mechanics needed;
 the existing ones just have to matter.
-- **Then scarcity** — fewer, dearer, slower-to-replace units. Scarcity is what makes a player
-  position carefully instead of feeding a queue.
+- ~~**Then scarcity**~~ *(largely done)* — per-unit upkeep, map-size force caps and per-type
+  refit cooldowns now bound how big and how fast a force can grow. Making units individually
+  dearer/slower is a tuning knob on top, not a new system.
 - **Then symmetric fog** — while the AI knows where everything is, it never has to maneuver
   either; it can always just walk at you.
-- Suggested order: *Enemy Economy* → decisive defensive advantage → scarcity → symmetric fog.
-  The first two are most of the fix.
+- Suggested order: *Enemy Economy* (done) → decisive defensive advantage → symmetric fog. The
+  defensive advantage is now the single biggest remaining piece.
 - Design notes: the defensive levers already exist and are applied in the direct-fire pass —
   `COVER_DEF[terrain]` and `postureFactor(tgt)` multiply incoming DPS. Start by widening those
   and adding an attacker-in-the-open penalty, rather than adding a new combat model. Pairs with
@@ -641,7 +661,7 @@ the halt/dismount/break drills. What's still missing is everything above and aro
   objectives/reserves/phasing; give hostile forces the drone + request systems; expose a
   difficulty setting that scales tempo, competence, and asset access.
 
-### Enemy Economy — the OPFOR Buys What It Fields 🟡 *(economy + affordability shipped; map-size scaling and wave ramping still open)*
+### Enemy Economy — the OPFOR Buys What It Fields 🟡 *(economy, upkeep cap, difficulty income and a map-size force cap shipped; wave ramping still open)*
 **The AI plays by the player's rules.** It doesn't today: `spawnBattlegroup` conjures an entire
 template into existence on a timer — free, no supply cost, no upkeep, no cap, no cooldown. That
 is the reason it can put everything on the board at once while the player is counting supply,
@@ -660,15 +680,20 @@ side of the board; the opposition never changes.
   Measured at 30 min: 3 groups / 20 hostiles on Recruit up to 10 / 52 on Elite, where every
   difficulty previously converged on ~16 groups and ~90 hostiles. Pressure plateaus instead of
   compounding, and Recruit gets ~4 minutes before the first group is affordable.
-- **Upkeep caps the OPFOR the way it caps the player** — this is the actual answer to "the CPU
-  deployed everything at once", and it's the same mechanism rather than a special case. It also
-  means destroying its units genuinely relieves pressure, because it has to re-buy them.
-- **Difficulty becomes enemy income** — Recruit: the OPFOR is poor and slow to reconstitute.
-  Elite: it out-earns you. Honest economic asymmetry instead of hidden rules.
-- **Scale with map size** — on a small map everything is close, so identical pressure lands far
-  harder. Either the spawn budget or the wave cadence should account for map area.
+- ~~**Upkeep caps the OPFOR the way it caps the player**~~ ✅ — same upkeep clock as the player,
+  so destroying its units genuinely relieves pressure; it has to re-buy them.
+- ~~**Difficulty becomes enemy income**~~ ✅ — enemy lift runs 240/min on Recruit up to 900/min on
+  Elite (against the player's 900 down to 320), plus a starting bank that sets how soon the first
+  group lands. Honest economic asymmetry instead of hidden rules.
+- ~~**Scale with map size**~~ ✅ *(force side)* — the OPFOR lives under a per-side force cap that
+  scales with map area (`MAP_FORCE_CAP`, tilted by difficulty via `CAP_MUL`): small 8v-cap on
+  Recruit up to 45 on Elite/large. `spawnBattlegroup` won't field a template that would breach
+  it, so density is bounded by room as well as money. *(Wave cadence/budget still doesn't scale —
+  see below.)*
+- **Also can't field from a base it lost** *(done)* — `spawnBattlegroup` requires a live hostile
+  HQ/FOB and musters at it; raze them all and it stops reinforcing whatever it has banked.
 - **Ramp rather than dump** — early battlegroups should be small and grow, instead of arriving
-  full-size from the first wave.
+  full-size from the first affordable wave. This is the main piece still open.
 - Design notes: mirror `S.resources`/`S.supplyLift`/`upkeepPerMin()` per side (a `sides` record,
   or `S.enemy.resources`); price `BG_TEMPLATES` from their members' `UNIT_TYPES[].cost`; gate
   `spawnBattlegroup` on affordability and let `S.nextWave` become "time until it can afford the
