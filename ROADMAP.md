@@ -1069,6 +1069,24 @@ camera position rather than a muzzle on the airframe.
   draws straight from `r.fromX/fromY/mAlt` to the impact, so fixing the spawn point fixes the
   render with no change there. Worth checking the muzzle-flash sprite placement at the same time.
 
+### Column Deadlocks Behind a Straggler ⬜
+A formation halts and goes firm when a gap opens past `STRAGGLE_GAP` — but if the trailing
+element **never** closes, the column waits forever. Measured on a cross-map march: the front
+four hold station beautifully (59/32/74 m gaps) while the last element sits ~1.4 km back and
+four units stay in `colWait` indefinitely.
+- **Find out why the straggler stalls** — it isn't simply slow; the group cap is already
+  released for units outside their station so it should be closing at its own speed. Suspects:
+  it's in contact and running a halt/break drill, its join leg put it on the wrong side of an
+  obstacle, or its path is blocked.
+- **Then bound the wait** — cut a straggler loose after it demonstrably fails to close, so the
+  column presses on and the straggler finishes the move independently. An attempt at this was
+  reverted: it fired during initial forming-up (units start scattered around the HQ, so the
+  gap is legitimately large before the column has formed) and dissolved the column within 60 s.
+  The timer needs to start only once the column has actually formed, and reset whenever the
+  gap is shrinking.
+- Design notes: `colStall` in the tick decides who waits; the fix belongs there. Verify against
+  a march that crosses hostile contact, since that's the likeliest real cause.
+
 ### Sensor Lock Placement During Transit ✅ *(fixed by gating LOCK to on-station; the projection math was never made state-aware, so FOLLOW and in-feed target clicks during transit still assume the on-station aim point)*
 Clicking **LOCK** on a UAV *before* it reaches its orbit (still in transit) drops the lock
 reticle in the wrong spot. The LOCK button and the feed's ray/projection use the **on-station**

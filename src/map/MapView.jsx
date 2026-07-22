@@ -227,11 +227,14 @@ export default function MapView() {
           const attack = ui.cmdMode === 'attack'
           const groundCount = sorted.filter(o => !S.drones.includes(o)).length
           const gid = groundCount > 1 ? newMoveGroup() : null
+          // a fan-out is a formation shape, not a new mission: shift-drag appends it as
+          // the next waypoint so an existing route survives being spread out at the end
+          const app = e.shiftKey
           sorted.forEach((o, i) => {
             const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
             const px = wx0 + ldx * t, py = wy0 + ldy * t
-            if (S.drones.includes(o)) orderDroneMove(o.id, px, py, false)
-            else orderMove(o.id, px, py, false, attack, gid, { ...(ROUTE_OPTS[ui.routeMode] || {}) })
+            if (S.drones.includes(o)) orderDroneMove(o.id, px, py, app)
+            else orderMove(o.id, px, py, app, attack, gid, { ...(ROUTE_OPTS[ui.routeMode] || {}) })
           })
         }
         return

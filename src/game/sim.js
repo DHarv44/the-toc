@@ -903,8 +903,8 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
-const COLUMN_GAP = 110    // metres a follower holds behind the vic ahead of it
-const STRAGGLE_GAP = 340  // metres before the column stops and waits for its tail
+const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
+const STRAGGLE_GAP = 190  // metres before the column stops and waits for its tail
 
 function nearRoad(x, y, r = ROAD_SNAP) {
   const m = S.map, GRID = m.GRID
@@ -949,6 +949,14 @@ export function orderGroupMove(unitIds, x, y, append = false, attack = false, op
   const units = unitIds.map(id => S.units.find(u => u.id === id)).filter(u => u && u.strength > 0)
   if (!units.length) return null
   if (units.length === 1) { orderMove(units[0].id, x, y, append, attack, null, opts); return null }
+  // Appending keeps each unit's own multi-leg waypoint queue — a shared column route
+  // collapses the legs into one, which would renumber the player's waypoints out from
+  // under them. Columns form on a fresh order.
+  if (append) {
+    const gid = newMoveGroup()
+    for (const u of units) orderMove(u.id, x, y, true, attack, gid, opts)
+    return gid
+  }
 
   let lead = units[0], leadSpd = Infinity
   for (const u of units) {
@@ -1590,8 +1598,6 @@ export function tick(dt) {
       // this unit's own terrain-adjusted speed, then held to the group's slowest real pace
       let spd = st.speed / (isFinite(f) ? f : 3)
       if (u.groupId != null) {
-        const cap = groupCap.get(u.groupId)
-        if (cap != null) spd = Math.min(spd, cap)
         // halt and go firm if the tail has fallen behind us
         const stall = colStall.get(u.groupId)
         const waiting = stall != null && u.colIdx != null && u.colIdx <= stall
@@ -1605,16 +1611,25 @@ export function tick(dt) {
             u.digT = 0
           }
         }
-        if (waiting) spd = 0
-        // hold station behind the vic ahead: ease off inside the gap, stop dead if
-        // we've closed right up, so a shared route reads as a column under march
+        // Station-keeping. The group cap stops a formation outrunning its slowest
+        // member, but applied blindly it also means a unit that falls behind can NEVER
+        // close the gap — everyone crawls at the same speed and the column stretches
+        // out forever. So a follower outside its station is released from the cap and
+        // runs at its own speed until it's back on the vic ahead.
+        let capped = true
         if (u.colIdx > 0) {
           const ahead = colAhead.get(u.groupId + ':' + (u.colIdx - 1))
           if (ahead) {
             const gap = Math.hypot(ahead.x - u.x, ahead.y - u.y)
-            if (gap < COLUMN_GAP) spd *= Math.max(0, (gap - COLUMN_GAP * 0.45) / (COLUMN_GAP * 0.55))
+            if (gap > COLUMN_GAP * 1.2) capped = false          // trailing — close up
+            else if (gap < COLUMN_GAP) {                        // closed up — ease off
+              spd *= Math.max(0, (gap - COLUMN_GAP * 0.45) / (COLUMN_GAP * 0.55))
+            }
           }
         }
+        const cap = groupCap.get(u.groupId)
+        if (capped && cap != null) spd = Math.min(spd, cap)
+        if (waiting) spd = 0
       }
       u._spd = spd
       if (d < Math.max(4, spd * dt)) {
