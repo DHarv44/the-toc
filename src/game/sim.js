@@ -17,7 +17,8 @@ export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   t: 0,
   map: null,
   resources: 50000,        // dev: plenty
-  income: 15,
+  supplyLift: 30,          // supply per resupply tick (see SUPPLY_INTERVAL)
+  supplyT: 0,              // seconds since the last lift
   units: [],               // both sides
   structures: [],          // FOBs, HQs, airfields, OPs — both sides
   drones: [],
@@ -70,6 +71,8 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large, difficulty = D
   S.radio = []
   S.difficulty = diff.key
   S.damageMul = diff.damageMul
+  S.supplyLift = diff.supplyLift
+  S.supplyT = 0
   S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
   S.resources = diff.supplies
   S.won = false; S.lost = false
@@ -470,6 +473,28 @@ export function deployStructure(kind, x, y) {
   const s = addStructure('friend', kind, x, y)
   toast(s.label + ' — CONSTRUCTION STARTED')
   return s
+}
+
+// Supply economy. Lifts land every SUPPLY_INTERVAL seconds in whole multiples of 10, so
+// the counter steps rather than spins. Upkeep is a fixed share of a unit's purchase cost
+// per minute: a unit costs roughly UPKEEP_DIVISOR minutes of its own price to keep in the
+// field, which is what stops a standing army from accumulating for free.
+export const SUPPLY_INTERVAL = 3
+export const UPKEEP_DIVISOR = 12
+
+// running upkeep of every friendly unit, in supply per minute
+export function upkeepPerMin() {
+  let n = 0
+  for (const u of S.units) {
+    if (u.side !== 'friend' || u.strength <= 0) continue
+    n += (UNIT_TYPES[u.type]?.cost || 0) / UPKEEP_DIVISOR
+  }
+  return n
+}
+
+// gross supply per minute before upkeep
+export function incomePerMin() {
+  return (S.supplyLift || 0) * (60 / SUPPLY_INTERVAL)
 }
 
 // mm:ss for a turnaround readout — cooldowns run to 15 minutes, so bare seconds read badly
@@ -1291,12 +1316,20 @@ function canEngage(u, x, y, tgt) {
 
 export function tick(dt) {
   S.t += dt
-  S.resources += S.income * dt
 
-  // structures: construction + income
+  // Supply arrives as discrete lifts rather than a continuously spinning counter: a
+  // resupply either landed or it didn't. Upkeep is netted off the same lift so the
+  // readout moves in one clean step instead of two fighting each other.
+  S.supplyT = (S.supplyT || 0) + dt
+  while (S.supplyT >= SUPPLY_INTERVAL) {
+    S.supplyT -= SUPPLY_INTERVAL
+    const draw = Math.round(upkeepPerMin() * SUPPLY_INTERVAL / 60)
+    S.resources = Math.max(0, S.resources + (S.supplyLift || 0) - draw)
+  }
+
+  // structures: construction
   for (const s of S.structures) {
     if (s.buildT > 0) s.buildT = Math.max(0, s.buildT - dt)
-    else if (s.side === 'friend' && s.income) S.resources += s.income * dt
   }
 
   // garrison reconstitution: units resting at a FOB/HQ regain strength;
@@ -2053,7 +2086,7 @@ export function advance(seconds) {
 if (typeof window !== 'undefined') {
   window.__game = {
     S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
-    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability,
+    orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability, incomePerMin, upkeepPerMin,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
     fog: (on) => { S.fogEnabled = on },

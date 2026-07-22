@@ -101,6 +101,20 @@ New games run **map size → difficulty** on the splash. Four presets set three 
   raising the ceiling would break all of it. Dev tooling is gated behind `S.devMode`, set only
   by `initDevGame`, so the FOG/+10K cheats no longer appear in a real game.
 
+### Earned Income — Tie Supply to Ground Held ⬜
+Upkeep now caps how big a force you can sustain, but the *gross* rate is still a flat
+faucet: a fixed lift every few seconds, identical whether you hold one base or half the map.
+`STRUCTURES` even has an `income` field that is `0` on every entry and read by nothing.
+- **Installations generate supply** — a base rate from the HQ, more per FOB, a little per OP,
+  so expansion is the economic engine and losing a base actually costs you.
+- **Towns/objectives as income** — holding a town contributes, which gives the map's terrain
+  features a strategic value beyond cover.
+- **Makes the tutorial's arc pay off** — "take the town, put a FOB on it, run a convoy" should
+  visibly raise your rate; right now it changes nothing.
+- Design notes: `incomePerMin()` already centralises the gross figure — extend it to sum
+  friendly structures instead of returning a flat lift, and surface the breakdown in the
+  supply tooltip. Pairs with the upkeep model already in place.
+
 ### 2. Base Defense (Waves)
 A survival/horde mode built around a supply economy that is spent, not idled:
 - **Start with lower supplies** than the open scenario.
