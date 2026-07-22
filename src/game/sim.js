@@ -613,11 +613,11 @@ function updateGunship(d, dt) {
   if (d.fireMode === 'will') {
     aim = gunshipAcquire(d, w.range)           // engage anything visible in range
   } else if (d.fireMode === 'designated') {
-    // only the vics the player has target-selected — nearest live one inside the turn
+    // the player explicitly picked these vics, so engage them anywhere in range —
+    // the inboard-of-the-turn restriction only governs weapons-free acquisition
     let bd = w.range
     for (const t of (d.targets || [])) {
       const p = targetPoint(t); if (!p) continue
-      if (!inKillbox(d, p.x, p.y)) continue
       const dd = Math.hypot(p.x - d.x, p.y - d.y)
       if (dd <= bd) { bd = dd; aim = p }
     }

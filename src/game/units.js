@@ -155,9 +155,9 @@ export const DRONE_TYPES = {
       // `burst` = [min,max] rounds per burst, `gap` = seconds between bursts. Ranges are
       // generous so a wide, high orbit still reaches the target.
       weapons: {
-        GAU12:  { name: '25mm GAU-12', short: '25mm', kind: 'gun', rof: 16, dmg: 46, blast: 14, disp: 8, muzzleV: 1030, flash: 1.0, range: 3800, burst: [3, 7], gap: 0.9, ammo: 900 },
-        BOFORS: { name: '40mm Bofors', short: '40mm', kind: 'gun', rof: 2.4, dmg: 64, blast: 24, disp: 6, muzzleV: 1005, flash: 1.7, range: 4000, burst: [2, 4], gap: 1.2, ammo: 256 },
-        M102:   { name: '105mm M102', short: '105mm', kind: 'howitzer', dmg: 72, blast: 130, range: 4200, flight: 3, ammo: 100 },
+        GAU12:  { name: '25mm GAU-12', short: '25mm', kind: 'gun', rof: 16, dmg: 54, blast: 14, disp: 11, muzzleV: 1030, flash: 1.0, range: 3800, burst: [3, 7], gap: 2.0, ammo: 500 },
+        BOFORS: { name: '40mm Bofors', short: '40mm', kind: 'gun', rof: 2.4, dmg: 76, blast: 24, disp: 8, muzzleV: 1005, flash: 1.7, range: 4000, burst: [2, 4], gap: 2.8, ammo: 100 },
+        M102:   { name: '105mm M102', short: '105mm', kind: 'howitzer', dmg: 72, blast: 130, range: 4200, flight: 3, ammo: 10 },
       },
     },
   },

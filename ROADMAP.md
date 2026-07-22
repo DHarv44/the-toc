@@ -59,7 +59,19 @@ Frontline units can request artillery when a friendly artillery unit is in range
   the shell/rounds and debit the nearest friendly FOB/HQ stock to the firing battery;
   gate the approve control on `nodeStock >= missionCost`.
 
-### C-130 Gunship (AC-130)
+### Counter-Battery  *(worth investigating)*
+Make the fires fight a cat-and-mouse instead of free artillery:
+- Firing artillery **gives away its position** (already have DF/emitter ideas) — a
+  counter-battery capability can then **locate and return fire** on active enemy guns.
+- Rewards **shoot-and-scoot** — displace after firing or eat return fire; the mobile
+  SP howitzer becomes worth its mobility.
+- Could be a friendly auto-response (counter-battery radar cues a fire mission) and a
+  mirrored threat the enemy uses against your guns.
+- Design notes: on a gun firing, register a transient "acquired firing point"; a
+  counter-battery asset/radar converts recent acquisitions into a return fire mission;
+  ties into the SIGINT/emitter and Enemy AI work.
+
+### C-130 Gunship (AC-130)  *(implemented)*
 An orbiting fire-support platform called in as a timed asset:
 - Circling gunship that provides on-call precision fires (25mm / 40mm / 105mm
   analog) against ground targets while it's on station.
@@ -68,3 +80,374 @@ An orbiting fire-support platform called in as a timed asset:
 - Time-on-station limit and a supply cost to call it in; leaves when winchester or
   bingo.
 - Fits the existing element model — rounds resolve against individual vics.
+
+### Attack Helicopters (AH-64 Apache & AH-1Z Viper)
+Rotary-wing close air support — the same feed/target-designation and per-vic damage
+model as the gunship, but a fundamentally different platform:
+- **Not tied to an orbit.** They can be flown to a position, **hover** to hold a
+  battle position, pop up/mask behind terrain, and reposition on command — unlike the
+  gunship's fixed pylon turn. (Reuse drone move/waypoint control; add a HOVER hold and
+  drop the forced circle.)
+- **Two airframes:** the Army **AH-64 Apache** and the Marine **AH-1Z Viper**, with
+  distinct loadouts/handling but a shared control scheme.
+- **Different munitions** — a mix the player manages per weapon (same select-active-
+  weapon idea as the gunship):
+  - **30mm chain gun** (Apache M230) / **20mm cannon** (Viper) — gun with fire modes
+    (will / designated / hold), like the gunship guns.
+  - **Guided missiles** — Hellfire (and AGM-179 JAGM / TOW on the Viper): player
+    designates a target and launches, like the UAV strike flow.
+  - **Rocket pods** — Hydra 70 (unguided): area fire, launched in salvos with real
+    dispersion, for suppressing spread-out targets.
+- Called in as a timed/supply-costed asset like the gunship; vulnerable to ground
+  fire when low/exposed, rewarding hover-behind-cover and pop-up attacks.
+- Design notes: generalize the gunship weapon suite (per-weapon ammo, fire modes,
+  ballistic/guided round types) into a shared air-platform module; the helo differs by
+  being player-positioned + hover-capable rather than orbit-locked.
+
+### Air Defense, SEAD & Fixed-Wing Air
+An integrated air-defense threat and the fixed-wing air to fight it — turns the whole
+air layer (UAS, gunship, helos) into a real risk/reward decision instead of free airspace:
+- **Radar systems** (static acquisition/early-warning) and **mobile radar** — detect and
+  track air assets and cue the SAMs. Radars emit when active, so they're detectable
+  (RWR/DF) and can be jammed or killed to blind the network.
+- **SAM units** (fixed site) and **mobile SAM** (shoot-and-scoot) — engage aircraft inside
+  their envelope, forcing standoff, altitude, and terrain-masking decisions.
+- **Built-in air defense for FOBs / HQs** — bases carry organic SHORAD so rear areas
+  aren't free airspace (parallels the guard-tower ground defenses).
+- **SEAD** falls out naturally: find (recon / ELINT) → suppress or destroy the air
+  defense → then commit CAS. Rewards EW and sequencing.
+- **Fighter jets** — air superiority / interdiction: contest the airspace, escort friendly
+  air, or run strikes.
+- **A-10 Warthog CAS** — fixed-wing close air support (gun runs plus guided/unguided
+  ordnance), called in like the gunship/helos but **fast-moving attack runs, not a loiter**,
+  and itself exposed to the SAM/radar threat.
+- Design notes: add an air-track layer (altitude, detectability/RCS) so SAMs and radars
+  can engage air assets; new `UNIT_TYPES` for radar/SAM (static + mobile) with an
+  air-engagement envelope; base AD is a per-structure air weapon; reuse the shared
+  air-platform module (feed, weapons, ammo) for the A-10.
+
+### Air Asset Cost & Access
+Air power is a premium capability, not something you spam:
+- **Air assets are expensive** — the gunship, attack helos, A-10, fighters, and the larger
+  fixed-wing UAS carry **high supply costs**, so committing air is a real economic decision.
+- **Small field drones stay cheap and unit-accessible** — the hand-launched recon/loiter
+  drones (Raven, Switchblade) remain **deployable by frontline units exactly as they are
+  today**, no airfield required.
+- Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
+  for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
+
+### Drone Team & Organic UAS
+Put the airfield-independent drones in the hands of units:
+- **Drone unit** — a dedicated small-UAS team that **controls/deploys the drones that don't
+  need an airfield** (Raven-class recon, Switchblade-class loiter, and FPV suicide drones),
+  giving you organic air without an airstrip.
+- **Suicide / FPV drones** — cheap, expendable **one-way attack drones (Ukraine-style FPV)**:
+  the drone team launches them to dive on ground targets. Low cost, high volume, attritable.
+- **Organic drones on other units** — recon, rifle, Stryker rifle, and similar units can pop a
+  **small quadcopter for local ISR** where it makes sense, without a dedicated drone team.
+- Design notes: field-launched drones already exist (`src:'field'`); attach a launch capability
+  to the drone team and to select unit types; FPV suicide drone is a cheap kamikaze variant of
+  the Switchblade model; keep costs low per the Air Asset Cost & Access tiering.
+
+### Drone Airframe Types & FPV Terminal Attack
+Model drones by their real airframe rather than one generic flyer:
+- **Quadcopters can hover** — hold a fixed stare, move in any direction, and work low/close;
+  no orbit required (organic ISR quads and some FPV attack drones).
+- **Fixed-wing must keep moving** — they orbit/loiter and can't hover (Raven, Shadow, Sentinel,
+  the larger UAS), matching the current orbit behavior.
+- **FPV suicide "engage and watch"** — an FPV attack drone can **designate a target, and on the
+  player's ENGAGE click, dive into it** — optionally with a brief terminal nose-cam view of the
+  run-in to impact. Cinematic and true to how these are used.
+- Design notes: give each drone type a flight-model flag (`hover` vs `fixedWing`); hover drones
+  hold position instead of orbiting; the FPV terminal attack reuses the kamikaze strike path
+  with a player-confirmed engage step and an optional nose-cam feed.
+
+## Combat & Tactics
+
+### Longer Firefights & Auto Break-Contact  *(no morale)*
+Keep combat **pure attrition** — no morale system — but make engagements read like real
+firefights rather than instant deletions:
+- **Lower lethality / drawn-out fights** — tune DPS so units trade fire over a sustained
+  engagement instead of melting in seconds.
+- **Auto break-contact at low strength** — when a unit is worn down to roughly **25–35%
+  strength** it automatically breaks contact and pulls back rather than fighting to
+  destruction (each unit rolls its own threshold in that band so it isn't uniform).
+- Design notes: reuse the existing break-contact battle drill; add an auto-trigger at a
+  per-unit `breakAt` threshold picked in [0.25, 0.35]; side-agnostic so the enemy does it
+  too (generalizes the battlegroup's current <35% withdraw). Rebalance weapon DPS /
+  time-to-kill alongside so fights actually last longer.
+
+### Tactical Smoke
+Smoke as a maneuver tool, not just an artillery effect:
+- **Units pop smoke when they break contact** — screen the withdrawal so a broken unit can
+  disengage without being cut down.
+- **Player can smoke a position before assaulting** — obscure an objective or an enemy
+  overwatch, then move under its cover.
+- Smoke blocks line of sight (ties into the intervisibility work) and degrades detection while
+  it lingers.
+- Design notes: reuse the existing smoke system; add a self-smoke trigger on break-contact and
+  a player "deploy smoke" order (unit smoke grenades / mortar smoke); smoke reduces LOS/sight
+  through its footprint.
+
+### Surrender
+Broken units don't always fight to the death or cleanly withdraw:
+- When a unit breaks (hits its low-strength threshold), it has a **1–5% chance of surrendering**
+  instead — taken out of the fight (and potentially a POW/handling hook later).
+- Design notes: on the break-contact trigger, roll a small surrender chance; a surrendered unit
+  is removed from combat (later: prisoner handling / intel value).
+
+## Intelligence & EW
+
+Deepen the ISR/fog layer so intelligence is something you fight for, not a given:
+
+### Satellite Intel Request
+An on-call national/theater ISR asset, requested like a fire mission:
+- Player **requests a satellite pass** over a chosen area; after a short **tasking delay**
+  it returns a **snapshot** of enemy positions in that footprint (a timed reveal, then the
+  contacts go stale again).
+- **Supply-costed** and on a **cooldown** (limited passes), so it's a deliberate "where do I
+  most need eyes right now" decision, not a persistent god-view.
+- Design notes: reuse the contact/reveal system — briefly mark hostiles inside the footprint
+  as live contacts with a timestamp, then let them decay to stale like any other; add a
+  request order (pick area), a tasking timer, a per-request cost, and a cooldown.
+
+### HUMINT (Sources & Networks)
+Human intelligence from the local population — a slow but reach-extending collector:
+- A **HUMINT unit** positioned **in/near a town develops sources** among the locals over time
+  (the longer it works an area, the more sources it cultivates).
+- Sources **report at random intervals** — enemy sightings, movements, or activity in their
+  area — delivered as a **bottom-left toaster the player reads**.
+- Sources are **fragile and unreliable**: a source can be **compromised / murdered**, or
+  simply **go quiet and stop making contact**, ending that source — cultivating new ones takes
+  time.
+- Design notes: new HUMINT `UNIT_TYPES` (RECON/INTEL); per-source objects tied to a town with a
+  random report cadence and a per-tick chance of being lost; reports post as toasts and may
+  drop a (possibly fuzzy/delayed) contact marker; reuse the toast + contact systems.
+
+### Symmetric Fog & Counter-Recon
+- The **CPU is fog-limited too** — it has to find you before it can mass on you.
+- Makes **recon vs. counter-recon** a real fight: kill/blind enemy scouts and screens to go
+  dark on them; screen your own front to deny them the picture.
+- Design notes: give hostile forces their own detection/contact model mirroring the player's
+  (the sensor code is already side-agnostic-ish); enemy decisions key off *their* contacts.
+
+### Last-Known-Position Uncertainty
+- Stale contacts don't just freeze at their last pixel — they drift into a **growing
+  uncertainty area** ("was here, could be anywhere in this radius now") that expands with
+  time since last seen and the target's speed.
+- Design notes: render an uncertainty ellipse/circle on stale contacts that grows with age;
+  optionally dead-reckon a best-guess drift along last-known heading.
+
+### SIGINT / Electronic Warfare
+Expand the SIG unit beyond direction-finding:
+- **Jamming** — degrade enemy comms and **drone/datalink** control in an area (ties into the
+  C2-as-a-system idea; jammed enemy units fall back to SOPs).
+- **Direction-finding / ELINT** — locate enemy emitters (HQ, radars, active jammers) by their
+  transmissions, feeding SEAD and decapitation.
+- **Radio-silence tradeoffs** — emitting reveals you to enemy DF; going silent costs
+  coordination. A real signature-vs-coordination decision.
+- Design notes: build on the existing `df` mechanic; add an emitter/RWR model shared with the
+  radar/SAM work; jamming as an area effect on comms and drone control.
+
+## Command & Control
+
+### Comms & Jamming (fall back to SOPs)
+Coordination is **not** limited by distance — units stay linked to HQ at any range — but it
+can be **jammed**:
+- Enemy EW can **jam** friendly units in an area; a jammed unit loses coordination and
+  **falls back to its SOPs** (holds/continues its last drill) until the jamming lifts.
+- A unit **with (or near) a SIG unit is far less likely to be jammed** — signal units harden
+  the net around them.
+- Reinforces **decapitation** — losing the HQ (or heavy jamming) degrades force-wide C2.
+- Design notes: no range gate on C2; add a per-unit `jammed` state driven by enemy jammers,
+  reduced by proximity to a friendly SIG unit; jammed units run SOP behavior.
+
+### Groups, Task Organization & Mission Builder
+Make groups a first-class thing **without** losing the quick ad-hoc grouping:
+- **Keep ad-hoc groups** — selecting several units and moving them works exactly as it does
+  now (ephemeral, unnamed, just a shared move). Sometimes you just want to move a bunch of
+  units, and that's fine.
+- **Named groups** — promote a selection into an **official group with an operating name**,
+  assigned on the group bar. Membership persists.
+- **Group roster HUD** — a panel listing all named groups with **quick-select** (click a
+  group to select its whole membership at once).
+- **Mission builder** — for a named group, compose a **mission**: an ordered set of
+  tasks/phases (move to a phase line, hold, screen, attack on trigger / H-hour) that the
+  group executes on its own. Ties into the mission-type-orders-with-triggers idea.
+- Design notes: a persistent `groups` structure (id, name, member unit ids) separate from the
+  transient move-group; a "name this group" action on the group bar; a roster panel with
+  select-group; the mission builder queues conditional waypoints/tasks per group.
+
+## Enemy AI / OPFOR
+
+**A priority.** The current enemy is thin — effectively a single tactical brain, it doesn't
+really plan, and it doesn't use drones at all. Build it into a proper opponent:
+- **Multi-echelon force, not one object** — a commander directing several subordinate elements
+  (recon, main effort, supporting effort, reserve) rather than one blob.
+- **Actually plans** — picks an objective, designates a main effort, sequences recon → shaping →
+  assault, and commits/withholds a **reserve**; **counterattacks** when the player overextends;
+  reacts to losses (culminate, consolidate, or press).
+- **Uses the air/ISR layer** — flies its own **recon drones** to find the player under symmetric
+  fog, and employs **strike/loiter/FPV** drones and requested fires like the player does (the
+  order code is already side-agnostic — extend it to drones).
+- **Difficulty & personalities** — tunable aggressiveness/competence; different OPFOR profiles
+  (cautious defender, aggressive armor thrust, recon-pull infiltrator).
+- Design notes: layer an operational "commander" above the existing battlegroup AI that owns
+  objectives/reserves/phasing; give hostile forces the drone + request systems; expose a
+  difficulty setting that scales tempo, competence, and asset access.
+
+## Engineering & Terrain
+
+### Engineers Build Roads & Bridges
+Extend the engineer platoon beyond its current gap-crossing bridge:
+- **Build roads** — engineers can lay a road segment between two points, permanently
+  improving mobility there (roads speed wheeled/tracked movement in `MOVE_FACTORS`).
+- **Build bridges** — formalize/keep the existing bridge-a-water-gap ability.
+- Both take build time and (likely) supply; the new road writes into the map's `road`
+  grid so pathfinding and terrain rendering pick it up.
+- Design notes: reuse the `orderBridge` flow for placement; roads mutate `map.road`
+  cells along the drawn segment and re-cost the affected pathfinding tiles.
+
+### EOD Unit (Explosives & Counter-IED)
+A demolition and counter-explosive specialist:
+- **Emplaces IEDs and mines** — lay hidden explosive obstacles to deny ground and ambush
+  enemy movement (canalize the enemy into your engagement areas).
+- **Clears IEDs and mines** — detect and neutralize enemy IEDs/minefields to open a safe
+  lane for friendly movement.
+- **Destroys bridges / structures** — drop a friendly or enemy bridge to deny a crossing
+  (removes the bridge, reverting the gap to impassable water).
+- Design notes: new `UNIT_TYPES` entry (SUPPORT/ENGINEER category); IED/mine entities
+  (hidden until triggered or detected) that attrit crossing units; place/clear orders; a
+  `demoBridge` order that removes bridge cells and re-blocks the water gap. Ties into the
+  Obstacles & Area Denial item.
+
+## Terrain & Protection
+
+### True Line-of-Sight / Intervisibility
+Terrain should block sight and fire, not just slow movement:
+- **Crests, hills, and dead ground mask** units — something behind a ridge can't be seen or
+  shot until an observer has line of sight. Makes hull-down, reverse-slope defense, and
+  covered approaches real.
+- Design notes: add an intervisibility check against the height grid for spotting and direct
+  fire (sample the terrain profile between observer and target).
+
+### Obstacles & Area Denial
+- **Minefields, wire, and tank ditches** canalize movement and impose delay/attrition;
+  engineers emplace them, EOD/engineers breach (dovetails with the engineering items).
+- Shapes maneuver — force the enemy into your engagement areas.
+- Design notes: obstacle entities that block/slow/attrit crossing units; a breach order clears
+  a lane; ties into the EOD/engineer roster.
+
+## Sustainment
+
+### Ammo & Fuel Consumption + Accompanying Logistics
+Make the LOG chain operationally decisive:
+- Units **consume ammo and fuel**; run dry and they can't fire / can't move until resupplied
+  (like the gunship's winchester, but for ground units).
+- **Send fuel trucks and a supply truck along with a force** to extend how long and how far it
+  can operate before it culminates.
+- A force (and its accompanying LOG) can be told to **wait/hold for fuel and resupply** —
+  pause the advance, top off, then continue.
+- Design notes: per-unit ammo/fuel pools that deplete with fire/movement; LOG units transfer
+  from their capacity; a "hold for resupply" order; a culminating point emerges when a force
+  outruns its supply.
+
+### Heli Aerial Resupply (Speedballs)
+- Utility/attack **helicopters can drop speedballs** (resupply bundles) to units **running low
+  on ammo**, rearming them in the field without a ground convoy.
+- Design notes: a helo resupply action that delivers an ammo (later fuel/medical) bundle to a
+  friendly unit's position; reuses the helo platform + the unit ammo pools above.
+
+### Casualties & MEDEVAC (9-Line)
+Give losses weight and a recovery path, requested like a call for fire:
+- Casualties can be **evacuated via a 9-line MEDEVAC request** — same request/approve pattern
+  as the artillery/CAS call, dispatching a medevac bird to pick up wounded and recover strength
+  rather than writing those losses off.
+- Design notes: mirror the call-for-fire flow with a MEDEVAC 9-line form/toast; a medevac helo
+  flies to the unit, and evacuated casualties return strength (at a FOB/aid station); wounded vs.
+  killed split feeds how much is recoverable.
+
+### Rest & Refit at a FOB
+No dedicated recovery/repair units — instead, worn-down forces **heal by falling back**:
+- A unit that **makes it back to a FOB regenerates strength** over time (reconstitution),
+  turning FOBs into the rest/refit/rearm hubs (no separate FAARP — FOBs are the hubs for air
+  rearm/refuel too).
+- Design notes: extend the existing reconstitution so proximity to a friendly FOB/HQ drives
+  faster regen; FOBs double as the air rearm/refuel point.
+
+## Audio
+
+### Radio Chatter & CIC Soundscape
+Sound should reinforce the **"you are the commander in the CIC"** fantasy, not drop you into
+the mud:
+- **Radio chatter** — the core of it: spot reports, contact calls, requests, RTB/winchester,
+  net traffic reading out over the radio (the RadioLog made audible). Alert tones for requests
+  and losses.
+- **Not full battlefield audio** — hearing cannons while staring at a UAV feed breaks the CIC
+  frame. Keep weapon/impact sound **diegetic to the feed you're watching** (muted/attenuated on
+  the map) or optional, so the map stays a quiet command view and the feed is where the noise is.
+- Design notes: the sister gunship project's `audio.js` is a starting point; drive radio SFX/TTS
+  off the existing radio events; gate weapon/ambient audio to the active drone feed rather than
+  the map.
+
+## Maps & World
+
+### Seed-Generated Maps
+- **Seeded procedural maps** — a map seed generates the terrain/hydrology/roads/towns, so a
+  seed is shareable and reproducible and every match can be a fresh battlefield.
+- Design notes: thread a single seed through the existing procedural generation (terrain,
+  rivers, roads, towns); surface it in the UI for share/replay.
+
+### More Detailed Maps & Bigger Towns
+- **Richer terrain and larger, denser towns** — more detail in the world and bigger urban areas
+  to fight over (urban terrain matters more with LOS, cover, and HUMINT in towns).
+- Design notes: increase town size/building density and terrain detail; make sure pathfinding,
+  cover, and LOS scale with the added density.
+
+## Installations
+
+### FOB / HQ Built-in Defenses
+Bases shouldn't be passive HP sponges — give FOBs and HQs organic protection:
+- **Guard towers / fighting positions** that automatically engage enemies within range,
+  so a base can defend itself against probing attacks without a dedicated garrison.
+- Scales with the installation (HQ better defended than a FOB); part of the structure,
+  destroyed with it.
+- Design notes: add a per-structure weapon (range + DPS) that auto-fires on the nearest
+  visible hostile, resolving against the element model like unit fire; render tower
+  icons on the map and models in the drone feed.
+
+### Helipad Installation
+A rotary-wing base for the attack helicopters (and future utility/lift helos):
+- **Placed near an HQ or FOB** (like other installations, within a `near` radius of an
+  existing base) — cheaper/faster than an airfield.
+- Launch/rearm/refuel point for helos; ties into the Attack Helicopters asset above.
+- Design notes: new `STRUCTURES` entry with `launchesHelos` (parallel to the airfield's
+  `launchesDrones`); helo assets spawn from the nearest helipad.
+
+### Airfield Placement Restricted to HQ
+Airfields are a strategic asset, not something you sprinkle anywhere:
+- **Only the HQ can establish an airfield** — it must be placed within the HQ's build
+  radius (not near a FOB), reflecting the logistics an airstrip needs.
+- Design notes: tighten `AFLD` placement to require proximity to a friendly **HQ**
+  specifically (vs. any base), and surface the restriction in the placement toast.
+
+### Installation-Gated Unlocks
+Air assets are unlocked by building the installation that operates them, so the
+palette reflects what you can actually field:
+- **Placing a helipad unlocks the attack helicopters** — they're locked until at least
+  one friendly helipad exists.
+- **Placing an airfield unlocks the airfield-launched UAVs** — the fixed-wing UAS
+  (Shadow, Sentinel, Viper) and the AC-130 gunship are locked until a friendly airfield
+  exists.
+- Field-launched assets (Raven, Switchblade) and the aerostat stay available without an
+  airfield, as today.
+- Design notes: gate each palette entry on the presence of its enabling structure
+  (`launchesDrones` / `launchesHelos`); show locked items greyed with a "needs airfield
+  / needs helipad" hint rather than hiding them, so the player knows the path to unlock.
+
+## Later / Deferred
+
+### Civilians & ROE  *(later)*
+Human terrain — neutral civilians, positive-ID, and collateral-damage consequences that give
+precision fires and target designation real moral weight. Deferred for now; the sister gunship
+project already has a civilian model to draw on when we pick this up.

@@ -838,7 +838,8 @@ export default function MapView() {
           const hdg = (d.state === 'transit' || d.state === 'rtb' || d.state === 'striking')
             ? Math.atan2((d.state === 'rtb' ? d.oy : d.state === 'striking' ? d.sy : d.ty) - d.y,
                          (d.state === 'rtb' ? d.ox : d.state === 'striking' ? d.sx : d.tx) - d.x)
-            : d.angle + Math.PI / 2
+            // nose points along the tangent; gunships turn the other way (left-hand orbit)
+            : d.angle + (spec.gunship ? -Math.PI / 2 : Math.PI / 2)
           drawDroneIcon(ctx, w2sX(d.x), w2sY(d.y), hdg, d.label, sel)
         }
       }
