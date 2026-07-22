@@ -797,37 +797,24 @@ export default function MapView() {
         ctx.fill()
       }
 
-      // arty impacts (cannon rounds render as a small brief flash, not a blast ring)
+      // Fire-mission impacts only. A called-for-fire mission is a reported event and
+      // belongs on the BFT; individual cannon strikes (im.gun) are not, and are drawn
+      // in the UAS feed instead.
       for (const im of S.impacts) {
+        if (im.gun) continue
         const age = S.t - im.t
-        const x = w2sX(im.x), y = w2sY(im.y)
-        if (im.gun) {
-          if (age > 0.4) continue
-          ctx.fillStyle = `rgba(255,210,120,${1 - age / 0.4})`
-          ctx.beginPath()
-          ctx.arc(x, y, 1.5 + (im.sz || 1), 0, Math.PI * 2)
-          ctx.fill()
-        } else {
-          if (age > 4) continue
-          ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
-          ctx.lineWidth = 2
-          ctx.beginPath()
-          ctx.arc(x, y, 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
-          ctx.stroke()
-        }
+        if (age > 4) continue
+        ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(w2sX(im.x), w2sY(im.y), 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
+        ctx.stroke()
       }
 
-      // gunship cannon rounds in flight: a short amber tracer dash from muzzle to impact
-      for (const r of S.gunRounds) {
-        const life = r.impactT - r.t0
-        const f = life > 0 ? Math.min(1, (S.t - r.t0) / life) : 1
-        const f2 = Math.max(0, f - 0.06)
-        const hx = w2sX(r.fromX + (r.x - r.fromX) * f), hy = w2sY(r.fromY + (r.y - r.fromY) * f)
-        const tx = w2sX(r.fromX + (r.x - r.fromX) * f2), ty = w2sY(r.fromY + (r.y - r.fromY) * f2)
-        ctx.strokeStyle = 'rgba(255,210,120,0.85)'
-        ctx.lineWidth = 1.2
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke()
-      }
+      // Rounds in flight are deliberately NOT drawn here. This is a Blue Force Tracker,
+      // not a gun camera — it plots what the network reports, and individual cannon
+      // rounds aren't reported. Tracers belong to the UAS feed, which is the only place
+      // the player sees actual ground truth (DroneView renders them).
 
       // drones: orbit rings + icons
       for (const d of S.drones) {
