@@ -348,6 +348,27 @@ is destroyed.
 
 ## Combat & Tactics
 
+### OPFOR Digs In When Defending ⬜
+The AI only ever advances. `enemyAI` has garrison anchors that dig in on threat, but a
+battlegroup that has taken an objective, culminated, or been pushed onto the back foot just
+sits there mobile — so attacking it costs the player nothing it wouldn't have cost anyway.
+- **Prepare positions when holding** — a group whose phase is hold/withdraw, or one sitting on
+  an objective it already owns, should `orderDefend` and dig in rather than idle. Same order the
+  player has; nothing AI-only about it.
+- **Dig in on the objective, not where it stopped** — prefer cover/concealment cells (forest,
+  urban) within the position, so a prepared defence sits somewhere that's actually worth
+  assaulting around.
+- **Come out of it to counterattack** — digging in shouldn't be a one-way state; a group that
+  digs in and then sees an opening reverts to mobile. Pairs with the counterattack behaviour
+  still missing from *Enemy AI / OPFOR*.
+- **This is what makes the defensive advantage bite both ways.** Once prepared positions
+  decisively beat frontal assaults (see below), an OPFOR that never prepares is free to run
+  over, and the player learns the lesson only in one direction. The two changes want to land
+  together.
+- Design notes: `updateBattlegroup` owns the muster → advance → withdraw cycle; add a `hold`
+  phase that issues `orderDefend(u.id, true)` and clears it on re-tasking. `postureFactor`
+  and `u.digT` already do the work — the AI simply never asks for them.
+
 ### Make Maneuver Beat Mass ⬜ *(playtest finding — the core one)*
 Playtest verdict after a run on Recruit/small: *"it just turns into who can create the most
 units and send them in a straight line at the other team."* That's not a tuning problem, and
