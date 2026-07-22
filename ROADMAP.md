@@ -559,6 +559,36 @@ the halt/dismount/break drills. What's still missing is everything above and aro
   objectives/reserves/phasing; give hostile forces the drone + request systems; expose a
   difficulty setting that scales tempo, competence, and asset access.
 
+### Enemy Economy — the OPFOR Buys What It Fields ⬜
+**The AI plays by the player's rules.** It doesn't today: `spawnBattlegroup` conjures an entire
+template into existence on a timer — free, no supply cost, no upkeep, no cap, no cooldown. That
+is the reason it can put everything on the board at once while the player is counting supply,
+and it's why a small map on the easiest difficulty can still overwhelm you.
+
+Current behaviour, for reference: first wave at 60 s, then a full battlegroup every 110–180 s,
+unbounded (16 groups by minute 30) — and **identical on Recruit and Elite**. Every difficulty
+lever built so far (starting supply, income, starting force, damage scale) is on the player's
+side of the board; the opposition never changes.
+
+- **Give the hostile side the same economy** — its own supply pool, resupply rate and per-unit
+  upkeep, mirroring the player's. `spawnBattlegroup` becomes a *purchase*: field the template
+  only if it can afford it, otherwise bank the supply or field something smaller.
+- **Upkeep caps the OPFOR the way it caps the player** — this is the actual answer to "the CPU
+  deployed everything at once", and it's the same mechanism rather than a special case. It also
+  means destroying its units genuinely relieves pressure, because it has to re-buy them.
+- **Difficulty becomes enemy income** — Recruit: the OPFOR is poor and slow to reconstitute.
+  Elite: it out-earns you. Honest economic asymmetry instead of hidden rules.
+- **Scale with map size** — on a small map everything is close, so identical pressure lands far
+  harder. Either the spawn budget or the wave cadence should account for map area.
+- **Ramp rather than dump** — early battlegroups should be small and grow, instead of arriving
+  full-size from the first wave.
+- Design notes: mirror `S.resources`/`S.supplyLift`/`upkeepPerMin()` per side (a `sides` record,
+  or `S.enemy.resources`); price `BG_TEMPLATES` from their members' `UNIT_TYPES[].cost`; gate
+  `spawnBattlegroup` on affordability and let `S.nextWave` become "time until it can afford the
+  next group" rather than a bare timer. The command layer is already side-agnostic — the AI
+  issues player-legal orders — so this is that same idea finished. Pairs with Earned Income
+  (both sides should earn from ground held) and Enemy AI / OPFOR.
+
 ## Engineering & Terrain
 
 ### Engineers Build Roads & Bridges 🟡 *(pontoon bridges shipped and written into the road grid; no road-building order)*
@@ -920,6 +950,21 @@ With both rails permanent, the player needs the screen back on demand.
 - Design notes: two booleans in the UI store driving the flex layout; animate the width so the
   map's `clampView` re-fits smoothly rather than snapping. The existing `showNet` toggle in the
   top bar becomes the NET rail's collapse control.
+
+### Victory / Defeat Screen ⬜
+Winning and losing currently pass almost unnoticed: `S.won` / `S.lost` fire a single toast that
+scrolls away with everything else. The end of a match should land.
+- **A modal, not a toast** — full-screen overlay in the splash's visual language (radial wash +
+  faint grid), with the outcome stated plainly: objective secured, or command post lost.
+- **A short after-action summary** — mission clock, units fielded and lost, enemy elements
+  destroyed, supply spent, difficulty and map size played. Enough to make the run feel like it
+  had a shape.
+- **New Game button** — straight back to the splash, so a loss is one click from a rematch.
+  Continue-watching / dismiss as a secondary action, for anyone who wants to look at the map.
+- Design notes: `S.won` is set on destroying the hostile HQ, `S.lost` when the player's HQ is
+  gone with no FOB. Render from `App` above the rails so it covers the whole console; reuse the
+  Splash backdrop treatment. The stats want a few counters accumulated during the run rather
+  than derived at the end — units lost and enemy killed aren't recoverable from final state.
 
 ### HUD Polish — Small Fixes ⬜
 A running list of small, self-contained UI corrections:
