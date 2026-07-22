@@ -891,15 +891,17 @@ export default function MapView() {
         return since < 0.35 ? 1 - since / 0.35 : 0.12
       }
 
-      // weapon-range rings, drawn under the symbols so they don't obscure them. Shown
-      // for all friendly units when the global toggle is on, plus any individually
-      // toggled on. Effective range accounts for mounted firepower reach.
+      // weapon-range rings, drawn under the symbols so they don't obscure them. Global
+      // toggle rings every friendly unit regardless of selection; a per-unit toggle only
+      // rings that unit while it's selected, so it's a focus aid, not permanent clutter.
       {
         const showAll = ui.showRanges
         const per = ui.rangeUnits || {}
+        const sel = ui.selectedIds
         for (const u of S.units) {
           if (u.side !== 'friend' || u.strength <= 0) continue
-          if (!showAll && !per[u.id]) continue
+          const perOn = per[u.id] && sel.includes(u.id)
+          if (!showAll && !perOn) continue
           const type = UNIT_TYPES[u.type]
           const r = type.range
           if (!r) continue
