@@ -348,6 +348,36 @@ is destroyed.
 
 ## Combat & Tactics
 
+### Make Maneuver Beat Mass ⬜ *(playtest finding — the core one)*
+Playtest verdict after a run on Recruit/small: *"it just turns into who can create the most
+units and send them in a straight line at the other team."* That's not a tuning problem, and
+unit counts alone won't fix it. Straight-line mass wins because **nothing punishes it**:
+- Combat is attritional DPS, so two blobs meeting resolve by who has more — more is always the
+  correct play.
+- Cover (`COVER_DEF`) and dig-in (`postureFactor`) are modest multipliers, not decisive ones. A
+  prepared defender doesn't reliably beat a frontal assault, so there's no reason to prepare a
+  position — or to avoid attacking into one.
+- No flanking, no facing, no suppression, no morale. Position is nearly consequence-free.
+- Recon buys little, because the AI reads ground truth and never needed it (see *Symmetric Fog*).
+- Losses cost supply, and supply regenerates — nothing is scarce enough to be worth protecting.
+
+**Highest-leverage fix: prepared positions should decisively beat frontal attacks.** If a dug-in
+platoon in cover reliably defeats two or three attackers walking straight at it, the rush stops
+being viable immediately — and the player then *has* to find a flank, prep with fires, or
+fix-and-maneuver. That gives every system already built a job: UAS to find the gap, artillery to
+soften it, smoke to cross open ground, engineers to force a crossing. No new mechanics needed;
+the existing ones just have to matter.
+- **Then scarcity** — fewer, dearer, slower-to-replace units. Scarcity is what makes a player
+  position carefully instead of feeding a queue.
+- **Then symmetric fog** — while the AI knows where everything is, it never has to maneuver
+  either; it can always just walk at you.
+- Suggested order: *Enemy Economy* → decisive defensive advantage → scarcity → symmetric fog.
+  The first two are most of the fix.
+- Design notes: the defensive levers already exist and are applied in the direct-fire pass —
+  `COVER_DEF[terrain]` and `postureFactor(tgt)` multiply incoming DPS. Start by widening those
+  and adding an attacker-in-the-open penalty, rather than adding a new combat model. Pairs with
+  *Longer Firefights & Auto Break-Contact* (a rush that stalls should break, not grind).
+
 ### Longer Firefights & Auto Break-Contact  *(no morale)*
 Keep combat **pure attrition** — no morale system — but make engagements read like real
 firefights rather than instant deletions:
