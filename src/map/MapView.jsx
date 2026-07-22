@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneFollow, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
+import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender.js'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols.js'
@@ -247,15 +247,10 @@ export default function MapView() {
           const d = deployDrone(what.slice(6), wx, wy)
           if (d) { ui.bindDrone(d.id); useUI.setState({ mode: 'select' }) }
         } else {
+          // keep the fielding base selected so its deploy menu stays open for the next unit
           const u = deployUnit(what, wx, wy)
-          if (u) useUI.setState({ selectedIds: [u.id], mode: 'select' })
+          if (u) useUI.setState({ mode: 'select' })
         }
-        return
-      }
-      if (ui.mode.startsWith('follow:')) {
-        const target = pickUnit(wx, wy)
-        if (target) droneFollow(Number(ui.mode.slice(7)), target.id)
-        useUI.setState({ mode: 'select' })
         return
       }
       if (ui.mode.startsWith('convoy:')) {
@@ -291,6 +286,12 @@ export default function MapView() {
         if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
         else ui.setSelected([picked.obj.id])
         return
+      }
+      // empty-handed click on a friendly structure selects it, opening its
+      // context-sensitive deploy menu (HQ/FOB → units, airfield → aircraft)
+      if (!picked && !sel.length && !selD.length) {
+        const st = pickStructure(wx, wy)
+        if (st) { ui.setSelected([st.id]); return }
       }
       if (sel.length || selD.length) {
         // attack mode: clicking a visible hostile designates it for the whole selection
@@ -779,11 +780,14 @@ export default function MapView() {
         const spec = DRONE_TYPES[d.type]
         const sel = ui.feeds.some(f => f.droneId === d.id) || ui.selectedIds.includes(d.id)
         if (d.state === 'onstation') {
-          ctx.strokeStyle = sel ? 'rgba(255,215,80,0.6)' : 'rgba(60,140,220,0.4)'
           ctx.setLineDash([4, 4])
-          ctx.beginPath()
-          ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.orbitR * (d.orbitMul || 1) * view.ppm, 0, Math.PI * 2)
-          ctx.stroke()
+          // the tethered aerostat holds a fixed point — no orbit ring, just its sensor arc
+          if (spec.src !== 'tether') {
+            ctx.strokeStyle = sel ? 'rgba(255,215,80,0.6)' : 'rgba(60,140,220,0.4)'
+            ctx.beginPath()
+            ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.orbitR * (d.orbitMul || 1) * view.ppm, 0, Math.PI * 2)
+            ctx.stroke()
+          }
           ctx.strokeStyle = 'rgba(60,140,220,0.18)'
           ctx.beginPath()
           ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.sight * (d.sightMul || 1) * view.ppm, 0, Math.PI * 2)
@@ -817,30 +821,13 @@ export default function MapView() {
             ctx.setLineDash([])
           }
         }
-        if (spec.src === 'tether') {
-          // aerostat: balloon icon with tether tick
-          const bx2 = w2sX(d.x), by2 = w2sY(d.y)
-          ctx.fillStyle = sel ? '#ffe97a' : '#8fd4ff'
-          ctx.strokeStyle = '#0a3a66'
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.ellipse(bx2, by2 - 3, 6, 7.5, 0, 0, Math.PI * 2)
-          ctx.fill(); ctx.stroke()
-          ctx.beginPath()
-          ctx.moveTo(bx2, by2 + 4.5); ctx.lineTo(bx2, by2 + 11)
-          ctx.stroke()
-          ctx.font = '8px Consolas, monospace'
-          ctx.fillStyle = '#2a4a66'
-          ctx.textAlign = 'center'
-          ctx.fillText(d.label, bx2, by2 + 20)
-          ctx.textAlign = 'left'
-        } else {
+        {
           const hdg = (d.state === 'transit' || d.state === 'rtb' || d.state === 'striking')
             ? Math.atan2((d.state === 'rtb' ? d.oy : d.state === 'striking' ? d.sy : d.ty) - d.y,
                          (d.state === 'rtb' ? d.ox : d.state === 'striking' ? d.sx : d.tx) - d.x)
             // nose points along the tangent; gunships turn the other way (left-hand orbit)
             : d.angle + (spec.gunship ? -Math.PI / 2 : Math.PI / 2)
-          drawDroneIcon(ctx, w2sX(d.x), w2sY(d.y), hdg, d.label, sel)
+          drawDroneIcon(ctx, w2sX(d.x), w2sY(d.y), hdg, d.label, sel, d.type)
         }
       }
 

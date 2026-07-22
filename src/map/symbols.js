@@ -15,7 +15,7 @@ export function drawUnitSymbol(ctx, x, y, opts) {
   const {
     side = 'friend', glyph = 'inf', scale = 1,
     selected = false, stale = false, label = '', strength = 100,
-    echelon = 'plt', dug = 0,
+    echelon = 'plt', dug = 0, showStrength = true,
   } = opts
   ctx.save()
   ctx.translate(x, y)
@@ -77,7 +77,7 @@ export function drawUnitSymbol(ctx, x, y, opts) {
   }
 
   // strength bar
-  if (!stale) {
+  if (!stale && showStrength) {
     const w = FW * (Math.max(0, strength) / 100)
     ctx.fillStyle = strength > 60 ? '#39d353' : strength > 30 ? '#e8c547' : '#e8524a'
     const by = side === 'friend' ? FH / 2 + 3 : 17
@@ -264,27 +264,126 @@ export function drawStructure(ctx, x, y, opts) {
   ctx.restore()
 }
 
-// small fixed-wing UAS icon + orbit ring drawn separately in MapView
-export function drawDroneIcon(ctx, x, y, heading, label, selected) {
+// --- per-airframe UAS silhouettes ----------------------------------------
+// All drawn top-down, nose toward -y. The wing()/fuse() helpers keep the
+// planforms consistent; each type varies span, engines, tail and body so the
+// icons read as distinct airframes on the map and act as a key in the palette.
+function fuse(ctx, noseY, tailY, w) {
+  const hw = w / 2
+  ctx.beginPath()
+  ctx.moveTo(-hw, noseY + hw)
+  ctx.quadraticCurveTo(-hw, noseY, 0, noseY)
+  ctx.quadraticCurveTo(hw, noseY, hw, noseY + hw)
+  ctx.lineTo(hw, tailY)
+  ctx.lineTo(-hw, tailY)
+  ctx.closePath()
+  ctx.fill(); ctx.stroke()
+}
+// symmetric tapered wing (or stabiliser) centred on yc, optional sweep-back
+function wing(ctx, span, yc, root, tip, sweep = 0) {
+  ctx.beginPath()
+  ctx.moveTo(0, yc - root / 2)
+  ctx.lineTo(span, yc - tip / 2 + sweep)
+  ctx.lineTo(span, yc + tip / 2 + sweep)
+  ctx.lineTo(0, yc + root / 2)
+  ctx.lineTo(-span, yc + tip / 2 + sweep)
+  ctx.lineTo(-span, yc - tip / 2 + sweep)
+  ctx.closePath()
+  ctx.fill(); ctx.stroke()
+}
+function bulbNose(ctx, y, r) {
+  ctx.beginPath(); ctx.ellipse(0, y, r, r * 1.15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+}
+
+const AIRFRAMES = {
+  // RQ-7 Shadow: twin-boom pusher, straight mid-wing
+  SHADOW(ctx) {
+    wing(ctx, 10, -1, 3, 1.6)
+    ctx.lineWidth = 1.2
+    ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-4, 8); ctx.moveTo(4, 0); ctx.lineTo(4, 8); ctx.stroke() // booms
+    ctx.beginPath(); ctx.moveTo(-5.5, 8); ctx.lineTo(5.5, 8); ctx.stroke()                                   // tailplane
+    ctx.lineWidth = 1
+    fuse(ctx, -6, 3, 2.6)
+    ctx.beginPath(); ctx.moveTo(-2.6, 3.6); ctx.lineTo(2.6, 3.6); ctx.stroke()                               // pusher prop
+  },
+  // RQ-4 Sentinel: high-altitude, very long slender wings, bulbous nose, V-tail
+  SENTINEL(ctx) {
+    wing(ctx, 15, -1, 4, 1)
+    fuse(ctx, -7, 7, 3)
+    bulbNose(ctx, -6.5, 2.6)
+    ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(-5, 9.5); ctx.moveTo(0, 6); ctx.lineTo(5, 9.5); ctx.stroke() // V-tail
+  },
+  // MQ-1 Viper: armed, swept slender wings, bulbous nose, inverted-V tail + wing pylons
+  VIPER(ctx) {
+    wing(ctx, 12, -1, 3, 1, 3)
+    fuse(ctx, -8, 7, 2.4)
+    bulbNose(ctx, -7, 2.3)
+    ctx.beginPath(); ctx.moveTo(0, 5.5); ctx.lineTo(-4.5, 10); ctx.moveTo(0, 5.5); ctx.lineTo(4.5, 10); ctx.stroke() // inverted-V tail
+    ctx.beginPath(); ctx.arc(-6, 1.5, 1, 0, Math.PI * 2); ctx.arc(6, 1.5, 1, 0, Math.PI * 2); ctx.fill()             // wing pylons (munitions)
+  },
+  // RQ-11 Raven: tiny hand-launched straight-wing
+  RAVEN(ctx) {
+    wing(ctx, 6.5, -0.5, 2.2, 1.4)
+    fuse(ctx, -4.5, 4, 1.8)
+    ctx.beginPath(); ctx.moveTo(-3, 4); ctx.lineTo(3, 4); ctx.stroke() // tailplane
+  },
+  // Switchblade: tube-launched loitering munition — slim body, cruciform fins
+  SWITCHBLADE(ctx) {
+    ctx.beginPath()                                     // pointed missile body
+    ctx.moveTo(0, -9.5); ctx.lineTo(1.1, -6); ctx.lineTo(1.1, 8); ctx.lineTo(-1.1, 8); ctx.lineTo(-1.1, -6)
+    ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.lineWidth = 1.2
+    ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(5, -0.5); ctx.stroke()   // mid wings
+    ctx.beginPath(); ctx.moveTo(-3.2, 6); ctx.lineTo(3.2, 6); ctx.stroke()     // tail fins
+    ctx.lineWidth = 1
+  },
+  // AC-130 Spectre: 4-engine gunship — wide wing, quad nacelles, port-side battery
+  SPECTRE(ctx) {
+    wing(ctx, 15, -2, 4.5, 2)
+    for (const ex of [-10.5, -6, 6, 10.5]) {            // 4 engine nacelles
+      ctx.beginPath(); ctx.rect(ex - 0.9, -4.5, 1.8, 3); ctx.fill(); ctx.stroke()
+    }
+    fuse(ctx, -10, 9, 3.6)
+    wing(ctx, 6, 8, 2.6, 1)                             // tailplane
+    ctx.beginPath(); ctx.moveTo(0, 7); ctx.lineTo(0, 11.5); ctx.stroke() // fin
+    ctx.lineWidth = 1.3                                 // port-side gun battery (left = -x)
+    ctx.beginPath()
+    for (const gy of [-1, 1.5, 4]) { ctx.moveTo(-1.8, gy); ctx.lineTo(-5.5, gy) }
+    ctx.stroke()
+    ctx.lineWidth = 1
+  },
+}
+
+// tethered aerostat: blimp envelope with tail fins + tether tick (not heading-aligned)
+function drawAerostat(ctx) {
+  ctx.beginPath(); ctx.ellipse(0, -3, 6, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.beginPath()                                        // tail fins
+  ctx.moveTo(0, 4); ctx.lineTo(-3.5, 7); ctx.moveTo(0, 4); ctx.lineTo(3.5, 7); ctx.moveTo(0, 4); ctx.lineTo(0, 8)
+  ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, 12); ctx.stroke() // tether
+}
+
+// UAS icon; `type` selects the airframe silhouette. Orbit ring drawn separately in MapView.
+export function drawDroneIcon(ctx, x, y, heading, label, selected, type = 'SHADOW') {
   ctx.save()
   ctx.translate(x, y)
-  ctx.rotate(heading + Math.PI / 2)
   ctx.fillStyle = selected ? '#ffe97a' : '#8fd4ff'
   ctx.strokeStyle = '#0a3a66'
   ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(0, -7); ctx.lineTo(2, -1); ctx.lineTo(9, 1); ctx.lineTo(9, 3)
-  ctx.lineTo(1.5, 3); ctx.lineTo(1, 7); ctx.lineTo(3, 8); ctx.lineTo(-3, 8)
-  ctx.lineTo(-1, 7); ctx.lineTo(-1.5, 3); ctx.lineTo(-9, 3); ctx.lineTo(-9, 1)
-  ctx.lineTo(-2, -1)
-  ctx.closePath()
-  ctx.fill(); ctx.stroke()
+  ctx.lineJoin = 'round'
+  if (type === 'AEROSTAT') {
+    drawAerostat(ctx)
+  } else {
+    ctx.rotate(heading + Math.PI / 2)
+    ;(AIRFRAMES[type] || AIRFRAMES.SHADOW)(ctx)
+  }
   ctx.restore()
   if (label) {
     ctx.font = '8px Consolas, monospace'
     ctx.fillStyle = '#2a4a66'
     ctx.textAlign = 'center'
     ctx.fillText(label, x, y + 16)
+    ctx.textAlign = 'left'
   }
 }
 

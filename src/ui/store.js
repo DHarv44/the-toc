@@ -60,3 +60,6 @@ export const useUI = create((set, get) => ({
 
 // HUD refresh pump (10 Hz) — decoupled from render loops
 setInterval(() => useUI.setState((s) => ({ tick: s.tick + 1 })), 100)
+
+// dev hook: reach the UI store from the console (mirrors window.__game)
+if (typeof window !== 'undefined') window.__ui = useUI

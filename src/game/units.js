@@ -10,21 +10,21 @@ export const UNIT_TYPES = {
   INF: {
     key: 'INF', name: 'Rifle Platoon', abbr: 'IN', cat: 'MANEUVER', mob: 'foot', speed: 3.2,
     sight: 800, range: 550, dpsSoft: 3.4, dpsHard: 1.5, soft: 1.0,
-    cost: 100, veh: 0, troops: 32, glyph: 'inf',
+    cost: 100, veh: 0, troops: 32, glyph: 'inf', carries: ['RAVEN'],
     carrier: { name: 'HMMWV', mob: 'wheeled', speed: 13, veh: 4, soft: 0.65, fireMul: 0.5 },
     def: { time: 90, factor: 0.45, name: 'FIGHTING POSITIONS' },
   },
   STRY: {
     key: 'STRY', name: 'Stryker Rifle Plt', abbr: 'SB', cat: 'MANEUVER', mob: 'foot', speed: 3.2,
     sight: 850, range: 600, dpsSoft: 3.8, dpsHard: 1.8, soft: 0.9,
-    cost: 300, veh: 0, troops: 36, glyph: 'mech',
+    cost: 300, veh: 0, troops: 36, glyph: 'mech', carries: ['RAVEN'],
     carrier: { name: 'Stryker', mob: 'wheeled', speed: 14, veh: 4, soft: 0.45, fireMul: 0.8 },
     def: { time: 90, factor: 0.6, name: 'HULL DEFILADE' },
   },
   MECH: {
     key: 'MECH', name: 'Mech Inf Platoon', abbr: 'MI', cat: 'MANEUVER', mob: 'foot', speed: 3.2,
     sight: 900, range: 900, dpsSoft: 4.6, dpsHard: 2.4, soft: 0.8,
-    cost: 250, veh: 0, troops: 24, glyph: 'mech',
+    cost: 250, veh: 0, troops: 24, glyph: 'mech', carries: ['RAVEN'],
     carrier: { name: 'IFV', mob: 'tracked', speed: 10, veh: 4, soft: 0.5, fireMul: 1.0 },
     def: { time: 90, factor: 0.6, name: 'HULL DEFILADE' },
   },
@@ -37,19 +37,19 @@ export const UNIT_TYPES = {
   AT: {
     key: 'AT', name: 'ATGM Team', abbr: 'AT', cat: 'MANEUVER', mob: 'foot', speed: 3.0,
     sight: 1000, range: 2000, dpsSoft: 0.6, dpsHard: 4.6, soft: 1.0,
-    cost: 200, veh: 0, troops: 8, glyph: 'at',
+    cost: 200, veh: 0, troops: 8, glyph: 'at', carries: ['SWITCHBLADE'],
     def: { time: 75, factor: 0.45, name: 'CONCEALED POSITIONS' },
   },
   SCT: {
     key: 'SCT', name: 'Scout Section', abbr: 'SC', cat: 'RECON', mob: 'wheeled', speed: 16,
     sight: 1900, range: 450, dpsSoft: 1.6, dpsHard: 0.5, soft: 0.7,
-    cost: 150, veh: 3, troops: 6, glyph: 'sct',
+    cost: 150, veh: 3, troops: 6, glyph: 'sct', carries: ['RAVEN', 'SWITCHBLADE'],
     def: { time: 45, factor: 0.7, name: 'HASTY POSITIONS' },
   },
   CAV: {
     key: 'CAV', name: 'Armd Recon Troop', abbr: 'CV', cat: 'RECON', mob: 'tracked', speed: 11,
     sight: 1500, range: 1200, dpsSoft: 3.0, dpsHard: 2.6, soft: 0.3,
-    cost: 300, veh: 4, troops: 6, glyph: 'cav',
+    cost: 300, veh: 4, troops: 6, glyph: 'cav', carries: ['RAVEN', 'SWITCHBLADE'],
     def: { time: 60, factor: 0.65, name: 'HULL-DOWN' },
   },
   MOR: {

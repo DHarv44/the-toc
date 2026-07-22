@@ -126,13 +126,13 @@ air layer (UAS, gunship, helos) into a real risk/reward decision instead of free
   air-engagement envelope; base AD is a per-structure air weapon; reuse the shared
   air-platform module (feed, weapons, ammo) for the A-10.
 
-### Air Asset Cost & Access
+### Air Asset Cost & Access  *(partly implemented)*
 Air power is a premium capability, not something you spam:
-- **Air assets are expensive** — the gunship, attack helos, A-10, fighters, and the larger
-  fixed-wing UAS carry **high supply costs**, so committing air is a real economic decision.
-- **Small field drones stay cheap and unit-accessible** — the hand-launched recon/loiter
-  drones (Raven, Switchblade) remain **deployable by frontline units exactly as they are
-  today**, no airfield required.
+- **Air assets are expensive** *(done)* — the AC-130 gunship and the larger fixed-wing UAS
+  carry high supply costs (Shadow 350 / Sentinel 650 / Viper 900 / Aerostat 600 / AC-130 1500),
+  so committing air is a real economic decision. Attack helos / A-10 / fighters still to come.
+- **Small field drones stay cheap and unit-accessible** *(done)* — the hand-launched recon/loiter
+  drones (Raven 75, Switchblade 150) remain deployable by frontline units, no airfield required.
 - Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
   for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
 
@@ -143,14 +143,20 @@ Put the airfield-independent drones in the hands of units:
   giving you organic air without an airstrip.
 - **Suicide / FPV drones** — cheap, expendable **one-way attack drones (Ukraine-style FPV)**:
   the drone team launches them to dive on ground targets. Low cost, high volume, attritable.
-- **Organic drones on other units** — recon, rifle, Stryker rifle, and similar units can pop a
-  **small quadcopter for local ISR** where it makes sense, without a dedicated drone team.
-- Design notes: field-launched drones already exist (`src:'field'`); attach a launch capability
-  to the drone team and to select unit types; FPV suicide drone is a cheap kamikaze variant of
-  the Switchblade model; keep costs low per the Air Asset Cost & Access tiering.
+- **Organic drones on other units** *(done)* — carrier-capable units field their organic UAS
+  from the context deploy menu: Rifle/Stryker/Mech carry a Raven; Scout and Armd Recon carry
+  Raven + Switchblade; the ATGM team carries a Switchblade (`carries: [...]` in `units.js`).
+- Design notes: field-launched drones already exist (`src:'field'`); a dedicated drone-team unit
+  is still to come; FPV suicide drone is a cheap kamikaze variant of the Switchblade model; keep
+  costs low per the Air Asset Cost & Access tiering.
 
-### Drone Airframe Types & FPV Terminal Attack
+### Drone Airframe Types & FPV Terminal Attack  *(partly implemented)*
 Model drones by their real airframe rather than one generic flyer:
+- **Distinct airframe symbols** *(done)* — each UAS/aviation asset now draws a unique top-down
+  silhouette on the map and in the deploy palette (twin-boom Shadow, long-wing V-tail Sentinel,
+  swept-wing Viper, tiny Raven, missile-body Switchblade, blimp aerostat, 4-engine AC-130).
+- **Tethered aerostat holds a fixed stare** *(done)* — the balloon no longer orbits; it holds
+  its tether point and only the sensor turret slews (a step toward the hover flight model below).
 - **Quadcopters can hover** — hold a fixed stare, move in any direction, and work low/close;
   no orbit required (organic ISR quads and some FPV attack drones).
 - **Fixed-wing must keep moving** — they orbit/loiter and can't hover (Raven, Shadow, Sentinel,
@@ -183,16 +189,15 @@ ammunition cook-off that throws the turret clear:
   turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
   hull.
 
-### Drones Shadow Enemy Units
-Extend the overwatch/follow tasking to hostiles — task a UAV to **follow and track a moving enemy
-unit**, keeping its orbit and sensor on the target as it maneuvers (ISR shadowing), not just
-friendly overwatch:
-- The drone's orbit anchor chases the enemy contact and the sensor stays on it.
-- If the enemy goes dark (contact lost under fog), the drone holds the last-known position like a
-  broken track until it's re-acquired.
-- Great for keeping eyes on a spotted force before a strike/ambush, or watching a withdrawal.
-- Design notes: let `droneFollow` accept hostile units (currently friend-only); gate on a live
-  contact and fall back to LKP when the track breaks; pairs with the sensor lock/track and fog.
+### Drones Shadow Enemy Units **(implemented)**
+Follow tasking now works against hostiles: click a contact in the UAV feed to designate it, then
+**FOLLOW** to track it. A movable airframe flies its **orbit anchor** after the contact while the
+**sensor stays under operator control** (following moves the aircraft, not the camera). The
+tethered **aerostat** can't move, so it follows with the **sensor only (camera lock)** and drops
+the track once the contact leaves its sensor arc. The track drops automatically when the contact
+is destroyed.
+- Still open: hold the **last-known position** as a broken track when the contact goes dark under
+  fog (currently drops the follow), then re-acquire.
 
 ## Combat & Tactics
 
@@ -221,12 +226,12 @@ Smoke as a maneuver tool, not just an artillery effect:
   a player "deploy smoke" order (unit smoke grenades / mortar smoke); smoke reduces LOS/sight
   through its footprint.
 
-### Surrender
+### Surrender **(implemented)**
 Broken units don't always fight to the death or cleanly withdraw:
-- When a unit breaks (hits its low-strength threshold), it has a **1–5% chance of surrendering**
-  instead — taken out of the fight (and potentially a POW/handling hook later).
-- Design notes: on the break-contact trigger, roll a small surrender chance; a surrendered unit
-  is removed from combat (later: prisoner handling / intel value).
+- A unit at low strength that's in/near contact rolls a small surrender chance (~1–5%) per check
+  and, if it surrenders, is removed from the fight (friendly surrender toasts; enemy surrender
+  reports over the NET). Both sides can surrender.
+- Still open: prisoner handling / POW intel value.
 
 ### Foot Mobiles Seek Cover → Concealment → Prone
 Under fire, dismounted infantry actively better their position instead of standing in the open,
@@ -335,6 +340,23 @@ not each pathfind independently to its own offset:
 - Design notes: only the lead unit runs A\*; followers trail the leader's path by a spacing
   offset (fall back to their own route only if separated); keep the existing slowest-member
   pace cap so the column stays together.
+
+### Deployment & Fielding Mechanics
+Right now a fielded ground unit can be placed anywhere inside a base's deploy zone. It should
+instead **originate from the fielding source and move out** to where the player wants it:
+- **HQ / FOB ground units** — spawn **at** the HQ/FOB and then road-march/move a short distance
+  out to a rally point near the base, rather than teleporting to an arbitrary spot in the zone.
+  (Optionally the player clicks a nearby rally point and the unit spawns at the base and moves
+  there.)
+- **Airfield aircraft** — unchanged: launched from the strip and sent to a specific orbit point,
+  exactly as it works now.
+- **Engineer installations** — buildable only **within a radius of the engineer** (the engineer
+  emplaces it), not anywhere on the map.
+- **Carrier-launched UAS** — same as the engineer: the drone launches **within a radius of the
+  carrying unit**, so hand-launched birds actually come off the unit that carries them.
+- Design notes: ground deploy = spawn at base → auto-move to a chosen/near rally; gate
+  build/launch clicks to a range check around the source (toast if out of range); keep the
+  deploy-zone ring as the *allowed rally area* rather than a free-placement region.
 
 ## Enemy AI / OPFOR
 
@@ -574,16 +596,17 @@ A rotary-wing base for the attack helicopters (and future utility/lift helos):
 - Design notes: new `STRUCTURES` entry with `launchesHelos` (parallel to the airfield's
   `launchesDrones`); helo assets spawn from the nearest helipad.
 
-### Airfield Placement Restricted to HQ
+### Airfield Placement Restricted to HQ **(implemented)**
 Airfields are a strategic asset, not something you sprinkle anywhere:
-- **Only the HQ can establish an airfield** — it must be placed within the HQ's build
-  radius (not near a FOB), reflecting the logistics an airstrip needs.
-- Design notes: tighten `AFLD` placement to require proximity to a friendly **HQ**
-  specifically (vs. any base), and surface the restriction in the placement toast.
+- **Only the HQ can establish an airfield** — `AFLD` placement requires proximity to a friendly
+  HQ specifically (not any base), with a "must be established near the HQ" toast when out of range.
 
-### Installation-Gated Unlocks
-Air assets are unlocked by building the installation that operates them, so the
-palette reflects what you can actually field:
+### Installation-Gated Unlocks  *(partly implemented)*
+The deploy palette is now **context-sensitive**: it only appears when you select a fielding
+source and lists exactly what that source can field — click an **airfield** for the fixed-wing
+UAS + AC-130, an **HQ/FOB** for ground units + the aerostat, an **engineer** for installations,
+a **carrier unit** for its organic Raven/Switchblade. What remains is gating on *existence* of
+the enabling installation (grey out airfield UAS until an airfield is built, etc.):
 - **Placing a helipad unlocks the attack helicopters** — they're locked until at least
   one friendly helipad exists.
 - **Placing an airfield unlocks the airfield-launched UAVs** — the fixed-wing UAS
@@ -648,17 +671,16 @@ flight path** — so they disagree and the lock lands off from where the sensor 
   on-station/lock look at `tx`/lock point) — so LOCK and the reticle agree in every state. (Or
   simplest: only allow LOCK once on-station.) **(fixed — LOCK now gated to on-station.)**
 
-### "ROUTE IMPASSABLE" Toast Spam
-"ROUTE IMPASSABLE" toasts stack up and never clear. Likely more than one cause:
-- **Fires for any side** — `orderMove` calls `toast('ROUTE IMPASSABLE')` regardless of side, so an
-  *enemy AI* pathfinding failure is shown to the player (it shouldn't be surfaced at all).
-- **A stuck unit re-issues the order** — a unit (often the AI, which uses the same order
-  functions) keeps trying to reach an unreachable point, firing the toast on every failed
-  `findPath` — hence the pile-up.
-- Possibly toasts aren't expiring/being de-duped either.
-- Fix: gate the toast to the player's own (friendly) units, like radio/netRadio; throttle/de-dupe
-  repeat toasts and confirm they have a TTL; and give a unit whose route is impassable a fallback
-  (re-plan, try cross-country, or abort) instead of hammering the same failing path each tick.
+### "ROUTE IMPASSABLE" Toast Spam **(fixed)**
+"ROUTE IMPASSABLE" toasts stacked up and never cleared. Root cause: `orderMove`/`orderAttack`
+called `toast('ROUTE IMPASSABLE')` regardless of side, and the enemy AI re-drives idle units
+every tick — so a hostile unit stuck against an unreachable objective (e.g. an aim point in a
+disconnected water basin) re-fired the toast forever, for movement the player never ordered.
+- **Fix:** the toast is now gated to friendly (player-issued) orders only — hostile pathfinding
+  failures are silent. Verified headless: a hostile unit given an unreachable route pushes no
+  toast; a friendly unit still surfaces the one legitimate notification.
+- Still open (nice-to-have, not causing the spam): give a friendly unit whose route is impassable
+  a fallback (re-plan / try cross-country / abort) instead of just reporting the failure.
 
 ## Later / Deferred
 

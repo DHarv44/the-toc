@@ -469,20 +469,25 @@ export function droneLock(droneId, lock) {
   }
 }
 
-// task a drone to overwatch a friendly unit: the orbit anchor chases the unit
+// track a designated contact: the orbit anchor chases the unit (movable airframes),
+// or the sensor slaves to it while it stays in the field of regard (tethered aerostat).
+// unitId is any unit the sensor can see — usually a hostile picked in the feed.
 export function droneFollow(droneId, unitId) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
   if (unitId) {
-    const u = S.units.find(u => u.id === unitId && u.side === 'friend')
-    if (!u) return toast('CAN ONLY OVERWATCH FRIENDLY UNITS')
-    if (d.tether) return toast(d.label + ' IS TETHERED')
+    const u = S.units.find(u => u.id === unitId)
+    if (!u) return
     d.followId = unitId
     d.route = []
-    radio(d.label, 'move', `TASKED — OVERWATCH ${u.label}`, u.x, u.y)
+    const who = u.side === 'friend' ? u.label : 'HOSTILE ' + UNIT_TYPES[u.type].abbr
+    radio(d.label, 'spot', d.tether
+      ? `SENSOR TRACKING ${who} — GRID ${grid(u.x, u.y)}`
+      : `TRACKING ${who} — GRID ${grid(u.x, u.y)}`, u.x, u.y)
   } else {
     d.followId = null
-    radio(d.label, 'move', `HOLDING FIXED ORBIT GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
+    if (d.lock && d.lock.track) d.lock = null   // release the follow camera
+    radio(d.label, 'move', `TRACK DROPPED — HOLDING GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
   }
 }
 
@@ -522,14 +527,16 @@ export function droneToggleTarget(droneId, unitId, ei) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
   const spec = DRONE_TYPES[d.type]
-  if (!spec.weapons && !spec.kamikaze && !spec.gunship) return
+  // any drone can designate a target in its feed — armed drones use it to FIRE,
+  // every drone can use it to FOLLOW. Selecting is silent for unarmed sensors.
+  const armed = spec.weapons || spec.kamikaze || spec.gunship
   if (!d.targets) d.targets = []
   const i = d.targets.findIndex(t => t.unitId === unitId && t.ei === ei)
   if (i >= 0) { d.targets.splice(i, 1); return }
   const wasEmpty = !d.targets.length
   d.targets.push({ unitId, ei })
-  // first target of an engagement → call in a request for permission to fire
-  if (wasEmpty) {
+  // first target of an engagement on an armed platform → request permission to fire
+  if (wasEmpty && armed) {
     const p = targetPoint({ unitId, ei })
     if (p) radio(d.label, 'fires', `TARGET LOCKED — GRID ${grid(p.x, p.y)}, REQUEST PERMISSION TO ENGAGE`, p.x, p.y)
   }
@@ -603,11 +610,13 @@ function gunshipHowitzerFire(d) {
   }
 }
 // the gunship flies a pylon turn with the guns pointed inboard, so it can only
-// engage the killbox INSIDE its orbit ring — not everything within gun range
+// engage the killbox INSIDE its orbit ring — not everything within gun range. The
+// bound matches the drawn orbit ring exactly (no margin) so nothing outside the
+// visible circle is ever acquired.
 function inKillbox(d, x, y) {
   const spec = DRONE_TYPES[d.type]
   const oR = spec.orbitR * (d.orbitMul || 1)
-  return Math.hypot(x - d.tx, y - d.ty) <= oR * 1.15
+  return Math.hypot(x - d.tx, y - d.ty) <= oR
 }
 // nearest visible hostile vic/troop inside the turn and within range (weapons-free acquire)
 function gunshipAcquire(d, range) {
@@ -659,8 +668,14 @@ function updateGunship(d, dt) {
   d.gunCd = d.burstLeft > 0 ? 1 / w.rof : w.gap + Math.random() * 0.5
   // dispersed aim: Gaussian scatter (sum of uniforms) — area fire, never pinpoint
   const gs = () => (Math.random() + Math.random() + Math.random() - 1.5) * (2 / 1.5)
-  const ix = clampWorld(aim.x + gs() * w.disp)
-  const iy = clampWorld(aim.y + gs() * w.disp)
+  let dx0 = aim.x + gs() * w.disp, dy0 = aim.y + gs() * w.disp
+  // keep every round inside the visible orbit ring: the gunship only brings guns to
+  // bear inboard of its pylon turn, so dispersion can't fling a round past the ring
+  const oR = spec.orbitR * (d.orbitMul || 1)
+  const rdx = dx0 - d.tx, rdy = dy0 - d.ty, rd = Math.hypot(rdx, rdy)
+  if (rd > oR) { const k = oR / rd; dx0 = d.tx + rdx * k; dy0 = d.ty + rdy * k }
+  const ix = clampWorld(dx0)
+  const iy = clampWorld(dy0)
   // ballistic round from the (moving) aircraft muzzle; time-of-flight forces lead,
   // damage/flash resolve on impact, not at the trigger pull
   const mAlt = spec.alt * (d.altMul || 1)
@@ -683,7 +698,9 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
   x = clampWorld(x); y = clampWorld(y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1] : u
   const p = findPath(S.map, from.x, from.y, x, y, effStats(u).mob, opts)
-  if (!p) return toast('ROUTE IMPASSABLE')
+  // only surface the toast for player-issued orders; the enemy AI re-drives idle
+  // units every tick, so an unreachable hostile objective would spam it forever
+  if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
   u.bridging = null
   u.heldRoute = null
   u.breaking = false
@@ -713,7 +730,7 @@ export function orderAttack(unitId, enemyId, groupId = null) {
   const e = S.units.find(x => x.id === enemyId && x.side !== u.side)
   if (!e) return
   const p = findPath(S.map, u.x, u.y, e.x, e.y, effStats(u).mob)
-  if (!p) return toast('ROUTE IMPASSABLE')
+  if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
   u.bridging = null; u.heldRoute = null; u.breaking = false
   u.autoDismounted = false; u.convoy = null
   u.groupId = groupId
@@ -1546,12 +1563,23 @@ export function tick(dt) {
         radio(d.label, 'spot', `TRACK LOST — HOLDING GRID ${grid(d.lock.x, d.lock.y)}`, d.lock.x, d.lock.y)
       }
     }
-    // overwatch tasking: orbit anchor chases the assigned unit at airframe speed
+    // contact tracking. A movable airframe flies its orbit anchor after the
+    // contact — the SENSOR is left under operator control (following moves the
+    // aircraft, not the camera). The tethered aerostat can't move, so it follows
+    // with the sensor only (camera lock) and drops once the contact leaves its arc.
     if (d.followId && (d.state === 'transit' || d.state === 'onstation')) {
       const u = S.units.find(x => x.id === d.followId)
-      if (!u) {
+      if (!u || u.strength <= 0) {
         d.followId = null
-        radio(d.label, 'move', `TRACK LOST — HOLDING ORBIT GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
+        if (d.lock && d.lock.track) d.lock = null
+        radio(d.label, 'spot', `TRACK LOST — CONTACT GONE`, d.tx, d.ty)
+      } else if (d.tether) {
+        d.lock = { x: u.x, y: u.y, track: true }   // aerostat: sensor slaves to the contact
+        const reach = spec.sight * (d.sightMul || 1)
+        if (Math.hypot(u.x - d.x, u.y - d.y) > reach) {
+          d.followId = null; d.lock = null
+          radio(d.label, 'spot', `TRACK LOST — CONTACT OUTSIDE SENSOR RANGE`, u.x, u.y)
+        }
       } else {
         const dx = u.x - d.tx, dy = u.y - d.ty
         const dist = Math.hypot(dx, dy)
@@ -1585,17 +1613,22 @@ export function tick(dt) {
       } else { d.x += (dx / dist) * spec.speed * dt; d.y += (dy / dist) * spec.speed * dt }
     } else if (d.state === 'onstation') {
       d.endurance -= dt
-      const oR = spec.orbitR * (d.orbitMul || 1)
-      if (d.orbR == null) d.orbR = oR
-      // rate-limited spiral toward the commanded radius
-      const maxStep = spec.speed * 0.5 * dt
-      d.orbR += Math.max(-maxStep, Math.min(maxStep, oR - d.orbR))
-      // angular rate keeps true airspeed roughly constant (balloons just sway).
-      // gunships fly a left-hand (counter-clockwise) pylon turn so the guns face inboard
-      const turnDir = spec.gunship ? -1 : 1
-      d.angle += turnDir * dt * ((spec.speed || 3) / Math.max(80, d.orbR))
-      d.x = d.tx + Math.cos(d.angle) * d.orbR
-      d.y = d.ty + Math.sin(d.angle) * d.orbR
+      if (d.tether) {
+        // the aerostat holds a fixed station over its tether point — it does not
+        // orbit. Only the sensor turret slews (operator gimbal / track), 360°.
+        d.x = d.tx; d.y = d.ty; d.orbR = 0
+      } else {
+        const oR = spec.orbitR * (d.orbitMul || 1)
+        if (d.orbR == null) d.orbR = oR
+        // rate-limited spiral toward the commanded radius
+        const maxStep = spec.speed * 0.5 * dt
+        d.orbR += Math.max(-maxStep, Math.min(maxStep, oR - d.orbR))
+        // gunships fly a left-hand (counter-clockwise) pylon turn so the guns face inboard
+        const turnDir = spec.gunship ? -1 : 1
+        d.angle += turnDir * dt * ((spec.speed || 3) / Math.max(80, d.orbR))
+        d.x = d.tx + Math.cos(d.angle) * d.orbR
+        d.y = d.ty + Math.sin(d.angle) * d.orbR
+      }
       if (d.endurance <= 0) {
         d.state = 'rtb'
         radio(d.label, 'move', `BINGO — RTB`, d.x, d.y)

@@ -3,6 +3,7 @@ import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertT
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { setMuted as audioSetMuted, setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
 import { useUI } from './store.js'
+import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols.js'
 import DroneView from '../drone/DroneView.jsx'
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
@@ -80,57 +81,8 @@ export default function HUD() {
         </span>
       </div>
 
-      {/* deploy palette */}
-      <div style={{
-        ...panel, position: 'absolute', top: 44, bottom: 0, left: 0, width: 210,
-        padding: '0 8px 0 0', borderRadius: 0, overflowY: 'auto', zIndex: 10,
-      }}>
-        {CATS.map((cat) => (
-          <div key={cat}>
-            <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>{cat}</div>
-            {Object.values(UNIT_TYPES).filter(t => t.cat === cat).map((t) => (
-              <PaletteRow key={t.key} label={t.name} cost={t.cost}
-                active={ui.mode === 'deploy:' + t.key}
-                onClick={() => ui.setMode(ui.mode === 'deploy:' + t.key ? 'select' : 'deploy:' + t.key)} />
-            ))}
-          </div>
-        ))}
-        <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>INSTALLATIONS</div>
-        {Object.values(STRUCTURES).map((st) => (
-          <PaletteRow key={st.key} label={st.name} cost={st.cost}
-            active={ui.mode === 'build:' + st.key}
-            onClick={() => ui.setMode(ui.mode === 'build:' + st.key ? 'select' : 'build:' + st.key)} />
-        ))}
-        <div style={{ color: '#54708a', fontSize: 11, letterSpacing: 2, margin: '6px 0 3px' }}>AVIATION — UAS</div>
-        {Object.values(DRONE_TYPES).map((dt) => (
-          <PaletteRow key={dt.key}
-            label={`${dt.name}${dt.weapons ? ' ⚔' : dt.kamikaze ? ' ✸' : dt.gunship ? ' ✹' : ''}${dt.src === 'field' ? ' ▽' : ''}`}
-            cost={dt.cost}
-            active={ui.mode === 'deploy:DRONE:' + dt.key}
-            onClick={() => ui.setMode(ui.mode === 'deploy:DRONE:' + dt.key ? 'select' : 'deploy:DRONE:' + dt.key)} />
-        ))}
-        <div style={{ color: '#5a7288', fontSize: 9, marginTop: 6, lineHeight: 1.5 }}>
-          {ui.mode.startsWith('deploy:')
-            ? (ui.mode.startsWith('deploy:DRONE:')
-              ? (DRONE_TYPES[ui.mode.slice(13)]?.src === 'field'
-                ? 'CLICK ORBIT POINT NEAR A FRIENDLY UNIT (▽ HAND-LAUNCHED)'
-                : DRONE_TYPES[ui.mode.slice(13)]?.src === 'tether'
-                  ? 'CLICK A FOB OR HQ TO RAISE THE AEROSTAT (1 PER SITE)'
-                  : 'CLICK MAP: SET ORBIT POINT (LAUNCHES FROM AIRFIELD)')
-              : 'CLICK INSIDE A DEPLOY ZONE')
-            : ui.mode.startsWith('build:')
-              ? (ui.mode === 'build:OP' ? 'PLACE NEAR FRIENDLY FORCES' : 'PLACE NEAR AN ACTIVE BASE')
-              : ui.mode === 'bridge'
-                ? 'CLICK A WATER GAP WITHIN 700M'
-                : ui.mode.startsWith('follow:')
-                  ? 'CLICK A FRIENDLY UNIT TO OVERWATCH'
-                  : ui.mode.startsWith('lock:')
-                    ? 'CLICK A UNIT OR POSITION TO LOCK THE SENSOR'
-                    : ui.mode.startsWith('convoy:')
-                      ? 'CLICK A FOB TO ESTABLISH THE SUPPLY ROUTE'
-                      : 'L-CLICK SELECT / ORDER · SHIFT-CLICK ADD WP · L-DRAG SPREAD LINE · Q/E MOVE/ATTACK · R-CLICK DESELECT · R-DRAG PAN'}
-        </div>
-      </div>
+      {/* context-sensitive deploy menu (only shown for a selected base/airfield/engineer/carrier) */}
+      <DeployPanel />
 
       {/* selection tray */}
       <SelectionTray />
@@ -563,10 +515,11 @@ function DroneMenu() {
         </div>
         {row('ALT', [[0.6, 'LOW'], [1, 'MED'], [1.6, 'HIGH']], d.altMul || 1,
           (v) => droneSet(d.id, { altMul: v }))}
-        {row('ORBIT', [[0.5, 'TIGHT'], [1, 'STD'], [1.8, 'WIDE']], d.orbitMul || 1,
+        {/* the aerostat holds a fixed tether point — no orbit to set */}
+        {spec.src !== 'tether' && row('ORBIT', [[0.5, 'TIGHT'], [1, 'STD'], [1.8, 'WIDE']], d.orbitMul || 1,
           (v) => droneSet(d.id, { orbitMul: v }))}
         {d.lock && item('BREAK SENSOR LOCK', () => droneLock(d.id, null))}
-        {d.followId && item('CANCEL OVERWATCH', () => droneFollow(d.id, null))}
+        {d.followId && item('DROP TRACK', () => droneFollow(d.id, null))}
         {item('RTB NOW', () => droneRTB(d.id), d.state === 'rtb' || d.state === 'striking')}
         {item('CENTER MAP', () => { const v = window.__view; if (v) { v.cx = d.x; v.cy = d.y } })}
       </div>
@@ -574,16 +527,164 @@ function DroneMenu() {
   )
 }
 
-function PaletteRow({ label, cost, active, onClick }) {
+function PaletteHeader({ label }) {
   return (
-    <div onClick={onClick} style={{
-      display: 'flex', justifyContent: 'space-between', padding: '5px 8px',
-      cursor: 'pointer', borderRadius: 2, marginBottom: 3, fontSize: 13,
-      background: active ? '#2a5a8a' : '#141e28',
-      border: '1px solid #26384a',
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      color: '#5f7d95', fontSize: 9.5, letterSpacing: 1.8,
+      margin: '9px 10px 3px', textTransform: 'uppercase',
     }}>
       <span>{label}</span>
-      <span style={{ color: '#ffd67e' }}>{cost}</span>
+      <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#2a3a48,transparent)' }} />
+    </div>
+  )
+}
+
+// short branch-type descriptor for a UAS row (doubles as a legend entry)
+function droneTag(dt) {
+  if (dt.gunship) return 'GUNSHIP'
+  if (dt.kamikaze) return 'LOITERING MUNITION'
+  if (dt.weapons) return 'ARMED ISR'
+  if (dt.src === 'field') return 'HAND-LAUNCHED'
+  if (dt.src === 'tether') return 'TETHERED'
+  return 'ISR'
+}
+
+// tiny canvas that renders the same MIL-STD-2525 symbol used on the map, so the
+// palette doubles as a symbol key
+function PaletteIcon({ unit, struct, drone }) {
+  const ref = useRef(null)
+  const W = 40, H = 26
+  useEffect(() => {
+    const cv = ref.current
+    if (!cv) return
+    const dpr = window.devicePixelRatio || 1
+    cv.width = W * dpr; cv.height = H * dpr
+    const ctx = cv.getContext('2d')
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, W, H)
+    const cx = W / 2, cy = H / 2
+    if (unit) {
+      drawUnitSymbol(ctx, cx, cy + 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon: 'plt', showStrength: false, label: '' })
+    } else if (struct) {
+      ctx.save(); ctx.translate(cx, cy + 3); ctx.scale(0.72, 0.72)
+      drawStructure(ctx, 0, 0, { side: 'friend', kind: struct.key, label: '' })
+      ctx.restore()
+    } else if (drone) {
+      drawDroneIcon(ctx, cx, cy, -Math.PI / 2, '', false, drone.key)
+    }
+  })
+  return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
+}
+
+function PaletteRow({ icon, label, tag, cost, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '3px 10px 3px 8px',
+      cursor: 'pointer', borderLeft: active ? '2px solid #7ec8ff' : '2px solid transparent',
+      background: active ? 'rgba(42,90,138,0.35)' : 'transparent',
+    }}>
+      {icon}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 12, lineHeight: 1.2, color: active ? '#fff' : '#cfe2f2',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{label}</div>
+        {tag && <div style={{ fontSize: 8.5, letterSpacing: 0.5, color: '#5f7d95' }}>{tag}</div>}
+      </div>
+      <span style={{ color: '#ffd67e', fontSize: 12, flex: '0 0 auto' }}>{cost}</span>
+    </div>
+  )
+}
+
+// ---- context-sensitive deploy menu ---------------------------------------
+// A deploy source is fielded from what you click: a base/airfield/engineer/
+// drone-carrier. The palette is otherwise hidden. Section item shape:
+//   { mode, label, tag, cost, icon }
+const unitItem = (t) => ({ mode: 'deploy:' + t.key, label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} /> })
+const droneItem = (dt) => ({ mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: dt.cost, icon: <PaletteIcon drone={dt} /> })
+const structItem = (st) => ({ mode: 'build:' + st.key, label: st.name, tag: st.abbr, cost: st.cost, icon: <PaletteIcon struct={st} /> })
+
+const groundSections = () => CATS.map(cat => ({
+  header: cat,
+  items: Object.values(UNIT_TYPES).filter(t => t.cat === cat).map(unitItem),
+}))
+
+// what a given selection can field, or null if nothing deployable is selected
+function deployContext(selectedIds) {
+  if (selectedIds.length !== 1) return null
+  const id = selectedIds[0]
+  const st = S.structures.find(s => s.id === id && s.side === 'friend')
+  if (st) {
+    if (st.buildT > 0) return null
+    if (st.kind === 'AFLD') {
+      const air = Object.values(DRONE_TYPES).filter(dt => dt.src === 'airfield').map(droneItem)
+      return { title: `${st.label} — AIRFIELD`, sections: [{ header: 'FIXED-WING & UAS', items: air }] }
+    }
+    if (st.kind === 'HQ' || st.kind === 'FOB') {
+      const aerostat = { header: 'TETHERED ISR', items: [droneItem(DRONE_TYPES.AEROSTAT)] }
+      return { title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`, sections: [...groundSections(), aerostat] }
+    }
+    return null // OP fields nothing
+  }
+  const u = S.units.find(x => x.id === id && x.side === 'friend')
+  if (u) {
+    const t = UNIT_TYPES[u.type]
+    const sections = []
+    if (t.key === 'ENG') sections.push({ header: 'INSTALLATIONS', items: Object.values(STRUCTURES).map(structItem) })
+    if (t.carries && t.carries.length) {
+      sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(droneItem) })
+    }
+    if (!sections.length) return null
+    return { title: `${u.label} — ${t.name.toUpperCase()}`, sections }
+  }
+  return null
+}
+
+function deployHint(mode) {
+  if (mode.startsWith('deploy:DRONE:')) {
+    const src = DRONE_TYPES[mode.slice(13)]?.src
+    return src === 'field' ? 'CLICK AN ORBIT POINT NEAR THE CARRYING UNIT'
+      : src === 'tether' ? 'CLICK THIS FOB / HQ TO RAISE THE AEROSTAT (1 PER SITE)'
+      : 'CLICK THE MAP TO SET THE ORBIT POINT (LAUNCHES FROM AIRFIELD)'
+  }
+  if (mode.startsWith('deploy:')) return 'CLICK INSIDE THE DEPLOY ZONE'
+  if (mode.startsWith('build:')) return mode === 'build:OP' ? 'PLACE NEAR FRIENDLY FORCES' : 'PLACE NEAR AN ACTIVE BASE'
+  return 'PICK AN ITEM, THEN CLICK THE MAP TO PLACE IT'
+}
+
+function DeployPanel() {
+  const ui = useUI()
+  const ctx = deployContext(ui.selectedIds)
+  if (!ctx) return null
+  const pick = (mode) => ui.setMode(ui.mode === mode ? 'select' : mode)
+  return (
+    <div style={{
+      ...panel, position: 'absolute', top: 34, bottom: 0, left: 0, width: 232,
+      padding: 0, borderRadius: 0, borderTop: 'none', borderBottom: 'none', borderLeft: 'none',
+      overflowY: 'auto', zIndex: 10, display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        padding: '7px 10px', color: '#7ec8ff', fontSize: 10, letterSpacing: 1.5,
+        borderBottom: '1px solid #22303c', background: 'rgba(8,12,16,0.55)',
+        position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{ctx.title}</div>
+      <div style={{ flex: 1, padding: '2px 0 8px' }}>
+        {ctx.sections.map((sec, si) => (
+          <div key={si}>
+            <PaletteHeader label={sec.header} />
+            {sec.items.map(it => (
+              <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
+                active={ui.mode === it.mode} onClick={() => pick(it.mode)} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{
+        color: '#7f97ab', fontSize: 9, lineHeight: 1.5, padding: '6px 10px',
+        borderTop: '1px solid #22303c', background: 'rgba(8,12,16,0.55)',
+        position: 'sticky', bottom: 0,
+      }}>{deployHint(ui.mode)}</div>
     </div>
   )
 }
@@ -801,8 +902,8 @@ function FeedWindow({ feed, index }) {
     gimbal.current = null
     // a drag slews the sensor; a clean click designates a target in the viewer
     if (!g || !drone || g.moved) return
-    const spec = DRONE_TYPES[drone.type]
-    if (!spec.weapons && !spec.kamikaze && !spec.gunship) return
+    // any drone can designate a contact in its feed — armed drones FIRE on it,
+    // every drone can FOLLOW it
     const rect = e.currentTarget.getBoundingClientRect()
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top
     const w = rect.width, h = rect.height
@@ -914,13 +1015,19 @@ function FeedWindow({ feed, index }) {
         {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
           <button
             style={{
-              ...btn(ui.mode === 'follow:' + drone.id || !!drone.followId),
+              ...btn(!!drone.followId),
               padding: '1px 6px', fontSize: 9, color: '#5ac8aa', borderColor: '#2f5a4a',
+              opacity: (drone.followId || (drone.targets && drone.targets.length)) ? 1 : 0.45,
             }}
+            disabled={!drone.followId && !(drone.targets && drone.targets.length)}
+            title={drone.followId ? 'Stop tracking the contact'
+              : (drone.targets && drone.targets.length) ? 'Track the designated contact'
+              : 'Click a contact in the feed to designate it first'}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => {
-              if (drone.followId) droneFollow(drone.id, null)
-              else ui.setMode(ui.mode === 'follow:' + drone.id ? 'select' : 'follow:' + drone.id)
+              if (drone.followId) { droneFollow(drone.id, null); return }
+              const t = (drone.targets || [])[0]   // track the first designated contact
+              if (t) droneFollow(drone.id, t.unitId)
             }}>
             {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
           </button>
@@ -1004,16 +1111,22 @@ function FeedWindow({ feed, index }) {
               ? <span style={{ fontWeight: 'bold', letterSpacing: 1, opacity: ui.tick % 8 < 4 ? 1 : 0.12 }}>RTB</span>
               : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
             {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
-            {drone.followId ? ` · TRK ${(S.units.find(u => u.id === drone.followId) || {}).label || '—'}` : ''}
+            {drone.followId ? ` · TRK ${(() => { const tu = S.units.find(u => u.id === drone.followId); return tu ? (tu.side === 'friend' ? tu.label : 'HOSTILE ' + UNIT_TYPES[tu.type].abbr) : '—' })()}` : ''}
           </div>
-          {drone.targets && drone.targets.length > 0 && (
-            <>
-              <div style={{ position: 'absolute', inset: 0, border: '2px solid rgba(255,60,40,0.7)', boxSizing: 'border-box' }} />
-              <div style={{ position: 'absolute', top: 32, left: 0, right: 0, textAlign: 'center', color: '#ff5a44', fontSize: 9, letterSpacing: 2, fontWeight: 'bold' }}>
-                ◎ {drone.targets.length} TARGET{drone.targets.length > 1 ? 'S' : ''} — CLICK FIRE
-              </div>
-            </>
-          )}
+          {drone.targets && drone.targets.length > 0 && (() => {
+            const armed = DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze || DRONE_TYPES[drone.type].gunship
+            const col = armed ? '#ff5a44' : '#5ac8aa'
+            const rgba = armed ? 'rgba(255,60,40,0.7)' : 'rgba(90,200,170,0.6)'
+            return (
+              <>
+                <div style={{ position: 'absolute', inset: 0, border: `2px solid ${rgba}`, boxSizing: 'border-box' }} />
+                <div style={{ position: 'absolute', top: 32, left: 0, right: 0, textAlign: 'center', color: col, fontSize: 9, letterSpacing: 2, fontWeight: 'bold' }}>
+                  ◎ {drone.targets.length} {armed ? 'TARGET' : 'CONTACT'}{drone.targets.length > 1 ? 'S' : ''}
+                  {drone.followId ? ' — TRACKING' : armed ? ' — CLICK FIRE' : ' — CLICK FOLLOW'}
+                </div>
+              </>
+            )
+          })()}
           <TargetReticles drone={drone} feed={feed} />
           <StrikeReticle drone={drone} feed={feed} />
           {drone.lock && (
