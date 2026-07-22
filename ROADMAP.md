@@ -315,6 +315,26 @@ ammunition cook-off that throws the turret clear:
   turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
   hull.
 
+### Sensor Horizon — Haze the Distance in the Feed ⬜
+A UAS feed can see clear to the map edge right now — the R3F scene renders the whole world
+crisply, so a low Raven surveys as far as a high Sentinel. It should fall off with distance,
+gated by altitude and airframe, so a feed shows a believable sensor footprint rather than the
+entire theatre.
+- **Distance haze keyed to altitude** — atmospheric fade that closes in low and opens up high.
+  A Raven at 200m sees a small bubble; a Sentinel at 1250m sees far; the AC-130 and aerostat
+  sit in between. The fade distance scales off `spec.alt * altMul`, so the ALT control (LOW/
+  MED/HIGH) visibly trades field-of-regard for it.
+- **Per-airframe sensor quality** — a multiplier on top of altitude so a dedicated ISR platform
+  (Sentinel) reaches further than a hand-launched Raven at the same height. Ties to the existing
+  `spec.sight`, which already sets each type's detection range.
+- **Match detection to what's visible** — the haze should roughly coincide with `unitSees` /
+  the feed's contact range, so "if you can see it in the feed, the sensor reports it" stays true
+  and the player isn't shown vics past the point the sim would detect them.
+- Design notes: R3F `fog` is already on the Canvas — drive its near/far from
+  `spec.alt*altMul` and a per-type sensor factor instead of the current fixed values, and tint
+  it by day/night and camMode (IR vs EO). Cheap and mostly a tuning pass over existing fog.
+  Pairs with the map-side fog/LKP model — this is its in-feed counterpart.
+
 ### Better Three.js Assets, Particles & Effects
 The drone feed carries the game's only real "ground truth" imagery, but its scene is built from
 merged primitive boxes and a handful of sprites. It should look like an actual EO/IR downlink.

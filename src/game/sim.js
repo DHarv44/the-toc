@@ -994,7 +994,7 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
-const AEROSTAT_SCAN_RATE = 0.22 // rad/s — a full turret sweep takes ~28s
+const AEROSTAT_SCAN_RATE = 0.055 // rad/s — a full turret sweep takes ~114s
 const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
 const STRAGGLE_GAP = 190  // metres before the column stops and waits for its tail
 

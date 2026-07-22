@@ -798,9 +798,11 @@ function DroneCamera({ feedRef, droneId, gimbal }) {
       camera.up.set(0, 1, 0)
       const alt = spec.alt * (d.altMul || 1)
       const bearing = d.scanAngle || 0
-      const dep = d.sensorMode === 'free'
-        ? (d.tilt ?? AEROSTAT_MIN_TILT)
-        : Math.atan2(alt, spec.sight * 0.45)   // ~working survey depression
+      // AUTO sweeps at whatever tilt the operator last left it — so switching FREE→AUTO
+      // continues from exactly where they parked the camera, both bearing and depression,
+      // rather than snapping to a fixed survey angle. Falls back to a working depression
+      // if the turret was never hand-tilted.
+      const dep = d.tilt ?? Math.atan2(alt, spec.sight * 0.45)
       const R = alt / Math.tan(Math.max(AEROSTAT_MIN_TILT, dep))
       const lx = d.tx + Math.cos(bearing) * R, ly = d.ty + Math.sin(bearing) * R
       feed.cx = lx; feed.cy = ly
