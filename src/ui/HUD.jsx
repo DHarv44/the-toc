@@ -1,6 +1,7 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
+import { setMuted as audioSetMuted, setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
 import { useUI } from './store.js'
 import DroneView from '../drone/DroneView.jsx'
 
@@ -63,6 +64,11 @@ export default function HUD() {
             {ui.night ? '☾ NIGHT' : '☀ DAY'}
           </button>
           <button style={btn(ui.showNet)} onClick={ui.toggleNet}>NET</button>
+          <button style={btn(!ui.muted)}
+            title={ui.muted ? 'Feed audio muted' : 'Feed audio on'}
+            onClick={() => { const m = !ui.muted; ui.setMuted(m); audioSetMuted(m) }}>
+            {ui.muted ? '🔇' : '🔊'}
+          </button>
           <button style={btn(false)} onClick={() => ui.addFeed()} disabled={ui.feeds.length >= 4}>
             + FEED ({ui.feeds.length}/4)
           </button>
@@ -759,6 +765,11 @@ function FeedWindow({ feed, index }) {
   const drone = S.drones.find(d => d.id === feed.droneId) || null
   const camMode = (drone && ui.droneModes[drone.id]) || 'WHOT'
 
+  // platform ambient: each airframe's engine loop runs while its feed is open
+  const droneType = drone ? drone.type : null
+  useEffect(() => { setFeedAmbient(feed.id, droneType) }, [feed.id, droneType])
+  useEffect(() => () => clearFeedAmbient(feed.id), [feed.id])
+
   // --- feed interaction: click = lock target, drag = slew gimbal, wheel = zoom ---
   function feedDown(e) {
     if (e.button !== 0 || !drone) return
@@ -989,7 +1000,9 @@ function FeedWindow({ feed, index }) {
             {(feed.gx || feed.gy) ? ' · OFFSET' : ''}
           </div>
           <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9 }}>
-            {drone.state === 'rtb' ? 'RTB' : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
+            {drone.state === 'rtb'
+              ? <span style={{ fontWeight: 'bold', letterSpacing: 1, opacity: ui.tick % 8 < 4 ? 1 : 0.12 }}>RTB</span>
+              : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
             {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
             {drone.followId ? ` · TRK ${(S.units.find(u => u.id === drone.followId) || {}).label || '—'}` : ''}
           </div>

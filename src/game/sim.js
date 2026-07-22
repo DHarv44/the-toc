@@ -571,6 +571,7 @@ function gunshipHowitzerFire(d) {
     S.shells.push({
       fromX: d.x, fromY: d.y, x: p.x, y: p.y,
       impactT: S.t + w.flight, dmg: w.dmg, blast: w.blast, side: 'friend', splashFrom: d.label,
+      t0: S.t, bigGun: true, // firing-report cue for feed audio (deepest thud)
     })
     d.strikeMark = { x: p.x, y: p.y, until: S.t + w.flight }
     radio(d.label, 'fires', `SHOT — ${w.short} GRID ${grid(p.x, p.y)}`, p.x, p.y)

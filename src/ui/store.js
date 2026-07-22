@@ -17,6 +17,8 @@ export const useUI = create((set, get) => ({
   feeds: [newFeed()],
   night: false,
   showNet: true,
+  muted: false,
+  setMuted: (m) => set({ muted: m }),
   fireOpts: { shell: 'HE', rounds: 0, sheaf: 'STD' }, // rounds 0 = battery default
   droneModes: {},          // droneId -> camera mode; the sensor setting rides with the aircraft
   netSize: { w: 310, h: 280 },

@@ -390,6 +390,49 @@ the mud:
   off the existing radio events; gate weapon/ambient audio to the active drone feed rather than
   the map.
 
+### Radio Chatter Library, Callsigns & Message Factory
+Generate authentic radio traffic that drives the JBC-P NET readout now and voice later.
+
+**Unique callsigns (command-down).**
+- Give every element a consistent, unique callsign down the chain — a unit word + a role number
+  (US convention: `6` = commander, `5` = XO, `7` = senior NCO, `1–4` = subordinate
+  platoons/sections; higher HQ has its own). e.g. `HAMMER 6` (company cdr), `HAMMER 1` (1st plt).
+  Phonetic, and reused consistently in every message to/from that element.
+- Design notes: a callsign generator that draws from a name pool + assigns role numbers per
+  echelon at spawn, stored on the unit/HQ; the enemy gets its own (unheard on our net).
+
+**Message factory (templates + variation).**
+- Each event type has a **template with slots** filled from game state (callsigns, grid, cardinal
+  direction, range, SALUTE-style enemy description) and **several phrasing variants** so it isn't
+  identical every time. Uses proper **prowords** (THIS IS, CONTACT, SPOT REPORT, ROGER, WILCO, SAY
+  AGAIN, OVER, OUT, BREAK), the phonetic alphabet, and grid readouts.
+- Example (contact): `{HIGHER}, THIS IS {UNIT} — CONTACT {DIR}, {RANGE}, {SIZE}x {ENEMY} VIC GRID
+  {GRID}, OVER.` → variants reorder/reword ("TROOPS IN CONTACT", "IN CONTACT, {DIR}", etc.).
+- **Legit formats to build in** (proper procedure):
+  - **Contact / SPOT report — SALUTE**: Size, Activity, Location, Unit, Time, Equipment.
+  - **9-Line MEDEVAC**: 1 pickup location/grid · 2 freq/callsign · 3 # patients by precedence ·
+    4 special equipment · 5 # by type (litter/ambulatory) · 6 security at pickup · 7 marking
+    method · 8 patient nationality/status · 9 terrain/NBC.
+  - **CAS 9-line**: 1 IP/BP · 2 heading (IP→tgt) + offset · 3 distance · 4 target elevation ·
+    5 target description · 6 target location/grid · 7 mark type/code · 8 friendlies location ·
+    9 egress · + remarks; plus run brevity (CHECK IN, IN FROM THE SOUTH, CLEARED HOT, WINCHESTER,
+    OFF STATION).
+  - **Routine**: SITREP, ACE report (Ammo/Casualties/Equipment), MOVE/SET, RTB/BINGO, RIFLE/SPLASH.
+- Design notes: a `radio()` factory that takes an event + actors and returns both a formatted
+  string (for the NET) and a structured token list (for voice); a small variant/synonym table per
+  message type; replaces ad-hoc radio strings over time.
+
+**Voice / audio (later) — yes, this can be programmatic.**
+- Two paths, both of which keep the **NET text readout** regardless:
+  - **Programmatic TTS** — browser-native `speechSynthesis` (no downloaded assets, fits the
+    trusted-only rule), passed through a **radio filter** (bandpass + squelch/static/keyed-mic
+    clicks) via the existing Web Audio graph for the net effect. Fully dynamic — any generated
+    message can be spoken.
+  - **Recorded / batch-synth word bank** — alternatively I can generate a **script/word list** for
+    you to voice (or batch-synthesize) into clips that the factory stitches per message.
+- Design notes: since the factory already emits a token list, either voice path is a drop-in
+  consumer; start with `speechSynthesis` + radio filter for zero-asset dynamic voice.
+
 ## Maps & World
 
 ### Seed-Generated Maps
@@ -403,6 +446,18 @@ the mud:
   to fight over (urban terrain matters more with LOS, cover, and HUMINT in towns).
 - Design notes: increase town size/building density and terrain detail; make sure pathfinding,
   cover, and LOS scale with the added density.
+
+### Dev / Test Map
+A purpose-built sandbox for fast, accurate feature testing — deliberately not a "fair"
+battlefield:
+- Laid out to **exercise every system in seconds**: terrain barriers and choke points, all
+  cover/concealment types (forest, urban, defilade/reverse-slope), buildings and a town, water
+  gaps + bridges, roads and open ground, and **pre-staged friendly + hostile units of each type**
+  plus installations.
+- Lets us reproduce and verify features (LOS, cover buffs, movement factors, fires, air, drones,
+  EW, audio) without hunting for the right terrain in a random map.
+- Design notes: a fixed hand-authored (or fixed-seed + scripted) map with a dev-mode loader that
+  pre-places representative units/structures; wire it behind the existing DEV controls.
 
 ## Installations
 
@@ -444,6 +499,47 @@ palette reflects what you can actually field:
 - Design notes: gate each palette entry on the presence of its enabling structure
   (`launchesDrones` / `launchesHelos`); show locked items greyed with a "needs airfield
   / needs helipad" hint rather than hiding them, so the player knows the path to unlock.
+
+## Interface & Multi-Window
+
+Let the commander spread the fight across tabs, windows, and monitors — a real CIC has
+many screens, not one. Build toward the state being a **single source of truth** that any
+number of lightweight view windows read from and issue commands to.
+
+### Pop-Out UAV Feeds
+- **Detach a feed window into its own browser window/tab** so it can be dragged to a second
+  monitor and run full-size, independent of the main map.
+- Multiple pop-outs at once (e.g. one per combat group's supporting drone).
+
+### Units / Combat-Group Dashboard
+- A separate window that lists and **manages units and named combat groups** — status, orders,
+  missions, ammo/fuel, roster select — while the tactical map lives on another screen.
+- Lets you run sustainment/task-org from one screen and maneuver from another.
+
+### Multiple / Detachable Map Views
+- **More than one map view open at once**, each independently panned/zoomed. e.g. the main map
+  and functions on one screen; on the other, three panels — each a combat group's **drone feed +
+  a map zoomed to that group's location** — watched side by side.
+
+### Architecture — do we need WebSockets? (No, not for this)
+WebSockets are for talking to a **server / another machine**. Everything above is the *same
+machine, same browser*, so it's all client-side:
+- **The problem:** the sim today is a module singleton (`S`) living in one tab's JS context.
+  A popped-out window is a **separate context** and can't read `S` directly.
+- **The fix (right long-term shape):** move the sim into a **SharedWorker** — one authoritative
+  game loop shared by every tab. The main map, dashboard, and each pop-out become thin **view
+  clients** that render from shared state and post commands back to the worker.
+- **Lighter interim option:** keep the sim in the main tab and sync pop-outs via the
+  **BroadcastChannel API** (or `window.open` + `postMessage`) — the main tab broadcasts state
+  snapshots/deltas each tick; pop-outs render them and send commands back. No server needed.
+- **Where WebSockets do come in:** only for **true remote multiplayer** (players on different
+  machines). Nicely, the SharedWorker "views send commands to an authoritative sim" split is the
+  *same shape* as client/server — so doing this now sets up multiplayer later: swap the local
+  worker transport for a WebSocket to a server. Pairs with the side-agnostic command layer and
+  the Multiplayer north star.
+- Design notes: promote `S` + `tick` into a SharedWorker with a command channel; make Map/Feed/
+  HUD read a state snapshot rather than importing `S` directly; start with one pop-out feed over
+  BroadcastChannel to prove the transport, then generalize.
 
 ## Later / Deferred
 
