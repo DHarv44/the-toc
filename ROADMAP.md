@@ -1069,7 +1069,7 @@ camera position rather than a muzzle on the airframe.
   draws straight from `r.fromX/fromY/mAlt` to the impact, so fixing the spawn point fixes the
   render with no change there. Worth checking the muzzle-flash sprite placement at the same time.
 
-### Column Deadlocks Behind a Straggler ⬜
+### Column Deadlocks Behind a Straggler ✅ *(fixed — column order was static; see below)*
 A formation halts and goes firm when a gap opens past `STRAGGLE_GAP` — but if the trailing
 element **never** closes, the column waits forever. Measured on a cross-map march: the front
 four hold station beautifully (59/32/74 m gaps) while the last element sits ~1.4 km back and
@@ -1084,8 +1084,16 @@ four units stay in `colWait` indefinitely.
   gap is legitimately large before the column has formed) and dissolved the column within 60 s.
   The timer needs to start only once the column has actually formed, and reset whenever the
   gap is shrinking.
-- Design notes: `colStall` in the tick decides who waits; the fix belongs there. Verify against
-  a march that crosses hostile contact, since that's the likeliest real cause.
+- **Root cause (not combat).** `colIdx` was assigned once when the order was issued — but at
+  that moment every unit is bunched at the start with indistinguishable positions along the
+  route, so the ordering was effectively arbitrary, and it then drifted as faster units pulled
+  ahead. "The vic ahead" ended up pointing at a unit that was actually behind, so the real
+  front ran free while the real rear halted waiting on it. Compounding it, the route owner
+  (the slowest unit, whose path everyone shares) was pinned to `colIdx 0` even when it was
+  physically at the back — route owner and column head are different jobs.
+- **Fix:** column order is recomputed every tick from progress along the shared route (fewest
+  waypoints remaining = furthest along). Column length now holds 38–267 m over a full cross-map
+  march instead of stretching to 1.4 km, and the stall clears itself once formed.
 
 ### Sensor Lock Placement During Transit ✅ *(fixed by gating LOCK to on-station; the projection math was never made state-aware, so FOLLOW and in-feed target clicks during transit still assume the on-station aim point)*
 Clicking **LOCK** on a UAV *before* it reaches its orbit (still in transit) drops the lock
