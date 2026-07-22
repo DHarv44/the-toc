@@ -4,7 +4,7 @@ import { useElementSize } from '@mantine/hooks'
 import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
-import { useUI } from './store.js'
+import { useUI, ROUTE_MODES } from './store.js'
 import { PaletteIcon } from './palette.jsx'
 import { clamp, panel, btn, fmtClock, mapColumnSize } from './styles.js'
 import DroneView from '../drone/DroneView.jsx'
@@ -109,6 +109,29 @@ function FireMissionPanel() {
         {' · MORE ROUNDS = LONGER RELOAD'}
       </div>
     </div>
+  )
+}
+
+// How move orders route. AUTO infers from where you clicked; the rest override it.
+function RouteSelect() {
+  const ui = useUI()
+  const cur = ROUTE_MODES.find((m) => m.val === ui.routeMode) || ROUTE_MODES[0]
+  return (
+    <Menu shadow="md" width={230} position="top-start" withArrow={false}>
+      <Menu.Target>
+        <Button size="compact-xs" variant={ui.routeMode === 'auto' ? 'default' : 'filled'}
+          styles={{ label: { fontSize: 9.5, letterSpacing: 0.5 } }}>{cur.label} ▾</Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {ROUTE_MODES.map((m) => (
+          <Menu.Item key={m.val} onClick={() => ui.setRouteMode(m.val)}
+            style={{ background: m.val === ui.routeMode ? 'var(--mantine-color-toc-8)' : undefined }}>
+            <Text fz={10} fw={m.val === ui.routeMode ? 700 : 400}>{m.label}</Text>
+            <Text fz={8.5} c="dark.3">{m.hint}</Text>
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   )
 }
 
@@ -234,8 +257,8 @@ function SelectionTray() {
           <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
           <button style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
             onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
-          <button style={optBtn(ui.roadsOnly)} title="Force move orders onto the road network"
-            onClick={ui.toggleRoadsOnly}>ROADS ONLY</button>
+          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ROUTE:</span>
+          <RouteSelect />
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ON CONTACT:</span>
           {[['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']].map(([roe, label]) => (
             <button key={roe}

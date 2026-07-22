@@ -226,6 +226,7 @@ function newUnit(typeKey, side, x, y) {
     roe: type.logi ? 'break' : 'halt', // supply trucks run, they don't fight
     heldRoute: null, autoDismounted: false, lastCombatT: -99, breaking: false, convoy: null,
     attackId: null, attackMove: false, attackRepathT: 0, groupId: null,
+    colIdx: null, leadId: null,   // slot in a shared-route column, if marching in one
     posture: 'mobile', digT: 0, dugRadioed: false, weapons: 'free',
     fireCooldown: 0, missionCooldown: 0, targetId: null,
     bridging: null,
@@ -902,6 +903,7 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
+const COLUMN_GAP = 110 // metres a follower holds behind the vic ahead of it
 
 function nearRoad(x, y, r = ROAD_SNAP) {
   const m = S.map, GRID = m.GRID
@@ -932,6 +934,63 @@ function autoRemount(u) {
   }
 }
 
+// Move a formation as a column behind one lead vic.
+//
+// Previously every member ran its own A* to its own offset point, which is both N times
+// the pathfinding work and the reason a "formation" arrived as a loose scatter — each
+// unit picked its own line through the terrain. Now the leader paths once and everyone
+// shares that route, so the column follows the same road, the same bridge, the same gap
+// in the treeline. Members hold station by trailing along it rather than by steering.
+//
+// The leader is the most constrained member (slowest real speed over its own terrain):
+// picking the fastest would just mean the column immediately outruns its own point.
+export function orderGroupMove(unitIds, x, y, append = false, attack = false, opts = {}) {
+  const units = unitIds.map(id => S.units.find(u => u.id === id)).filter(u => u && u.strength > 0)
+  if (!units.length) return null
+  if (units.length === 1) { orderMove(units[0].id, x, y, append, attack, null, opts); return null }
+
+  let lead = units[0], leadSpd = Infinity
+  for (const u of units) {
+    const st = effStats(u)
+    const f = S.map.moveFactor(u.x, u.y, st.mob)
+    const real = st.speed / (isFinite(f) ? f : 3)
+    if (real < leadSpd) { leadSpd = real; lead = u }
+  }
+
+  const gid = newMoveGroup()
+  orderMove(lead.id, x, y, append, attack, gid, opts)
+  if (!lead.path.length) return null   // route refused — don't strand the followers
+
+  // Everyone else takes a slot in the column. A follower can't just adopt the leader's
+  // waypoints — those start at the leader's position, so it would strike out across
+  // country on a straight line to join them, which is exactly the "vics leaving the
+  // road" problem. Instead it paths its own short leg onto the head of the route (with
+  // a road bias, so it gets on the network as directly as it can) and then runs the
+  // shared route from there.
+  const route = lead.path.map(p => ({ x: p.x, y: p.y }))
+  const head = route[0]
+  const trail = units.filter(u => u.id !== lead.id)
+  lead.colIdx = 0
+  lead.leadId = null
+  trail.forEach((u, i) => {
+    autoRemount(u)
+    u.bridging = null; u.heldRoute = null; u.breaking = false
+    u.convoy = null; u.attackId = null; u.attackMove = attack
+    u.groupId = gid
+    u.colIdx = i + 1
+    u.leadId = lead.id
+    const mob = effStats(u).mob
+    const join = findPath(S.map, u.x, u.y, head.x, head.y, mob, { ...opts, roadBias: 3 })
+    u.path = (join || [{ x: head.x, y: head.y }]).concat(route.slice(1))
+    // one leg to the objective — the join is plumbing, not a waypoint the player set
+    u.legs = [{ x, y, n: u.path.length }]
+    u.state = 'moving'
+    u.posture = 'mobile'
+  })
+  netRadio(lead, 'move', `FORMATION MOVING — ${units.length} ELEMENTS, GRID ${grid(x, y)}`, x, y)
+  return gid
+}
+
 export function orderMove(unitId, x, y, append = false, attack = false, groupId = null, opts = {}) {
   const u = S.units.find(u => u.id === unitId)
   if (!u) return
@@ -958,7 +1017,8 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
   u.convoy = null
   u.attackId = null
   u.attackMove = attack
-  if (!append) u.groupId = groupId
+  // a unit given its own order drops out of any column it was marching in
+  if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null }
   if (append && u.path.length) {
     u.path = u.path.concat(p)
     u.legs.push({ x, y, n: p.length })
@@ -1004,7 +1064,7 @@ export function removeLastWaypoint(unitId) {
 
 export function orderHold(unitId) {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
 }
 
 export function orderMount(unitId, mounted) {
@@ -1404,6 +1464,14 @@ export function tick(dt) {
     if (cur == null || real < cur) groupCap.set(u.groupId, real)
   }
 
+  // column order lookup: members of a shared-route formation trail the vic ahead of
+  // them rather than piling onto the same waypoints
+  const colAhead = new Map()
+  for (const u of S.units) {
+    if (u.groupId == null || u.colIdx == null || u.strength <= 0) continue
+    colAhead.set(u.groupId + ':' + u.colIdx, u)
+  }
+
   // units: movement + bridging
   for (const u of S.units) {
     const type = UNIT_TYPES[u.type]
@@ -1493,6 +1561,15 @@ export function tick(dt) {
       if (u.groupId != null) {
         const cap = groupCap.get(u.groupId)
         if (cap != null) spd = Math.min(spd, cap)
+        // hold station behind the vic ahead: ease off inside the gap, stop dead if
+        // we've closed right up, so a shared route reads as a column under march
+        if (u.colIdx > 0) {
+          const ahead = colAhead.get(u.groupId + ':' + (u.colIdx - 1))
+          if (ahead) {
+            const gap = Math.hypot(ahead.x - u.x, ahead.y - u.y)
+            if (gap < COLUMN_GAP) spd *= Math.max(0, (gap - COLUMN_GAP * 0.45) / (COLUMN_GAP * 0.55))
+          }
+        }
       }
       u._spd = spd
       if (d < Math.max(4, spd * dt)) {
@@ -2121,7 +2198,7 @@ if (typeof window !== 'undefined') {
   window.__game = {
     S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB, airAvailability, incomePerMin, upkeepPerMin,
-    orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
+    orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
     fog: (on) => { S.fogEnabled = on },
     setSpeed: (x) => { S.speed = x },

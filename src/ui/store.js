@@ -9,13 +9,31 @@ const newFeed = (droneId = null) => ({
   muted: false,          // per-feed audio, layered under the global mute
 })
 
+// pathfinding opts for each routing mode. 'auto' passes nothing so orderMove infers
+// intent from the click; the others bypass that inference.
+export const ROUTE_OPTS = {
+  auto: {},
+  roads: { roadsOnly: true },
+  noroads: { offRoad: true },
+  fastest: { roadBias: 1 },   // no bias either way — pure cheapest terrain cost
+}
+
+export const ROUTE_MODES = [
+  { val: 'auto', label: 'AUTO', hint: 'Click a road to use it, open ground to go direct' },
+  { val: 'roads', label: 'ROADS ONLY', hint: 'Hold the road network the whole way' },
+  { val: 'noroads', label: 'NO ROADS', hint: 'Stay off the network — move cross-country' },
+  { val: 'fastest', label: 'FASTEST', hint: 'Cheapest route by terrain, roads or not' },
+]
+
 export const useUI = create((set, get) => ({
   selectedIds: [],
   mode: 'select',
   cmdMode: 'move',         // 'move' | 'attack' — what a ground/target click means
   setCmdMode: (cmdMode) => set({ cmdMode }),
-  roadsOnly: false,        // force move orders onto the road network
-  toggleRoadsOnly: () => set((s) => ({ roadsOnly: !s.roadsOnly })),
+  // how move orders route: 'auto' reads intent from where you clicked (on a road =
+  // use the network, open ground = go direct); the rest are explicit overrides
+  routeMode: 'auto',       // 'auto' | 'roads' | 'noroads' | 'fastest'
+  setRouteMode: (routeMode) => set({ routeMode }),
   ctxMenu: null,           // {x, y, unitId} — screen coords
   feeds: [],               // no feed shown until the player opens one (or deploys a drone)
   night: false,

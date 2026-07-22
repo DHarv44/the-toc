@@ -34,10 +34,9 @@ library & message factory · Seed-generated maps *(seed not surfaced)* · Instal
 unlocks *(no existence gating)* · Bottom panel / selection tray · Code quality — TS &
 componentization *(split started, zero TS)*
 
-**⬜ Everything else is not started.** Three items are commonly mistaken for started —
+**⬜ Everything else is not started.** Two items are commonly mistaken for started —
 they are not: **Individual unit formations** (`formationOffset` is dead code, zero call
-sites), **Group movement / task organization** (`groupId` only drives a slowest-member pace
-cap), and **Symmetric fog & counter-recon** (`updateContacts` is one-directional; the AI
+sites) and **Symmetric fog & counter-recon** (`updateContacts` is one-directional; the AI
 reads ground truth — there is no enemy contact model).
 
 ---
@@ -487,10 +486,14 @@ Make groups a first-class thing **without** losing the quick ad-hoc grouping:
   transient move-group; a "name this group" action on the group bar; a roster panel with
   select-group; the mission builder queues conditional waypoints/tasks per group.
 
-### Group Movement — Follow the Lead Vic ⬜
-> **Not started.** `newMoveGroup`/`u.groupId` exist but drive exactly one thing — a
-> slowest-member pace cap — and are cleared on any new order. Every member still runs its
-> own A*; there is no leader, no shared path, no spacing.
+### Group Movement — Follow the Lead Vic ✅
+> **Shipped.** `orderGroupMove` designates the most constrained member (slowest real speed
+> over its own terrain) as the lead vic, paths **once**, and hands that exact route to every
+> follower — so the column takes the same road, the same bridge, the same gap in the treeline
+> instead of each unit picking its own line. Followers hold station off `colIdx`, easing down
+> inside a 110 m trail gap and stopping dead if they close right up. A unit given its own
+> order drops out of the column. Still open: formation shapes other than column (wedge, line,
+> echelon) and a leader hand-off when the lead vic is destroyed.
 
 When a group is routed, the members should move as one body along the **front vic's path**,
 not each pathfind independently to its own offset:
@@ -918,6 +921,11 @@ With both rails permanent, the player needs the screen back on demand.
 
 ### HUD Polish — Small Fixes ⬜
 A running list of small, self-contained UI corrections:
+- **Top-bar stat cluster still needs work** — SUPPLY / NET-MIN / UPKEEP / MISSION are now
+  uniform caption-over-value stacks, but the two-line stack is heavy for a 34 px bar and the
+  captions read as noise at that size. Try a single-line `LABEL │ value` treatment with a thin
+  divider between each pair, so the row scans horizontally like an instrument strip instead of
+  four little towers. Worth trying inline units too (`+550/min` rather than a NET/MIN caption).
 - **Drop the unit-type sub-label in the installations roster** — each row already shows the
   2525 symbol and the site's name (HQ COBALT, FOB DEV); repeating the abbreviation
   underneath as a second line is noise. Keep the row to symbol + name, and reserve the

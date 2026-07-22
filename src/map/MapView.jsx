@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
+import { S, orderMove, orderGroupMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender.js'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols.js'
-import { useUI } from '../ui/store.js'
+import { useUI, ROUTE_OPTS } from '../ui/store.js'
 import { CELL } from '../game/mapgen.js'
 
 export default function MapView() {
@@ -231,7 +231,7 @@ export default function MapView() {
             const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
             const px = wx0 + ldx * t, py = wy0 + ldy * t
             if (S.drones.includes(o)) orderDroneMove(o.id, px, py, false)
-            else orderMove(o.id, px, py, false, attack, gid, { roadsOnly: ui.roadsOnly })
+            else orderMove(o.id, px, py, false, attack, gid, { ...(ROUTE_OPTS[ui.routeMode] || {}) })
           })
         }
         return
@@ -325,16 +325,11 @@ export default function MapView() {
       }
     }
 
+    // A formation moves as a column behind one lead vic on a single shared route —
+    // see orderGroupMove. Single units keep the plain move.
     function issueMoves(units, wx, wy, append, attack = false) {
-      const gid = units.length > 1 ? newMoveGroup() : null
-      const cols = Math.ceil(Math.sqrt(units.length))
-      const rows = Math.ceil(units.length / cols)
-      const roadsOnly = useUI.getState().roadsOnly
-      units.forEach((u, k) => {
-        const ox = ((k % cols) - (cols - 1) / 2) * 90
-        const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
-        orderMove(u.id, wx + ox, wy + oy, append, attack, gid, { roadsOnly })
-      })
+      const opts = ROUTE_OPTS[useUI.getState().routeMode] || {}
+      orderGroupMove(units.map(u => u.id), wx, wy, append, attack, { ...opts })
     }
 
     function onWheel(e) {
