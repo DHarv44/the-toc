@@ -22,13 +22,6 @@ export default function TopBar() {
       </Text>
       <Text span fz="xs" c="dark.1" ff="monospace">{fmtClock(S.t)}</Text>
 
-      <Button.Group>
-        {SPEEDS.map(([sp, label]) => (
-          <Button key={sp} variant={S.speed === sp ? 'filled' : 'default'}
-            onClick={() => { S.speed = sp }}>{label}</Button>
-        ))}
-      </Button.Group>
-
       <Group gap={6} wrap="nowrap" ml="auto">
         <Tooltip label="Command panel" withArrow>
           <Button variant={ui.leftOpen ? 'filled' : 'default'} onClick={ui.toggleLeft}>▤</Button>
@@ -49,14 +42,25 @@ export default function TopBar() {
           + FEED ({ui.feeds.length}/4)
         </Button>
 
-        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
+        {/* dev cheats belong to the sandbox, not a real game */}
+        {S.devMode && (
+          <>
+            <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
+            <Text span fz={10} c="dark.3">DEV</Text>
+            <Button variant={S.fogEnabled ? 'default' : 'filled'}
+              onClick={() => { S.fogEnabled = !S.fogEnabled }}>FOG</Button>
+            <Button variant="default" onClick={() => { S.resources += 10000 }}>+10K</Button>
+          </>
+        )}
 
-        <Text span fz={10} c="dark.3">DEV</Text>
-        <Button variant={S.fogEnabled ? 'default' : 'filled'}
-          onClick={() => { S.fogEnabled = !S.fogEnabled }}>
-          {S.fogEnabled ? 'FOG ON' : 'FOG OFF'}
-        </Button>
-        <Button variant="default" onClick={() => { S.resources += 10000 }}>+10K</Button>
+        {/* time controls sit last, hard right */}
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
+        <Button.Group>
+          {SPEEDS.map(([sp, label]) => (
+            <Button key={sp} variant={S.speed === sp ? 'filled' : 'default'}
+              onClick={() => { S.speed = sp }}>{label}</Button>
+          ))}
+        </Button.Group>
       </Group>
     </Group>
   )

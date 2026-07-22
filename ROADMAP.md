@@ -18,8 +18,8 @@ self-reported. Last audited 2026-07-22.
 
 ## Status at a Glance
 
-**✅ Shipped (17)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
-Drones shadow enemy units · Surrender ·
+**✅ Shipped (18)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
+Difficulty presets · Drones shadow enemy units · Surrender ·
 Airfield placement restricted to HQ · Dev / test map · Off-map backdrop · Persistent left
 command panel · NET log as full-height right panel · Collapsible side panels · Move UAV
 resize handle to footer · Per-feed mute · Radio chatter & CIC soundscape · Radio chatter
@@ -84,6 +84,22 @@ The game currently plays as one open scenario. Add a mode selector and three mod
 ### 1. Attack & Defend 🟡 *(win/lose conditions exist; no mode selector — the splash offers map size and Dev Sandbox only)*
 The existing sandbox: take the enemy HQ while defending your own. Formalize it as
 a named mode with explicit win/lose objectives and a mode-select entry point.
+
+### Difficulty Presets ✅
+New games run **map size → difficulty** on the splash. Four presets set three levers at init:
+- **Starting supplies** — Recruit 14,000 · Regular 8,000 · Veteran 4,500 · Elite 2,500.
+- **Starting force** — the units already on the ground: a company at Recruit down to a single
+  platoon at Elite. Slots that land on no-go terrain are nudged to the nearest passable spot,
+  so the force is never silently short a vic.
+- **How long firefights run** — a global damage scale applied to **both sides**, so lower
+  difficulty means units soak more and fights last longer. It buys reaction time rather than
+  making the player invincible.
+- Design notes: presets live in `game/difficulty.js`; `initGame(seed, size, difficulty)` applies
+  them and sets `S.damageMul`, consumed at the two damage sites (direct fire and
+  `precisionBlast`). Damage is scaled rather than max strength on purpose — strength is treated
+  as a 0-100 percentage everywhere (surrender thresholds, reconstitution caps, HUD bars), so
+  raising the ceiling would break all of it. Dev tooling is gated behind `S.devMode`, set only
+  by `initDevGame`, so the FOG/+10K cheats no longer appear in a real game.
 
 ### 2. Base Defense (Waves)
 A survival/horde mode built around a supply economy that is spent, not idled:
@@ -881,10 +897,8 @@ A running list of small, self-contained UI corrections:
   2525 symbol and the site's name (HQ COBALT, FOB DEV); repeating the abbreviation
   underneath as a second line is noise. Keep the row to symbol + name, and reserve the
   sub-label slot for something that changes (e.g. the BUILDING countdown).
-- **FOG button should read `FOG` and toggle by colour** — it currently rewrites its own text
-  between `FOG ON` and `FOG OFF`, which is the only button in the top bar that does that.
-  Every other toggle (NET, DAY/NIGHT, command panel) keeps a fixed label and signals state
-  through the filled/outline variant. Make FOG match: constant label, `variant` carries state.
+- ~~**FOG button should read `FOG` and toggle by colour**~~ ✅ — fixed label, `variant` carries
+  state, matching every other top-bar toggle. (It now only appears in the dev sandbox at all.)
 - Design notes: roster label in `CommandPanel.jsx` (`InstallationsRoster` → `PaletteRow`'s
   `tag` prop); FOG button in `TopBar.jsx`. Both are a few lines.
 

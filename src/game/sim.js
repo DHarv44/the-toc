@@ -2,6 +2,7 @@ import { genMap, T_FOREST, T_URBAN, T_WATER, CELL, MAP_SIZES } from './mapgen.js
 import { findPath } from './pathfinding.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from './units.js'
 import { makeRng } from './rng.js'
+import { DIFFICULTIES, DEFAULT_DIFFICULTY } from './difficulty.js'
 import { radioMsg } from './audio.js'
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,9 @@ export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   contacts: new Map(),     // enemyId -> {x, y, type, lastSeen, live}
   structContacts: new Set(),// spotted hostile structure ids (permanent)
   fogEnabled: true,
+  devMode: false,          // dev sandbox only: exposes the fog/supply cheats in the top bar
+  difficulty: 'regular',
+  damageMul: 1,            // global damage scale (difficulty): lower = longer firefights
   speed: 1,
   toasts: [],
   radio: [],               // net traffic: {t, callsign, kind, msg, x, y}
@@ -48,7 +52,8 @@ for (const e of S.structures) if (e.id >= nextId) nextId = e.id + 1
 const designators = { friend: 0, hostile: 0 }
 const FRIEND_CALLS = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA', 'JULIET', 'KILO', 'LIMA', 'MIKE', 'NOVA', 'OSCAR', 'PAPA', 'QUEBEC', 'ROMEO', 'SIERRA', 'TANGO']
 
-export function initGame(seed = 1337, gridSize = MAP_SIZES.large) {
+export function initGame(seed = 1337, gridSize = MAP_SIZES.large, difficulty = DEFAULT_DIFFICULTY) {
+  const diff = DIFFICULTIES[difficulty] || DIFFICULTIES[DEFAULT_DIFFICULTY]
   S.map = genMap(seed, gridSize)
   S.t = 0
   S.units = []
@@ -63,7 +68,10 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large) {
   S.contacts = new Map()
   S.structContacts = new Set()
   S.radio = []
-  S.resources = 50000
+  S.difficulty = diff.key
+  S.damageMul = diff.damageMul
+  S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
+  S.resources = diff.supplies
   S.won = false; S.lost = false
   S.nextWave = 60
   S.airCooldown = {}
@@ -88,9 +96,15 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large) {
     if (t.y < S.map.WORLD * 0.55) spawnEnemy('MECH', t.x - 150, t.y + 100)
   }
 
-  // Player starter force near FOB
-  deployUnit('SCT', S.map.fob.x + 200, S.map.fob.y - 200, true)
-  deployUnit('INF', S.map.fob.x - 200, S.map.fob.y - 100, true)
+  // Player starter force near the HQ, laid out in a shallow arc so nothing overlaps.
+  // Slots that land on no-go terrain (a lake against the base) are nudged to the nearest
+  // spot the unit can actually sit on, so the force is never short a vic.
+  diff.startForce.forEach((typeKey, i) => {
+    const n = diff.startForce.length
+    const a = -Math.PI / 2 + (n > 1 ? (i / (n - 1) - 0.5) * 1.5 : 0)
+    const p = nearestLand(S.map.fob.x + Math.cos(a) * 260, S.map.fob.y + Math.sin(a) * 260)
+    deployUnit(typeKey, p.x, p.y, true)
+  })
 }
 
 // spiral out from a target point to the nearest cell a tracked vehicle can occupy,
@@ -116,6 +130,7 @@ function nearestLand(x, y) {
 // nothing attrits until the dev commits to a fight.
 export function initDevGame(seed = 1337) {
   initGame(seed, MAP_SIZES.small) // smallest map — both bases fit in one screen
+  S.devMode = true         // unlocks the DEV controls in the top bar
   S.resources = 999999
   S.fogEnabled = false
   S.nextWave = Infinity
@@ -310,7 +325,7 @@ function precisionBlast(u, ix, iy, blast, dmg, shell, apMul = 1) {
     // exposed foot mobiles catch fragmentation over a wider radius (anti-personnel splash)
     const elBlast = el.kind === 'troop' ? blast * apMul : blast
     if (dEl >= elBlast) continue
-    const lethality = dmg * (1 - dEl / elBlast) * armorFactor * cover * post
+    const lethality = dmg * (1 - dEl / elBlast) * armorFactor * cover * post * (S.damageMul ?? 1)
     if (lethality >= 18) { killElement(u, el); killed++ }
     else residual += lethality
   }
@@ -1422,7 +1437,7 @@ export function tick(dt) {
       dps *= postureFactor(tgt)
       if (et.soft < 0.3 && at.soft >= 0.7 && concealment(S.map, u.x, u.y) < 1 && tdist < 400) dps *= 2.2
       if (u.state === 'moving') dps *= 0.6
-      tgt.strength -= dps * dt * (u.strength / 100)
+      tgt.strength -= dps * dt * (u.strength / 100) * (S.damageMul ?? 1)
       // the victim is in contact too, even if it can't answer
       tgt.underFireT = S.t
       tgt.lastCombatT = S.t

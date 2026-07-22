@@ -12,9 +12,9 @@ export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
 
-  const begin = (mode, size = 'large') => {
+  const begin = (mode, size = 'large', difficulty) => {
     if (mode === 'dev') initDevGame()
-    else initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large)
+    else initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty)
     startLoop()
     setStarted(true)
   }
