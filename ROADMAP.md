@@ -537,7 +537,18 @@ Make groups a first-class thing **without** losing the quick ad-hoc grouping:
   transient move-group; a "name this group" action on the group bar; a roster panel with
   select-group; the mission builder queues conditional waypoints/tasks per group.
 
-### Group Movement — Follow the Lead Vic ✅
+### Group Movement — Follow the Lead Vic 🟡 *(built, but parked until combat groups exist)*
+> **Built and working, deliberately not wired up.** A marquee selection is not a formation —
+> it's several units handed the same order — so applying column behaviour to it was wrong:
+> ad-hoc selections now path independently and move at their own speed, with no shared pace
+> cap. `orderGroupMove` and the station-keeping/straggler logic are intact and waiting on
+> *Groups, Task Organization & Mission Builder*: once a player can actually **form** a named
+> combat group, that group marches as a column and everything below applies to it.
+> **Revisit when wiring it up:** the 65 m station and 190 m straggler threshold were tuned
+> against ad-hoc selections and should be re-tuned against real groups, and the column should
+> probably be opt-in per group (column vs. spread) rather than automatic.
+
+### Group Movement — Follow the Lead Vic (mechanics, once groups exist)
 > **Shipped.** `orderGroupMove` designates the most constrained member (slowest real speed
 > over its own terrain) as the lead vic, paths **once**, and hands that exact route to every
 > follower — so the column takes the same road, the same bridge, the same gap in the treeline

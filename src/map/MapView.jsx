@@ -226,7 +226,8 @@ export default function MapView() {
             ((a.x - wx0) * ldx + (a.y - wy0) * ldy) - ((b.x - wx0) * ldx + (b.y - wy0) * ldy))
           const attack = ui.cmdMode === 'attack'
           const groundCount = sorted.filter(o => !S.drones.includes(o)).length
-          const gid = groundCount > 1 ? newMoveGroup() : null
+          // no group id: an ad-hoc selection isn't a formation, so no shared pace cap
+          const gid = null
           // a fan-out is a formation shape, not a new mission: shift-drag appends it as
           // the next waypoint so an existing route survives being spread out at the end
           const app = e.shiftKey
@@ -316,8 +317,7 @@ export default function MapView() {
         if (ui.cmdMode === 'attack') {
           const enemy = pickEnemy(wx, wy)
           if (enemy) {
-            const gid = sel.length > 1 ? newMoveGroup() : null
-            sel.forEach(u => orderAttack(u.id, enemy.id, gid))
+            sel.forEach(u => orderAttack(u.id, enemy.id, null))
             return
           }
         }
@@ -328,11 +328,19 @@ export default function MapView() {
       }
     }
 
-    // A formation moves as a column behind one lead vic on a single shared route —
-    // see orderGroupMove. Single units keep the plain move.
+    // An ad-hoc marquee selection is not a formation — it's several units given the same
+    // order. Each paths independently and moves at its own speed. Column behaviour
+    // (shared route, pace cap, station-keeping) belongs to real combat groups, which
+    // don't exist yet; orderGroupMove is waiting for them.
     function issueMoves(units, wx, wy, append, attack = false) {
       const opts = ROUTE_OPTS[useUI.getState().routeMode] || {}
-      orderGroupMove(units.map(u => u.id), wx, wy, append, attack, { ...opts })
+      const cols = Math.ceil(Math.sqrt(units.length))
+      const rows = Math.ceil(units.length / cols)
+      units.forEach((u, k) => {
+        const ox = ((k % cols) - (cols - 1) / 2) * 90
+        const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
+        orderMove(u.id, wx + ox, wy + oy, append, attack, null, { ...opts })
+      })
     }
 
     function onWheel(e) {
