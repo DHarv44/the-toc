@@ -17,15 +17,14 @@ export const useUI = create((set, get) => ({
   ctxMenu: null,           // {x, y, unitId} — screen coords
   feeds: [],               // no feed shown until the player opens one (or deploys a drone)
   night: false,
-  showNet: true,
+  leftOpen: true,          // side rails: collapse to their own edge, independently
+  netOpen: true,
   muted: false,
   setMuted: (m) => set({ muted: m }),
   fireOpts: { shell: 'HE', rounds: 0, sheaf: 'STD' }, // rounds 0 = battery default
   droneModes: {},          // droneId -> camera mode; the sensor setting rides with the aircraft
-  netSize: { w: 310, h: 280 },
   tick: 0,
   setDroneMode: (droneId, mode) => set((s) => ({ droneModes: { ...s.droneModes, [droneId]: mode } })),
-  setNetSize: (patch) => set((s) => ({ netSize: { ...s.netSize, ...patch } })),
   setFireOpts: (patch) => set((s) => ({ fireOpts: { ...s.fireOpts, ...patch } })),
   select: (id) => set({ selectedIds: id == null ? [] : [id], mode: 'select' }),
   setSelected: (ids) => set({ selectedIds: ids, mode: 'select' }),
@@ -38,7 +37,8 @@ export const useUI = create((set, get) => ({
   openMenu: (m) => set({ ctxMenu: m }),
   closeMenu: () => set({ ctxMenu: null }),
   toggleNight: () => set((s) => ({ night: !s.night })),
-  toggleNet: () => set((s) => ({ showNet: !s.showNet })),
+  toggleNet: () => set((s) => ({ netOpen: !s.netOpen })),
+  toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   addFeed: (droneId = null) => {
     const { feeds } = get()
     if (feeds.length >= 4) return

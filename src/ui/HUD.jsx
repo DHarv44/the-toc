@@ -3,27 +3,16 @@ import { Box, Group, Button, ActionIcon, Menu, Text, Divider } from '@mantine/co
 import { useElementSize } from '@mantine/hooks'
 import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
-import { setMuted as audioSetMuted, setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
+import { setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
 import { useUI } from './store.js'
-import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols.js'
+import { PaletteIcon } from './palette.jsx'
+import { clamp, panel, btn, fmtClock, mapColumnSize } from './styles.js'
 import DroneView from '../drone/DroneView.jsx'
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
-
-const panel = {
-  background: 'rgba(12,18,24,0.92)', border: '1px solid #2a3a48',
-  color: '#c8d8e8', padding: 8, fontSize: 11, borderRadius: 3,
-}
-const btn = (active) => ({
-  background: active ? '#2a5a8a' : '#16222e', color: active ? '#fff' : '#9ab8d0',
-  border: '1px solid #35506a', padding: '4px 8px', cursor: 'pointer',
-  fontFamily: 'inherit', fontSize: 11, borderRadius: 2,
+// compact toggle used in the selection tray / fire-mission rows
+const optBtn = (active) => ({
+  ...btn(active), padding: '2px 7px', fontSize: 9.5,
 })
-
-function fmtClock(t) {
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60)
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}Z`
-}
 
 // combined protection readout for a unit: terrain cover × posture
 function protectionInfo(u) {
@@ -37,62 +26,15 @@ function protectionInfo(u) {
   return { terr, cover, total, concealed }
 }
 
-const CATS = ['MANEUVER', 'RECON', 'FIRES', 'SUPPORT']
 
 export default function HUD() {
   useUI((s) => s.tick) // re-render at 10 Hz
   const ui = useUI()
 
+  // overlays that belong to the map column; the top bar and the two side rails are
+  // laid out by App as real siblings of the map
   return (
     <>
-      {/* top bar */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 34,
-        display: 'flex', alignItems: 'center', gap: 14, padding: '0 10px',
-        background: 'rgba(10,14,18,0.94)', borderBottom: '1px solid #2a3a48',
-        color: '#c8d8e8', fontSize: 12, zIndex: 20,
-      }}>
-        <b style={{ color: '#7ec8ff', letterSpacing: 2 }}>TOC // C2</b>
-        <span>SUPPLY <b style={{ color: '#ffd67e' }}>{Math.floor(S.resources)}</b></span>
-        <span>{fmtClock(S.t)}</span>
-        <span style={{ display: 'flex', gap: 4 }}>
-          {[0, 1, 4].map((sp) => (
-            <button key={sp} style={btn(S.speed === sp)} onClick={() => { S.speed = sp }}>
-              {sp === 0 ? '⏸' : sp + '×'}
-            </button>
-          ))}
-        </span>
-        <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-          {/* lives in the top bar with the other view toggles: the bottom-right corner
-              is owned by the feed dock and the selection tray, which would bury it */}
-          <button style={btn(false)} title="Fit map to screen"
-            onClick={() => {
-              const v = window.__view
-              if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
-            }}>⛶</button>
-          <button style={btn(ui.night)} onClick={ui.toggleNight}>
-            {ui.night ? '☾ NIGHT' : '☀ DAY'}
-          </button>
-          <button style={btn(ui.showNet)} onClick={ui.toggleNet}>NET</button>
-          <button style={btn(!ui.muted)}
-            title={ui.muted ? 'Feed audio muted' : 'Feed audio on'}
-            onClick={() => { const m = !ui.muted; ui.setMuted(m); audioSetMuted(m) }}>
-            {ui.muted ? '🔇' : '🔊'}
-          </button>
-          <button style={btn(false)} onClick={() => ui.addFeed()} disabled={ui.feeds.length >= 4}>
-            + FEED ({ui.feeds.length}/4)
-          </button>
-          <span style={{ color: '#6a8098', fontSize: 10 }}>DEV:</span>
-          <button style={btn(!S.fogEnabled)} onClick={() => { S.fogEnabled = !S.fogEnabled }}>
-            {S.fogEnabled ? 'FOG ON' : 'FOG OFF'}
-          </button>
-          <button style={btn(false)} onClick={() => { S.resources += 10000 }}>+10K</button>
-        </span>
-      </div>
-
-      {/* context-sensitive deploy menu (only shown for a selected base/airfield/engineer/carrier) */}
-      <DeployPanel />
-
       {/* selection tray */}
       <SelectionTray />
 
@@ -102,9 +44,25 @@ export default function HUD() {
       {/* unit context menu */}
       {ui.ctxMenu && <ContextMenu />}
 
+      {/* fit-to-screen: a map control at the map column's bottom-right, so it sits
+          just left of the net rail */}
+      <button
+        title="Fit map to screen"
+        onClick={() => {
+          const v = window.__view
+          if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
+        }}
+        style={{
+          position: 'absolute', right: 10, bottom: 10, zIndex: 16,
+          width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0, fontSize: 16, lineHeight: 1, cursor: 'pointer',
+          background: 'rgba(16,26,36,0.9)', color: '#9ab8d0',
+          border: '1px solid #35506a', borderRadius: 3,
+        }}>⛶</button>
+
       {/* toasts */}
       <div style={{
-        position: 'absolute', top: 44, left: '50%', transform: 'translateX(-50%)',
+        position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
         display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center',
         pointerEvents: 'none', zIndex: 30,
       }}>
@@ -116,81 +74,11 @@ export default function HUD() {
         ))}
       </div>
 
-      {/* radio net log */}
-      {ui.showNet && <RadioLog />}
-
       {/* drone feed windows */}
       {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} />)}
     </>
   )
 }
-
-const NET_COLORS = {
-  move: '#8fb0c8', arrive: '#7ec87e', contact: '#ff9e6a', spot: '#ffd67e',
-  damage: '#ff7a6a', request: '#ffe97a', fires: '#c0a8f0', loss: '#ff5a5a', struct: '#ff9e6a',
-}
-
-function RadioLog() {
-  const ui = useUI()
-  const drag = useRef(null)
-  function startResize(e) {
-    if (e.button !== 0) return
-    drag.current = { sx: e.clientX, sy: e.clientY, w: ui.netSize.w, h: ui.netSize.h }
-    e.currentTarget.setPointerCapture(e.pointerId)
-    e.stopPropagation()
-  }
-  function onResize(e) {
-    const d = drag.current
-    if (!d) return
-    ui.setNetSize({
-      w: clamp(d.w - (e.clientX - d.sx), 220, window.innerWidth - 40),  // anchored right: grow leftward
-      h: clamp(d.h + (e.clientY - d.sy), 120, window.innerHeight - 80),
-    })
-  }
-  return (
-    <div style={{
-      ...panel, position: 'absolute', top: 44, right: 10, width: ui.netSize.w,
-      height: ui.netSize.h, zIndex: 12, padding: 6, overflow: 'hidden',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{ color: '#54708a', fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>
-        JBC-P NET — CLICK MSG TO CENTER MAP
-      </div>
-      <div style={{ overflowY: 'auto', flex: 1 }}>
-      {[...S.radio].reverse().map((e, i) => (
-        <div key={S.radio.length - i}
-          onClick={() => {
-            const v = window.__view
-            if (v && e.x != null) { v.cx = e.x; v.cy = e.y }
-          }}
-          style={{
-            fontSize: 9.5, lineHeight: 1.45, cursor: 'pointer', padding: '1px 2px',
-            color: NET_COLORS[e.kind] || '#c8d8e8',
-            borderBottom: '1px solid rgba(40,58,72,0.4)',
-          }}>
-          <span style={{ color: '#54708a' }}>{fmtClock(e.t).slice(3)}</span>
-          {' '}{e.msg}
-        </div>
-      ))}
-      {S.radio.length === 0 && (
-        <div style={{ color: '#4a6070', fontSize: 10 }}>NET QUIET</div>
-      )}
-      </div>
-      {/* resize grip: bottom-left (panel is right-anchored) */}
-      <div
-        onPointerDown={startResize} onPointerMove={onResize} onPointerUp={() => { drag.current = null }}
-        style={{
-          position: 'absolute', left: 0, bottom: 0, width: 16, height: 16,
-          cursor: 'nesw-resize', zIndex: 2,
-          background: 'linear-gradient(225deg, transparent 50%, rgba(120,160,200,0.5) 50%)',
-        }} />
-    </div>
-  )
-}
-
-const optBtn = (active) => ({
-  ...btn(active), padding: '2px 7px', fontSize: 9.5,
-})
 
 function FireMissionPanel() {
   const ui = useUI()
@@ -398,8 +286,9 @@ function ContextMenu() {
       {label}
     </div>
   )
-  const x = clamp(m.x, 0, window.innerWidth - 190)
-  const y = clamp(m.y, 34, window.innerHeight - 180)
+  const col = mapColumnSize(ui.leftOpen, ui.netOpen)
+  const x = clamp(m.x, 0, col.w - 190)
+  const y = clamp(m.y, 0, col.h - 180)
   return (
     <>
       {/* backdrop to catch outside clicks */}
@@ -460,8 +349,9 @@ function StructMenu() {
   const s = S.structures.find(x => x.id === m.structId)
   if (!s) { ui.closeMenu(); return null }
   const hqExists = S.structures.some(o => o.side === 'friend' && o.kind === 'HQ')
-  const x = clamp(m.x, 0, window.innerWidth - 210)
-  const y = clamp(m.y, 34, window.innerHeight - 160)
+  const col = mapColumnSize(ui.leftOpen, ui.netOpen)
+  const x = clamp(m.x, 0, col.w - 210)
+  const y = clamp(m.y, 0, col.h - 160)
   const item = (label, fn, disabled = false) => (
     <div key={label}
       onClick={() => { if (!disabled) { fn(); ui.closeMenu() } }}
@@ -494,170 +384,6 @@ function StructMenu() {
         {item('CENTER MAP', () => { const v = window.__view; if (v) { v.cx = s.x; v.cy = s.y } })}
       </div>
     </>
-  )
-}
-
-function PaletteHeader({ label }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      color: '#5f7d95', fontSize: 9.5, letterSpacing: 1.8,
-      margin: '9px 10px 3px', textTransform: 'uppercase',
-    }}>
-      <span>{label}</span>
-      <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#2a3a48,transparent)' }} />
-    </div>
-  )
-}
-
-// short branch-type descriptor for a UAS row (doubles as a legend entry)
-function droneTag(dt) {
-  if (dt.gunship) return 'GUNSHIP'
-  if (dt.kamikaze) return 'LOITERING MUNITION'
-  if (dt.weapons) return 'ARMED ISR'
-  if (dt.src === 'field') return 'HAND-LAUNCHED'
-  if (dt.src === 'tether') return 'TETHERED'
-  return 'ISR'
-}
-
-// tiny canvas that renders the same MIL-STD-2525 symbol used on the map, so the
-// palette doubles as a symbol key
-function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale = 1 }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const cv = ref.current
-    if (!cv) return
-    const dpr = window.devicePixelRatio || 1
-    cv.width = W * dpr; cv.height = H * dpr
-    const ctx = cv.getContext('2d')
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, W, H)
-    // draw centred, then scale about the centre so the same art fits any box size
-    ctx.save()
-    ctx.translate(W / 2, H / 2)
-    ctx.scale(scale, scale)
-    if (unit) {
-      drawUnitSymbol(ctx, 0, 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon: 'plt', showStrength: false, label: '' })
-    } else if (struct) {
-      ctx.scale(0.72, 0.72)
-      drawStructure(ctx, 0, 3, { side: 'friend', kind: struct.key, label: '' })
-    } else if (drone) {
-      drawDroneIcon(ctx, 0, 0, -Math.PI / 2, '', false, drone.key)
-    }
-    ctx.restore()
-  })
-  return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
-}
-
-function PaletteRow({ icon, label, tag, cost, active, onClick }) {
-  return (
-    <div onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 8, padding: '3px 10px 3px 8px',
-      cursor: 'pointer', borderLeft: active ? '2px solid #7ec8ff' : '2px solid transparent',
-      background: active ? 'rgba(42,90,138,0.35)' : 'transparent',
-    }}>
-      {icon}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 12, lineHeight: 1.2, color: active ? '#fff' : '#cfe2f2',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{label}</div>
-        {tag && <div style={{ fontSize: 8.5, letterSpacing: 0.5, color: '#5f7d95' }}>{tag}</div>}
-      </div>
-      <span style={{ color: '#ffd67e', fontSize: 12, flex: '0 0 auto' }}>{cost}</span>
-    </div>
-  )
-}
-
-// ---- context-sensitive deploy menu ---------------------------------------
-// A deploy source is fielded from what you click: a base/airfield/engineer/
-// drone-carrier. The palette is otherwise hidden. Section item shape:
-//   { mode, label, tag, cost, icon }
-const unitItem = (t) => ({ mode: 'deploy:' + t.key, label: t.name, tag: t.abbr, cost: t.cost, icon: <PaletteIcon unit={t} /> })
-const droneItem = (dt) => ({ mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: dt.cost, icon: <PaletteIcon drone={dt} /> })
-const structItem = (st) => ({ mode: 'build:' + st.key, label: st.name, tag: st.abbr, cost: st.cost, icon: <PaletteIcon struct={st} /> })
-
-const groundSections = () => CATS.map(cat => ({
-  header: cat,
-  items: Object.values(UNIT_TYPES).filter(t => t.cat === cat).map(unitItem),
-}))
-
-// what a given selection can field, or null if nothing deployable is selected
-function deployContext(selectedIds) {
-  if (selectedIds.length !== 1) return null
-  const id = selectedIds[0]
-  const st = S.structures.find(s => s.id === id && s.side === 'friend')
-  if (st) {
-    if (st.buildT > 0) return null
-    if (st.kind === 'AFLD') {
-      const air = Object.values(DRONE_TYPES).filter(dt => dt.src === 'airfield').map(droneItem)
-      return { title: `${st.label} — AIRFIELD`, sections: [{ header: 'FIXED-WING & UAS', items: air }] }
-    }
-    if (st.kind === 'HQ' || st.kind === 'FOB') {
-      const aerostat = { header: 'TETHERED ISR', items: [droneItem(DRONE_TYPES.AEROSTAT)] }
-      return { title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`, sections: [...groundSections(), aerostat] }
-    }
-    return null // OP fields nothing
-  }
-  const u = S.units.find(x => x.id === id && x.side === 'friend')
-  if (u) {
-    const t = UNIT_TYPES[u.type]
-    const sections = []
-    if (t.key === 'ENG') sections.push({ header: 'INSTALLATIONS', items: Object.values(STRUCTURES).map(structItem) })
-    if (t.carries && t.carries.length) {
-      sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(droneItem) })
-    }
-    if (!sections.length) return null
-    return { title: `${u.label} — ${t.name.toUpperCase()}`, sections }
-  }
-  return null
-}
-
-function deployHint(mode) {
-  if (mode.startsWith('deploy:DRONE:')) {
-    const src = DRONE_TYPES[mode.slice(13)]?.src
-    return src === 'field' ? 'CLICK AN ORBIT POINT NEAR THE CARRYING UNIT'
-      : src === 'tether' ? 'CLICK THIS FOB / HQ TO RAISE THE AEROSTAT (1 PER SITE)'
-      : 'CLICK THE MAP TO SET THE ORBIT POINT (LAUNCHES FROM AIRFIELD)'
-  }
-  if (mode.startsWith('deploy:')) return 'CLICK INSIDE THE DEPLOY ZONE'
-  if (mode.startsWith('build:')) return mode === 'build:OP' ? 'PLACE NEAR FRIENDLY FORCES' : 'PLACE NEAR AN ACTIVE BASE'
-  return 'PICK AN ITEM, THEN CLICK THE MAP TO PLACE IT'
-}
-
-function DeployPanel() {
-  const ui = useUI()
-  const ctx = deployContext(ui.selectedIds)
-  if (!ctx) return null
-  const pick = (mode) => ui.setMode(ui.mode === mode ? 'select' : mode)
-  return (
-    <div style={{
-      ...panel, position: 'absolute', top: 34, bottom: 0, left: 0, width: 232,
-      padding: 0, borderRadius: 0, borderTop: 'none', borderBottom: 'none', borderLeft: 'none',
-      overflowY: 'auto', zIndex: 10, display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{
-        padding: '7px 10px', color: '#7ec8ff', fontSize: 10, letterSpacing: 1.5,
-        borderBottom: '1px solid #22303c', background: 'rgba(8,12,16,0.55)',
-        position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{ctx.title}</div>
-      <div style={{ flex: 1, padding: '2px 0 8px' }}>
-        {ctx.sections.map((sec, si) => (
-          <div key={si}>
-            <PaletteHeader label={sec.header} />
-            {sec.items.map(it => (
-              <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
-                active={ui.mode === it.mode} onClick={() => pick(it.mode)} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div style={{
-        color: '#7f97ab', fontSize: 9, lineHeight: 1.5, padding: '6px 10px',
-        borderTop: '1px solid #22303c', background: 'rgba(8,12,16,0.55)',
-        position: 'sticky', bottom: 0,
-      }}>{deployHint(ui.mode)}</div>
-    </div>
   )
 }
 
@@ -1045,18 +771,25 @@ function FeedWindow({ feed, index }) {
   function onPointerMove(e) {
     const d = drag.current
     if (!d) return
+    // feeds live inside the map column, not the viewport: measure the host so drag
+    // and resize stay bounded by the map area when the side rails are open
+    const host = boxRef.current?.offsetParent?.getBoundingClientRect()
+    const hw = host ? host.width : window.innerWidth
+    const hh = host ? host.height : window.innerHeight
+    const hx = host ? host.left : 0
+    const hy = host ? host.top : 0
     if (d.mode === 'move') {
       ui.setFeed(feed.id, {
-        x: Math.max(0, Math.min(window.innerWidth - 120, e.clientX - d.dx)),
-        y: Math.max(34, Math.min(window.innerHeight - 40, e.clientY - d.dy)),
+        x: Math.max(0, Math.min(hw - 120, e.clientX - d.dx - hx)),
+        y: Math.max(0, Math.min(hh - 40, e.clientY - d.dy - hy)),
       })
     } else {
       const rect = boxRef.current.getBoundingClientRect()
       // resizing an undocked-by-right window: pin its current left/top first
-      if (feed.x == null) ui.setFeed(feed.id, { x: rect.left, y: rect.top })
+      if (feed.x == null) ui.setFeed(feed.id, { x: rect.left - hx, y: rect.top - hy })
       ui.setFeed(feed.id, {
-        w: Math.max(280, Math.min(window.innerWidth, d.w + (e.clientX - d.sx))),
-        h: Math.max(210, Math.min(window.innerHeight - 34, d.h + (e.clientY - d.sy))),
+        w: Math.max(280, Math.min(hw, d.w + (e.clientX - d.sx))),
+        h: Math.max(210, Math.min(hh, d.h + (e.clientY - d.sy))),
       })
     }
   }

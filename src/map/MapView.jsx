@@ -22,9 +22,20 @@ export default function MapView() {
       : { cx: S.map.fob.x, cy: S.map.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
     window.__view = view // dev hook
 
+    // The canvas is a flex column between the side rails, so it no longer starts at
+    // the viewport origin. Pointer events arrive in client space; everything here
+    // (picking, panning, marquee, menus) works in canvas-local space, so translate
+    // by the canvas rect. Re-synced in resize(), which runs every frame, so
+    // collapsing a rail takes effect immediately.
+    const cvRect = { left: 0, top: 0 }
+    const mX = (ev) => ev.clientX - cvRect.left
+    const mY = (ev) => ev.clientY - cvRect.top
+
     function resize() {
       const w = canvas.clientWidth || window.innerWidth || 1280
       const h = canvas.clientHeight || window.innerHeight || 720
+      const r = canvas.getBoundingClientRect()
+      cvRect.left = r.left; cvRect.top = r.top
       if (w < 2 || h < 2) return // hidden pane: keep last known size
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w
@@ -137,37 +148,37 @@ export default function MapView() {
       useUI.getState().closeMenu()
       if (e.button === 1 || e.button === 2) {
         panDrag = true; dragMoved = false
-        lastMx = e.clientX; lastMy = e.clientY
+        lastMx = mX(e); lastMy = mY(e)
         if (e.button === 1) e.preventDefault()
       } else if (e.button === 0) {
         const ui = useUI.getState()
         leftDown = {
-          x: e.clientX, y: e.clientY,
-          onUnit: !!pickUnit(s2wX(e.clientX), s2wY(e.clientY)),
+          x: mX(e), y: mY(e),
+          onUnit: !!pickUnit(s2wX(mX(e)), s2wY(mY(e))),
           hadSel: ui.selectedIds.length > 0 && ui.mode === 'select',
           ctrl: e.ctrlKey,
         }
       }
     }
     function onMove(e) {
-      mouse.x = e.clientX; mouse.y = e.clientY
+      mouse.x = mX(e); mouse.y = mY(e)
       if (panDrag) {
-        const dx = e.clientX - lastMx, dy = e.clientY - lastMy
+        const dx = mX(e) - lastMx, dy = mY(e) - lastMy
         if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true
         if (dragMoved) {
           view.cx -= dx / view.ppm
           view.cy -= dy / view.ppm
-          lastMx = e.clientX; lastMy = e.clientY
+          lastMx = mX(e); lastMy = mY(e)
         }
       } else if (leftDown && useUI.getState().mode === 'select' && !leftDown.onUnit) {
-        const moved = Math.hypot(e.clientX - leftDown.x, e.clientY - leftDown.y)
+        const moved = Math.hypot(mX(e) - leftDown.x, mY(e) - leftDown.y)
         if (leftDown.hadSel && !leftDown.ctrl) {
           // drag with a selection: spread the units along the drawn line
           if (lineDrag || moved > 18) {
-            lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: e.clientX, y1: e.clientY }
+            lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
           }
         } else if (marquee || moved > 6) {
-          marquee = { x0: leftDown.x, y0: leftDown.y, x1: e.clientX, y1: e.clientY }
+          marquee = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
         }
       }
     }
@@ -175,18 +186,18 @@ export default function MapView() {
       if (e.button === 1 || e.button === 2) {
         panDrag = false
         if (e.button === 2 && !dragMoved) {
-          const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+          const wx = s2wX(mX(e)), wy = s2wY(mY(e))
           const hit = pickAny(wx, wy)
           const ui = useUI.getState()
           if (hit && hit.kind === 'unit') {
             ui.setSelected([hit.obj.id])
-            ui.openMenu({ x: e.clientX, y: e.clientY, unitId: hit.obj.id })
+            ui.openMenu({ x: mX(e), y: mY(e), unitId: hit.obj.id })
           } else if (hit && hit.kind === 'drone') {
             // drone controls now live in the feed window — right-click opens its feed
             ui.setSelected([hit.obj.id])
             ui.bindDrone(hit.obj.id)
           } else if (pickStructure(wx, wy) && !selectedFriendlies().length && !selectedDrones().length) {
-            ui.openMenu({ x: e.clientX, y: e.clientY, structId: pickStructure(wx, wy).id })
+            ui.openMenu({ x: mX(e), y: mY(e), structId: pickStructure(wx, wy).id })
           } else {
             // right-click ground: clear the selection
             ui.closeMenu()
@@ -243,7 +254,7 @@ export default function MapView() {
         return
       }
 
-      const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+      const wx = s2wX(mX(e)), wy = s2wY(mY(e))
 
       if (ui.mode.startsWith('deploy:')) {
         const what = ui.mode.slice(7)
@@ -328,10 +339,10 @@ export default function MapView() {
     function onWheel(e) {
       e.preventDefault()
       const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18
-      const wx = s2wX(e.clientX), wy = s2wY(e.clientY)
+      const wx = s2wX(mX(e)), wy = s2wY(mY(e))
       view.ppm = Math.min(1.2, view.ppm * factor)
-      view.cx = wx - (e.clientX - canvas.width / 2) / view.ppm
-      view.cy = wy - (e.clientY - canvas.height / 2) / view.ppm
+      view.cx = wx - (mX(e) - canvas.width / 2) / view.ppm
+      view.cy = wy - (mY(e) - canvas.height / 2) / view.ppm
       clampView()
     }
     const heldKeys = new Set()

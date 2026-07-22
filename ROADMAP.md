@@ -213,6 +213,27 @@ ammunition cook-off that throws the turret clear:
   turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
   hull.
 
+### Better Three.js Assets, Particles & Effects
+The drone feed carries the game's only real "ground truth" imagery, but its scene is built from
+merged primitive boxes and a handful of sprites. It should look like an actual EO/IR downlink.
+- **Real geometry for vics and troops** — replace the primitive-merged tanks/IFVs/trucks with
+  properly modelled low-poly assets (turret, hull, running gear, stowage) that still read at
+  sensor altitude; distinct silhouettes per class so the operator identifies by shape, not colour.
+- **A proper particle system** — muzzle flash and smoke, impact dust kicked off the ground by
+  calibre, burning-wreck fire and rolling smoke columns, rotor and track dust, tracer glow.
+  Currently these are flat sprites and simple instanced quads.
+- **Materials that survive the thermal filters** — the feed applies WHOT/BHOT/EO/NVG as CSS
+  filters over the render; assets need emissive/temperature-driven shading so hot engines,
+  fired barrels and burning hulls actually glow in IR rather than relying on the filter alone.
+- **Environment detail** — better trees and buildings, ground clutter, and terrain texturing that
+  holds up when a sensor zooms in.
+- Design notes: keep everything procedural or self-authored — no downloaded asset packs (see the
+  project's dependency stance). Build geometry in code as now (`getVehicleGeos` / `getStructGeos`
+  in `DroneView.jsx`) but with real modelling effort, and keep instancing for the per-class draw
+  calls. A GPU particle system (instanced quads + a shader-driven lifetime buffer) is the right
+  shape; budget it against the feed's existing frame cost, and remember up to four feeds render
+  at once. Pairs with Catastrophic Kills and Individual Unit Formations.
+
 ### Drones Shadow Enemy Units **(implemented)**
 Follow tasking now works against hostiles: click a contact in the UAV feed to designate it, then
 **FOLLOW** to track it. A movable airframe flies its **orbit anchor** after the contact while the
@@ -378,9 +399,22 @@ instead **originate from the fielding source and move out** to where the player 
   emplaces it), not anywhere on the map.
 - **Carrier-launched UAS** — same as the engineer: the drone launches **within a radius of the
   carrying unit**, so hand-launched birds actually come off the unit that carries them.
+- **One-click fielding, no map click** — the whole "select the unit type, then click a spot on
+  the map" ritual goes away. Select an HQ/FOB (on the map *or* from the panel roster), then hit
+  the **+** next to a unit in the palette and it's ordered: it spawns at that installation and
+  moves out to a rally point just clear of the base on its own. Fielding becomes one click from
+  a known source, the way an RTS production queue works, instead of a two-step placement mode.
+- **The installation is the context** — because the source is already selected, the palette is
+  already filtered to what that installation can field (which it does today), so the **+** never
+  needs to ask "from where?". Airfield aircraft keep their orbit-point click, since *where* they
+  fly is the actual order.
 - Design notes: ground deploy = spawn at base → auto-move to a chosen/near rally; gate
   build/launch clicks to a range check around the source (toast if out of range); keep the
-  deploy-zone ring as the *allowed rally area* rather than a free-placement region.
+  deploy-zone ring as the *allowed rally area* rather than a free-placement region. The **+**
+  flow removes the `mode: 'deploy:<TYPE>'` round-trip for ground units — `deployUnit` gets called
+  straight from the palette row with the selected structure as the origin, then issues an
+  `orderMove` to the rally. A per-installation rally point the player can drag (RTS-style) is the
+  natural follow-on.
 
 ## Enemy AI / OPFOR
 
@@ -599,6 +633,28 @@ A purpose-built sandbox for fast, accurate feature testing, reached from the spl
 - Still open: a purpose-built terrain layout that deliberately packs every cover/concealment type,
   choke points, and water gaps into one screen (currently rides the procedural small map).
 
+### Tutorial Map
+TOC has a lot of surface area — deploy contexts, weapons control, ROE, dismount/remount, UAS
+tasking, fire missions, sensor lock/follow — and none of it is currently explained. A dedicated
+tutorial map, launched from the splash alongside New Game and Dev Sandbox.
+- **A staged map, not a level sequence** — one small, hand-shaped AO you're dropped into with a
+  starting force, free to play from the first second. Objectives appear as tasks you can do in
+  any order (or ignore); nothing is gated, nothing is locked behind "complete step 3."
+- **Teach through the radio net** — guidance arrives as TOC traffic in the net log, which is
+  already the game's voice, rather than modal popups that stop the sim. A quiet highlight on the
+  control being referenced is enough pointing.
+- **Cover the non-obvious** — the things a player won't discover alone: that what you click
+  determines what you can field, that recon drives fog and contacts go stale as LKP ghosts, that
+  units auto-dismount in contact and remount when clear, weapons-hold vs free, designating in the
+  feed before FIRE, and calling a fire mission with shell/rounds/sheaf.
+- **Scripted, forgiving opposition** — a small OPFOR that shows up on cue so each concept has a
+  reason to exist, with no wave clock running the player over while they read.
+- **Skippable and replayable** — never forced on first launch, always available from the splash.
+- Design notes: build on `initDevGame`'s staged-placement approach with a fixed seed and a task
+  list driven off sim state (checks like "a UAS is on station", "a contact is designated") rather
+  than a step counter; reuse `radio()`/the net log for prompts. Pairs with the Unit Wiki (the
+  reference the tutorial points at) and the Scenario Builder (same serialization/staging).
+
 ### Scenario Builder
 A proper in-app editor to lay out a battle instead of hand-placing everything by console:
 - **Place forces for both sides** — friendly and enemy units, structures, and drones anywhere on
@@ -672,6 +728,63 @@ the enabling installation (grey out airfield UAS until an airfield is built, etc
 Let the commander spread the fight across tabs, windows, and monitors — a real CIC has
 many screens, not one. Build toward the state being a **single source of truth** that any
 number of lightweight view windows read from and issue commands to.
+
+### Persistent Left Command Panel
+The left panel is currently a transient deploy palette — it only exists while a base, airfield,
+engineer or carrier is selected, and vanishes the moment you click elsewhere. It should be a
+**permanent fixture of the console**, always on screen, with the deploy palette as just one of
+several sections.
+- **Always visible** — a fixed left rail that's part of the layout rather than a popup, so the
+  map/HUD reserve space for it instead of it floating over the terrain. Sections are
+  independently collapsible so a player can keep only what they use open.
+- **Installations roster** — a live list of friendly HQs, FOBs, OPs and airfields: click one to
+  select and centre it, and field from it immediately via the **+** flow (see *Deployment &
+  Fielding Mechanics*). This is the fix for the current friction of hunting for a base on the map
+  before you can deploy anything.
+- **Deploy palette, contextual as now** — keeps the existing "what you clicked determines what
+  you can field" behaviour, but rendered inside the persistent panel and driven by whatever is
+  selected in the roster, with an empty/hint state instead of disappearing.
+- **Room to grow** — the panel is the home for the roster-style views that don't belong on the
+  map: combat groups / task organisation, a unit roster with status, supply and build queues.
+  Each is a section, added over time.
+- Design notes: `DeployPanel` becomes a section inside a new persistent `CommandPanel`;
+  `deployContext(selectedIds)` still decides palette contents but now also accepts a structure
+  selected from the roster. Lay the app out so the panel is a flex sibling of the map rather than
+  an absolute overlay. Pairs with the Units / Combat-Group Dashboard (same data, detachable
+  window) and the TS/componentization rewrite — worth doing after the split, since it's a
+  restructure of exactly the code `HUD.jsx` currently owns.
+
+### NET Log as a Full-Height Right Panel
+The radio net log is currently a free-floating, hand-resized box pinned near the top-right
+(`top: 44, right: 10`, a stored `netSize`, and a resize grip in its corner). It's the console's
+primary readout and should be a proper panel, not a widget parked on the map.
+- **Full-height right rail** — mirror the persistent left command panel: the net occupies the
+  full height between the top bar and the bottom of the screen, part of the layout rather than
+  floating over the terrain. The manual width/height resize goes away (or becomes a draggable
+  splitter on its inner edge).
+- **Tidy the message list** — the entries are a dense unstyled stack right now. Give them real
+  structure: timestamp / callsign / message columns that line up, clearer per-kind colour and
+  priority weighting, visual grouping by sender or time, and a sensible empty state. Keep
+  click-to-centre.
+- **Filtering, once it's roomy** — filter or mute by net/channel and by message kind, which the
+  current box has no room for. Pairs with *Radio Channels / Nets*.
+- Design notes: `RadioLog` moves from an absolute `top/right` box with `ui.netSize` to a flex
+  sibling in the app layout; drop `netSize`/`setNetSize` and the corner grip in favour of a
+  splitter. Do it alongside the persistent left panel — it's the same layout change (map becomes
+  a flex centre column between two rails).
+
+### Collapsible Side Panels
+With both rails permanent, the player needs the screen back on demand.
+- **Minimize each panel to its own edge** — the left command panel collapses left, the NET panel
+  collapses right, each leaving a thin always-visible strip to restore it. Independent of each
+  other, so any combination is possible (both open, one open, full-screen map).
+- **The map reclaims the space** — collapsing genuinely widens the map rather than just hiding an
+  overlay, which is the point of making the panels part of the layout.
+- **Remember the state** — a collapsed rail stays collapsed across the session (and into saves,
+  once Save / Continue lands).
+- Design notes: two booleans in the UI store driving the flex layout; animate the width so the
+  map's `clampView` re-fits smoothly rather than snapping. The existing `showNet` toggle in the
+  top bar becomes the NET rail's collapse control.
 
 ### Bottom Panel / Selection Tray UI
 The bottom selection tray needs design work — it's grown organically and feels cramped and
