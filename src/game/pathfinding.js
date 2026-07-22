@@ -2,7 +2,10 @@ import { GRID, CELL, MinHeap } from './mapgen.js'
 
 // A* over the terrain grid for a mobility class. Returns array of world-space
 // waypoints (cell centers, collinear points pruned), or null if unreachable.
-export function findPath(map, sx, sy, tx, ty, mob) {
+// opts.crossCountry: strip the road speed bonus so tactical moves advance
+// direct/off-road (roads still usable — and still the only water crossings).
+export function findPath(map, sx, sy, tx, ty, mob, opts = {}) {
+  const xc = opts.crossCountry ? 2.2 : 1
   const start = map.cellAt(sx, sy)
   let goal = map.cellAt(tx, ty)
 
@@ -48,8 +51,9 @@ export function findPath(map, sx, sy, tx, ty, mob) {
       if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue
       const ni = ny * GRID + nx
       if (closed[ni]) continue
-      const f = map.moveFactorCell(ni, mob)
+      let f = map.moveFactorCell(ni, mob)
       if (!isFinite(f)) continue
+      if (xc > 1 && map.road[ni]) f *= xc // dampen road preference for tactical moves
       const ng = g[cur] + ((dx && dy) ? 1.414 : 1) * f
       if (ng < g[ni]) {
         g[ni] = ng

@@ -118,7 +118,7 @@ function newUnit(typeKey, side, x, y) {
   const label = side === 'friend'
     ? FRIEND_CALLS[(designators.friend - 1) % FRIEND_CALLS.length] + '-' + designators.friend
     : 'E' + String(designators.hostile).padStart(2, '0')
-  return {
+  const u = {
     id: nextId++, side, type: typeKey, label,
     x, y, heading: side === 'friend' ? -Math.PI / 2 : Math.PI / 2,
     strength: 100, path: [], legs: [], state: 'hold',
@@ -133,7 +133,113 @@ function newUnit(typeKey, side, x, y) {
     aiRole: null, aiRepathT: 0,
     formSeed: S.rng ? S.rng() * 1000 : Math.random() * 1000,
     _spd: type.speed,
+    elements: [],
   }
+  initElements(u)
+  return u
+}
+
+// --- sub-element layer: each unit is a formation of individual vics/troops ----
+// The unit stays the command/movement/AI entity; elements let precision fires
+// hit specific platforms and each destroyed vic leave its own wreck/explosion.
+function bgOffset(n, seed) {
+  const row = Math.ceil(n / 2)
+  const side = n === 0 ? 0 : (n % 2 === 1 ? -1 : 1)
+  return { fwd: -row * 28 - (seed % 7), lat: side * (22 + row * 14) + ((seed * 13) % 9) - 4 }
+}
+function initElements(u) {
+  const type = UNIT_TYPES[u.type]
+  const seed = u.formSeed | 0
+  const els = []
+  const nVeh = type.carrier ? type.carrier.veh : type.veh
+  for (let n = 0; n < nVeh; n++) {
+    const o = bgOffset(n, (seed * 10 + n) | 0)
+    els.push({ ox: o.fwd, oy: o.lat, kind: 'veh', alive: true })
+  }
+  const nTrp = type.troops > 0 ? Math.max(1, Math.round(type.troops / 4)) : 0
+  for (let n = 0; n < nTrp; n++) {
+    const o = bgOffset(n + 1, (seed * 17 + n * 3) | 0)
+    els.push({ ox: o.fwd * 0.5, oy: o.lat * 0.7, kind: 'troop', alive: true })
+  }
+  if (!els.length) els.push({ ox: 0, oy: 0, kind: 'troop', alive: true })
+  u.elements = els
+}
+// world position of an element given the unit's heading
+export function elemWorld(u, el) {
+  const s = Math.sin(u.heading), c = Math.cos(u.heading)
+  return { x: u.x + c * el.ox - s * el.oy, y: u.y + s * el.ox + c * el.oy }
+}
+// which elements are "exposed": carrier units show vics when mounted, troops when
+// dismounted; integral units (recon/armor/guns) always show their full set.
+export function elemExposed(u, el) {
+  const type = UNIT_TYPES[u.type]
+  if (!type.carrier) return true
+  return u.mounted ? el.kind === 'veh' : el.kind === 'troop'
+}
+function exposedList(u) { return u.elements.filter(el => elemExposed(u, el)) }
+
+function killElement(u, el) {
+  if (!el.alive) return
+  el.alive = false
+  if (el.kind === 'veh') {
+    const w = elemWorld(u, el)
+    S.wrecks.push({ x: w.x, y: w.y, side: u.side, type: u.type, t: S.t })
+    while (S.wrecks.length > 140) S.wrecks.shift()
+  }
+}
+
+// keep the exposed element count in step with the unit's strength: kill front-most
+// vics as it drops (attrition), revive rear-most only when told to (reinforcement).
+function syncElements(u, allowRevive = false) {
+  const exp = exposedList(u)
+  if (!exp.length) return
+  if (u.strength <= 0) { for (const el of exp) killElement(u, el); return }
+  const target = Math.max(1, Math.round(u.strength / 100 * exp.length))
+  let aliveN = exp.reduce((n, el) => n + (el.alive ? 1 : 0), 0)
+  while (aliveN > target) {
+    const el = exp.find(e => e.alive)
+    if (!el) break
+    killElement(u, el); aliveN--
+  }
+  if (allowRevive) {
+    while (aliveN < target) {
+      let el = null
+      for (let i = exp.length - 1; i >= 0; i--) if (!exp[i].alive) { el = exp[i]; break }
+      if (!el) break
+      el.alive = true; aliveN++
+    }
+  }
+}
+
+// precision/blast fires resolve against individual elements by distance, so a
+// direct hit kills the vic you aimed at; sub-lethal splash chips aggregate strength.
+function precisionBlast(u, ix, iy, blast, dmg, shell) {
+  const type = UNIT_TYPES[u.type]
+  const icm = shell === 'ICM'
+  const armorFactor = icm ? type.soft * 0.55 + (1 - type.soft) * 1.0 : type.soft * 1.0 + (1 - type.soft) * 0.45
+  const terr = S.map.terr[S.map.cellAt(u.x, u.y)]
+  const cover = terr === T_URBAN ? 0.65 : terr === T_FOREST ? 0.85 : 1
+  const post = postureFactor(u)
+  const exp = exposedList(u)
+  if (!exp.length) return
+  let killed = 0, residual = 0
+  for (const el of exp) {
+    if (!el.alive) continue
+    const w = elemWorld(u, el)
+    const dEl = Math.hypot(w.x - ix, w.y - iy)
+    if (dEl >= blast) continue
+    const lethality = dmg * (1 - dEl / blast) * armorFactor * cover * post
+    if (lethality >= 18) { killElement(u, el); killed++ }
+    else residual += lethality
+  }
+  if (killed) u.strength = Math.max(0, u.strength - killed / exp.length * 100)
+  if (residual) u.strength = Math.max(0, u.strength - residual * 0.12)
+}
+
+function healUnit(u, points, cap, revive) {
+  if (points <= 0 || u.strength >= cap) return
+  u.strength = Math.min(cap, u.strength + points)
+  if (revive) syncElements(u, true)
 }
 
 function spawnEnemy(typeKey, x, y) {
@@ -358,22 +464,73 @@ export function droneStrike(droneId, x, y) {
   if (!d) return
   const spec = DRONE_TYPES[d.type]
   if (spec.weapons) {
-    if (d.state !== 'onstation') return toast(d.label + ' NOT ON STATION')
+    // fires from the orbit or while transiting — not once committed to RTB/striking
+    if (d.state !== 'onstation' && d.state !== 'transit') return toast(d.label + ' NOT ON STATION')
     if (d.ammo <= 0) return toast(d.label + ' WINCHESTER — NO ORDNANCE')
     if (Math.hypot(d.x - x, d.y - y) > spec.weapons.range) return toast('TARGET OUTSIDE WEAPON RANGE')
     d.ammo--
+    const impactT = S.t + spec.weapons.flight
     S.shells.push({
       fromX: d.x, fromY: d.y, x, y,
-      impactT: S.t + spec.weapons.flight,
+      impactT,
       dmg: spec.weapons.dmg, blast: spec.weapons.blast, side: 'friend',
       splashFrom: d.label,
     })
+    d.strikeMark = { x, y, until: impactT }
     radio(d.label, 'fires', `RIFLE — TGT GRID ${grid(x, y)}, ${d.ammo} AGM REMAINING`, x, y)
   } else if (spec.kamikaze) {
     if (d.state !== 'onstation' && d.state !== 'transit') return
     d.state = 'striking'
     d.sx = x; d.sy = y
+    d.strikeMark = { x, y, until: S.t + 30 } // cleared on impact when the drone despawns
     radio(d.label, 'fires', `TERMINAL ATTACK — GRID ${grid(x, y)}`, x, y)
+  }
+}
+
+// --- viewer target designation (per-vic) ---
+// the player clicks individual vics/troops in the UAV feed to build a target set,
+// then presses FIRE. targets track the specific element so a moving vic stays marked.
+export function droneToggleTarget(droneId, unitId, ei) {
+  const d = S.drones.find(d => d.id === droneId)
+  if (!d) return
+  const spec = DRONE_TYPES[d.type]
+  if (!spec.weapons && !spec.kamikaze) return
+  if (!d.targets) d.targets = []
+  const i = d.targets.findIndex(t => t.unitId === unitId && t.ei === ei)
+  if (i >= 0) d.targets.splice(i, 1)
+  else d.targets.push({ unitId, ei })
+}
+export function droneClearTargets(droneId) {
+  const d = S.drones.find(d => d.id === droneId)
+  if (d) d.targets = []
+}
+// resolve a target descriptor to a live element's world position (null if dead/gone)
+function targetPoint(t) {
+  const u = S.units.find(x => x.id === t.unitId && x.strength > 0)
+  if (!u || !u.elements) return null
+  const el = u.elements[t.ei]
+  if (!el || !el.alive) return null
+  return elemWorld(u, el)
+}
+// release ordnance against every designated vic (one munition each) until winchester.
+// the target set is NOT cleared — reticles stay put; targets drop only when destroyed.
+export function droneFire(droneId) {
+  const d = S.drones.find(d => d.id === droneId)
+  if (!d || !d.targets || !d.targets.length) return
+  const spec = DRONE_TYPES[d.type]
+  const live = d.targets.filter(t => targetPoint(t))
+  if (!live.length) return
+  if (spec.kamikaze) {
+    // one-shot airframe: dive on the first designated vic
+    const p = targetPoint(live[0])
+    droneStrike(droneId, p.x, p.y)
+    return
+  }
+  // weapons drone: service targets in order, one AGM per vic, stop when out
+  for (const t of live) {
+    if (d.ammo <= 0) break
+    const p = targetPoint(t)
+    droneStrike(droneId, p.x, p.y)
   }
 }
 
@@ -381,12 +538,12 @@ let groupSeq = 1
 // allocate a shared movement-group id so co-issued units hold to the slowest pace
 export function newMoveGroup() { return groupSeq++ }
 
-export function orderMove(unitId, x, y, append = false, attack = false, groupId = null) {
+export function orderMove(unitId, x, y, append = false, attack = false, groupId = null, opts = {}) {
   const u = S.units.find(u => u.id === unitId)
-  if (!u || u.side !== 'friend') return
+  if (!u) return
   x = clampWorld(x); y = clampWorld(y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1] : u
-  const p = findPath(S.map, from.x, from.y, x, y, effStats(u).mob)
+  const p = findPath(S.map, from.x, from.y, x, y, effStats(u).mob, opts)
   if (!p) return toast('ROUTE IMPASSABLE')
   u.bridging = null
   u.heldRoute = null
@@ -399,11 +556,11 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
   if (append && u.path.length) {
     u.path = u.path.concat(p)
     u.legs.push({ x, y, n: p.length })
-    radio(u.label, 'move', `COPY — WP ADDED, GRID ${grid(x, y)}`, x, y)
+    netRadio(u, 'move', `COPY — WP ADDED, GRID ${grid(x, y)}`, x, y)
   } else {
     u.path = p
     u.legs = [{ x, y, n: p.length }]
-    radio(u.label, 'move', attack
+    netRadio(u, 'move', attack
       ? `ADVANCING TO CONTACT — GRID ${grid(x, y)}`
       : `MOVING TO GRID ${grid(x, y)}`, x, y)
   }
@@ -413,8 +570,9 @@ export function orderMove(unitId, x, y, append = false, attack = false, groupId 
 // deliberate attack on a specific enemy: pursue and destroy
 export function orderAttack(unitId, enemyId, groupId = null) {
   const u = S.units.find(u => u.id === unitId)
-  const e = S.units.find(x => x.id === enemyId && x.side === 'hostile')
-  if (!u || u.side !== 'friend' || !e) return
+  if (!u) return
+  const e = S.units.find(x => x.id === enemyId && x.side !== u.side)
+  if (!e) return
   const p = findPath(S.map, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) return toast('ROUTE IMPASSABLE')
   u.bridging = null; u.heldRoute = null; u.breaking = false
@@ -426,7 +584,7 @@ export function orderAttack(unitId, enemyId, groupId = null) {
   u.path = p
   u.legs = [{ x: e.x, y: e.y, n: p.length }]
   u.state = 'moving'
-  radio(u.label, 'contact', `ATTACKING ${UNIT_TYPES[e.type].name.toUpperCase()} — GRID ${grid(e.x, e.y)}`, e.x, e.y)
+  netRadio(u, 'contact', `ATTACKING ${UNIT_TYPES[e.type].name.toUpperCase()} — GRID ${grid(e.x, e.y)}`, e.x, e.y)
 }
 
 export function removeLastWaypoint(unitId) {
@@ -449,6 +607,7 @@ export function orderMount(unitId, mounted) {
   if (mounted && u.targetId) return toast(u.label + ' — CANNOT MOUNT UNDER FIRE')
   u.mounted = mounted
   u.autoDismounted = false // manual posture change overrides the drill
+  syncElements(u, true)    // the newly-exposed set reflects current strength
   if (u.side === 'friend') {
     radio(u.label, 'move', mounted ? 'MOUNTING UP' : 'DISMOUNTING', u.x, u.y)
   }
@@ -491,15 +650,15 @@ export function orderConvoy(unitId, structId) {
 const ROE_NAMES = { push: 'PUSH THROUGH', halt: 'HALT AND ENGAGE', break: 'BREAK CONTACT' }
 export function orderRoe(unitId, roe) {
   const u = S.units.find(u => u.id === unitId)
-  if (!u || u.side !== 'friend' || !ROE_NAMES[roe] || u.roe === roe) return
+  if (!u || !ROE_NAMES[roe] || u.roe === roe) return
   u.roe = roe
-  radio(u.label, 'move', `BATTLE DRILL SET — ${ROE_NAMES[roe]}`, u.x, u.y)
+  netRadio(u, 'move', `BATTLE DRILL SET — ${ROE_NAMES[roe]}`, u.x, u.y)
 }
 
 // defensive posture: unit halts and prepares positions per its type
 export function orderDefend(unitId, on) {
   const u = S.units.find(u => u.id === unitId)
-  if (!u || u.side !== 'friend') return
+  if (!u) return
   const def = UNIT_TYPES[u.type].def
   if (!def) return
   if (on && u.posture !== 'dig') {
@@ -507,11 +666,11 @@ export function orderDefend(unitId, on) {
     u.digT = 0
     u.dugRadioed = false
     u.path = []; u.legs = []; u.heldRoute = null; u.state = 'hold'
-    radio(u.label, 'move', `ESTABLISHING DEFENSE — ${def.name}`, u.x, u.y)
+    netRadio(u, 'move', `ESTABLISHING DEFENSE — ${def.name}`, u.x, u.y)
   } else if (!on && u.posture === 'dig') {
     u.posture = 'mobile'
     u.digT = 0
-    radio(u.label, 'move', 'POSITIONS ABANDONED — MOBILE', u.x, u.y)
+    netRadio(u, 'move', 'POSITIONS ABANDONED — MOBILE', u.x, u.y)
   }
 }
 
@@ -519,9 +678,9 @@ export function orderDefend(unitId, on) {
 const WPN_NAMES = { free: 'WEAPONS FREE', tight: 'WEAPONS TIGHT — RETURN FIRE ONLY', hold: 'WEAPONS HOLD' }
 export function orderWeapons(unitId, wpn) {
   const u = S.units.find(u => u.id === unitId)
-  if (!u || u.side !== 'friend' || !WPN_NAMES[wpn] || u.weapons === wpn) return
+  if (!u || !WPN_NAMES[wpn] || u.weapons === wpn) return
   u.weapons = wpn
-  radio(u.label, 'move', WPN_NAMES[wpn], u.x, u.y)
+  netRadio(u, 'move', WPN_NAMES[wpn], u.x, u.y)
 }
 
 // damage taken multiplier for a prepared defender
@@ -608,6 +767,12 @@ function toast(msg) {
   S.toasts.push({ msg, t: S.t })
   if (S.toasts.length > 5) S.toasts.shift()
   return null
+}
+
+// unit chatter only reaches the player's JBC-P net for friendly callsigns;
+// enemy elements execute the identical orders silently.
+function netRadio(u, kind, msg, x, y) {
+  if (u.side === 'friend') radio(u.label, kind, msg, x, y)
 }
 
 // MGRS-lite grid reference (100 m precision), matches the cursor readout
@@ -766,7 +931,7 @@ export function tick(dt) {
       garrisoned = true
       if (u.strength > 0 && u.strength < 100 && !u.targetId && S.t - u.lastCombatT > 15) {
         const before = u.strength
-        u.strength = Math.min(100, u.strength + 0.8 * dt)
+        healUnit(u, 0.8 * dt, 100, true) // reconstitution brings replacements — revive lost vics
         u.strMark = Math.max(u.strMark, u.strength)
         if (before < 100 && u.strength >= 100 && u.side === 'friend') {
           radio(u.label, 'arrive', 'RECONSTITUTED — FULL STRENGTH', u.x, u.y)
@@ -781,12 +946,16 @@ export function tick(dt) {
 
   // group movement: a formation moves no faster than its slowest moving member.
   // recomputed each tick from live, still-moving members (arrived/dead don't count).
+  // a formation moves no faster than its slowest moving member — cap the REAL
+  // (post-terrain) speed so a member on a road can't outrun one in a field.
   const groupCap = new Map()
   for (const u of S.units) {
     if (u.groupId == null || !u.path.length || u.strength <= 0) continue
-    const s = effStats(u).speed
+    const st = effStats(u)
+    const f = S.map.moveFactor(u.x, u.y, st.mob)
+    const real = st.speed / (isFinite(f) ? f : 3)
     const cur = groupCap.get(u.groupId)
-    if (cur == null || s < cur) groupCap.set(u.groupId, s)
+    if (cur == null || real < cur) groupCap.set(u.groupId, real)
   }
 
   // units: movement + bridging
@@ -805,7 +974,7 @@ export function tick(dt) {
     // rest and buddy-aid in prepared positions: slow recovery, capped at 70%
     if (u.posture === 'dig' && u.digT >= 1 && u.strength > 0 && u.strength < 70
         && !u.targetId && S.t - u.lastCombatT > 20) {
-      u.strength = Math.min(70, u.strength + 0.15 * dt)
+      healUnit(u, 0.15 * dt, 70, false) // buddy-aid patches crews; destroyed vics stay dead
     }
     // logistics loop: HQ -> load -> FOB -> unload -> repeat
     if (u.convoy && u.side === 'friend' && u.strength > 0) {
@@ -873,20 +1042,20 @@ export function tick(dt) {
       const dx = wp.x - u.x, dy = wp.y - u.y
       const d = Math.hypot(dx, dy)
       const f = S.map.moveFactor(u.x, u.y, st.mob)
-      // hold to the group's slowest pace, then apply this unit's own terrain factor
-      const cap = u.groupId != null ? groupCap.get(u.groupId) : undefined
-      const base = cap != null ? Math.min(st.speed, cap) : st.speed
-      const spd = base / (isFinite(f) ? f : 3)
+      // this unit's own terrain-adjusted speed, then held to the group's slowest real pace
+      let spd = st.speed / (isFinite(f) ? f : 3)
+      if (u.groupId != null) {
+        const cap = groupCap.get(u.groupId)
+        if (cap != null) spd = Math.min(spd, cap)
+      }
       u._spd = spd
       if (d < Math.max(4, spd * dt)) {
         u.x = wp.x; u.y = wp.y
         u.path.shift()
         if (u.legs.length && --u.legs[0].n <= 0) {
           const leg = u.legs.shift()
-          if (u.side === 'friend') {
-            if (u.legs.length) radio(u.label, 'arrive', `WP CLEAR GRID ${grid(leg.x, leg.y)} — CONTINUING`, leg.x, leg.y)
-            else radio(u.label, 'arrive', `AT GRID ${grid(leg.x, leg.y)} — HOLDING`, leg.x, leg.y)
-          }
+          if (u.legs.length) netRadio(u, 'arrive', `WP CLEAR GRID ${grid(leg.x, leg.y)} — CONTINUING`, leg.x, leg.y)
+          else netRadio(u, 'arrive', `AT GRID ${grid(leg.x, leg.y)} — HOLDING`, leg.x, leg.y)
         }
         if (!u.path.length) { u.legs = []; u.state = 'hold' }
       } else {
@@ -901,7 +1070,7 @@ export function tick(dt) {
   // direct-fire combat: units first, then structures
   for (const u of S.units) {
     const type = UNIT_TYPES[u.type]
-    const wpn = u.side === 'friend' ? (u.weapons || 'free') : 'free'
+    const wpn = u.weapons || 'free'
     let tgt = null, tdist = Infinity
     if (wpn !== 'hold') {
       const provoked = S.t - (u.underFireT ?? -99) < 6
@@ -917,16 +1086,17 @@ export function tick(dt) {
     let fired = false
     if (tgt) {
       u.lastCombatT = S.t
-      const roe = u.side === 'friend' ? (u.roe || 'halt') : 'halt'
+      const roe = u.roe || 'halt'
       // troops in contact: carriers drop their infantry (halt drill only — push/break stay mounted)
       if (type.carrier && u.mounted && tdist < 900 && roe === 'halt') {
         u.mounted = false
         u.autoDismounted = true
-        if (u.side === 'friend') radio(u.label, 'contact', `IN CONTACT — DISMOUNTING`, u.x, u.y)
+        syncElements(u, true)
+        netRadio(u, 'contact', `IN CONTACT — DISMOUNTING`, u.x, u.y)
       }
       if (roe === 'halt') {
         // halt to fight rather than driving through the kill zone; keep the route to resume
-        if (u.side === 'friend' && u.path.length && !type.indirect && type.range >= 500
+        if (u.path.length && !type.indirect && type.range >= 500
             && tdist < type.range * 0.85) {
           u.heldRoute = { path: u.path, legs: u.legs }
           u.path = []; u.legs = []
@@ -983,7 +1153,7 @@ export function tick(dt) {
       S.contacts.set(u.id, { x: u.x, y: u.y, type: u.type, lastSeen: S.t, live: true, strength: u.strength })
     }
     // break-contact drill: triggers on acquiring a target OR on taking fire
-    if (u.side === 'friend' && u.roe === 'break' && !u.breaking) {
+    if (u.roe === 'break' && !u.breaking) {
       const underFire = S.t - (u.underFireT ?? -99) < 3
       const threat = tgt ? { x: tgt.x, y: tgt.y }
         : underFire && u.threatX != null ? { x: u.threatX, y: u.threatY } : null
@@ -995,7 +1165,7 @@ export function tick(dt) {
         const bx = clampWorld(u.x + (bdx / bL) * 900), by = clampWorld(u.y + (bdy / bL) * 900)
         const bp = findPath(S.map, u.x, u.y, bx, by, effStats(u).mob)
         if (bp) { u.path = bp; u.legs = [{ x: bx, y: by, n: bp.length }] }
-        radio(u.label, 'contact', `BREAKING CONTACT — MOVING GRID ${grid(bx, by)}`, u.x, u.y)
+        netRadio(u, 'contact', `BREAKING CONTACT — MOVING GRID ${grid(bx, by)}`, u.x, u.y)
       }
     }
   }
@@ -1010,17 +1180,10 @@ export function tick(dt) {
       } else {
         S.impacts.push({ x: sh.x, y: sh.y, t: S.t })
         const icm = sh.shell === 'ICM'
+        // resolve against individual vics — units whose formation reaches the blast
         for (const u of S.units) {
-          const d = Math.hypot(u.x - sh.x, u.y - sh.y)
-          if (d < sh.blast) {
-            const et = UNIT_TYPES[u.type]
-            const armorFactor = icm
-              ? et.soft * 0.55 + (1 - et.soft) * 1.0   // shaped submunitions
-              : et.soft * 1.0 + (1 - et.soft) * 0.45   // HE blast/frag
-            // overhead cover: buildings shelter well, woods somewhat
-            const terr = S.map.terr[S.map.cellAt(u.x, u.y)]
-            const coverFactor = terr === T_URBAN ? 0.65 : terr === T_FOREST ? 0.85 : 1
-            u.strength -= sh.dmg * (1 - d / sh.blast) * armorFactor * postureFactor(u) * coverFactor
+          if (Math.hypot(u.x - sh.x, u.y - sh.y) < sh.blast + 90) {
+            precisionBlast(u, sh.x, sh.y, sh.blast, sh.dmg, sh.shell)
           }
         }
         for (const s of S.structures) {
@@ -1037,16 +1200,17 @@ export function tick(dt) {
     if (S.t - S.smoke[i].t > SMOKE_DURATION) S.smoke.splice(i, 1)
   }
 
-  // mission resumption: contact clear and neighborhood quiet → continue movement
+  // mission resumption: contact clear and neighborhood quiet → continue movement.
+  // side-agnostic: friendly and hostile units execute the identical drill code.
   for (const u of S.units) {
-    if (u.side !== 'friend') continue
+    if (u.strength <= 0) continue
     // deliberate attack: pursue the designated target until it dies
     if (u.attackId != null) {
       const tgt = S.units.find(x => x.id === u.attackId)
       if (!tgt || tgt.strength <= 0) {
         u.attackId = null
         u.attackMove = false
-        radio(u.label, 'contact', 'TARGET DESTROYED — HOLDING', u.x, u.y)
+        netRadio(u, 'contact', 'TARGET DESTROYED — HOLDING', u.x, u.y)
         u.path = []; u.legs = []
       } else if (u.targetId === u.attackId) {
         // in engagement range of the designated target: stand and fight
@@ -1067,17 +1231,18 @@ export function tick(dt) {
     }
     if (u.breaking && !u.targetId && S.t - u.lastCombatT > 15) {
       u.breaking = false
-      radio(u.label, 'contact', 'CONTACT BROKEN — HOLDING, AWAITING ORDERS', u.x, u.y)
+      netRadio(u, 'contact', 'CONTACT BROKEN — HOLDING, AWAITING ORDERS', u.x, u.y)
     }
     const calm = !u.targetId && S.t - u.lastCombatT > 12
     if (calm && (u.heldRoute || u.autoDismounted)) {
-      const nearBusy = S.units.some(o => o !== u && o.side === 'friend' && o.targetId
+      const nearBusy = S.units.some(o => o !== u && o.side === u.side && o.targetId
         && Math.hypot(o.x - u.x, o.y - u.y) < 600)
       if (!nearBusy) {
         // remount applies whether or not the unit ever fully halted
         if (u.autoDismounted && UNIT_TYPES[u.type].carrier && !u.mounted) {
           u.mounted = true
-          radio(u.label, 'move', 'REMOUNTING', u.x, u.y)
+          syncElements(u, true)
+          netRadio(u, 'move', 'REMOUNTING', u.x, u.y)
         }
         u.autoDismounted = false
         if (u.heldRoute) {
@@ -1085,7 +1250,7 @@ export function tick(dt) {
           u.legs = u.heldRoute.legs
           u.heldRoute = null
           u.state = 'moving'
-          radio(u.label, 'move', 'CONTACT CLEAR — CONTINUING MISSION', u.x, u.y)
+          netRadio(u, 'move', 'CONTACT CLEAR — CONTINUING MISSION', u.x, u.y)
         }
       }
     }
@@ -1115,11 +1280,14 @@ export function tick(dt) {
     s.strMark = Math.min(s.strMark, frac)
   }
 
-  // deaths: units
+  // element attrition: bring each unit's vics/troops in line with its strength,
+  // spawning individual wrecks/explosions as they're picked off by direct fire
+  for (const u of S.units) syncElements(u, false)
+
+  // deaths: units (per-element wrecks were already spawned as elements died)
   for (let i = S.units.length - 1; i >= 0; i--) {
     const u = S.units[i]
     if (u.strength <= 0) {
-      S.wrecks.push({ x: u.x, y: u.y, side: u.side, type: u.type, t: S.t })
       S.contacts.delete(u.id)
       if (u.side === 'friend') {
         radio('NET', 'loss', `${u.label} SIGNAL LOST — LKP GRID ${grid(u.x, u.y)}`, u.x, u.y)
@@ -1147,9 +1315,13 @@ export function tick(dt) {
         S.won = true
         toast('★ RED HQ DESTROYED — OBJECTIVE SECURED ★')
       }
-      if (s.side === 'friend' && s.label === 'FOB COBALT' && !S.lost) {
-        S.lost = true
-        toast('!! FOB COBALT LOST !!')
+      // losing your command post with no FOB to convert = defeat
+      if (s.side === 'friend' && s.kind === 'HQ' && !S.lost) {
+        const canRecover = S.structures.some(o => o.side === 'friend' && o.kind === 'FOB')
+        if (!canRecover) {
+          S.lost = true
+          toast('!! COMMAND POST LOST — NO FALLBACK !!')
+        }
       }
     }
   }
@@ -1159,6 +1331,8 @@ export function tick(dt) {
   for (let i = S.drones.length - 1; i >= 0; i--) {
     const d = S.drones[i]
     const spec = DRONE_TYPES[d.type]
+    // drop designated targets only once the vic is actually destroyed
+    if (d.targets && d.targets.length) d.targets = d.targets.filter(t => targetPoint(t))
     // sensor track maintenance: follow the locked unit, degrade to point lock if lost
     if (d.lock && d.lock.unitId != null) {
       const lu = S.units.find(x => x.id === d.lock.unitId)
@@ -1233,10 +1407,8 @@ export function tick(dt) {
         S.impacts.push({ x: d.sx, y: d.sy, t: S.t })
         const k = spec.kamikaze
         for (const u of S.units) {
-          const ud = Math.hypot(u.x - d.sx, u.y - d.sy)
-          if (ud < k.blast) {
-            const et = UNIT_TYPES[u.type]
-            u.strength -= k.dmg * (1 - ud / k.blast) * (et.soft + (1 - et.soft) * 0.55)
+          if (Math.hypot(u.x - d.sx, u.y - d.sy) < k.blast + 90) {
+            precisionBlast(u, d.sx, d.sy, k.blast, k.dmg, 'HE')
           }
         }
         for (const s of S.structures) {
@@ -1256,55 +1428,148 @@ export function tick(dt) {
 
 // --- enemy AI -------------------------------------------------------------
 
-function nearestFriendlyStructure(x, y) {
-  let best = S.map.fob, bd = Infinity
+// ---------------------------------------------------------------------------
+// Enemy AI. It is purely a COMMANDER: it never manipulates unit internals, it
+// only issues the same orders the player uses (orderMove/orderAttack/orderRoe/
+// orderDefend). All tactical execution — halting to fight, breaking contact,
+// dismounting, resuming the mission, group pacing — runs in the shared tick
+// code, identically to friendly units. This keeps behaviour symmetric and
+// makes a future second human/AI commander a drop-in.
+// ---------------------------------------------------------------------------
+const BG_TEMPLATES = [
+  { name: 'MECH TEAM',    comp: ['ARM', 'ARM', 'MECH', 'SCT', 'AT'] },
+  { name: 'ARMOR THRUST', comp: ['ARM', 'ARM', 'ARM', 'CAV'] },
+  { name: 'INF ASSAULT',  comp: ['MECH', 'INF', 'INF', 'SCT', 'MOR'] },
+  { name: 'RECON FORCE',  comp: ['CAV', 'CAV', 'SCT', 'AT'] },
+]
+
+function centroidOf(list) {
+  if (!list.length) return null
+  let x = 0, y = 0
+  for (const u of list) { x += u.x; y += u.y }
+  return { x: x / list.length, y: y / list.length }
+}
+
+// pick the enemy's objective: nearest player installation, HQ prioritised
+function enemyObjective(from) {
+  let best = null, bd = Infinity
   for (const s of S.structures) {
     if (s.side !== 'friend') continue
-    const d = Math.hypot(s.x - x, s.y - y)
-    if (d < bd) { bd = d; best = s }
+    const w = Math.hypot(s.x - from.x, s.y - from.y) * (s.kind === 'HQ' ? 0.6 : 1)
+    if (w < bd) { bd = w; best = { x: s.x, y: s.y } }
   }
-  return best
+  return best || { x: S.map.fob.x, y: S.map.fob.y }
+}
+
+function spawnBattlegroup() {
+  const tpl = BG_TEMPLATES[Math.floor(S.rng() * BG_TEMPLATES.length)]
+  const gid = newMoveGroup()
+  const grp = {
+    id: gid, name: tpl.name, phase: 'muster',
+    musterT: 10 + S.rng() * 8, retaskT: 0, objective: null,
+    members: [], initStr: tpl.comp.length * 100, dead: false,
+  }
+  const bx = S.map.enemyBase.x, by = S.map.enemyBase.y
+  for (const t of tpl.comp) {
+    const u = spawnEnemy(t, bx + (S.rng() - 0.5) * 500, by + (S.rng() - 0.5) * 300 + 150)
+    u.aiRole = 'bg'
+    u.bgGroup = gid
+    u.bgRole = (t === 'SCT' || t === 'CAV') ? 'recon' : 'main'
+    // recon screens & disengages; the main body advances to contact and fights
+    orderRoe(u.id, u.bgRole === 'recon' ? 'break' : 'halt')
+  }
+  grp.members = S.units.filter(u => u.bgGroup === gid).map(u => u.id)
+  S.enemyGroups.push(grp)
+}
+
+function updateBattlegroup(grp, dt) {
+  const mem = grp.members.map(id => S.units.find(u => u.id === id)).filter(u => u && u.strength > 0)
+  if (!mem.length) { grp.dead = true; return }
+  const curStr = mem.reduce((s, u) => s + u.strength, 0)
+
+  if (grp.phase === 'muster') {
+    grp.musterT -= dt
+    if (grp.musterT <= 0) { grp.objective = enemyObjective(centroidOf(mem)); grp.phase = 'advance' }
+    return
+  }
+
+  // combat-ineffective (< 35% of committed strength) → withdraw under break discipline
+  if (grp.phase !== 'withdraw' && curStr < grp.initStr * 0.35) {
+    grp.phase = 'withdraw'
+    grp.objective = { x: S.map.enemyBase.x, y: S.map.enemyBase.y }
+    for (const u of mem) orderRoe(u.id, 'break')
+  }
+
+  // refresh the objective as the player's disposition changes
+  grp.retaskT -= dt
+  if (grp.phase === 'advance' && grp.retaskT <= 0) {
+    grp.retaskT = 10
+    grp.objective = enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem))
+  }
+
+  const obj = grp.objective
+  if (!obj) return
+  const mainBody = mem.filter(u => u.bgRole === 'main')
+  const mainCen = centroidOf(mainBody) || centroidOf(mem)
+  const XC = { crossCountry: true } // advance off-road, dispersed
+
+  let mainIdx = 0
+  for (const u of mem) {
+    // only redirect genuinely idle units — units in contact / breaking / resuming
+    // are being handled by the shared SOP code and must be left alone
+    const idle = !u.path.length && !u.targetId && !u.breaking && !u.heldRoute && u.attackId == null
+    if (u.bgRole === 'main') mainIdx++
+    if (!idle) continue
+    if (grp.phase === 'withdraw') {
+      if (Math.hypot(u.x - obj.x, u.y - obj.y) > 200) orderMove(u.id, obj.x, obj.y)
+    } else if (u.bgRole === 'recon') {
+      // screen ~750 m ahead of the main body along the axis of advance
+      const ax = obj.x - mainCen.x, ay = obj.y - mainCen.y, L = Math.hypot(ax, ay) || 1
+      orderMove(u.id, mainCen.x + ax / L * 750, mainCen.y + ay / L * 750, false, false, null, XC)
+    } else if (Math.hypot(u.x - obj.x, u.y - obj.y) > 300) {
+      // main body: attack-move to a dispersed aim point (loose line abreast the
+      // axis), paced together as a group, cross-country
+      const ax = obj.x - mainCen.x, ay = obj.y - mainCen.y, L = Math.hypot(ax, ay) || 1
+      const px = -ay / L, py = ax / L // perpendicular to the axis of advance
+      const off = ((mainIdx - 1) - (mainBody.length - 1) / 2) * 180
+      orderMove(u.id, obj.x + px * off, obj.y + py * off, false, true, grp.id, XC)
+    }
+  }
+
+  // a withdrawing group that reaches home reverts to garrison defence
+  if (grp.phase === 'withdraw'
+      && mem.every(u => Math.hypot(u.x - S.map.enemyBase.x, u.y - S.map.enemyBase.y) < 500)) {
+    for (const u of mem) {
+      u.aiRole = 'garrison'; u.anchorX = u.x; u.anchorY = u.y; u.bgGroup = null; u.groupId = null
+      orderRoe(u.id, 'halt')
+    }
+    grp.dead = true
+  }
 }
 
 function enemyAI(dt) {
   S.nextWave -= dt
   if (S.nextWave <= 0) {
-    S.nextWave = 75 + S.rng() * 40
-    const n = 1 + (S.rng() < 0.5 ? 1 : 0)
-    for (let i = 0; i < n; i++) {
-      const roll = S.rng()
-      const typeKey = roll < 0.25 ? 'INF' : roll < 0.45 ? 'MECH' : roll < 0.6 ? 'STRY'
-        : roll < 0.78 ? 'ARM' : roll < 0.87 ? 'AT' : roll < 0.96 ? 'CAV' : 'SCT'
-      const u = spawnEnemy(typeKey, S.map.enemyBase.x + (S.rng() - 0.5) * 400, S.map.enemyBase.y + (S.rng() - 0.5) * 300)
-      u.aiRole = 'attack'
-    }
+    S.nextWave = 110 + S.rng() * 70
+    spawnBattlegroup()
+    if (S.t > 420 && S.rng() < 0.5) spawnBattlegroup() // escalate the tempo later
   }
 
+  for (const grp of S.enemyGroups) updateBattlegroup(grp, dt)
+  S.enemyGroups = S.enemyGroups.filter(g => !g.dead)
+
+  // garrison defenders: hold their anchor, dig in when a threat closes
   for (const u of S.units) {
-    if (u.side !== 'hostile') continue
+    if (u.side !== 'hostile' || u.aiRole !== 'garrison') continue
+    if (u.targetId) continue
     u.aiRepathT -= dt
-    if (u.aiRole === 'attack' && !u.path.length && u.state !== 'engaging' && u.aiRepathT <= 0) {
-      u.aiRepathT = 20 + S.rng() * 10
-      let tgt = null, td = Infinity
-      for (const f of S.units) {
-        if (f.side !== 'friend') continue
-        const d = Math.hypot(f.x - u.x, f.y - u.y)
-        if (d < 2500 && d < td && d <= effStats(u).sight * concealment(S.map, f.x, f.y) * 1.6) { tgt = f; td = d }
-      }
-      const dest = tgt ? { x: tgt.x, y: tgt.y } : nearestFriendlyStructure(u.x, u.y)
-      const p = findPath(S.map, u.x, u.y, dest.x, dest.y, effStats(u).mob)
-      if (p) u.path = p
-    }
-    if (u.targetId && u.path.length) {
-      const t = S.units.find(x => x.id === u.targetId)
-      if (t && Math.hypot(t.x - u.x, t.y - u.y) < UNIT_TYPES[u.type].range * 0.8) { u.path = []; u.legs = [] }
-    }
-    if (u.aiRole === 'garrison' && !u.path.length && !u.targetId && u.anchorX != null) {
-      if (Math.hypot(u.x - u.anchorX, u.y - u.anchorY) > 150 && u.aiRepathT <= 0) {
-        u.aiRepathT = 15
-        const p = findPath(S.map, u.x, u.y, u.anchorX, u.anchorY, effStats(u).mob)
-        if (p) u.path = p
-      }
+    const off = Math.hypot(u.x - (u.anchorX ?? u.x), u.y - (u.anchorY ?? u.y))
+    if (off > 160 && !u.path.length && u.aiRepathT <= 0) {
+      u.aiRepathT = 15
+      orderMove(u.id, u.anchorX, u.anchorY)
+    } else if (off <= 160 && !u.path.length && u.posture !== 'dig') {
+      const threat = S.units.some(f => f.side === 'friend' && Math.hypot(f.x - u.x, f.y - u.y) < 1600)
+      if (threat) orderDefend(u.id, true)
     }
   }
 }
@@ -1336,7 +1601,7 @@ export function advance(seconds) {
 
 if (typeof window !== 'undefined') {
   window.__game = {
-    S, initGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneFollow, droneLock,
+    S, initGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },

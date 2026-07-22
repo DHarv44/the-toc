@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { S } from '../game/sim.js'
+import { S, elemWorld, elemExposed } from '../game/sim.js'
 import { UNIT_TYPES, DRONE_TYPES, STRUCTURES } from '../game/units.js'
 import { GRID, CELL, WORLD, T_FIELD, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 
@@ -461,42 +461,26 @@ function UnitsLayer({ feedRef, mode }) {
       cnt[cls]++
     }
 
+    // render each live, exposed element at the exact position combat uses, so a
+    // pinpoint strike destroys the specific vic you can see
     for (const u of S.units) {
       if (Math.hypot(u.x - cx, u.y - cy) > 2800) continue
-      const type = UNIT_TYPES[u.type]
-      const alive = Math.max(0, u.strength) / 100
-      const totVeh = type.carrier ? type.carrier.veh : type.veh
-      const nVeh = Math.round(totVeh * alive) || (totVeh > 0 && alive > 0 ? 1 : 0)
-      // mounted troops ride inside their vehicles
-      const nTrp = (type.carrier && u.mounted) ? 0 : Math.round(type.troops * alive / 4)
-      const sinH = Math.sin(u.heading), cosH = Math.cos(u.heading)
       const cls = classOf(u.type)
-      // on a road and moving: march column, not wedge
-      const onRoad = u.path.length > 0 && S.map.road[S.map.cellAt(u.x, u.y)] === 1
-      for (let n = 0; n < nVeh; n++) {
-        const seed = (u.formSeed * 10 + n) | 0
-        const o = onRoad
-          ? { fwd: -n * 34, lat: (seed % 5) - 2 }
-          : formationOffset(n, seed)
-        const x = u.x + cosH * o.fwd - sinH * o.lat
-        const y = u.y + sinH * o.fwd + cosH * o.lat
-        putVehicle(cls, x, y, u.heading, 0,
-          eo ? cTmp.setRGB(0.24, 0.27, 0.19) : cTmp.setRGB(1, 1, 1))
-      }
-      for (let n = 0; n < nTrp && ti < MAXT; n++) {
-        const seed = (u.formSeed * 17 + n * 3) | 0
-        const o = onRoad
-          ? { fwd: -nVeh * 34 - n * 9, lat: ((seed % 7) - 3) }
-          : formationOffset(n + 1, seed)
-        const x = u.x + cosH * (o.fwd * (onRoad ? 1 : 0.5)) - sinH * (o.lat * (onRoad ? 1 : 0.7))
-        const y = u.y + sinH * (o.fwd * (onRoad ? 1 : 0.5)) + cosH * (o.lat * (onRoad ? 1 : 0.7))
-        dummy.position.set(x, groundY(x, y) + 0.1, y)
-        dummy.rotation.set(0, -u.heading, 0)
-        dummy.scale.setScalar(1.15)
-        dummy.updateMatrix()
-        trp.setMatrixAt(ti, dummy.matrix)
-        trp.setColorAt(ti, eo ? cTmp.setRGB(0.18, 0.17, 0.14) : cTmp.setRGB(0.85, 0.85, 0.85))
-        ti++
+      for (const el of u.elements) {
+        if (!el.alive || !elemExposed(u, el)) continue
+        const w = elemWorld(u, el)
+        if (el.kind === 'veh') {
+          putVehicle(cls, w.x, w.y, u.heading, 0,
+            eo ? cTmp.setRGB(0.24, 0.27, 0.19) : cTmp.setRGB(1, 1, 1))
+        } else if (ti < MAXT) {
+          dummy.position.set(w.x, groundY(w.x, w.y) + 0.1, w.y)
+          dummy.rotation.set(0, -u.heading, 0)
+          dummy.scale.setScalar(1.15)
+          dummy.updateMatrix()
+          trp.setMatrixAt(ti, dummy.matrix)
+          trp.setColorAt(ti, eo ? cTmp.setRGB(0.18, 0.17, 0.14) : cTmp.setRGB(0.85, 0.85, 0.85))
+          ti++
+        }
       }
     }
     // wrecks: cooling hulks / charred hulls, tilted into the dirt

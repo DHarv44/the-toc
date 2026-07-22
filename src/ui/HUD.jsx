@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneStrike, droneSet, droneRTB, grid } from '../game/sim.js'
+import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { useUI } from './store.js'
 import DroneView from '../drone/DroneView.jsx'
@@ -590,6 +590,113 @@ const CAM_FILTERS = {
   NVG: 'grayscale(1) brightness(1.4) sepia(1) hue-rotate(55deg) saturate(3.2) contrast(1.12)',
 }
 
+// Convert a click inside a drone feed to a world ground point by raycasting the
+// analytic sensor camera (matching DroneView's camera) onto the aim-point plane.
+function feedRayToGround(drone, feed, cx, cy, w, h) {
+  if (!S.map || !w || !h) return null
+  const spec = DRONE_TYPES[drone.type]
+  const camPos = { x: drone.x, y: S.map.elevAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
+  const aimX = drone.lock ? drone.lock.x : drone.tx + feed.gx
+  const aimY = drone.lock ? drone.lock.y : drone.ty + feed.gy
+  const groundY = S.map.elevAt(aimX, aimY)
+  let fwd = { x: aimX - camPos.x, y: groundY - camPos.y, z: aimY - camPos.z }
+  const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1
+  fwd = { x: fwd.x / fl, y: fwd.y / fl, z: fwd.z / fl }
+  // right = normalize(cross(fwd, up)), up = (0,1,0); camUp = cross(right, fwd)
+  let right = { x: -fwd.z, y: 0, z: fwd.x }
+  const rl = Math.hypot(right.x, right.z) || 1
+  right = { x: right.x / rl, y: 0, z: right.z / rl }
+  const camUp = {
+    x: right.y * fwd.z - right.z * fwd.y,
+    y: right.z * fwd.x - right.x * fwd.z,
+    z: right.x * fwd.y - right.y * fwd.x,
+  }
+  const nx = (cx / w) * 2 - 1
+  const ny = -((cy / h) * 2 - 1)
+  const tanV = Math.tan((feed.fov * Math.PI / 180) / 2)
+  const tanH = tanV * (w / h)
+  let dir = {
+    x: fwd.x + right.x * nx * tanH + camUp.x * ny * tanV,
+    y: fwd.y + right.y * nx * tanH + camUp.y * ny * tanV,
+    z: fwd.z + right.z * nx * tanH + camUp.z * ny * tanV,
+  }
+  const dl = Math.hypot(dir.x, dir.y, dir.z) || 1
+  dir = { x: dir.x / dl, y: dir.y / dl, z: dir.z / dl }
+  if (dir.y >= -1e-4) return { x: aimX, y: aimY } // ray not descending → fall back to aim
+  const t = (groundY - camPos.y) / dir.y
+  if (t <= 0) return { x: aimX, y: aimY }
+  return {
+    x: clamp(camPos.x + dir.x * t, 0, S.map.WORLD),
+    y: clamp(camPos.z + dir.z * t, 0, S.map.WORLD),
+  }
+}
+
+// Forward-project a world ground point to feed screen coords (inverse of the
+// raycast) so a strike's impact reticle tracks the target as the drone orbits.
+function feedProjectToScreen(drone, feed, wx, wy, w, h) {
+  if (!S.map || !w || !h) return null
+  const spec = DRONE_TYPES[drone.type]
+  const camPos = { x: drone.x, y: S.map.elevAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
+  const aimX = drone.lock ? drone.lock.x : drone.tx + feed.gx
+  const aimY = drone.lock ? drone.lock.y : drone.ty + feed.gy
+  let fwd = { x: aimX - camPos.x, y: S.map.elevAt(aimX, aimY) - camPos.y, z: aimY - camPos.z }
+  const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1
+  fwd = { x: fwd.x / fl, y: fwd.y / fl, z: fwd.z / fl }
+  let right = { x: -fwd.z, y: 0, z: fwd.x }
+  const rl = Math.hypot(right.x, right.z) || 1
+  right = { x: right.x / rl, y: 0, z: right.z / rl }
+  const camUp = {
+    x: right.y * fwd.z - right.z * fwd.y,
+    y: right.z * fwd.x - right.x * fwd.z,
+    z: right.x * fwd.y - right.y * fwd.x,
+  }
+  const rel = { x: wx - camPos.x, y: S.map.elevAt(wx, wy) - camPos.y, z: wy - camPos.z }
+  const depth = rel.x * fwd.x + rel.y * fwd.y + rel.z * fwd.z
+  if (depth <= 1) return null
+  const tanV = Math.tan((feed.fov * Math.PI / 180) / 2)
+  const tanH = tanV * (w / h)
+  const nx = (rel.x * right.x + rel.y * right.y + rel.z * right.z) / depth / tanH
+  const ny = (rel.x * camUp.x + rel.y * camUp.y + rel.z * camUp.z) / depth / tanV
+  if (Math.abs(nx) > 1.4 || Math.abs(ny) > 1.4) return null
+  return { x: (nx + 1) / 2 * w, y: (1 - ny) / 2 * h }
+}
+
+// red impact reticle shown in the feed while this drone's strike is inbound
+function StrikeReticle({ drone, feed }) {
+  const mk = drone.strikeMark
+  if (!mk || S.t > mk.until) return null
+  const p = feedProjectToScreen(drone, feed, mk.x, mk.y, feed.w, feed.h - 22)
+  if (!p) return null
+  const ttg = Math.max(0, mk.until - S.t)
+  return (
+    <div style={{ position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }}>
+      <div style={{ width: 26, height: 26, border: '2px solid #ff3a28', borderRadius: '50%', boxShadow: '0 0 6px rgba(255,40,20,0.9)' }} />
+      <div style={{ position: 'absolute', left: '50%', top: '50%', width: 34, height: 2, background: '#ff3a28', transform: 'translate(-50%,-50%)' }} />
+      <div style={{ position: 'absolute', left: '50%', top: '50%', width: 2, height: 34, background: '#ff3a28', transform: 'translate(-50%,-50%)' }} />
+      <div style={{ position: 'absolute', left: '50%', top: 18, transform: 'translateX(-50%)', color: '#ff6a52', fontSize: 8, whiteSpace: 'nowrap' }}>SPLASH {ttg.toFixed(0)}S</div>
+    </div>
+  )
+}
+
+// designated (not-yet-fired) per-vic target boxes, projected into the sensor image
+function TargetReticles({ drone, feed }) {
+  if (!drone.targets || !drone.targets.length) return null
+  return drone.targets.map((t, i) => {
+    const u = S.units.find(x => x.id === t.unitId && x.strength > 0)
+    const el = u && u.elements && u.elements[t.ei]
+    if (!el || !el.alive) return null
+    const wpt = elemWorld(u, el)
+    const p = feedProjectToScreen(drone, feed, wpt.x, wpt.y, feed.w, feed.h - 22)
+    if (!p) return null
+    return (
+      <div key={i} style={{ position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }}>
+        <div style={{ width: 24, height: 24, border: '2px solid #ff3a28', boxShadow: '0 0 5px rgba(255,40,20,0.8)' }} />
+        <div style={{ position: 'absolute', left: '50%', top: '50%', width: 3, height: 3, background: '#ff3a28', transform: 'translate(-50%,-50%)' }} />
+      </div>
+    )
+  })
+}
+
 function FeedWindow({ feed, index }) {
   const ui = useUI()
   const boxRef = useRef(null)
@@ -599,34 +706,72 @@ function FeedWindow({ feed, index }) {
   const drone = S.drones.find(d => d.id === feed.droneId) || null
   const camMode = (drone && ui.droneModes[drone.id]) || 'WHOT'
 
-  // --- sensor gimbal: drag = pan/tilt, wheel = zoom, dblclick = reset ---
-  function gimbalDown(e) {
+  // --- feed interaction: click = lock target, drag = slew gimbal, wheel = zoom ---
+  function feedDown(e) {
     if (e.button !== 0 || !drone) return
-    if (drone.lock) droneLock(drone.id, null) // manual input breaks the lock
-    gimbal.current = { sx: e.clientX, sy: e.clientY, gx: feed.gx, gy: feed.gy }
+    gimbal.current = { sx: e.clientX, sy: e.clientY, gx: feed.gx, gy: feed.gy, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
-  function gimbalMove(e) {
+  function feedMove(e) {
     const g = gimbal.current
     if (!g || !drone) return
-    // camera-relative axes on the ground plane
+    const dx = e.clientX - g.sx, dy = e.clientY - g.sy
+    if (!g.moved && Math.hypot(dx, dy) > 6) {
+      g.moved = true
+      if (drone.lock) droneLock(drone.id, null) // slewing off the target breaks the lock
+    }
+    if (!g.moved) return
     const lx = drone.tx + g.gx, ly = drone.ty + g.gy
     let fx = lx - drone.x, fy = ly - drone.y
     const fl = Math.hypot(fx, fy) || 1
     fx /= fl; fy /= fl
     const rx = -fy, ry = fx
     const scale = (feed.fov / 38) * 2.0
-    const dx = e.clientX - g.sx, dy = e.clientY - g.sy
     ui.setFeed(feed.id, {
       gx: clamp(g.gx + rx * dx * scale - fx * dy * 2 * scale, -1800, 1800),
       gy: clamp(g.gy + ry * dx * scale - fy * dy * 2 * scale, -1800, 1800),
     })
   }
-  function gimbalUp() { gimbal.current = null }
+  function feedUp(e) {
+    const g = gimbal.current
+    gimbal.current = null
+    // a drag slews the sensor; a clean click designates a target in the viewer
+    if (!g || !drone || g.moved) return
+    const spec = DRONE_TYPES[drone.type]
+    if (!spec.weapons && !spec.kamikaze) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top
+    const w = rect.width, h = rect.height
+    // pick the nearest on-screen vic/troop to the click
+    let best = null, bd = 32 // px hit radius
+    for (const u of S.units) {
+      if (u.strength <= 0 || !u.elements) continue
+      if (S.fogEnabled && u.side !== 'friend') { const c = S.contacts.get(u.id); if (!c || !c.live) continue }
+      for (let ei = 0; ei < u.elements.length; ei++) {
+        const el = u.elements[ei]
+        if (!el.alive || !elemExposed(u, el)) continue
+        const wpt = elemWorld(u, el)
+        const p = feedProjectToScreen(drone, feed, wpt.x, wpt.y, w, h)
+        if (!p) continue
+        const dd = Math.hypot(p.x - cx, p.y - cy)
+        if (dd < bd) { bd = dd; best = { unitId: u.id, ei } }
+      }
+    }
+    if (best) {
+      // ctrl-click adds/removes from the target set; a plain click selects just that vic
+      if (e.ctrlKey) droneToggleTarget(drone.id, best.unitId, best.ei)
+      else { droneClearTargets(drone.id); droneToggleTarget(drone.id, best.unitId, best.ei) }
+    } else if (!e.ctrlKey) {
+      droneClearTargets(drone.id) // plain click on empty space clears the set
+    }
+  }
   function gimbalZoom(e) {
     ui.setFeed(feed.id, { fov: clamp(feed.fov * (e.deltaY > 0 ? 1.15 : 1 / 1.15), 5, 55) })
   }
-  function gimbalReset() { ui.setFeed(feed.id, { gx: 0, gy: 0, fov: 38 }) }
+  function gimbalReset() {
+    if (drone?.lock) droneLock(drone.id, null)
+    ui.setFeed(feed.id, { gx: 0, gy: 0, fov: 38 })
+  }
 
   // default dock position: stack bottom-right
   const style = feed.x == null
@@ -719,26 +864,31 @@ function FeedWindow({ feed, index }) {
         {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
           <button
             style={{
-              ...btn(ui.mode === 'lock:' + drone.id || !!drone.lock),
+              ...btn(!!drone.lock),
               padding: '1px 6px', fontSize: 9, color: '#ffb257', borderColor: '#6a4a25',
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => {
-              if (drone.lock) droneLock(drone.id, null)
-              else ui.setMode(ui.mode === 'lock:' + drone.id ? 'select' : 'lock:' + drone.id)
+              if (drone.lock) { droneLock(drone.id, null); return }
+              // pure camera lock: freeze the sensor on the current aim point, ignore targets
+              droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy })
             }}>
             {drone.lock ? 'UNLOCK' : 'LOCK'}
           </button>
         )}
-        {drone && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) && (
+        {drone && (drone.state === 'onstation' || drone.state === 'transit') && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) && (
           <button
             style={{
-              ...btn(ui.mode === 'strike:' + drone.id), marginLeft: 'auto',
-              padding: '1px 6px', fontSize: 9, color: '#ff9e6a', borderColor: '#6a4030',
+              ...btn(!!(drone.targets && drone.targets.length)), marginLeft: 'auto',
+              padding: '1px 6px', fontSize: 9,
+              color: (drone.targets && drone.targets.length) ? '#fff' : '#ff9e6a',
+              background: (drone.targets && drone.targets.length) ? '#8a2a20' : '#16222e', borderColor: '#6a4030',
             }}
+            disabled={!(drone.targets && drone.targets.length) || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
+            title={(drone.targets && drone.targets.length) ? 'Fire on the designated vics' : 'Click vics in the feed to designate targets'}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => ui.setMode(ui.mode === 'strike:' + drone.id ? 'select' : 'strike:' + drone.id)}>
-            {DRONE_TYPES[drone.type].weapons ? `STRIKE (${drone.ammo})` : 'TERMINAL ATK'}
+            onClick={() => droneFire(drone.id)}>
+            {DRONE_TYPES[drone.type].weapons ? `FIRE (${drone.ammo})` : 'FIRE'}
           </button>
         )}
         <button
@@ -751,10 +901,11 @@ function FeedWindow({ feed, index }) {
       </div>
 
       <div
-        onPointerDown={gimbalDown} onPointerMove={gimbalMove} onPointerUp={gimbalUp}
+        onPointerDown={feedDown} onPointerMove={feedMove} onPointerUp={feedUp}
         onWheel={gimbalZoom} onDoubleClick={gimbalReset}
         style={{
-          position: 'absolute', inset: 0, top: 22, cursor: drone ? 'move' : 'default',
+          position: 'absolute', inset: 0, top: 22,
+          cursor: !drone ? 'default' : (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) ? 'crosshair' : 'move',
           filter: CAM_FILTERS[camMode] || CAM_FILTERS.WHOT,
         }}>
         {drone ? <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} /> : null}
@@ -783,26 +934,21 @@ function FeedWindow({ feed, index }) {
             {' · '}{(38 / feed.fov).toFixed(1)}×
             {(feed.gx || feed.gy) ? ' · OFFSET' : ''}
           </div>
-          <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span>
-              {drone.state === 'rtb' ? 'RTB' : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
-              {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
-              {drone.followId ? ` · TRK ${(S.units.find(u => u.id === drone.followId) || {}).label || '—'}` : ''}
-            </span>
-            {(DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) && (
-              <button
-                style={{
-                  ...btn(false), pointerEvents: 'auto', padding: '0px 7px', fontSize: 9,
-                  color: drone.lock ? '#ff6a4a' : '#5a4438',
-                  borderColor: drone.lock ? '#8a3020' : '#4a3428',
-                  fontWeight: 'bold',
-                }}
-                disabled={!drone.lock || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
-                onClick={() => { if (drone.lock) droneStrike(drone.id, drone.lock.x, drone.lock.y) }}>
-                FIRE
-              </button>
-            )}
+          <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9 }}>
+            {drone.state === 'rtb' ? 'RTB' : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
+            {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
+            {drone.followId ? ` · TRK ${(S.units.find(u => u.id === drone.followId) || {}).label || '—'}` : ''}
           </div>
+          {drone.targets && drone.targets.length > 0 && (
+            <>
+              <div style={{ position: 'absolute', inset: 0, border: '2px solid rgba(255,60,40,0.7)', boxSizing: 'border-box' }} />
+              <div style={{ position: 'absolute', top: 32, left: 0, right: 0, textAlign: 'center', color: '#ff5a44', fontSize: 9, letterSpacing: 2, fontWeight: 'bold' }}>
+                ◎ {drone.targets.length} TARGET{drone.targets.length > 1 ? 'S' : ''} — CLICK FIRE
+              </div>
+            </>
+          )}
+          <TargetReticles drone={drone} feed={feed} />
+          <StrikeReticle drone={drone} feed={feed} />
           {drone.lock && (
             <>
               <div style={{

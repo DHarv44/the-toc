@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneStrike, droneFollow, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
+import { S, orderMove, orderAttack, newMoveGroup, removeLastWaypoint, deployUnit, deployStructure, deployDrone, droneFollow, droneLock, orderDroneMove, droneDropWp, orderConvoy, fireMission, orderBridge } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender.js'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols.js'
@@ -252,11 +252,6 @@ export default function MapView() {
         }
         return
       }
-      if (ui.mode.startsWith('strike:')) {
-        droneStrike(Number(ui.mode.slice(7)), wx, wy)
-        useUI.setState({ mode: 'select' })
-        return
-      }
       if (ui.mode.startsWith('follow:')) {
         const target = pickUnit(wx, wy)
         if (target) droneFollow(Number(ui.mode.slice(7)), target.id)
@@ -266,24 +261,6 @@ export default function MapView() {
       if (ui.mode.startsWith('convoy:')) {
         const fob = pickStructure(wx, wy)
         if (fob && fob.kind === 'FOB') orderConvoy(Number(ui.mode.slice(7)), fob.id)
-        useUI.setState({ mode: 'select' })
-        return
-      }
-      if (ui.mode.startsWith('lock:')) {
-        const droneId = Number(ui.mode.slice(5))
-        // prefer a unit track: friendlies directly, hostiles only if a live contact
-        const pickR = 18 / view.ppm
-        let best = null, bd = Infinity
-        for (const u of S.units) {
-          const d = Math.hypot(u.x - wx, u.y - wy)
-          if (d > pickR || d > bd) continue
-          if (u.side === 'friend') { best = u; bd = d }
-          else {
-            const c = S.contacts.get(u.id)
-            if ((c && c.live) || !S.fogEnabled) { best = u; bd = d }
-          }
-        }
-        droneLock(droneId, best ? { unitId: best.id } : { x: wx, y: wy })
         useUI.setState({ mode: 'select' })
         return
       }
@@ -443,23 +420,28 @@ export default function MapView() {
       const hover = pickAny(s2wX(mouse.x), s2wY(mouse.y))
       canvas.style.cursor = hover ? 'pointer' : 'crosshair'
 
-      // strike targeting: weapon range ring around the armed drone + crosshair
-      if (ui.mode.startsWith('strike:')) {
-        const d = S.drones.find(x => x.id === Number(ui.mode.slice(7)))
-        const spec = d && DRONE_TYPES[d.type]
-        if (spec && spec.weapons) {
-          ctx.strokeStyle = 'rgba(220,60,40,0.6)'
-          ctx.setLineDash([8, 5])
-          ctx.beginPath()
-          ctx.arc(w2sX(d.x), w2sY(d.y), spec.weapons.range * view.ppm, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-        ctx.strokeStyle = '#e33'
-        ctx.lineWidth = 1.5
+      // strike targeting: for any selected weapons drone, draw its weapon-range ring so the
+      // player can see where a lock will reach; left-click the map to place the lock reticle
+      for (const d of selectedDrones()) {
+        const spec = DRONE_TYPES[d.type]
+        if (!spec || !spec.weapons) continue
+        ctx.strokeStyle = 'rgba(220,60,40,0.45)'
+        ctx.setLineDash([8, 5])
         ctx.beginPath()
-        ctx.moveTo(mouse.x - 12, mouse.y); ctx.lineTo(mouse.x + 12, mouse.y)
-        ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y + 12)
+        ctx.arc(w2sX(d.x), w2sY(d.y), spec.weapons.range * view.ppm, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      // in-flight drone strike impact reticles on the map
+      for (const d of S.drones) {
+        if (!d.strikeMark || S.t > d.strikeMark.until) continue
+        const x = w2sX(d.strikeMark.x), y = w2sY(d.strikeMark.y)
+        ctx.strokeStyle = 'rgba(255,58,40,0.9)'
+        ctx.lineWidth = 1.6
+        ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(x - 12, y); ctx.lineTo(x + 12, y)
+        ctx.moveTo(x, y - 12); ctx.lineTo(x, y + 12)
         ctx.stroke()
       }
       // field-drone control range rings
