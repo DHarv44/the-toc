@@ -492,8 +492,10 @@ Make groups a first-class thing **without** losing the quick ad-hoc grouping:
 > follower — so the column takes the same road, the same bridge, the same gap in the treeline
 > instead of each unit picking its own line. Followers hold station off `colIdx`, easing down
 > inside a 110 m trail gap and stopping dead if they close right up. A unit given its own
-> order drops out of the column. Still open: formation shapes other than column (wedge, line,
-> echelon) and a leader hand-off when the lead vic is destroyed.
+> order drops out of the column. The column also **waits for its tail**: if a gap opens past
+> 340 m, everyone forward of the break halts and digs in until the straggler closes up, rather
+> than driving on and arriving piecemeal. Still open: formation shapes other than column
+> (wedge, line, echelon) and a leader hand-off when the lead vic is destroyed.
 
 When a group is routed, the members should move as one body along the **front vic's path**,
 not each pathfind independently to its own offset:

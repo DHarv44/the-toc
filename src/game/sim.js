@@ -903,7 +903,8 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
-const COLUMN_GAP = 110 // metres a follower holds behind the vic ahead of it
+const COLUMN_GAP = 110    // metres a follower holds behind the vic ahead of it
+const STRAGGLE_GAP = 340  // metres before the column stops and waits for its tail
 
 function nearRoad(x, y, r = ROAD_SNAP) {
   const m = S.map, GRID = m.GRID
@@ -968,11 +969,23 @@ export function orderGroupMove(unitIds, x, y, append = false, attack = false, op
   // a road bias, so it gets on the network as directly as it can) and then runs the
   // shared route from there.
   const route = lead.path.map(p => ({ x: p.x, y: p.y }))
-  const head = route[0]
   const trail = units.filter(u => u.id !== lead.id)
   lead.colIdx = 0
   lead.leadId = null
-  trail.forEach((u, i) => {
+  // Column order follows position along the route, not selection order, so whoever is
+  // already furthest along leads the tail rather than being made to fall in at the back.
+  const joinAt = (u) => {
+    let best = 0, bestD = Infinity
+    for (let k = 0; k < route.length; k++) {
+      const d = Math.hypot(route[k].x - u.x, route[k].y - u.y)
+      if (d < bestD) { bestD = d; best = k }
+    }
+    return best
+  }
+  const ordered = trail
+    .map(u => ({ u, k: joinAt(u) }))
+    .sort((a, b) => b.k - a.k)   // furthest along the route first
+  ordered.forEach(({ u, k }, i) => {
     autoRemount(u)
     u.bridging = null; u.heldRoute = null; u.breaking = false
     u.convoy = null; u.attackId = null; u.attackMove = attack
@@ -980,8 +993,9 @@ export function orderGroupMove(unitIds, x, y, append = false, attack = false, op
     u.colIdx = i + 1
     u.leadId = lead.id
     const mob = effStats(u).mob
-    const join = findPath(S.map, u.x, u.y, head.x, head.y, mob, { ...opts, roadBias: 3 })
-    u.path = (join || [{ x: head.x, y: head.y }]).concat(route.slice(1))
+    const entry = route[k]
+    const join = findPath(S.map, u.x, u.y, entry.x, entry.y, mob, { ...opts, roadBias: 3 })
+    u.path = (join || [{ x: entry.x, y: entry.y }]).concat(route.slice(k + 1))
     // one leg to the objective — the join is plumbing, not a waypoint the player set
     u.legs = [{ x, y, n: u.path.length }]
     u.state = 'moving'
@@ -1467,9 +1481,25 @@ export function tick(dt) {
   // column order lookup: members of a shared-route formation trail the vic ahead of
   // them rather than piling onto the same waypoints
   const colAhead = new Map()
+  const colMembers = new Map()
   for (const u of S.units) {
     if (u.groupId == null || u.colIdx == null || u.strength <= 0) continue
     colAhead.set(u.groupId + ':' + u.colIdx, u)
+    if (!colMembers.has(u.groupId)) colMembers.set(u.groupId, [])
+    colMembers.get(u.groupId).push(u)
+  }
+
+  // A column doesn't leave its tail behind: if a gap opens past STRAGGLE_GAP, everyone
+  // forward of the break stops and goes firm until the straggler closes up. Waiting
+  // units dig in rather than idling in the open — a halted convoy is a target.
+  const colStall = new Map()
+  for (const [gid, list] of colMembers) {
+    list.sort((a, b) => a.colIdx - b.colIdx)
+    for (let i = 0; i < list.length - 1; i++) {
+      const a = list[i], b = list[i + 1]
+      if (!b.path.length) continue // already arrived — not a straggler
+      if (Math.hypot(b.x - a.x, b.y - a.y) > STRAGGLE_GAP) { colStall.set(gid, a.colIdx); break }
+    }
   }
 
   // units: movement + bridging
@@ -1478,7 +1508,8 @@ export function tick(dt) {
     u.fireCooldown = Math.max(0, u.fireCooldown - dt)
     u.missionCooldown = Math.max(0, u.missionCooldown - dt)
     // preparing positions: progress while stationary
-    if (u.posture === 'dig' && !u.path.length && u.digT < 1 && type.def) {
+    // a column halted for its stragglers digs in too, even though it still holds a route
+    if (u.posture === 'dig' && (!u.path.length || u.colWait) && u.digT < 1 && type.def) {
       u.digT = Math.min(1, u.digT + dt / type.def.time)
       if (u.digT >= 1 && !u.dugRadioed && u.side === 'friend') {
         u.dugRadioed = true
@@ -1561,6 +1592,20 @@ export function tick(dt) {
       if (u.groupId != null) {
         const cap = groupCap.get(u.groupId)
         if (cap != null) spd = Math.min(spd, cap)
+        // halt and go firm if the tail has fallen behind us
+        const stall = colStall.get(u.groupId)
+        const waiting = stall != null && u.colIdx != null && u.colIdx <= stall
+        if (waiting !== !!u.colWait) {
+          u.colWait = waiting
+          if (waiting) {
+            u.posture = 'dig'
+            netRadio(u, 'move', 'HOLDING FOR TRAIL ELEMENTS — GOING FIRM', u.x, u.y)
+          } else {
+            u.posture = 'mobile'
+            u.digT = 0
+          }
+        }
+        if (waiting) spd = 0
         // hold station behind the vic ahead: ease off inside the gap, stop dead if
         // we've closed right up, so a shared route reads as a column under march
         if (u.colIdx > 0) {
