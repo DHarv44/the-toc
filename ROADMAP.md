@@ -313,6 +313,18 @@ Make groups a first-class thing **without** losing the quick ad-hoc grouping:
   transient move-group; a "name this group" action on the group bar; a roster panel with
   select-group; the mission builder queues conditional waypoints/tasks per group.
 
+### Group Movement — Follow the Lead Vic
+When a group is routed, the members should move as one body along the **front vic's path**,
+not each pathfind independently to its own offset:
+- The lead (front) unit computes the route; trailing units **follow that same path** in file/
+  formation, holding spacing — a proper column/convoy instead of members diverging onto
+  separate ways to their slots.
+- Keeps the group together through choke points, bridges, and roads; kills the current spread
+  where each unit solves its own A\* to a formation offset and they scatter.
+- Design notes: only the lead unit runs A\*; followers trail the leader's path by a spacing
+  offset (fall back to their own route only if separated); keep the existing slowest-member
+  pace cap so the column stays together.
+
 ## Enemy AI / OPFOR
 
 **A priority.** The current enemy is thin — effectively a single tactical brain, it doesn't
@@ -600,6 +612,18 @@ machine, same browser*, so it's all client-side:
 - Design notes: promote `S` + `tick` into a SharedWorker with a command channel; make Map/Feed/
   HUD read a state snapshot rather than importing `S` directly; start with one pop-out feed over
   BroadcastChannel to prove the transport, then generalize.
+
+## Bugs & Fixes
+
+### Sensor Lock Placement During Transit
+Clicking **LOCK** on a UAV *before* it reaches its orbit (still in transit) drops the lock
+reticle in the wrong spot. The LOCK button and the feed's ray/projection use the **on-station**
+aim point (`drone.tx + gimbal`), but while transiting the camera actually looks **ahead along the
+flight path** — so they disagree and the lock lands off from where the sensor is pointed.
+- Fix: derive the lock point (and `feedRayToGround` / `feedProjectToScreen`) from the drone's
+  *current, state-aware* camera look-at — the same one `DroneCamera` uses (transit looks ahead;
+  on-station/lock look at `tx`/lock point) — so LOCK and the reticle agree in every state. (Or
+  simplest: only allow LOCK once on-station.)
 
 ## Later / Deferred
 
