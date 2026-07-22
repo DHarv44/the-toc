@@ -90,3 +90,7 @@ reachable via `window.__game` — e.g. `__game.reveal()`, `__game.fog(false)`, `
 `__game.advance(seconds)` for deterministic headless stepping, and `__game.S` for the live state.
 
 > **Status:** early work in progress — expect rough edges, and see the roadmap for direction.
+
+## License
+
+[MIT](LICENSE)
