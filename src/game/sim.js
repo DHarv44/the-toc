@@ -19,6 +19,10 @@ export const S = _hmr.__WOD_STATE || (_hmr.__WOD_STATE = {
   resources: 50000,        // dev: plenty
   supplyLift: 30,          // supply per resupply tick (see SUPPLY_INTERVAL)
   supplyT: 0,              // seconds since the last lift
+  // the OPFOR runs the same economy: it buys what it fields and pays upkeep on it,
+  // so it can't put more on the board than it can afford — same rules as the player
+  enemyResources: 0,
+  enemySupplyLift: 30,
   units: [],               // both sides
   structures: [],          // FOBs, HQs, airfields, OPs — both sides
   drones: [],
@@ -73,6 +77,9 @@ export function initGame(seed = 1337, gridSize = MAP_SIZES.large, difficulty = D
   S.damageMul = diff.damageMul
   S.supplyLift = diff.supplyLift
   S.supplyT = 0
+  // difficulty is economic asymmetry, not hidden rules: the OPFOR's rate is the lever
+  S.enemySupplyLift = diff.enemySupplyLift
+  S.enemyResources = diff.enemyStart
   S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
   S.resources = diff.supplies
   S.won = false; S.lost = false
@@ -483,14 +490,23 @@ export function deployStructure(kind, x, y) {
 export const SUPPLY_INTERVAL = 3
 export const UPKEEP_DIVISOR = 12
 
-// running upkeep of every friendly unit, in supply per minute
-export function upkeepPerMin() {
+// running upkeep of a side's units, in supply per minute
+export function upkeepPerMin(side = 'friend') {
   let n = 0
   for (const u of S.units) {
-    if (u.side !== 'friend' || u.strength <= 0) continue
+    if (u.side !== side || u.strength <= 0) continue
+    // hostile garrisons are locally sustained and pre-positioned — only manoeuvre
+    // battlegroups draw on the OPFOR's mobile supply, so a static defence doesn't
+    // starve its ability to ever attack
+    if (side === 'hostile' && u.bgGroup == null) continue
     n += (UNIT_TYPES[u.type]?.cost || 0) / UPKEEP_DIVISOR
   }
   return n
+}
+
+// what a battlegroup template costs to field, from its members' own prices
+export function templateCost(comp) {
+  return comp.reduce((n, t) => n + (UNIT_TYPES[t]?.cost || 0), 0)
 }
 
 // gross supply per minute before upkeep
@@ -1442,8 +1458,11 @@ export function tick(dt) {
   S.supplyT = (S.supplyT || 0) + dt
   while (S.supplyT >= SUPPLY_INTERVAL) {
     S.supplyT -= SUPPLY_INTERVAL
-    const draw = Math.round(upkeepPerMin() * SUPPLY_INTERVAL / 60)
+    const draw = Math.round(upkeepPerMin('friend') * SUPPLY_INTERVAL / 60)
     S.resources = Math.max(0, S.resources + (S.supplyLift || 0) - draw)
+    // the OPFOR banks and pays on the same clock
+    const eDraw = Math.round(upkeepPerMin('hostile') * SUPPLY_INTERVAL / 60)
+    S.enemyResources = Math.max(0, S.enemyResources + (S.enemySupplyLift || 0) - eDraw)
   }
 
   // structures: construction
@@ -2127,7 +2146,13 @@ function enemyObjective(from) {
 }
 
 function spawnBattlegroup() {
-  const tpl = BG_TEMPLATES[Math.floor(S.rng() * BG_TEMPLATES.length)]
+  // The OPFOR buys its battlegroups. It can only field what it has banked, so it can't
+  // put everything on the board at once — and because it pays upkeep on what's already
+  // out, a large standing force starves the next group. Same constraint the player has.
+  const affordable = BG_TEMPLATES.filter(t => templateCost(t.comp) <= S.enemyResources)
+  if (!affordable.length) return null
+  const tpl = affordable[Math.floor(S.rng() * affordable.length)]
+  S.enemyResources -= templateCost(tpl.comp)
   const gid = newMoveGroup()
   const grp = {
     id: gid, name: tpl.name, phase: 'muster',

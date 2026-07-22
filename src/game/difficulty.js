@@ -19,6 +19,8 @@ export const DIFFICULTIES = {
     sub: 'Deep supply · a company on the ground · long, forgiving firefights',
     supplies: 6000,
     supplyLift: 45,          // 900/min
+    enemySupplyLift: 12,     // 240/min — sustains roughly 2 battlegroups
+    enemyStart: 400,         // can't afford a group yet; a few minutes of grace
     startForce: ['SCT', 'INF', 'INF', 'MECH', 'ARM', 'LOG'],
     damageMul: 0.55,
   },
@@ -27,6 +29,8 @@ export const DIFFICULTIES = {
     sub: 'A platoon-plus and room to build · fights you can read',
     supplies: 3500,
     supplyLift: 30,          // 600/min
+    enemySupplyLift: 22,     // 440/min — roughly 4 battlegroups
+    enemyStart: 900,
     startForce: ['SCT', 'INF', 'INF', 'MECH'],
     damageMul: 0.75,
   },
@@ -35,6 +39,8 @@ export const DIFFICULTIES = {
     sub: 'A scout section and an infantry platoon · contact hurts',
     supplies: 2000,
     supplyLift: 22,          // 440/min
+    enemySupplyLift: 32,     // 640/min — out-earns you
+    enemyStart: 1400,
     startForce: ['SCT', 'INF'],
     damageMul: 1,
   },
@@ -43,6 +49,8 @@ export const DIFFICULTIES = {
     sub: 'One platoon, thin supply · every loss is felt',
     supplies: 1200,
     supplyLift: 16,          // 320/min
+    enemySupplyLift: 45,     // 900/min — nearly 3x your rate
+    enemyStart: 2000,        // a battlegroup on the board almost immediately
     startForce: ['INF'],
     damageMul: 1.35,
   },

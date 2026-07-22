@@ -589,7 +589,7 @@ the halt/dismount/break drills. What's still missing is everything above and aro
   objectives/reserves/phasing; give hostile forces the drone + request systems; expose a
   difficulty setting that scales tempo, competence, and asset access.
 
-### Enemy Economy — the OPFOR Buys What It Fields ⬜
+### Enemy Economy — the OPFOR Buys What It Fields 🟡 *(economy + affordability shipped; map-size scaling and wave ramping still open)*
 **The AI plays by the player's rules.** It doesn't today: `spawnBattlegroup` conjures an entire
 template into existence on a timer — free, no supply cost, no upkeep, no cap, no cooldown. That
 is the reason it can put everything on the board at once while the player is counting supply,
@@ -600,9 +600,14 @@ unbounded (16 groups by minute 30) — and **identical on Recruit and Elite**. E
 lever built so far (starting supply, income, starting force, damage scale) is on the player's
 side of the board; the opposition never changes.
 
-- **Give the hostile side the same economy** — its own supply pool, resupply rate and per-unit
-  upkeep, mirroring the player's. `spawnBattlegroup` becomes a *purchase*: field the template
-  only if it can afford it, otherwise bank the supply or field something smaller.
+- ~~**Give the hostile side the same economy**~~ ✅ — `S.enemyResources` / `S.enemySupplyLift`
+  run on the same lift clock as the player's, with `upkeepPerMin('hostile')` drawn off it.
+  `spawnBattlegroup` now filters `BG_TEMPLATES` to what it can afford and debits the cost;
+  broke means no wave. Hostile *garrisons* are exempt from upkeep — they're pre-positioned and
+  locally sustained, and charging for them would starve the OPFOR's ability to ever attack.
+  Measured at 30 min: 3 groups / 20 hostiles on Recruit up to 10 / 52 on Elite, where every
+  difficulty previously converged on ~16 groups and ~90 hostiles. Pressure plateaus instead of
+  compounding, and Recruit gets ~4 minutes before the first group is affordable.
 - **Upkeep caps the OPFOR the way it caps the player** — this is the actual answer to "the CPU
   deployed everything at once", and it's the same mechanism rather than a special case. It also
   means destroying its units genuinely relieves pressure, because it has to re-buy them.
