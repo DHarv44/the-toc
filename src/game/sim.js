@@ -965,6 +965,7 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
+const AEROSTAT_SCAN_RATE = 0.22 // rad/s — a full turret sweep takes ~28s
 const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
 const STRAGGLE_GAP = 190  // metres before the column stops and waits for its tail
 
@@ -2089,8 +2090,11 @@ export function tick(dt) {
       d.endurance -= dt
       if (d.tether) {
         // the aerostat holds a fixed station over its tether point — it does not
-        // orbit. Only the sensor turret slews (operator gimbal / track), 360°.
+        // orbit. Its sensor turret sweeps a continuous 360° survey of the ground
+        // around the mast; a lock stops the sweep and holds the point (handled in
+        // DroneCamera). scanAngle is the bearing the turret is currently looking down.
         d.x = d.tx; d.y = d.ty; d.orbR = 0
+        if (!d.lock) d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE
       } else {
         const oR = spec.orbitR * (d.orbitMul || 1)
         if (d.orbR == null) d.orbR = oR

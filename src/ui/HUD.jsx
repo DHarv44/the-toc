@@ -673,7 +673,7 @@ function HeaderMenu({ feed, drone, camMode }) {
         )}
         {onStation && (
           <Menu.Item color="orange"
-            onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}>
+            onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, lookPoint()) }}>
             {drone.lock ? 'Unlock sensor' : 'Lock sensor'}
           </Menu.Item>
         )}
@@ -699,6 +699,16 @@ function FeedWindow({ feed, index }) {
   const drag = useRef(null)
   const gimbal = useRef(null)
   const drone = S.drones.find(d => d.id === feed.droneId) || null
+  // where the sensor is currently looking — for the aerostat that's a point on its
+  // sweep, not the mast, so LOCK grabs what's on screen rather than straight down
+  const lookPoint = () => {
+    if (drone.tether) {
+      const scanR = DRONE_TYPES[drone.type].sight * 0.45
+      const a = drone.scanAngle || 0
+      return { x: drone.tx + Math.cos(a) * scanR + feed.gx, y: drone.ty + Math.sin(a) * scanR + feed.gy }
+    }
+    return { x: drone.tx + feed.gx, y: drone.ty + feed.gy }
+  }
   const camMode = (drone && ui.droneModes[drone.id]) || 'WHOT'
   // measure the actual sensor-view region so target reticles stay accurate at any
   // window size / mode (the view flexes between the header and footer)
@@ -897,7 +907,7 @@ function FeedWindow({ feed, index }) {
               {drone && drone.state === 'onstation' && (
                 <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}
+                  onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, lookPoint()) }}
                   styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
                   {drone.lock ? 'UNLOCK' : 'LOCK'}
                 </Button>

@@ -782,6 +782,14 @@ function DroneCamera({ feedRef, droneId, gimbal }) {
       // sensor lock: stay on the point/track no matter where the orbit takes us
       feed.cx = d.lock.x; feed.cy = d.lock.y
       camera.lookAt(d.lock.x, S.map.elevAt(d.lock.x, d.lock.y), d.lock.y)
+    } else if (d.state === 'onstation' && d.tether) {
+      // the aerostat turret sweeps 360° around the mast; scanAngle advances in the sim
+      // tick (paused when locked). A manual gimbal offset rides on top of the sweep.
+      const scanR = spec.sight * 0.45
+      const a = d.scanAngle || 0
+      const lx = d.tx + Math.cos(a) * scanR + gx, ly = d.ty + Math.sin(a) * scanR + gy2
+      feed.cx = lx; feed.cy = ly
+      camera.lookAt(lx, S.map.elevAt(lx, ly), ly)
     } else if (d.state === 'onstation') {
       const lx = d.tx + gx, ly = d.ty + gy2
       feed.cx = lx; feed.cy = ly
