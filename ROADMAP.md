@@ -136,6 +136,30 @@ Air power is a premium capability, not something you spam:
 - Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
   for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
 
+### Air Asset Caps & Re-Tasking Cooldowns
+Cost alone doesn't gate air power — once the economy is healthy you can simply buy another
+gunship. Scarcity should be structural: a limited number of airframes, and a wait before the
+next sortie.
+- **Per-type concurrent cap** — each airframe gets a max number airborne at once, varying by
+  how strong it is. The AC-130 is the clear outlier (persistent 25/40/105mm area fire over a
+  whole grid square): **cap 1**. Fixed-wing ISR sits mid (Shadow/Sentinel a few each), and the
+  hand-launched field drones (Raven/Switchblade) stay effectively uncapped — they're the
+  attritable ones.
+- **Per-type cooldown after the sortie ends** — when an airframe RTBs, is shot down, or times
+  out on endurance, that type is unavailable for a set period (turnaround/rearm). **AC-130: 15
+  minutes.** Shorter for the smaller platforms, none for field drones.
+- **Surface it in the deploy palette** — the entry shows the cap as used/total, and when on
+  cooldown it's disabled with the remaining time, so the player can plan the next window
+  instead of discovering the block at click time.
+- **Balance pass alongside it** — the gunship's magazine was halved (25mm 500→250, 40mm
+  100→50, 105mm 10→5) so a single sortie is a decisive commitment rather than an endless
+  orbit. Caps + cooldown + a finite magazine are the three levers; tune together.
+- Design notes: add `maxActive` and `cooldown` to the `DRONE_TYPES` specs; track per-type
+  `S.airCooldown[type]` stamped at despawn (RTB landing, shootdown, endurance-out) and count
+  live airframes from `S.drones`; gate in `deployDrone` with a toast on refusal, and mirror
+  the state in `deployContext`/`PaletteRow` so the palette reflects it. Pairs with Air Asset
+  Cost & Access and Installation-Gated Unlocks.
+
 ### Drone Team & Organic UAS
 Put the airfield-independent drones in the hands of units:
 - **Drone unit** — a dedicated small-UAS team that **controls/deploys the drones that don't
@@ -754,6 +778,28 @@ machine, same browser*, so it's all client-side:
   BroadcastChannel to prove the transport, then generalize.
 
 ## Bugs & Fixes
+
+### AC-130 Gun Rounds Originate From the Wrong Point
+Tracers don't look like they leave the aircraft's guns, and the apparent origin **shifts when
+altitude is changed** — both symptoms of the round's spawn point being the aircraft's own
+camera position rather than a muzzle on the airframe.
+- **Rounds spawn at the aircraft centroid.** `gunshipHowitzerFire` / the cannon path stamp
+  `fromX: d.x, fromY: d.y` with `mAlt = spec.alt * (d.altMul || 1)` — dead centre of the
+  aircraft, at exactly the sensor's own altitude. But the feed camera *is* the aircraft, so
+  rounds appear to emanate from the eye point instead of from a gun off to the side.
+- **Real AC-130 guns fire out the port beam.** The 25/40/105mm all fire to the **left** during
+  a left-hand pylon turn. The muzzle should be offset laterally from the fuselage centreline
+  (and slightly below), rotated by the aircraft's current heading around the orbit — so the
+  tracer visibly departs from off-camera-left rather than from under the lens.
+- **Altitude changes the origin** because `mAlt` scales directly with `altMul` while the camera
+  altitude moves with it too; any mismatch between the two reads as the muzzle sliding.
+  Tie the muzzle to the airframe's frame of reference, not to an independently-computed
+  altitude.
+- Design notes: derive the muzzle from the drone's orbit heading — offset ~10–15 m port and a
+  few metres below the fuselage — and stamp that as `fromX/fromY/mAlt` in `sim.js` (~lines
+  753–756 for the howitzer, 579/676 for the cannon paths). `DroneView`'s tracer pass already
+  draws straight from `r.fromX/fromY/mAlt` to the impact, so fixing the spawn point fixes the
+  render with no change there. Worth checking the muzzle-flash sprite placement at the same time.
 
 ### Sensor Lock Placement During Transit
 Clicking **LOCK** on a UAV *before* it reaches its orbit (still in transit) drops the lock

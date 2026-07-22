@@ -419,7 +419,7 @@ const cTmp = new THREE.Color()
 const VEH_CLASSES = ['tank', 'ifv', 'truck', 'spg', 'eng']
 const MAXC = 96 // instances per vehicle class
 
-function UnitsLayer({ feedRef, mode }) {
+function UnitsLayer({ feedRef, mode, muted = false }) {
   const tankRef = useRef(), ifvRef = useRef(), truckRef = useRef(), spgRef = useRef(), engRef = useRef()
   const classRefs = { tank: tankRef, ifv: ifvRef, truck: truckRef, spg: spgRef, eng: engRef }
   const vehGeos = useMemo(getVehicleGeos, [])
@@ -449,7 +449,10 @@ function UnitsLayer({ feedRef, mode }) {
     const { cx, cy } = feed
     // feed audio: only for events on this sensor's footprint, each sounded once.
     // guns THUD when fired (deeper for bigger guns); rounds land as a quieter deep rumble.
-    if (audioReady()) {
+    // A muted feed skips the whole pass rather than silencing the calls — the `_snd`
+    // flags are one-shot and global, so consuming them here would rob any other open
+    // (unmuted) feed of the same event.
+    if (audioReady() && !muted) {
       const R = feed.viewR || 500
       // firing reports — cannon rounds, as they leave the (off-screen) aircraft
       for (const r of S.gunRounds) {
@@ -802,7 +805,7 @@ function DroneCamera({ feedRef, droneId, gimbal }) {
   return null
 }
 
-export default function DroneView({ droneId, gimbal, mode = 'WHOT' }) {
+export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = false }) {
   const feedRef = useRef({ active: false, cx: 0, cy: 0 })
   const eo = mode === 'EO'
   return (
@@ -817,7 +820,7 @@ export default function DroneView({ droneId, gimbal, mode = 'WHOT' }) {
       <TerrainMesh mode={mode} />
       <SceneDetail mode={mode} />
       <StructuresLayer feedRef={feedRef} mode={mode} />
-      <UnitsLayer feedRef={feedRef} mode={mode} />
+      <UnitsLayer feedRef={feedRef} mode={mode} muted={muted} />
       <DroneCamera feedRef={feedRef} droneId={droneId} gimbal={gimbal} />
     </Canvas>
   )

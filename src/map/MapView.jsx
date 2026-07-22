@@ -379,9 +379,23 @@ export default function MapView() {
       clampView()
       const night = useUI.getState().night
       const W = canvas.width, H = canvas.height
-      // off-map backdrop: shows wherever the square map doesn't fill the viewport
-      ctx.fillStyle = night ? '#05080b' : '#141b21'
+      // off-map backdrop: shows wherever the square map doesn't fill the viewport.
+      // Mirrors the splash screen (radial wash + faint grid) so fit-to-screen reads
+      // as a framed view rather than a clipped one.
+      const bg = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.3, Math.max(W, H) * 0.8)
+      bg.addColorStop(0, night ? '#0e1a24' : '#1a2a36')
+      bg.addColorStop(1, night ? '#05080b' : '#0b1218')
+      ctx.fillStyle = bg
       ctx.fillRect(0, 0, W, H)
+      ctx.save()
+      ctx.globalAlpha = night ? 0.12 : 0.09
+      ctx.strokeStyle = '#2a3a48'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let gx = 0; gx <= W; gx += 48) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H) }
+      for (let gy = 0; gy <= H; gy += 48) { ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5) }
+      ctx.stroke()
+      ctx.restore()
 
       // terrain (dimmed + desaturated at night)
       const mpp = CELL / TERRAIN_PX

@@ -6,6 +6,7 @@ let feedSeq = 1
 const newFeed = (droneId = null) => ({
   id: feedSeq++, droneId, x: null, y: null, w: 460, h: 330,
   gx: 0, gy: 0, fov: 38, // sensor gimbal: look offset (m) + zoom
+  muted: false,          // per-feed audio, layered under the global mute
 })
 
 export const useUI = create((set, get) => ({

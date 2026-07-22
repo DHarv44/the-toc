@@ -63,6 +63,13 @@ export default function HUD() {
           ))}
         </span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* lives in the top bar with the other view toggles: the bottom-right corner
+              is owned by the feed dock and the selection tray, which would bury it */}
+          <button style={btn(false)} title="Fit map to screen"
+            onClick={() => {
+              const v = window.__view
+              if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
+            }}>⛶</button>
           <button style={btn(ui.night)} onClick={ui.toggleNight}>
             {ui.night ? '☾ NIGHT' : '☀ DAY'}
           </button>
@@ -111,21 +118,6 @@ export default function HUD() {
 
       {/* radio net log */}
       {ui.showNet && <RadioLog />}
-
-      {/* fit-to-screen map control (bottom-right) */}
-      <button
-        title="Fit map to screen"
-        onClick={() => {
-          const v = window.__view
-          if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
-        }}
-        style={{
-          position: 'absolute', right: 12, bottom: 12, zIndex: 16,
-          width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 0, fontSize: 17, lineHeight: 1, cursor: 'pointer',
-          background: 'rgba(16,26,36,0.9)', color: '#9ab8d0',
-          border: '1px solid #35506a', borderRadius: 3,
-        }}>⛶</button>
 
       {/* drone feed windows */}
       {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} />)}
@@ -786,16 +778,19 @@ function TargetReticles({ drone, feed, w, h }) {
 
 // Feed footer: sensor/flight controls for every UAS — altitude, orbit width — plus
 // the AC-130 fire-control strip (weapon / fire mode / ammo) when it's the gunship.
-function FeedFooter({ drone }) {
-  const spec = DRONE_TYPES[drone.type]
-  const g = spec.gunship
+// Footer bar: flight controls + gunship fire-control, and the window resize grip at
+// its right edge. It renders even with no drone bound so the grip is always reachable.
+function FeedFooter({ drone, resizable, onResizeDown, onResizeMove, onResizeUp }) {
+  const spec = drone && DRONE_TYPES[drone.type]
+  const g = spec && spec.gunship
   const w = g && g.weapons[drone.gunSel]
   const ammo = g ? ((drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0) : 0
-  const hasTgt = drone.targets && drone.targets.length > 0
+  const hasTgt = drone && drone.targets && drone.targets.length > 0
   const lbl = { letterSpacing: 1 }
   return (
-    <Group gap={7} wrap="nowrap" px={10} py={5} onPointerDown={(e) => e.stopPropagation()}
-      style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderTop: '1px solid #223240', overflow: 'hidden' }}>
+    <Group gap={7} wrap="nowrap" pl={10} pr={resizable ? 20 : 10} py={5} onPointerDown={(e) => e.stopPropagation()}
+      style={{ flex: '0 0 auto', position: 'relative', background: 'rgba(8,12,16,0.92)', borderTop: '1px solid #223240', overflow: 'hidden' }}>
+      {drone && (<>
       <Text span fz={8} c="dark.2" style={lbl}>ALT</Text>
       <FeedSelect title="Altitude" value={drone.altMul || 1}
         options={[{ val: 0.6, label: 'LOW' }, { val: 1, label: 'MED' }, { val: 1.6, label: 'HIGH' }]}
@@ -829,6 +824,18 @@ function FeedFooter({ drone }) {
               onClick={() => droneFire(drone.id)}>◎ FIRE 105</Button>
           )}
         </>
+      )}
+      </>)}
+      {/* resize grip — in the footer rather than over the imagery */}
+      {resizable && (
+        <Box onPointerDown={onResizeDown} onPointerMove={onResizeMove} onPointerUp={onResizeUp}
+          title="Resize feed window"
+          style={{
+            position: 'absolute', right: 0, top: 0, bottom: 0, width: 18, zIndex: 3,
+            cursor: 'nwse-resize', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          <Box style={{ width: 9, height: 9, background: 'linear-gradient(135deg, transparent 45%, rgba(120,160,200,0.8) 45%)' }} />
+        </Box>
       )}
     </Group>
   )
@@ -912,6 +919,9 @@ function HeaderMenu({ feed, drone, camMode }) {
           </Menu.Item>
         )}
         <Menu.Item onClick={() => { const v = window.__view; if (v) { v.cx = drone.x; v.cy = drone.y } }}>Center map on UAV</Menu.Item>
+        <Menu.Item onClick={() => ui.setFeed(feed.id, { muted: !feed.muted })}>
+          {feed.muted ? 'Unmute this feed' : 'Mute this feed'}
+        </Menu.Item>
         {drone.state !== 'rtb' && drone.state !== 'striking' && (
           <Menu.Item color="orange" onClick={() => droneRTB(drone.id)}>RTB now</Menu.Item>
         )}
@@ -942,7 +952,10 @@ function FeedWindow({ feed, index }) {
 
   // platform ambient: each airframe's engine loop runs while its feed is open
   const droneType = drone ? drone.type : null
-  useEffect(() => { setFeedAmbient(feed.id, droneType) }, [feed.id, droneType])
+  useEffect(() => {
+    if (feed.muted) clearFeedAmbient(feed.id)
+    else setFeedAmbient(feed.id, droneType)
+  }, [feed.id, droneType, feed.muted])
   useEffect(() => () => clearFeedAmbient(feed.id), [feed.id])
 
   // --- feed interaction: click = lock target, drag = slew gimbal, wheel = zoom ---
@@ -1072,7 +1085,9 @@ function FeedWindow({ feed, index }) {
       <Group ref={headerRef} gap={5} wrap="nowrap" pl={8} pr={12} py={4} align="center"
         onPointerDown={startDrag} onPointerMove={onPointerMove} onPointerUp={endDrag}
         style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderBottom: '1px solid #223240', cursor: 'grab', overflow: 'hidden' }}>
-        <Text span fz={9} c="dark.2" style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>FEED {index + 1}</Text>
+        <Text span fz={9} c={feed.muted ? 'orange.5' : 'dark.2'} style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>
+          FEED {index + 1}
+        </Text>
         {/* feed tabs — collapse to a dropdown when the header is tight */}
         {compact ? (
           <FeedSelect title="Feed source" value={feed.droneId} placeholder="— SELECT —" minWidth={84}
@@ -1145,6 +1160,10 @@ function FeedWindow({ feed, index }) {
           )}
           {drone && <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center', marginInline: 4 }} />}
           <Group gap={3} wrap="nowrap" style={{ flex: '0 0 auto' }}>
+            <ActionIcon size="md" variant={feed.muted ? 'filled' : 'default'} color={feed.muted ? 'orange' : undefined}
+              title={feed.muted ? 'Unmute this feed' : 'Mute this feed'} style={winIcon}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => ui.setFeed(feed.id, { muted: !feed.muted })}>{feed.muted ? '🔇' : '🔊'}</ActionIcon>
             {winMode !== 'min' && (
               <ActionIcon size="md" variant="default" title="Minimize" style={winIcon}
                 onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'min' })}>—</ActionIcon>
@@ -1174,7 +1193,7 @@ function FeedWindow({ feed, index }) {
           }}>
           {drone && (
             <Box style={{ position: 'absolute', inset: 0, filter: CAM_FILTERS[camMode] || CAM_FILTERS.WHOT }}>
-              <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} />
+              <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} muted={!!feed.muted} />
             </Box>
           )}
           {drone ? (
@@ -1246,16 +1265,14 @@ function FeedWindow({ feed, index }) {
               <Text fz={9} style={{ letterSpacing: 2 }}>{S.drones.length ? 'SELECT A UAS ABOVE' : 'DEPLOY UAS TO ESTABLISH FEED'}</Text>
             </Box>
           )}
-          {/* resize handle (windowed only) */}
-          {winMode === 'win' && (
-            <div onPointerDown={startResize} onPointerMove={onPointerMove} onPointerUp={endDrag}
-              style={{ position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', zIndex: 5, background: 'linear-gradient(135deg, transparent 50%, rgba(120,160,200,0.5) 50%)' }} />
-          )}
         </Box>
       )}
 
-      {/* ---- FOOTER (gunship fire-control) ---- */}
-      {drone && winMode !== 'min' && <FeedFooter drone={drone} />}
+      {/* ---- FOOTER (flight + fire-control, and the resize grip) ---- */}
+      {winMode !== 'min' && (
+        <FeedFooter drone={drone} resizable={winMode === 'win'}
+          onResizeDown={startResize} onResizeMove={onPointerMove} onResizeUp={endDrag} />
+      )}
     </Box>
   )
 }
