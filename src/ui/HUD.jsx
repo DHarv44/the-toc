@@ -1,4 +1,6 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { Box, Group, Button, ActionIcon, Menu, Text } from '@mantine/core'
+import { useElementSize } from '@mantine/hooks'
 import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { setMuted as audioSetMuted, setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
@@ -110,6 +112,21 @@ export default function HUD() {
       {/* radio net log */}
       {ui.showNet && <RadioLog />}
 
+      {/* fit-to-screen map control (bottom-right) */}
+      <button
+        title="Fit map to screen"
+        onClick={() => {
+          const v = window.__view
+          if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
+        }}
+        style={{
+          position: 'absolute', right: 12, bottom: 12, zIndex: 16,
+          width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0, fontSize: 17, lineHeight: 1, cursor: 'pointer',
+          background: 'rgba(16,26,36,0.9)', color: '#9ab8d0',
+          border: '1px solid #35506a', borderRadius: 3,
+        }}>⛶</button>
+
       {/* drone feed windows */}
       {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} />)}
     </>
@@ -217,15 +234,32 @@ function FireMissionPanel() {
 
 function SelectionTray() {
   const ui = useUI()
+  const [min, setMin] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter(Boolean)
   const selDrones = ui.selectedIds.map(id => S.drones.find(d => d.id === id)).filter(Boolean)
   if (!units.length && !selDrones.length) return null
   const anyIndirect = units.some(u => UNIT_TYPES[u.type].indirect)
   const anyBridge = units.some(u => UNIT_TYPES[u.type].canBridge)
+  const count = units.length + selDrones.length
+
+  // minimized: the footer goes away, leaving a small restore tab flush at the bottom
+  if (min) {
+    return (
+      <button onClick={() => setMin(false)} title="Show selection"
+        style={{
+          position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 14,
+          background: 'rgba(10,14,18,0.94)', color: '#9ab8d0', border: '1px solid #2a3a48', borderBottom: 'none',
+          borderRadius: '3px 3px 0 0', padding: '2px 14px', fontSize: 10, letterSpacing: 1,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>▲ {count} SELECTED</button>
+    )
+  }
+
   return (
     <div style={{
-      ...panel, position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 14, display: 'flex', flexDirection: 'column', gap: 5, maxWidth: '70vw',
+      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 14,
+      background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
+      padding: '6px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
     }}>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
         {units.map(u => {
@@ -312,6 +346,7 @@ function SelectionTray() {
           </button>
         )}
         <button style={btn(false)} onClick={() => ui.setSelected([])}>CLEAR</button>
+        <button style={{ ...btn(false), marginLeft: 6 }} title="Minimize" onClick={() => setMin(true)}>—</button>
       </div>
       {units.length > 0 && (
         <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -354,7 +389,6 @@ function SelectionTray() {
 function ContextMenu() {
   const ui = useUI()
   const m = ui.ctxMenu
-  if (m.droneId != null) return <DroneMenu />
   if (m.structId != null) return <StructMenu />
   const u = S.units.find(x => x.id === m.unitId)
   if (!u) { ui.closeMenu(); return null }
@@ -471,59 +505,38 @@ function StructMenu() {
   )
 }
 
-function DroneMenu() {
-  const ui = useUI()
-  const m = ui.ctxMenu
-  const d = S.drones.find(x => x.id === m.droneId)
-  if (!d) { ui.closeMenu(); return null }
-  const spec = DRONE_TYPES[d.type]
-  const x = clamp(m.x, 0, window.innerWidth - 210)
-  const y = clamp(m.y, 34, window.innerHeight - 230)
-  const row = (title, opts, cur, apply) => (
-    <div style={{ display: 'flex', gap: 3, alignItems: 'center', padding: '4px 10px', borderBottom: '1px solid rgba(40,58,72,0.5)' }}>
-      <span style={{ color: '#54708a', fontSize: 9, width: 40, letterSpacing: 1 }}>{title}</span>
-      {opts.map(([val, label]) => (
-        <button key={label} style={{ ...optBtn(Math.abs(cur - val) < 0.01) }}
-          onClick={() => apply(val)}>{label}</button>
-      ))}
-    </div>
-  )
-  const item = (label, fn, disabled = false) => (
-    <div key={label}
-      onClick={() => { if (!disabled) { fn(); ui.closeMenu() } }}
-      style={{
-        padding: '4px 10px', cursor: disabled ? 'default' : 'pointer', fontSize: 10.5,
-        color: disabled ? '#4a6070' : '#c8d8e8', whiteSpace: 'nowrap',
-        borderBottom: '1px solid rgba(40,58,72,0.5)',
-      }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = '#1c3450' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
-      {label}
-    </div>
+// The UAV context menu (Mantine Menu on the ⚙ button). Sensor lock / track are on
+// the header LOCK / FOLLOW buttons; this covers altitude, orbit width, RTB, and
+// centering the map on the UAV. ALT/ORBIT are segmented rows (don't close the menu);
+// Center / RTB are items (close on click).
+function FeedGearMenu({ drone }) {
+  const spec = DRONE_TYPES[drone.type]
+  const seg = (label, opts, cur, apply) => (
+    <Group gap={6} wrap="nowrap" px="xs" py={5}>
+      <Text span fz={9} c="dark.3" w={40} style={{ letterSpacing: 1 }}>{label}</Text>
+      <Button.Group>
+        {opts.map(([val, lab]) => (
+          <Button key={lab} size="compact-xs" variant={Math.abs(cur - val) < 0.01 ? 'filled' : 'default'}
+            onClick={() => apply(val)} styles={{ label: { fontSize: 9 } }}>{lab}</Button>
+        ))}
+      </Button.Group>
+    </Group>
   )
   return (
-    <>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 24 }}
-        onMouseDown={() => ui.closeMenu()} onContextMenu={(e) => { e.preventDefault(); ui.closeMenu() }} />
-      <div style={{
-        position: 'absolute', left: x, top: y, zIndex: 25, minWidth: 200,
-        background: 'rgba(12,18,24,0.97)', border: '1px solid #35506a', borderRadius: 3,
-        overflow: 'hidden',
-      }}>
-        <div style={{ padding: '5px 10px', background: '#16283a', color: '#7ec8ff', fontSize: 10.5 }}>
-          {d.label} — {spec.name.toUpperCase()} · {d.state === 'rtb' ? 'RTB' : `AO ${Math.max(0, Math.ceil(d.endurance))}S`}
-        </div>
-        {row('ALT', [[0.6, 'LOW'], [1, 'MED'], [1.6, 'HIGH']], d.altMul || 1,
-          (v) => droneSet(d.id, { altMul: v }))}
-        {/* the aerostat holds a fixed tether point — no orbit to set */}
-        {spec.src !== 'tether' && row('ORBIT', [[0.5, 'TIGHT'], [1, 'STD'], [1.8, 'WIDE']], d.orbitMul || 1,
-          (v) => droneSet(d.id, { orbitMul: v }))}
-        {d.lock && item('BREAK SENSOR LOCK', () => droneLock(d.id, null))}
-        {d.followId && item('DROP TRACK', () => droneFollow(d.id, null))}
-        {item('RTB NOW', () => droneRTB(d.id), d.state === 'rtb' || d.state === 'striking')}
-        {item('CENTER MAP', () => { const v = window.__view; if (v) { v.cx = d.x; v.cy = d.y } })}
-      </div>
-    </>
+    <Menu shadow="md" width={210} position="bottom-end" withArrow={false} trapFocus={false}>
+      <Menu.Target>
+        <ActionIcon size="md" variant="default" title="Drone controls"
+          onPointerDown={(e) => e.stopPropagation()} style={{ fontSize: 13 }}>⚙</ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
+        {seg('ALT', [[0.6, 'LOW'], [1, 'MED'], [1.6, 'HIGH']], drone.altMul || 1, (v) => droneSet(drone.id, { altMul: v }))}
+        {spec.src !== 'tether' && seg('ORBIT', [[0.5, 'TIGHT'], [1, 'STD'], [1.8, 'WIDE']], drone.orbitMul || 1, (v) => droneSet(drone.id, { orbitMul: v }))}
+        <Menu.Divider />
+        <Menu.Item onClick={() => { const v = window.__view; if (v) { v.cx = drone.x; v.cy = drone.y } }}>Center map on UAV</Menu.Item>
+        <Menu.Item color="orange" disabled={drone.state === 'rtb' || drone.state === 'striking'}
+          onClick={() => droneRTB(drone.id)}>RTB now</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   )
 }
 
@@ -769,10 +782,10 @@ function feedProjectToScreen(drone, feed, wx, wy, w, h) {
 }
 
 // red impact reticle shown in the feed while this drone's strike is inbound
-function StrikeReticle({ drone, feed }) {
+function StrikeReticle({ drone, feed, w, h }) {
   const mk = drone.strikeMark
-  if (!mk || S.t > mk.until) return null
-  const p = feedProjectToScreen(drone, feed, mk.x, mk.y, feed.w, feed.h - 22)
+  if (!mk || S.t > mk.until || !w || !h) return null
+  const p = feedProjectToScreen(drone, feed, mk.x, mk.y, w, h)
   if (!p) return null
   const ttg = Math.max(0, mk.until - S.t)
   return (
@@ -786,14 +799,14 @@ function StrikeReticle({ drone, feed }) {
 }
 
 // designated (not-yet-fired) per-vic target boxes, projected into the sensor image
-function TargetReticles({ drone, feed }) {
-  if (!drone.targets || !drone.targets.length) return null
+function TargetReticles({ drone, feed, w, h }) {
+  if (!drone.targets || !drone.targets.length || !w || !h) return null
   return drone.targets.map((t, i) => {
     const u = S.units.find(x => x.id === t.unitId && x.strength > 0)
     const el = u && u.elements && u.elements[t.ei]
     if (!el || !el.alive) return null
     const wpt = elemWorld(u, el)
-    const p = feedProjectToScreen(drone, feed, wpt.x, wpt.y, feed.w, feed.h - 22)
+    const p = feedProjectToScreen(drone, feed, wpt.x, wpt.y, w, h)
     if (!p) return null
     return (
       <div key={i} style={{ position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }}>
@@ -812,48 +825,61 @@ function GunshipPanel({ drone }) {
   const w = g.weapons[drone.gunSel]
   const ammo = (drone.gunAmmo && drone.gunAmmo[drone.gunSel]) || 0
   const hasTgt = drone.targets && drone.targets.length > 0
-  const tab = (active, dry) => ({
-    background: active ? '#8a5a1a' : '#16222e', color: dry ? '#7a6a5a' : active ? '#fff' : '#c8b088',
-    border: '1px solid ' + (active ? '#c88a30' : '#3a4a58'), borderRadius: 2, padding: '1px 5px',
-    fontSize: 9, cursor: 'pointer',
-  })
-  const mode = (active, col) => ({
-    background: active ? col : '#16222e', color: active ? '#0b1016' : col,
-    border: '1px solid ' + col, borderRadius: 2, padding: '1px 5px', fontSize: 9, fontWeight: 'bold', cursor: 'pointer',
-  })
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={{
-      position: 'absolute', left: 6, right: 6, bottom: 6, zIndex: 3,
-      display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap',
-      background: 'rgba(8,12,16,0.85)', border: '1px solid #3a2a20', borderRadius: 3, padding: '3px 5px',
-    }}>
-      {g.order.map((k) => (
-        <button key={k} style={tab(drone.gunSel === k, ((drone.gunAmmo && drone.gunAmmo[k]) || 0) <= 0)}
-          onClick={() => gunshipSelectWeapon(drone.id, k)}>{g.weapons[k].short}</button>
-      ))}
-      <span style={{ width: 1, height: 13, background: '#3a4a58' }} />
+    <Group gap={7} wrap="nowrap" px={10} py={5} onPointerDown={(e) => e.stopPropagation()}
+      style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderTop: '1px solid #223240', overflow: 'hidden' }}>
+      <Text span fz={8} c="dark.2" style={{ letterSpacing: 1 }}>WPN</Text>
+      <FeedSelect title="Weapon" value={drone.gunSel}
+        options={g.order.map((k) => ({ val: k, label: g.weapons[k].short }))}
+        onSelect={(k) => gunshipSelectWeapon(drone.id, k)} color="#c8b088" minWidth={56} />
+      <Box style={{ width: 1, height: 14, background: '#3a4a58' }} />
       {w.kind === 'gun' ? (
         <>
-          <button style={mode(drone.fireMode === 'will', '#ff7a52')} onClick={() => gunshipSetMode(drone.id, 'will')}>WILL</button>
-          <button style={mode(drone.fireMode === 'designated', '#ffb257')} onClick={() => gunshipSetMode(drone.id, 'designated')}>DESIG</button>
-          <button style={mode(!drone.fireMode || drone.fireMode === 'hold', '#7fd0b0')} onClick={() => gunshipSetMode(drone.id, 'hold')}>HOLD</button>
+          <Text span fz={8} c="dark.2" style={{ letterSpacing: 1 }}>MODE</Text>
+          <FeedSelect title="Fire mode" value={drone.fireMode || 'hold'}
+            options={[{ val: 'will', label: 'WILL' }, { val: 'designated', label: 'DESIG' }, { val: 'hold', label: 'HOLD' }]}
+            onSelect={(m) => gunshipSetMode(drone.id, m)} color="#ffb257" minWidth={62} />
         </>
       ) : (
-        <button
-          disabled={!hasTgt || ammo <= 0}
-          style={{
-            background: hasTgt && ammo > 0 ? '#8a2a20' : '#16222e',
-            color: hasTgt && ammo > 0 ? '#fff' : '#7a5a50',
-            border: '1px solid #6a4030', borderRadius: 2, padding: '1px 8px', fontSize: 9, fontWeight: 'bold',
-            cursor: hasTgt && ammo > 0 ? 'pointer' : 'default',
-          }}
+        <Button size="compact-xs" color="red.9" disabled={!hasTgt || ammo <= 0}
+          styles={{ label: { fontSize: 9, fontWeight: 700 } }}
           title={hasTgt ? 'Fire a 105mm round on each designated vic' : 'Click vics in the feed to designate'}
-          onClick={() => droneFire(drone.id)}>◎ FIRE 105</button>
+          onClick={() => droneFire(drone.id)}>◎ FIRE 105</Button>
       )}
-      <span style={{ marginLeft: 'auto', color: ammo <= 0 ? '#ff6a52' : '#c8d8a0', fontSize: 9, letterSpacing: 1 }}>
+      <Text span ml="auto" fz={9} c={ammo <= 0 ? 'red.5' : 'lime.3'} style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>
         {w.short} · {ammo}
-      </span>
-    </div>
+      </Text>
+    </Group>
+  )
+}
+
+// Compact Mantine dropdown used across the UAV window (sensor mode, weapon, fire
+// mode): the target button shows the current value; opening lists the options;
+// picking one applies it and closes. Mantine's Menu handles positioning (auto-flips
+// up near the bottom footer), click-outside, and portalling out of the feed's clip.
+// options: [{ val, label }]
+function FeedSelect({ value, options, onSelect, color = 'dark.1', minWidth = 48, title }) {
+  const cur = options.find((o) => o.val === value)
+  return (
+    <Menu shadow="md" width={Math.max(minWidth, 80)} position="bottom-start" withArrow={false} trapFocus={false}>
+      <Menu.Target>
+        <Button size="compact-xs" variant="default" c={color} title={title}
+          rightSection={<Text span fz={8} c="dimmed">▾</Text>}
+          onPointerDown={(e) => e.stopPropagation()}
+          styles={{ root: { minWidth, paddingInline: 6, fontWeight: 400 }, label: { fontSize: 9 } }}>
+          {cur ? cur.label : value}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
+        {options.map((o) => (
+          <Menu.Item key={String(o.val)} onClick={() => onSelect(o.val)}
+            bg={o.val === value ? 'toc.7' : undefined}
+            styles={{ item: { padding: '4px 10px' }, itemLabel: { fontSize: 10 } }}>
+            {o.label}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   )
 }
 
@@ -862,9 +888,11 @@ function FeedWindow({ feed, index }) {
   const boxRef = useRef(null)
   const drag = useRef(null)
   const gimbal = useRef(null)
-
   const drone = S.drones.find(d => d.id === feed.droneId) || null
   const camMode = (drone && ui.droneModes[drone.id]) || 'WHOT'
+  // measure the actual sensor-view region so target reticles stay accurate at any
+  // window size / mode (the view flexes between the header and footer)
+  const { ref: contentRef, width: cw, height: ch } = useElementSize()
 
   // platform ambient: each airframe's engine loop runs while its feed is open
   const droneType = drone ? drone.type : null
@@ -975,202 +1003,170 @@ function FeedWindow({ feed, index }) {
   }
   function endDrag() { drag.current = null }
 
+  // window mode: 'win' (draggable/resizable) | 'max' (fill screen) | 'min' (title only)
+  const winMode = feed.winMode || 'win'
+  const boxStyle = winMode === 'max'
+    // edge-to-edge below the top bar — no margin, footer flush to the screen bottom
+    ? { position: 'fixed', left: 0, top: 34, right: 0, bottom: 0 }
+    : winMode === 'min'
+      ? { position: 'absolute', ...style, width: feed.w }        // height auto = header only
+      : { position: 'absolute', ...style, width: feed.w, height: feed.h }
+
+  const armed = drone && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze)
+  const hasTargets = drone && drone.targets && drone.targets.length > 0
+  const winIcon = { fontSize: 12, lineHeight: 1 }
+
   return (
-    <div ref={boxRef} style={{
-      position: 'absolute', ...style, width: feed.w, height: feed.h,
-      border: '1px solid #2a3a48', borderRadius: 3, overflow: 'hidden',
-      background: '#020304', zIndex: 15,
+    <Box ref={boxRef} style={{
+      ...boxStyle, display: 'flex', flexDirection: 'column',
+      border: '1px solid #2a3a48', borderRadius: winMode === 'max' ? 0 : 3, overflow: 'hidden',
+      background: '#020304', zIndex: 40, // UAV window sits above the map controls / other HUD
     }}>
-      {/* title bar: drag handle + drone tabs + close */}
-      <div
+      {/* ---- HEADER (drag handle) ---- */}
+      <Group gap={5} wrap="nowrap" px={8} py={4} align="center"
         onPointerDown={startDrag} onPointerMove={onPointerMove} onPointerUp={endDrag}
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, height: 22,
-          display: 'flex', gap: 2, background: 'rgba(8,12,16,0.92)',
-          borderBottom: '1px solid #223240', padding: 2, cursor: 'grab',
-          alignItems: 'center',
-        }}>
-        <span style={{ color: '#5a7288', fontSize: 9, padding: '0 4px', letterSpacing: 1 }}>
-          FEED {index + 1}
-        </span>
+        style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderBottom: '1px solid #223240', cursor: 'grab', overflow: 'hidden' }}>
+        <Text span fz={9} c="dark.2" style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>FEED {index + 1}</Text>
         {S.drones.map((d) => (
-          <button key={d.id}
-            style={{ ...btn(drone && drone.id === d.id), padding: '1px 5px', fontSize: 9 }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => ui.setFeed(feed.id, { droneId: d.id })}>
+          <Button key={d.id} size="compact-xs" variant={drone && drone.id === d.id ? 'filled' : 'default'}
+            onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { droneId: d.id })}
+            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
             {d.label} {d.state === 'transit' ? '→' : d.state === 'rtb' ? 'RTB' : d.state === 'striking' ? '✸' : !isFinite(d.endurance) ? '⚓' : Math.ceil(d.endurance) + 's'}
-          </button>
+          </Button>
         ))}
         {drone && (
-          <button
-            style={{ ...btn(false), padding: '1px 6px', fontSize: 9, color: '#8fd4a8', borderColor: '#2f5a40' }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => {
-              const next = CAM_MODES[(CAM_MODES.indexOf(camMode) + 1) % CAM_MODES.length]
-              ui.setDroneMode(drone.id, next)
-            }}>
-            {camMode}
-          </button>
+          <FeedSelect title="Sensor mode" value={camMode}
+            options={CAM_MODES.map((m) => ({ val: m, label: m }))}
+            onSelect={(m) => ui.setDroneMode(drone.id, m)} color="#8fd4a8" minWidth={52} />
         )}
         {drone && (drone.state === 'transit' || drone.state === 'onstation') && (
-          <button
-            style={{
-              ...btn(!!drone.followId),
-              padding: '1px 6px', fontSize: 9, color: '#5ac8aa', borderColor: '#2f5a4a',
-              opacity: (drone.followId || (drone.targets && drone.targets.length)) ? 1 : 0.45,
-            }}
-            disabled={!drone.followId && !(drone.targets && drone.targets.length)}
-            title={drone.followId ? 'Stop tracking the contact'
-              : (drone.targets && drone.targets.length) ? 'Track the designated contact'
-              : 'Click a contact in the feed to designate it first'}
+          <Button size="compact-xs" variant={drone.followId ? 'filled' : 'default'} c="#5ac8aa"
+            disabled={!drone.followId && !hasTargets}
+            title={drone.followId ? 'Stop tracking the contact' : hasTargets ? 'Track the designated contact' : 'Click a contact in the feed to designate it first'}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => {
-              if (drone.followId) { droneFollow(drone.id, null); return }
-              const t = (drone.targets || [])[0]   // track the first designated contact
-              if (t) droneFollow(drone.id, t.unitId)
-            }}>
+            onClick={() => { if (drone.followId) { droneFollow(drone.id, null); return } const t = (drone.targets || [])[0]; if (t) droneFollow(drone.id, t.unitId) }}
+            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
             {drone.followId ? 'UNFOLLOW' : 'FOLLOW'}
-          </button>
+          </Button>
         )}
         {drone && drone.state === 'onstation' && (
-          <button
-            style={{
-              ...btn(!!drone.lock),
-              padding: '1px 6px', fontSize: 9, color: '#ffb257', borderColor: '#6a4a25',
-            }}
+          <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => {
-              if (drone.lock) { droneLock(drone.id, null); return }
-              // pure camera lock: freeze the sensor on the current aim point, ignore targets
-              droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy })
-            }}>
+            onClick={() => { if (drone.lock) { droneLock(drone.id, null); return } droneLock(drone.id, { x: drone.tx + feed.gx, y: drone.ty + feed.gy }) }}
+            styles={{ label: { fontSize: 9 } }} style={{ flex: '0 0 auto' }}>
             {drone.lock ? 'UNLOCK' : 'LOCK'}
-          </button>
+          </Button>
         )}
-        {drone && (drone.state === 'onstation' || drone.state === 'transit') && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) && (
-          <button
-            style={{
-              ...btn(!!(drone.targets && drone.targets.length)), marginLeft: 'auto',
-              padding: '1px 6px', fontSize: 9,
-              color: (drone.targets && drone.targets.length) ? '#fff' : '#ff9e6a',
-              background: (drone.targets && drone.targets.length) ? '#8a2a20' : '#16222e', borderColor: '#6a4030',
-            }}
-            disabled={!(drone.targets && drone.targets.length) || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
-            title={(drone.targets && drone.targets.length) ? 'Fire on the designated vics' : 'Click vics in the feed to designate targets'}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => droneFire(drone.id)}>
+        {drone && (drone.state === 'onstation' || drone.state === 'transit') && armed && (
+          <Button size="compact-xs" color="red.9" variant={hasTargets ? 'filled' : 'default'} ml="auto"
+            disabled={!hasTargets || (DRONE_TYPES[drone.type].weapons && drone.ammo <= 0)}
+            title={hasTargets ? 'Fire on the designated vics' : 'Click vics in the feed to designate targets'}
+            onPointerDown={(e) => e.stopPropagation()} onClick={() => droneFire(drone.id)}
+            styles={{ label: { fontSize: 9, fontWeight: 700 } }} style={{ flex: '0 0 auto' }}>
             {DRONE_TYPES[drone.type].weapons ? `FIRE (${drone.ammo})` : 'FIRE'}
-          </button>
+          </Button>
         )}
-        <button
-          style={{
-            ...btn(false), padding: '1px 6px', fontSize: 10,
-            marginLeft: drone && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) ? 0 : 'auto',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => ui.closeFeed(feed.id)}>×</button>
-      </div>
-
-      <div
-        onPointerDown={feedDown} onPointerMove={feedMove} onPointerUp={feedUp}
-        onWheel={gimbalZoom} onDoubleClick={gimbalReset}
-        style={{
-          position: 'absolute', inset: 0, top: 22,
-          cursor: !drone ? 'default' : (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze) ? 'crosshair' : 'move',
-          filter: CAM_FILTERS[camMode] || CAM_FILTERS.WHOT,
-        }}>
-        {drone ? <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} /> : null}
-      </div>
-
-      {drone ? (
-        <>
-        <div style={{ position: 'absolute', inset: 0, top: 22, zIndex: 2, pointerEvents: 'none' }}>
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.09) 0 1px, transparent 1px 3px)',
-          }} />
-          <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 70px rgba(0,0,0,0.85)' }} />
-          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', color: 'rgba(220,235,245,0.8)', fontSize: 18 }}>┼</div>
-          {[{ top: 6, left: 6, bw: '1px 0 0 1px' }, { top: 6, right: 6, bw: '1px 1px 0 0' },
-            { bottom: 6, left: 6, bw: '0 0 1px 1px' }, { bottom: 6, right: 6, bw: '0 1px 1px 0' }].map((p, i) => (
-            <div key={i} style={{
-              position: 'absolute', width: 16, height: 16,
-              borderStyle: 'solid', borderColor: 'rgba(220,235,245,0.6)',
-              borderWidth: p.bw, top: p.top, left: p.left, right: p.right, bottom: p.bottom,
-            }} />
-          ))}
-          <div style={{ position: 'absolute', top: 8, left: 26, color: '#d8e8f0', fontSize: 9, letterSpacing: 1 }}>
-            {drone.label} · {camMode === 'EO' ? 'EO DAY-TV' : camMode === 'NVG' ? 'I2 NVG' : 'IR ' + camMode} · {
-              drone.state === 'transit' ? 'TRANSIT' : drone.state === 'rtb' ? 'RTB'
-              : drone.state === 'striking' ? 'TERMINAL' : 'ON STA'}
-            {' · '}{(38 / feed.fov).toFixed(1)}×
-            {(feed.gx || feed.gy) ? ' · OFFSET' : ''}
-          </div>
-          <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9 }}>
-            {drone.state === 'rtb'
-              ? <span style={{ fontWeight: 'bold', letterSpacing: 1, opacity: ui.tick % 8 < 4 ? 1 : 0.12 }}>RTB</span>
-              : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
-            {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
-            {drone.followId ? ` · TRK ${(() => { const tu = S.units.find(u => u.id === drone.followId); return tu ? (tu.side === 'friend' ? tu.label : 'HOSTILE ' + UNIT_TYPES[tu.type].abbr) : '—' })()}` : ''}
-          </div>
-          {drone.targets && drone.targets.length > 0 && (() => {
-            const armed = DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze || DRONE_TYPES[drone.type].gunship
-            const col = armed ? '#ff5a44' : '#5ac8aa'
-            const rgba = armed ? 'rgba(255,60,40,0.7)' : 'rgba(90,200,170,0.6)'
-            return (
-              <>
-                <div style={{ position: 'absolute', inset: 0, border: `2px solid ${rgba}`, boxSizing: 'border-box' }} />
-                <div style={{ position: 'absolute', top: 32, left: 0, right: 0, textAlign: 'center', color: col, fontSize: 9, letterSpacing: 2, fontWeight: 'bold' }}>
-                  ◎ {drone.targets.length} {armed ? 'TARGET' : 'CONTACT'}{drone.targets.length > 1 ? 'S' : ''}
-                  {drone.followId ? ' — TRACKING' : armed ? ' — CLICK FIRE' : ' — CLICK FOLLOW'}
-                </div>
-              </>
-            )
-          })()}
-          <TargetReticles drone={drone} feed={feed} />
-          <StrikeReticle drone={drone} feed={feed} />
-          {drone.lock && (
-            <>
-              <div style={{
-                position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-                width: 42, height: 42, border: '1.5px solid rgba(255,170,60,0.85)',
-              }} />
-              <div style={{ position: 'absolute', left: '50%', top: 'calc(50% + 26px)', transform: 'translateX(-50%)', color: '#ffb257', fontSize: 9, letterSpacing: 1 }}>
-                {drone.lock.unitId != null
-                  ? 'TRACK ' + (() => { const lu = S.units.find(u => u.id === drone.lock.unitId); return lu ? (lu.side === 'friend' ? lu.label : 'HOSTILE ' + UNIT_TYPES[lu.type].abbr) : '—' })()
-                  : 'LOCK GRID ' + grid(drone.lock.x, drone.lock.y)}
-              </div>
-            </>
+        <Group gap={3} wrap="nowrap" ml={armed ? 0 : 'auto'} style={{ flex: '0 0 auto' }}>
+          {drone && <FeedGearMenu drone={drone} />}
+          {winMode !== 'min' && (
+            <ActionIcon size="md" variant="default" title="Minimize" style={winIcon}
+              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'min' })}>—</ActionIcon>
           )}
-          <div style={{ position: 'absolute', bottom: 8, left: 26, color: '#d8e8f0', fontSize: 9 }}>
-            GRID {String(Math.floor((drone.tx ?? 0) / 100)).padStart(3, '0')} {String(Math.floor((drone.ty ?? 0) / 100)).padStart(3, '0')}
-            {'  ALT '}{DRONE_TYPES[drone.type].alt}M AGL
-          </div>
-          <div style={{ position: 'absolute', bottom: 8, right: 26, color: '#d8e8f0', fontSize: 9 }}>
-            {fmtClock(S.t)}
-          </div>
-        </div>
-        <GunshipPanel drone={drone} feed={feed} />
-        </>
-      ) : (
-        <div style={{
-          position: 'absolute', inset: 0, top: 22, zIndex: 2, display: 'flex',
-          alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-          color: '#4a6070', fontSize: 12, letterSpacing: 2, gap: 6,
-        }}>
-          <div>▚ NO SIGNAL ▞</div>
-          <div style={{ fontSize: 9 }}>{S.drones.length ? 'SELECT A UAS ABOVE' : 'DEPLOY UAS TO ESTABLISH FEED'}</div>
-        </div>
+          {winMode !== 'max' && (
+            <ActionIcon size="md" variant="default" title="Maximize" style={winIcon}
+              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'max' })}>▢</ActionIcon>
+          )}
+          {winMode !== 'win' && (
+            <ActionIcon size="md" variant="default" title="Restore to window" style={winIcon}
+              onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'win' })}>❐</ActionIcon>
+          )}
+          <ActionIcon size="md" variant="default" title="Close" style={winIcon}
+            onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.closeFeed(feed.id)}>×</ActionIcon>
+        </Group>
+      </Group>
+
+      {/* ---- CONTENT (flexes between header and footer; the sensor view) ---- */}
+      {winMode !== 'min' && (
+        <Box ref={contentRef}
+          onPointerDown={feedDown} onPointerMove={feedMove} onPointerUp={feedUp}
+          onWheel={gimbalZoom} onDoubleClick={gimbalReset}
+          style={{
+            flex: '1 1 auto', position: 'relative', minHeight: 0, overflow: 'hidden',
+            cursor: !drone ? 'default' : armed ? 'crosshair' : 'move',
+          }}>
+          {drone && (
+            <Box style={{ position: 'absolute', inset: 0, filter: CAM_FILTERS[camMode] || CAM_FILTERS.WHOT }}>
+              <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} />
+            </Box>
+          )}
+          {drone ? (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.09) 0 1px, transparent 1px 3px)' }} />
+              <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 70px rgba(0,0,0,0.85)' }} />
+              <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', color: 'rgba(220,235,245,0.8)', fontSize: 18 }}>┼</div>
+              {[{ top: 6, left: 6, bw: '1px 0 0 1px' }, { top: 6, right: 6, bw: '1px 1px 0 0' },
+                { bottom: 6, left: 6, bw: '0 0 1px 1px' }, { bottom: 6, right: 6, bw: '0 1px 1px 0' }].map((p, i) => (
+                <div key={i} style={{ position: 'absolute', width: 16, height: 16, borderStyle: 'solid', borderColor: 'rgba(220,235,245,0.6)', borderWidth: p.bw, top: p.top, left: p.left, right: p.right, bottom: p.bottom }} />
+              ))}
+              <div style={{ position: 'absolute', top: 8, left: 26, color: '#d8e8f0', fontSize: 9, letterSpacing: 1 }}>
+                {drone.label} · {camMode === 'EO' ? 'EO DAY-TV' : camMode === 'NVG' ? 'I2 NVG' : 'IR ' + camMode} · {
+                  drone.state === 'transit' ? 'TRANSIT' : drone.state === 'rtb' ? 'RTB' : drone.state === 'striking' ? 'TERMINAL' : 'ON STA'}
+                {' · '}{(38 / feed.fov).toFixed(1)}×{(feed.gx || feed.gy) ? ' · OFFSET' : ''}
+              </div>
+              <div style={{ position: 'absolute', top: 20, left: 26, color: drone.state === 'rtb' || drone.endurance < 45 ? '#ff9e6a' : '#9ab8d0', fontSize: 9 }}>
+                {drone.state === 'rtb'
+                  ? <span style={{ fontWeight: 'bold', letterSpacing: 1, opacity: ui.tick % 8 < 4 ? 1 : 0.12 }}>RTB</span>
+                  : !isFinite(drone.endurance) ? 'TETHERED' : `AO TIME ${Math.max(0, Math.ceil(drone.endurance))}S`}
+                {DRONE_TYPES[drone.type].weapons ? ` · AGM ×${drone.ammo}` : DRONE_TYPES[drone.type].kamikaze ? ' · TERMINAL' : ''}
+                {drone.followId ? ` · TRK ${(() => { const tu = S.units.find(u => u.id === drone.followId); return tu ? (tu.side === 'friend' ? tu.label : 'HOSTILE ' + UNIT_TYPES[tu.type].abbr) : '—' })()}` : ''}
+              </div>
+              {hasTargets && (() => {
+                const isArmed = DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze || DRONE_TYPES[drone.type].gunship
+                const col = isArmed ? '#ff5a44' : '#5ac8aa'
+                const rgba = isArmed ? 'rgba(255,60,40,0.7)' : 'rgba(90,200,170,0.6)'
+                return (
+                  <>
+                    <div style={{ position: 'absolute', inset: 0, border: `2px solid ${rgba}`, boxSizing: 'border-box' }} />
+                    <div style={{ position: 'absolute', top: 32, left: 0, right: 0, textAlign: 'center', color: col, fontSize: 9, letterSpacing: 2, fontWeight: 'bold' }}>
+                      ◎ {drone.targets.length} {isArmed ? 'TARGET' : 'CONTACT'}{drone.targets.length > 1 ? 'S' : ''}
+                      {drone.followId ? ' — TRACKING' : isArmed ? ' — CLICK FIRE' : ' — CLICK FOLLOW'}
+                    </div>
+                  </>
+                )
+              })()}
+              <TargetReticles drone={drone} feed={feed} w={cw} h={ch} />
+              <StrikeReticle drone={drone} feed={feed} w={cw} h={ch} />
+              {drone.lock && (
+                <>
+                  <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 42, height: 42, border: '1.5px solid rgba(255,170,60,0.85)' }} />
+                  <div style={{ position: 'absolute', left: '50%', top: 'calc(50% + 26px)', transform: 'translateX(-50%)', color: '#ffb257', fontSize: 9, letterSpacing: 1 }}>
+                    {drone.lock.unitId != null
+                      ? 'TRACK ' + (() => { const lu = S.units.find(u => u.id === drone.lock.unitId); return lu ? (lu.side === 'friend' ? lu.label : 'HOSTILE ' + UNIT_TYPES[lu.type].abbr) : '—' })()
+                      : 'LOCK GRID ' + grid(drone.lock.x, drone.lock.y)}
+                  </div>
+                </>
+              )}
+              <div style={{ position: 'absolute', bottom: 8, left: 26, color: '#d8e8f0', fontSize: 9 }}>
+                GRID {String(Math.floor((drone.tx ?? 0) / 100)).padStart(3, '0')} {String(Math.floor((drone.ty ?? 0) / 100)).padStart(3, '0')}{'  ALT '}{DRONE_TYPES[drone.type].alt}M AGL
+              </div>
+              <div style={{ position: 'absolute', bottom: 8, right: 26, color: '#d8e8f0', fontSize: 9 }}>{fmtClock(S.t)}</div>
+            </div>
+          ) : (
+            <Box style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 6, color: '#4a6070' }}>
+              <Text fz={12} style={{ letterSpacing: 2 }}>▚ NO SIGNAL ▞</Text>
+              <Text fz={9} style={{ letterSpacing: 2 }}>{S.drones.length ? 'SELECT A UAS ABOVE' : 'DEPLOY UAS TO ESTABLISH FEED'}</Text>
+            </Box>
+          )}
+          {/* resize handle (windowed only) */}
+          {winMode === 'win' && (
+            <div onPointerDown={startResize} onPointerMove={onPointerMove} onPointerUp={endDrag}
+              style={{ position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', zIndex: 5, background: 'linear-gradient(135deg, transparent 50%, rgba(120,160,200,0.5) 50%)' }} />
+          )}
+        </Box>
       )}
 
-      {/* resize handle */}
-      <div
-        onPointerDown={startResize} onPointerMove={onPointerMove} onPointerUp={endDrag}
-        style={{
-          position: 'absolute', right: 0, bottom: 0, width: 16, height: 16,
-          cursor: 'nwse-resize', zIndex: 4,
-          background: 'linear-gradient(135deg, transparent 50%, rgba(120,160,200,0.5) 50%)',
-        }} />
-    </div>
+      {/* ---- FOOTER (gunship fire-control) ---- */}
+      {drone && winMode !== 'min' && <GunshipPanel drone={drone} feed={feed} />}
+    </Box>
   )
 }

@@ -540,11 +540,12 @@ Real C2 runs multiple nets, not one stream — split the traffic into channels:
 
 ## Maps & World
 
-### Seed-Generated Maps
-- **Seeded procedural maps** — a map seed generates the terrain/hydrology/roads/towns, so a
-  seed is shareable and reproducible and every match can be a fresh battlefield.
-- Design notes: thread a single seed through the existing procedural generation (terrain,
-  rivers, roads, towns); surface it in the UI for share/replay.
+### Seed-Generated Maps  *(partly implemented)*
+- **Seeded procedural maps** *(done)* — the terrain/hydrology/roads/towns generate from a single
+  seed, and the map now comes in **selectable sizes** (Small 4.8 km / Medium 8.0 km / Large
+  12.8 km), chosen on the splash screen for a new game (`genMap(seed, gridSize)`).
+- Still open: **surface/expose the seed** in the UI so a specific battlefield is shareable and
+  replayable (seed entry + display), not just randomized per game.
 
 ### More Detailed Maps & Bigger Towns
 - **Richer terrain and larger, denser towns** — more detail in the world and bigger urban areas
@@ -552,17 +553,16 @@ Real C2 runs multiple nets, not one stream — split the traffic into channels:
 - Design notes: increase town size/building density and terrain detail; make sure pathfinding,
   cover, and LOS scale with the added density.
 
-### Dev / Test Map
-A purpose-built sandbox for fast, accurate feature testing — deliberately not a "fair"
-battlefield:
-- Laid out to **exercise every system in seconds**: terrain barriers and choke points, all
-  cover/concealment types (forest, urban, defilade/reverse-slope), buildings and a town, water
-  gaps + bridges, roads and open ground, and **pre-staged friendly + hostile units of each type**
-  plus installations.
-- Lets us reproduce and verify features (LOS, cover buffs, movement factors, fires, air, drones,
-  EW, audio) without hunting for the right terrain in a random map.
-- Design notes: a fixed hand-authored (or fixed-seed + scripted) map with a dev-mode loader that
-  pre-places representative units/structures; wire it behind the existing DEV controls.
+### Dev / Test Map **(implemented)**
+A purpose-built sandbox for fast, accurate feature testing, reached from the splash screen's
+**Dev Sandbox** button (`initDevGame`):
+- Uses the **small map** (fixed seed, fog off, full supply, no incoming waves) with **one of every
+  friendly and hostile unit type** staged per side and both sides' installations (HQ + FOB + OP,
+  friendly also an airfield). Friendly lower-left, enemy upper-right; both fit in one screen.
+- Units start **weapons-held** so the scene stays static and reproducible until the dev commits
+  to a fight.
+- Still open: a purpose-built terrain layout that deliberately packs every cover/concealment type,
+  choke points, and water gaps into one screen (currently rides the procedural small map).
 
 ### Scenario Builder
 A proper in-app editor to lay out a battle instead of hand-placing everything by console:
@@ -623,6 +623,60 @@ the enabling installation (grey out airfield UAS until an airfield is built, etc
 Let the commander spread the fight across tabs, windows, and monitors — a real CIC has
 many screens, not one. Build toward the state being a **single source of truth** that any
 number of lightweight view windows read from and issue commands to.
+
+### Bottom Panel / Selection Tray UI
+The bottom selection tray needs design work — it's grown organically and feels cramped and
+inconsistent:
+- **Rework the layout** — the per-unit cards, order buttons (HOLD/MOUNT/FIRE MISSION/DIG IN),
+  command mode, ROE, and weapons-control rows are dense and wrap awkwardly with a large
+  selection; clean up spacing, grouping, and hierarchy.
+- **Scale to selection size** — degrade gracefully from one unit to a large marquee (summarize
+  a big selection instead of showing N full cards); make it scrollable/collapsible.
+- Consistent styling with the rest of the HUD (the restyled deploy panel is the reference), and
+  make the common orders faster to reach.
+
+### Off-Map Backdrop — Match the Splash Screen
+The off-map area shown on **fit-to-screen** (the letterbox where the square map doesn't fill the
+viewport) is currently a flat dark fill, which reads as harsh "black edges."
+- **Style it like the splash screen** — the same radial-gradient + faint grid backdrop — so the
+  fit-to-screen view looks intentional and framed rather than clipped.
+- Design notes: reuse the splash's backdrop treatment for the map canvas's off-world fill (behind
+  the world-edge border); keep it theme-aware (day/night).
+
+### Fit-to-Screen Control Overlaps the UAV Window
+The bottom-right **fit-to-screen (⛶)** map control sits in the same corner where UAV feeds dock, so
+it overlaps the drone window. (The UAV window is now top-most z-index, so it covers the button, but
+that just hides it rather than fixing the layout.)
+- Give the map controls their own reserved spot clear of the feed dock (e.g., a small control
+  cluster that the feeds avoid, or reflow the button when a feed occupies that corner).
+
+### Move the UAV Resize Handle to the Footer
+The feed window's resize grip is a small triangle in the bottom-right of the sensor view, which
+overlaps the imagery and the footer controls.
+- Move the resize affordance **into the footer bar** (e.g., a grip at the footer's right edge) so it
+  doesn't sit on top of the video, matching the tidy three-part header/view/footer layout.
+
+### Code Quality — TypeScript & Componentization
+The codebase has grown organically; `HUD.jsx` in particular is a large monolith.
+- **Rewrite in TypeScript** — type the sim state (`S`), unit/drone/structure models, and the UI
+  props for real safety and editor support.
+- **Break up the monoliths** — split `HUD.jsx` (and `sim.js`) into focused components/modules
+  (deploy panel, selection tray, feed window + its subparts, radio log, top bar; sim into
+  combat / movement / drones / fires / AI files).
+- **General cleanup** — extract shared UI primitives (now that Mantine + a theme are in), remove
+  dead code, and standardize styling on the theme instead of scattered inline styles.
+- Design notes: incremental migration (allowJs + rename file-by-file); lean on the Mantine theme
+  and components introduced with the UAV-window rebuild as the pattern to extend.
+
+### Save / Continue Game
+Persist a session so a game can be resumed later:
+- **Save the full sim state** (`S` — map seed + size, units, structures, drones, resources, time,
+  fog, radio log) to local storage (and/or a downloadable file), and **Continue** from the splash.
+- Autosave periodically and on exit; a small save/load menu.
+- Design notes: `S` is a plain mutable singleton, so serialize it to JSON (rebuild the `Map`/`Set`
+  fields and the `S.map` methods on load, or regenerate the map from its seed+size and replay
+  placements); add a "Continue" entry to the splash when a save exists; pairs with the Scenario
+  Builder's serialization and seeded maps.
 
 ### Pop-Out UAV Feeds
 - **Detach a feed window into its own browser window/tab** so it can be dragged to a second

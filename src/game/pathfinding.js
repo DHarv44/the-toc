@@ -1,10 +1,11 @@
-import { GRID, CELL, MinHeap } from './mapgen.js'
+import { CELL, MinHeap } from './mapgen.js'
 
 // A* over the terrain grid for a mobility class. Returns array of world-space
 // waypoints (cell centers, collinear points pruned), or null if unreachable.
 // opts.crossCountry: strip the road speed bonus so tactical moves advance
 // direct/off-road (roads still usable — and still the only water crossings).
 export function findPath(map, sx, sy, tx, ty, mob, opts = {}) {
+  const GRID = map.GRID
   const xc = opts.crossCountry ? 2.2 : 1
   const start = map.cellAt(sx, sy)
   let goal = map.cellAt(tx, ty)

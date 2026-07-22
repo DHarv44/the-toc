@@ -2,9 +2,16 @@ import { createNoise2D } from 'simplex-noise'
 import { makeRng } from './rng.js'
 import { MOVE_FACTORS } from './units.js'
 
-export const GRID = 256      // cells per side
-export const CELL = 50       // meters per cell
+export const GRID = 256      // default (large) cells per side
+export const CELL = 50       // meters per cell (constant across sizes)
 export const WORLD = GRID * CELL
+
+// selectable map sizes — cells per side (world span = size * CELL meters)
+export const MAP_SIZES = {
+  small: 96,    // 4.8 km — dev sandbox / quick skirmish
+  medium: 160,  // 8.0 km
+  large: 256,   // 12.8 km — the original full map
+}
 
 // terrain codes
 export const T_FIELD = 0, T_FOREST = 1, T_URBAN = 2, T_WATER = 3
@@ -15,7 +22,10 @@ const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]
 // Terrain generation with real hydrology: elevation first, then depression
 // filling (priority flood), D8 flow accumulation to trace rivers along true
 // drainage lines, lakes only where water would actually pond.
-export function genMap(seed) {
+export function genMap(seed, gridSize = GRID) {
+  // shadow the module GRID/WORLD so the whole generator runs at this map's size
+  const GRID = gridSize
+  const WORLD = GRID * CELL
   const rng = makeRng(seed)
   const n1 = createNoise2D(rng)
   const n2 = createNoise2D(rng)
@@ -248,7 +258,7 @@ export function genMap(seed) {
   const edges = mstEdges(nodes)
   if (towns.length >= 2) edges.push([1, 2])
   for (const [a, b] of edges) {
-    const path = roadAstar(nodes[a], nodes[b], elev, terr)
+    const path = roadAstar(nodes[a], nodes[b], elev, terr, GRID)
     for (const i of path) road[i] = 1
   }
 
@@ -304,7 +314,7 @@ function mstEdges(nodes) {
 }
 
 // A* used only at generation time to lay roads (slope-averse, bridges expensive)
-function roadAstar(from, to, elev, terr) {
+function roadAstar(from, to, elev, terr, GRID) {
   const N = GRID * GRID
   const g = new Float32Array(N).fill(Infinity)
   const came = new Int32Array(N).fill(-1)

@@ -14,7 +14,7 @@ export const useUI = create((set, get) => ({
   cmdMode: 'move',         // 'move' | 'attack' — what a ground/target click means
   setCmdMode: (cmdMode) => set({ cmdMode }),
   ctxMenu: null,           // {x, y, unitId} — screen coords
-  feeds: [newFeed()],
+  feeds: [],               // no feed shown until the player opens one (or deploys a drone)
   night: false,
   showNet: true,
   muted: false,

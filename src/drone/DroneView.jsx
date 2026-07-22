@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { S, elemWorld, elemExposed } from '../game/sim.js'
 import { muzzle, rumble, gunfire, audioReady } from '../game/audio.js'
 import { UNIT_TYPES, DRONE_TYPES, STRUCTURES } from '../game/units.js'
-import { GRID, CELL, WORLD, T_FIELD, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
+import { CELL, T_FIELD, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 
 // The battlefield as seen through a UAS sensor ball. The scene is built in two
 // palettes: IR luminance (WHOT/BHOT/NVG derive from it via CSS filters) and
@@ -23,7 +23,7 @@ let cache = null
 function getDetail() {
   if (cache && cache.map === S.map) return cache
   const map = S.map
-  const { elev, terr, road, waterSurf } = map
+  const { elev, terr, road, waterSurf, GRID, WORLD } = map
 
   const elevAtBilinear = (x, y) => {
     const cx = x / CELL - 0.5, cy = y / CELL - 0.5

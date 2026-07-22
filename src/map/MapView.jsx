@@ -4,7 +4,7 @@ import { UNIT_TYPES, STRUCTURES, DRONE_TYPES } from '../game/units.js'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender.js'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols.js'
 import { useUI } from '../ui/store.js'
-import { CELL, GRID } from '../game/mapgen.js'
+import { CELL } from '../game/mapgen.js'
 
 export default function MapView() {
   const canvasRef = useRef(null)
@@ -14,10 +14,12 @@ export default function MapView() {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const terrainLayer = renderTerrainLayer(S.map)
-    const view = viewRef.current = {
-      cx: S.map.fob.x, cy: S.map.fob.y - 2000,
-      ppm: Math.max(0.02, Math.min(window.innerWidth || 1280, window.innerHeight || 720) / 9000),
-    }
+    // dev sandbox frames both bases in one screen; a normal game opens on the HQ
+    const dv = S.map.devView
+    const vpMin = Math.min(window.innerWidth || 1280, window.innerHeight || 720)
+    const view = viewRef.current = dv
+      ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
+      : { cx: S.map.fob.x, cy: S.map.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
     window.__view = view // dev hook
 
     function resize() {
@@ -32,20 +34,21 @@ export default function MapView() {
     resize()
     window.addEventListener('resize', resize)
 
-    // keep the view inside world bounds: zoom floor = world fills the screen,
-    // center clamped so no out-of-world area shows
+    // zoom floor lets the whole (square) map fit the viewport — it's letterboxed on
+    // the longer axis, where the off-map backdrop shows. The view centers on any axis
+    // the map no longer fills; otherwise it's clamped so no gap appears on that axis.
     function clampView() {
       if (canvas.width < 2 || canvas.height < 2) return
       if (!isFinite(view.cx) || !isFinite(view.cy) || !isFinite(view.ppm) || view.ppm <= 0) {
         view.cx = S.map.fob.x; view.cy = S.map.fob.y - 2000
         view.ppm = Math.max(0.02, Math.min(canvas.width, canvas.height) / 9000)
       }
-      const minPpm = Math.max(canvas.width, canvas.height) / S.map.WORLD
+      const minPpm = Math.min(canvas.width, canvas.height) / S.map.WORLD
       view.ppm = Math.max(minPpm, Math.min(1.2, view.ppm))
       const hw = canvas.width / 2 / view.ppm
       const hh = canvas.height / 2 / view.ppm
-      view.cx = Math.max(hw, Math.min(S.map.WORLD - hw, view.cx))
-      view.cy = Math.max(hh, Math.min(S.map.WORLD - hh, view.cy))
+      view.cx = hw * 2 >= S.map.WORLD ? S.map.WORLD / 2 : Math.max(hw, Math.min(S.map.WORLD - hw, view.cx))
+      view.cy = hh * 2 >= S.map.WORLD ? S.map.WORLD / 2 : Math.max(hh, Math.min(S.map.WORLD - hh, view.cy))
     }
 
     const w2sX = (x) => (x - view.cx) * view.ppm + canvas.width / 2
@@ -179,8 +182,9 @@ export default function MapView() {
             ui.setSelected([hit.obj.id])
             ui.openMenu({ x: e.clientX, y: e.clientY, unitId: hit.obj.id })
           } else if (hit && hit.kind === 'drone') {
+            // drone controls now live in the feed window — right-click opens its feed
             ui.setSelected([hit.obj.id])
-            ui.openMenu({ x: e.clientX, y: e.clientY, droneId: hit.obj.id })
+            ui.bindDrone(hit.obj.id)
           } else if (pickStructure(wx, wy) && !selectedFriendlies().length && !selectedDrones().length) {
             ui.openMenu({ x: e.clientX, y: e.clientY, structId: pickStructure(wx, wy).id })
           } else {
@@ -375,7 +379,8 @@ export default function MapView() {
       clampView()
       const night = useUI.getState().night
       const W = canvas.width, H = canvas.height
-      ctx.fillStyle = night ? '#0b1016' : '#b8c4cc'
+      // off-map backdrop: shows wherever the square map doesn't fill the viewport
+      ctx.fillStyle = night ? '#05080b' : '#141b21'
       ctx.fillRect(0, 0, W, H)
 
       // terrain (dimmed + desaturated at night)
@@ -389,6 +394,30 @@ export default function MapView() {
         terrainLayer.height * mpp * view.ppm,
       )
       ctx.filter = 'none'
+
+      // frame the map edge so the off-map backdrop reads as "outside the AO"
+      ctx.strokeStyle = night ? 'rgba(120,150,180,0.35)' : 'rgba(40,55,70,0.55)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(w2sX(0), w2sY(0), S.map.WORLD * view.ppm, S.map.WORLD * view.ppm)
+
+      // 100 m sub-grid: only once zoomed in enough that ≤ 5 of the 1 km cells span
+      // the viewport, so it never clutters the wider views. Drawn under the 1 km grid.
+      if (canvas.width / view.ppm <= 5000) {
+        const x0 = Math.max(0, s2wX(0)), x1 = Math.min(S.map.WORLD, s2wX(canvas.width))
+        const y0 = Math.max(0, s2wY(0)), y1 = Math.min(S.map.WORLD, s2wY(canvas.height))
+        ctx.strokeStyle = night ? 'rgba(140,180,220,0.06)' : 'rgba(30,40,60,0.09)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        for (let m = Math.ceil(x0 / 100) * 100; m <= x1; m += 100) {
+          if (m % 1000 === 0) continue // km lines are drawn bolder below
+          ctx.moveTo(w2sX(m), w2sY(y0)); ctx.lineTo(w2sX(m), w2sY(y1))
+        }
+        for (let m = Math.ceil(y0 / 100) * 100; m <= y1; m += 100) {
+          if (m % 1000 === 0) continue
+          ctx.moveTo(w2sX(x0), w2sY(m)); ctx.lineTo(w2sX(x1), w2sY(m))
+        }
+        ctx.stroke()
+      }
 
       // 1 km grid + labels
       ctx.strokeStyle = night ? 'rgba(140,180,220,0.14)' : 'rgba(30,40,60,0.18)'
@@ -686,6 +715,7 @@ export default function MapView() {
 
       // pontoon bridges laid by engineers
       if (S.pontoons.length) {
+        const GRID = S.map.GRID
         for (const i of S.pontoons) {
           const gx = i % GRID, gy = (i / GRID) | 0
           const x = w2sX(gx * CELL), y = w2sY(gy * CELL)

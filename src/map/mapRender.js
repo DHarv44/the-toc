@@ -1,4 +1,4 @@
-import { GRID, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
+import { T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 
 // High-detail topo rendering, 8 px per cell (2048 px layer).
 // Pass 1 builds bilinear-interpolated per-pixel fields (elevation, water depth,
@@ -8,6 +8,7 @@ import { GRID, T_FOREST, T_URBAN, T_WATER } from '../game/mapgen.js'
 const PX = 8
 
 export function renderTerrainLayer(map) {
+  const GRID = map.GRID
   const size = GRID * PX
   const cv = document.createElement('canvas')
   cv.width = size; cv.height = size

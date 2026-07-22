@@ -1,4 +1,4 @@
-import { genMap, T_FOREST, T_URBAN, T_WATER, GRID, CELL } from './mapgen.js'
+import { genMap, T_FOREST, T_URBAN, T_WATER, CELL, MAP_SIZES } from './mapgen.js'
 import { findPath } from './pathfinding.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from './units.js'
 import { makeRng } from './rng.js'
@@ -47,8 +47,8 @@ for (const e of S.structures) if (e.id >= nextId) nextId = e.id + 1
 const designators = { friend: 0, hostile: 0 }
 const FRIEND_CALLS = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA', 'JULIET', 'KILO', 'LIMA', 'MIKE', 'NOVA', 'OSCAR', 'PAPA', 'QUEBEC', 'ROMEO', 'SIERRA', 'TANGO']
 
-export function initGame(seed = 1337) {
-  S.map = genMap(seed)
+export function initGame(seed = 1337, gridSize = MAP_SIZES.large) {
+  S.map = genMap(seed, gridSize)
   S.t = 0
   S.units = []
   S.structures = []
@@ -89,6 +89,73 @@ export function initGame(seed = 1337) {
   // Player starter force near FOB
   deployUnit('SCT', S.map.fob.x + 200, S.map.fob.y - 200, true)
   deployUnit('INF', S.map.fob.x - 200, S.map.fob.y - 100, true)
+}
+
+// spiral out from a target point to the nearest cell a tracked vehicle can occupy,
+// so staged units/bases never land in water regardless of the seed's terrain
+function nearestLand(x, y) {
+  x = clampWorld(x); y = clampWorld(y)
+  if (isFinite(S.map.moveFactor(x, y, 'tracked'))) return { x, y }
+  for (let r = 1; r < 50; r++) {
+    const n = r * 8
+    for (let a = 0; a < n; a++) {
+      const ang = (a / n) * Math.PI * 2
+      const px = clampWorld(x + Math.cos(ang) * r * 120)
+      const py = clampWorld(y + Math.sin(ang) * r * 120)
+      if (isFinite(S.map.moveFactor(px, py, 'tracked'))) return { x: px, y: py }
+    }
+  }
+  return { x, y }
+}
+
+// Dev sandbox: a compact, reproducible scenario for fast feature testing — fog off,
+// full supply, no incoming waves. Both HQs sit in one screen (friendly bottom-left,
+// enemy top-right) with one of every unit type staged near its base, weapons held so
+// nothing attrits until the dev commits to a fight.
+export function initDevGame(seed = 1337) {
+  initGame(seed, MAP_SIZES.small) // smallest map — both bases fit in one screen
+  S.resources = 999999
+  S.fogEnabled = false
+  S.nextWave = Infinity
+  S.units = []
+  S.structures = []              // place a clean corner-to-corner layout ourselves
+  S.enemyGroups = []
+  const W = S.map.WORLD
+  // friendly lower-left, enemy upper-right (screen up = -y)
+  const blue = nearestLand(W * 0.26, W * 0.74)
+  const red = nearestLand(W * 0.74, W * 0.26)
+  S.map.fob = { x: blue.x, y: blue.y }
+  S.map.enemyBase = { x: red.x, y: red.y }
+
+  // installations spaced well clear of the HQ so their map icons never overlap
+  addStructure('friend', 'HQ', blue.x, blue.y, 'HQ COBALT', true)
+  const af = nearestLand(blue.x + 700, blue.y - 500); addStructure('friend', 'AFLD', af.x, af.y, 'COBALT STRIP', true)
+  const fb = nearestLand(blue.x - 750, blue.y - 250); addStructure('friend', 'FOB', fb.x, fb.y, 'FOB DEV', true)
+  const op = nearestLand(blue.x + 250, blue.y + 750); addStructure('friend', 'OP', op.x, op.y, 'OP DEV', true)
+  addStructure('hostile', 'HQ', red.x, red.y, 'RED HQ', true)
+  const rfb = nearestLand(red.x + 700, red.y + 350); addStructure('hostile', 'FOB', rfb.x, rfb.y, 'RED FOB', true)
+  const rop = nearestLand(red.x - 250, red.y - 750); addStructure('hostile', 'OP', rop.x, rop.y, 'RED OP', true)
+
+  // one of every friendly unit type, in a tidy block forward of the friendly HQ
+  const BLUE = ['INF', 'STRY', 'MECH', 'ARM', 'AT', 'SCT', 'CAV', 'MOR', 'ARTY', 'ENG', 'SIG', 'LOG']
+  BLUE.forEach((k, i) => {
+    const c = i % 4, r = (i / 4) | 0
+    const p = nearestLand(blue.x - 240 + c * 200, blue.y - 200 + r * 200)
+    deployUnit(k, p.x, p.y, true)
+  })
+  // one of every hostile type, in a block forward of the enemy HQ
+  const RED = ['INF', 'MECH', 'ARM', 'AT', 'CAV', 'ARTY']
+  RED.forEach((k, i) => {
+    const c = i % 3, r = (i / 3) | 0
+    const p = nearestLand(red.x - 200 + c * 200, red.y + 200 - r * 200)
+    spawnEnemy(k, p.x, p.y)
+  })
+  // hold fire so the sandbox stays static until the dev sets a unit weapons-free
+  for (const u of S.units) u.weapons = 'hold'
+
+  // open framed on both bases (read by MapView on mount)
+  const span = Math.max(Math.abs(red.x - blue.x), Math.abs(red.y - blue.y))
+  S.map.devView = { cx: (blue.x + red.x) / 2, cy: (blue.y + red.y) / 2, fit: span * 1.6 }
 }
 
 function addStructure(side, kind, x, y, label, instant = false) {
@@ -915,6 +982,7 @@ export function orderBridge(unitId, x, y) {
   if (!u || !UNIT_TYPES[u.type].canBridge) return
   if (Math.hypot(x - u.x, y - u.y) > 700) return toast('MOVE WITHIN 700M OF THE CROSSING')
   const m = S.map
+  const GRID = m.GRID
   const ti = m.cellAt(x, y)
   if (m.terr[ti] !== T_WATER) return toast('TARGET IS NOT A WATER GAP')
   const oct = ((Math.round(Math.atan2(y - u.y, x - u.x) / (Math.PI / 4)) % 8) + 8) % 8
@@ -1877,7 +1945,7 @@ export function advance(seconds) {
 
 if (typeof window !== 'undefined') {
   window.__game = {
-    S, initGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
+    S, initGame, initDevGame, advance, deployUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB,
     orderMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     reveal: () => { S.fogEnabled = false },
