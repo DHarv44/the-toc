@@ -4,6 +4,7 @@
 //   window.__goldenNew()  — new sim (window.__newGame), once it exists
 //   window.__goldenDiff() — run both, compare digests
 import { runGolden, type GoldenApi, type GoldenResult } from './golden'
+import { newGameApi } from './newGame'
 
 declare global {
   interface Window {
@@ -14,6 +15,8 @@ declare global {
     __goldenDiff?: () => { match: boolean; old: GoldenResult['summary']; new: GoldenResult['summary'] }
   }
 }
+
+window.__newGame = newGameApi
 
 window.__golden = () => {
   if (!window.__game) throw new Error('old sim not loaded')

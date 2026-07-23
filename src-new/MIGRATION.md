@@ -63,10 +63,21 @@ is post-migration cleanup, not part of the port.
       burst+dispersion kept verbatim for parity) · **opfor ✓** (ai.ts commander —
       issues only player-legal orders).
       ALL WAVE-3 DOMAIN LOGIC PORTED. Verification is the wave-4 golden gate.
-- [ ] **4** per-domain `update.ts` + `engine/SimLoop` composing the FROZEN tick order:
-      economy → construction/garrison → columns → movement → direct fire → ballistics →
-      drills/surrender/reports → attrition/deaths → airframes → contacts → opfor.
-      Gate: `__goldenDiff().match === true`.
+- [x] **4** ✓ **GOLDEN GATE PASSED — hash 696495692, identical to the old sim.**
+      Per-domain update slices: economy/update (supply lifts) · installations/update
+      (construction+garrison, structReports, structureDeaths incl. win/lose + aerostat
+      teardown) · forces/update (movementUpdate w/ columns+convoy+bridging, drillsUpdate,
+      casualtyReports, surrenderUpdate, attritionSync, unitDeaths) · fires/update
+      (directFireUpdate + ballisticsUpdate) · air/update (state machines).
+      `engine/SimLoop.ts` composes the FROZEN order + startLoop/stopLoop/advance
+      (loop handle on __WOD2_LOOP). `engine/scenario.ts` initGame/initDevGame
+      (groupSeq deliberately NOT reset — matches old module counter). SimLoop+scenario
+      are the composition root — the one engine layer allowed to import domains.
+      airAvailability/endSortie relocated air→economy (airframe half of the fielding
+      economy) so installation teardown needs no air import; air/availability.ts
+      re-exports. Verified headless: esbuild bundle of devtools/newGame api + runGolden
+      in Node vs the browser-verified old baseline. `?golden` page now wires
+      window.__newGame for in-browser __goldenDiff() too.
 - [ ] **5** presentation: audio → map (picking extracted) → drone (camera/feedAudio split) →
       ui (feed/, tray/, menus/, panels/, store, HUD thin)
 - [ ] **6** cutover: index.html → `/src-new/main.tsx`; full browser verification sweep;
