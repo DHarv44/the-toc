@@ -94,7 +94,12 @@ function DeploySection() {
             // deploy mode, no map click. Everything else still picks a spot on the map.
             const oneClick = (it.field || it.fieldAero) && ctx.sourceId != null
             const short = oneClick && it.field && ctx.purse != null && ctx.purse < it.cost
-            const fire = () => (it.fieldAero ? fieldAerostat(ctx.sourceId) : fieldUnit(it.key, ctx.sourceId))
+            const fire = () => {
+              if (!it.fieldAero) return fieldUnit(it.key, ctx.sourceId)
+              // raising the aerostat pops its feed straight up (or takes a slot at max)
+              const d = fieldAerostat(ctx.sourceId)
+              if (d && d.id != null) ui.showDrone(d.id)
+            }
             return (
               <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
                 note={it.note} disabled={it.disabled || short}

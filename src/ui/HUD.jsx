@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { Box, Group, Button, ActionIcon, Menu, Text, Divider } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
-import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneSensorMode, droneFire, droneToggleTarget, droneClearTargets, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
+import { S, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, convertToHq, droneFollow, droneLock, droneSensorMode, droneFire, droneToggleTarget, droneClearTargets, revealContact, gunshipSelectWeapon, gunshipSetMode, elemWorld, elemExposed, droneSet, droneRTB, grid } from '../game/sim.js'
 import { UNIT_TYPES, STRUCTURES, DRONE_TYPES, COVER_DEF } from '../game/units.js'
 import { setFeedAmbient, clearFeedAmbient } from '../game/audio.js'
 import { useUI, ROUTE_MODES } from './store.js'
@@ -430,12 +430,30 @@ const CAM_FILTERS = {
 
 // Convert a click inside a drone feed to a world ground point by raycasting the
 // analytic sensor camera (matching DroneView's camera) onto the aim-point plane.
+// Where the sensor is actually looking — must match DroneCamera exactly, or feed clicks
+// and reticles land in the wrong place. The aerostat's look point is on its sweep ring
+// (bearing + tilt), NOT tx+gimbal, so it needs its own case; every other state uses the
+// orbit aim point. Both projection helpers below share this so they can't drift from the
+// camera.
+function feedAimPoint(drone, feed) {
+  if (drone.lock) return { x: drone.lock.x, y: drone.lock.y }
+  if (drone.tether && drone.state === 'onstation') {
+    const spec = DRONE_TYPES[drone.type]
+    const alt = spec.alt * (drone.altMul || 1)
+    const dep = drone.tilt ?? Math.atan2(alt, spec.sight * 0.45)
+    const R = alt / Math.tan(Math.max(AEROSTAT_MIN_TILT, dep))
+    const a = drone.scanAngle || 0
+    return { x: drone.tx + Math.cos(a) * R, y: drone.ty + Math.sin(a) * R }
+  }
+  return { x: drone.tx + feed.gx, y: drone.ty + feed.gy }
+}
+
 function feedRayToGround(drone, feed, cx, cy, w, h) {
   if (!S.map || !w || !h) return null
   const spec = DRONE_TYPES[drone.type]
   const camPos = { x: drone.x, y: S.map.elevAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
-  const aimX = drone.lock ? drone.lock.x : drone.tx + feed.gx
-  const aimY = drone.lock ? drone.lock.y : drone.ty + feed.gy
+  const aim = feedAimPoint(drone, feed)
+  const aimX = aim.x, aimY = aim.y
   const groundY = S.map.elevAt(aimX, aimY)
   let fwd = { x: aimX - camPos.x, y: groundY - camPos.y, z: aimY - camPos.z }
   const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1
@@ -475,8 +493,8 @@ function feedProjectToScreen(drone, feed, wx, wy, w, h) {
   if (!S.map || !w || !h) return null
   const spec = DRONE_TYPES[drone.type]
   const camPos = { x: drone.x, y: S.map.elevAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
-  const aimX = drone.lock ? drone.lock.x : drone.tx + feed.gx
-  const aimY = drone.lock ? drone.lock.y : drone.ty + feed.gy
+  const aim = feedAimPoint(drone, feed)
+  const aimX = aim.x, aimY = aim.y
   let fwd = { x: aimX - camPos.x, y: S.map.elevAt(aimX, aimY) - camPos.y, z: aimY - camPos.z }
   const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1
   fwd = { x: fwd.x / fl, y: fwd.y / fl, z: fwd.z / fl }
@@ -772,11 +790,15 @@ function FeedWindow({ feed, index }) {
     const rect = e.currentTarget.getBoundingClientRect()
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top
     const w = rect.width, h = rect.height
+    // The aerostat designates by direct observation: whatever the operator can see in the
+    // sweep is fair game, revealed on the spot. Every other drone still requires the vic to
+    // already be a live contact (its passive spotting handles that as it flies).
+    const byDirectSight = !!drone.tether
     // pick the nearest on-screen vic/troop to the click
     let best = null, bd = 32 // px hit radius
     for (const u of S.units) {
       if (u.strength <= 0 || !u.elements) continue
-      if (S.fogEnabled && u.side !== 'friend') { const c = S.contacts.get(u.id); if (!c || !c.live) continue }
+      if (!byDirectSight && S.fogEnabled && u.side !== 'friend') { const c = S.contacts.get(u.id); if (!c || !c.live) continue }
       for (let ei = 0; ei < u.elements.length; ei++) {
         const el = u.elements[ei]
         if (!el.alive || !elemExposed(u, el)) continue
@@ -788,6 +810,7 @@ function FeedWindow({ feed, index }) {
       }
     }
     if (best) {
+      if (byDirectSight) revealContact(best.unitId) // the feed IS the sensor — put it on the BFT
       // ctrl-click adds/removes from the target set; a plain click selects just that vic
       if (e.ctrlKey) droneToggleTarget(drone.id, best.unitId, best.ei)
       else { droneClearTargets(drone.id); droneToggleTarget(drone.id, best.unitId, best.ei) }
@@ -919,6 +942,11 @@ function FeedWindow({ feed, index }) {
                 <FeedSelect title="Turret" value={drone.sensorMode || 'auto'}
                   options={[{ val: 'auto', label: 'AUTO SWEEP' }, { val: 'free', label: 'FREE LOOK' }]}
                   onSelect={(m) => droneSensorMode(drone.id, m)} color="#8fd4a8" minWidth={72} />
+              )}
+              {drone && drone.state === 'onstation' && drone.tether && !drone.followId && (drone.sensorMode || 'auto') === 'auto' && (
+                <FeedSelect title="Sweep speed" value={drone.scanMul || 1}
+                  options={[{ val: 0.5, label: 'SLOW' }, { val: 1, label: 'MED' }, { val: 2, label: 'FAST' }]}
+                  onSelect={(v) => droneSet(drone.id, { scanMul: v })} color="#8fd4a8" minWidth={52} />
               )}
               {drone && drone.state === 'onstation' && !drone.tether && (
                 <Button size="compact-xs" variant={drone.lock ? 'filled' : 'default'} c="#ffb257"

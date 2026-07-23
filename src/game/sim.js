@@ -779,6 +779,9 @@ export function droneFollow(droneId, unitId) {
   } else {
     d.followId = null
     if (d.lock && d.lock.track) d.lock = null   // release the follow camera
+    // aerostat: hold the view where the track left it rather than resuming the sweep —
+    // scanAngle/tilt were kept synced to the target in the tick, so FREE holds the shot
+    if (d.tether) d.sensorMode = 'free'
     radio(d.label, 'move', `TRACK DROPPED — HOLDING GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
   }
 }
@@ -815,6 +818,15 @@ export function droneStrike(droneId, x, y) {
 // --- viewer target designation (per-vic) ---
 // the player clicks individual vics/troops in the UAV feed to build a target set,
 // then presses FIRE. targets track the specific element so a moving vic stays marked.
+// Force a hostile onto the BFT as a live contact. The aerostat designates by direct
+// observation — the operator is looking at the vic in the feed — so it doesn't wait for
+// the passive reveal sweep; clicking it in the feed IS the detection.
+export function revealContact(unitId) {
+  const u = S.units.find(u => u.id === unitId)
+  if (!u || u.side === 'friend') return
+  S.contacts.set(u.id, { x: u.x, y: u.y, type: u.type, lastSeen: S.t, live: true, strength: u.strength })
+}
+
 export function droneToggleTarget(droneId, unitId, ei) {
   const d = S.drones.find(d => d.id === droneId)
   if (!d) return
@@ -994,7 +1006,7 @@ export function newMoveGroup() { return groupSeq++ }
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
 const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
-const AEROSTAT_SCAN_RATE = 0.055 // rad/s — a full turret sweep takes ~114s
+const AEROSTAT_SCAN_RATE = 0.014 // rad/s at 1× — a full turret sweep takes ~7.5 min (MED)
 const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
 const STRAGGLE_GAP = 190  // metres before the column stops and waits for its tail
 
@@ -1447,9 +1459,13 @@ function findSpotter(x, y) {
     if (Math.hypot(s.x - x, s.y - y) <= s.sight * concealment(S.map, x, y)) return { cs: s.label, obj: s }
   }
   for (const d of S.drones) {
-    if (d.state !== 'onstation') continue
+    // an airborne sensor reveals anything inside its footprint on the BFT — if a UAV can
+    // see it, the network reports it. No terrain concealment penalty: looking straight
+    // down, a treeline doesn't hide a vic the way it does from a ground unit. Also spots
+    // during transit, not just on-station, so a bird en route still feeds the picture.
+    if (d.state === 'rtb') continue
     const dd = Math.hypot(d.tx - x, d.ty - y)
-    if (dd <= DRONE_TYPES[d.type].sight * (d.sightMul || 1) * Math.max(0.55, concealment(S.map, x, y))) return { cs: d.label, obj: d }
+    if (dd <= DRONE_TYPES[d.type].sight * (d.sightMul || 1)) return { cs: d.label, obj: d }
   }
   return null
 }
@@ -2123,8 +2139,18 @@ export function tick(dt) {
         // around the mast; a lock stops the sweep and holds the point (handled in
         // DroneCamera). scanAngle is the bearing the turret is currently looking down.
         d.x = d.tx; d.y = d.ty; d.orbR = 0
-        // sweep only in AUTO; FREE holds the manual bearing, LOCK holds the point
-        if (d.sensorMode === 'auto' && !d.lock) d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE
+        if (d.lock) {
+          // locked/following: keep scanAngle+tilt tracking the lock point so that
+          // dropping the lock (unfollow, or a manual slew) holds the current view
+          // instead of snapping back to bearing 0 / the mast
+          const bx = d.lock.x - d.tx, by = d.lock.y - d.ty
+          d.scanAngle = Math.atan2(by, bx)
+          d.tilt = Math.atan2(spec.alt * (d.altMul || 1), Math.max(1, Math.hypot(bx, by)))
+        } else if (d.sensorMode === 'auto') {
+          // sweep only in AUTO; FREE holds the manual bearing. scanMul is the operator's
+          // sweep-speed setting (slow/med/fast).
+          d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE * (d.scanMul || 1)
+        }
       } else {
         const oR = spec.orbitR * (d.orbitMul || 1)
         if (d.orbR == null) d.orbR = oR

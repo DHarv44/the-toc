@@ -85,6 +85,16 @@ export const useUI = create((set, get) => ({
       set({ feeds: [...feeds, newFeed(droneId)] })
     }
   },
+  // Show a just-deployed drone: already up in a feed → leave it; an empty feed open →
+  // fill it; room for another → pop a NEW window; at max with all bound → take over the
+  // first feed. So deploying always lands you looking at it.
+  showDrone: (droneId) => set((s) => {
+    if (s.feeds.some(f => f.droneId === droneId)) return {}
+    const empty = s.feeds.find(f => f.droneId == null)
+    if (empty) return { feeds: s.feeds.map(f => (f.id === empty.id ? { ...f, droneId } : f)) }
+    if (s.feeds.length < 4) return { feeds: [...s.feeds, newFeed(droneId)] }
+    return { feeds: s.feeds.map((f, i) => (i === 0 ? { ...f, droneId } : f)) }
+  }),
 }))
 
 // HUD refresh pump (10 Hz) — decoupled from render loops
