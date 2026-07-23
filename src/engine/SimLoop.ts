@@ -48,6 +48,7 @@ export function tick(dt: number): void {
   attritionSync()         // elements brought in line with strength
   unitDeaths()
   structureDeaths()       // incl. tethered aerostat teardown
+  MODES[S.mode].update?.(S, dt) // mode logic (e.g. hill control clocks), pre-checkEnd
   checkMatchEnd()         // the active mode's win/lose check, right after deaths
   airUpdate(dt)           // drone state machines
   updateContacts()

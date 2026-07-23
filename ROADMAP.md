@@ -279,6 +279,25 @@ in is what you have.
   the alert/QRF machinery is exactly what *Symmetric Fog* wants the OPFOR to do in
   the big modes too.
 
+### 7. Skirmish — Player-Built Scenarios ⬜
+The **Scenario Builder** (see its own entry under UI & Tools) played as a first-class
+mode: you build the battle, then fight it.
+- **Build** — lay out both sides' order of battle, structures, drones and staging on
+  a chosen seed/map size; set supply, fog, and starting postures. All of that is the
+  Scenario Builder's job — Skirmish is its play button.
+- **Pick the victory condition** — from the objective-spec library the modes already
+  use: destroy the enemy HQ (A&D rules), hold a zone for N minutes (KotH rules),
+  survive N waves, destroy a target set, or plain last-side-standing. A scenario is
+  placements + a `ModeSpec` reference + its parameters.
+- **Save / load / share** — scenarios serialize to JSON (seed + placements +
+  objective); the splash's mode step grows a MY SCENARIOS list.
+- **Replayable by construction** — the sim is fully seeded, so a saved scenario
+  replays identically; a "reroll seed" toggle keeps the layout but varies the map.
+- Design notes: this is where the objective-spec generalization (see Campaign)
+  really pays — Skirmish just points at it. The builder writes to the same `S`
+  through the existing side-agnostic order/deploy paths; Save/Continue supplies the
+  serialization. Natural order: mode framework (done) → builder → skirmish wrapper.
+
 ---
 
 ## Assets & Systems
@@ -1121,9 +1140,35 @@ A proper in-app editor to lay out a battle instead of hand-placing everything by
   feeds custom battles, feature testing, and staged screenshots/demos.
 - Design notes: an editor mode that writes to the same `S` (units/structures/drones) via the
   existing deploy paths but side-agnostic and position-free; serialize a scenario to JSON;
-  pairs with the mode selector, seeded maps, and the dev/test map.
+  pairs with the mode selector, seeded maps, and the dev/test map. Played back through
+  **Game Modes → 7. Skirmish**, which adds a victory-condition picker on top.
 
 ## Installations
+
+### Static Defense Assets — Pillboxes & Emplacements ⬜ *(needs a larger design discussion before build)*
+A new class of buildable "unit": static defensive works — pillboxes, bunkers, AT
+emplacements, maybe trench segments — that hold ground without tying up a maneuver
+platoon. Raised by engineers, killed like structures, fought like units.
+- **The idea** — a pillbox covers an avenue of approach with a fixed weapon arc; a
+  bunker shelters infantry (garrison a squad inside?); an AT emplacement makes a
+  crossing or road genuinely expensive to force. Pairs naturally with *Make Maneuver
+  Beat Mass* (prepared defense should win frontally) and gives Base Defense (waves)
+  and the Campaign's LODGMENT mission their teeth.
+- **Open questions for the discussion:**
+  - Crewed or automatic? (garrisoned by troops pulled from a unit vs self-firing like
+    the planned FOB guard towers — very different sustainment and balance)
+  - Unit or structure? (element model + weapons like a unit, or hp-block + buildT like
+    a structure — probably a structure with a unit's fire pass)
+  - How they differ from dug-in infantry so both stay worth using (arc-limited but
+    tougher? no reposition ever? cheaper to hold, blind outside the arc?)
+  - Overlap with *Obstacles & Area Denial* (wire/mines under Terrain & Protection) and
+    *FOB / HQ Built-in Defenses* below — one emplacement system should serve all three.
+  - Does the OPFOR get them? (its prepared belts would love pillboxes — and symmetric
+    rules say yes)
+- Design notes (sketch only, pending the discussion): likely a `STRUCTURES`-style
+  catalog entry with an `emplacement` block (arc, range, dps, crew?) resolved in the
+  direct-fire pass against the element model; engineer-built via the existing build
+  flow with its own placement rules (fields of fire preview would be the killer UX).
 
 ### FOB / HQ Built-in Defenses
 Bases shouldn't be passive HP sponges — give FOBs and HQs organic protection:

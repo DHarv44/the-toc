@@ -7,7 +7,7 @@
 // counter persisted across initGame calls within a session).
 import { S } from './state'
 import { makeRng } from './rng'
-import { DEFAULT_MODE, type ModeId } from './modes'
+import { DEFAULT_MODE, MODES, type ModeId } from './modes'
 import { genMap } from '../world/mapgen'
 import { MAP_SIZES } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
@@ -58,6 +58,7 @@ export function initGame(
   S.won = false; S.lost = false
   S.endT = null
   S.stats = { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 }
+  S.hill = null // the mode's setup hook creates it if the mode wants one
   S.speed = 1 // a previous match may have ended frozen
   S.nextWave = 60
   S.airCooldown = {}
@@ -91,6 +92,9 @@ export function initGame(
     const p = nearestLand(S.map!, S.map!.fob.x + Math.cos(a) * 260, S.map!.fob.y + Math.sin(a) * 260)
     deployUnit(typeKey, p.x, p.y, true)
   })
+
+  // mode-specific scenario shaping (e.g. King of the Hill places its objective)
+  MODES[mode].setup?.(S)
 }
 
 // Dev sandbox: a compact, reproducible scenario for fast feature testing — fog off,

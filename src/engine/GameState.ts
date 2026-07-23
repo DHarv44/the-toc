@@ -306,6 +306,18 @@ export interface Counters {
   groupSeq: number
 }
 
+// King-of-the-Hill objective: one control zone on the map's dominant terrain.
+// null in modes without a hill. Clocks accumulate control seconds per side.
+export interface HillState {
+  x: number
+  y: number
+  r: number                  // control radius (m)
+  holder: Side | null        // uncontested presence right now (null = contested/empty)
+  holdFriend: number         // accumulated control seconds
+  holdHostile: number
+  target: number             // seconds of control needed to win
+}
+
 // After-action counters, accumulated during the run — units lost and enemy
 // destroyed can't be recovered from final state, so they're counted as they happen.
 export interface RunStats {
@@ -351,6 +363,7 @@ export interface GameState {
   lost: boolean
   endT: number | null        // sim time the match ended (the end screen's mission clock)
   stats: RunStats
+  hill: HillState | null     // King of the Hill objective (null in other modes)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
@@ -396,6 +409,7 @@ export function createInitialState(): GameState {
     lost: false,
     endT: null,
     stats: { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 },
+    hill: null,
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],

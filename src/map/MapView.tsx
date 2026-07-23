@@ -790,6 +790,33 @@ export default function MapView() {
         })
       }
 
+      // King of the Hill objective: control zone tinted by holder, clocks above
+      if (S.hill) {
+        const h = S.hill
+        const hx = w2sX(h.x), hy = w2sY(h.y), hr = h.r * view.ppm
+        const col = h.holder === 'friend' ? '63,157,255' : h.holder === 'hostile' ? '255,88,68' : '200,200,200'
+        ctx.beginPath()
+        ctx.arc(hx, hy, hr, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${col},0.08)`
+        ctx.fill()
+        ctx.setLineDash([9, 6])
+        ctx.strokeStyle = `rgba(${col},0.75)`
+        ctx.lineWidth = 2
+        ctx.stroke()
+        ctx.setLineDash([])
+        const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+        ctx.font = 'bold 10px Consolas, monospace'
+        ctx.textAlign = 'center'
+        ctx.fillStyle = `rgba(${col},0.95)`
+        ctx.fillText(
+          `OBJ ${h.holder === 'friend' ? '— HELD' : h.holder === 'hostile' ? '— ENEMY HELD' : '— CONTESTED'}`,
+          hx, hy - hr - 18)
+        ctx.font = '9px Consolas, monospace'
+        ctx.fillStyle = night ? 'rgba(160,200,235,0.9)' : 'rgba(30,40,60,0.85)'
+        ctx.fillText(`FRND ${mmss(h.holdFriend)} / ${mmss(h.target)} · ENY ${mmss(h.holdHostile)}`, hx, hy - hr - 6)
+        ctx.textAlign = 'left'
+      }
+
       // pontoon bridges laid by engineers
       if (S.pontoons.length) {
         const GRID = S.map!.GRID

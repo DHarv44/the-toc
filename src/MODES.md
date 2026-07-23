@@ -93,15 +93,28 @@ sags the front rather than ending the campaign. Hard prerequisite:
 *Save / Continue*. RunStats becomes the campaign ledger. Greyed entry already
 on the splash.
 
-## Mode 5 — King of the Hill · not started
+## Mode 5 — King of the Hill · IMPLEMENTED ✓ (2026-07-23)
 
-Single capture zone on the map's dominant terrain feature (read the elevation
-raster for the highest defensible cluster near centre); control by presence,
-first side to N accumulated minutes wins; OPFOR pressure cycles onto the
-objective instead of the player's HQ. Shares the presence/ownership machinery
-Zone Capture needs — good candidate for the SECOND mode implemented, since it's
-smaller than Waves and forces that plumbing. Full sketch in ROADMAP.md → Game
-Modes → 5.
+Second playable mode, built to prove the framework generalizes:
+- `S.hill: HillState` (zone + per-side control clocks + target 360 s) — created
+  by the mode's `setup` hook; `ModeSpec` gained optional `setup(S)` and
+  `update(S, dt)` hooks, called from initGame and the tick's frozen order
+  (right before checkEnd) respectively.
+- Hill picker: highest non-water cell in the central third of the elevation
+  raster; radius 350 m.
+- Control by presence: uncontested friendlies run your clock, hostiles theirs,
+  contested/empty runs nobody's. `checkEnd`: first to target wins; the A&D
+  structure-wipe defeat is kept as a floor (no HQ + no FOB = can't field).
+- OPFOR: `enemyObjective` returns the hill when `S.hill` exists — battlegroups
+  fight for the objective instead of marching on the player's bases (modes
+  steer the AI through state, not new AI code).
+- MapView renders the zone (holder-tinted ring + HELD/ENEMY HELD/CONTESTED
+  label + both clocks); splash entry moved from COMING_SOON to MODE_ORDER.
+- VERIFIED in browser: splash → KotH small/regular → hill on 103 m central
+  high ground, clocks accrue with presence, OPFOR objective == hill, dug-in
+  defense beat the push, clock ran out → OBJECTIVE HELD end screen with mode
+  label + honest stats. Golden baseline UNCHANGED at `1929051837` (A&D path
+  untouched; hill is null outside KotH).
 
 ## Mode 6 — Spec Ops Missions · not started
 
@@ -112,6 +125,14 @@ CLOSE RECON (no-detection scoring). OPFOR alert-state machine (quiet →
 searching → alerted) with QRF battlegroups hunting the last known position —
 machinery that *Symmetric Fog* will want in the big modes anyway. Win =
 objective + exfil zone. Full sketch in ROADMAP.md → Game Modes → 6.
+
+## Mode 7 — Skirmish (player-built scenarios) · not started
+
+The Scenario Builder (ROADMAP → UI & Tools) played as a mode: placements + a
+`ModeSpec` reference + parameters, serialized to JSON, listed on the splash.
+Victory condition picked from the objective-spec library. Build order: mode
+framework (done) → builder → skirmish wrapper. Full sketch in ROADMAP.md →
+Game Modes → 7.
 
 ## Rules of the road (apply to all mode work)
 

@@ -32,8 +32,11 @@ function centroidOf(list: Unit[]): Vec2 | null {
   return { x: x / list.length, y: y / list.length }
 }
 
-// pick the enemy's objective: nearest player installation, HQ prioritised
+// pick the enemy's objective: nearest player installation, HQ prioritised.
+// When the mode has a hill (King of the Hill), the hill IS the objective —
+// battlegroups fight for it instead of marching on the player's bases.
 function enemyObjective(from: Vec2): Vec2 {
+  if (S.hill) return { x: S.hill.x, y: S.hill.y }
   let best: Vec2 | null = null, bd = Infinity
   for (const s of S.structures) {
     if (s.side !== 'friend') continue
