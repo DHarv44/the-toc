@@ -23,10 +23,12 @@ export interface Feed {
   muted: boolean // per-feed audio, layered under the global mute
 }
 
+// unit right-click carries unitId; empty-handed structure right-click carries structId
 export interface CtxMenu {
   x: number
   y: number
-  unitId: number
+  unitId?: number
+  structId?: number
 }
 
 export interface FireOpts {
