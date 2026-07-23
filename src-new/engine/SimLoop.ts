@@ -70,3 +70,13 @@ export function advance(seconds: number): { t: number; units: number; contacts: 
   for (let i = 0; i < steps; i++) tick(0.1)
   return { t: S.t, units: S.units.length, contacts: S.contacts.size }
 }
+
+// HMR: on a hot update of this module, stop the old loop and let the fresh module
+// resume it with the new code; S is preserved on globalThis so the session survives.
+// (Edits to OTHER sim modules fall through to a full page reload — restoring the old
+// single-file sim's whole-graph acceptance is post-migration work.)
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => stopLoop())
+  import.meta.hot.accept()
+  if (S.map) startLoop()
+}

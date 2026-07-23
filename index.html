@@ -13,7 +13,9 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <!-- CUTOVER: the game now runs on the TypeScript sim (src-new).
+         The old JS app remains at /src/main.jsx as the rollback path. -->
+    <script type="module" src="/src-new/main.tsx"></script>
     <!-- migration harness: only fetched when opened with ?golden -->
     <script type="module">
       if (new URLSearchParams(location.search).has('golden')) import('/src-new/devtools/entry.ts')

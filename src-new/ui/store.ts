@@ -21,6 +21,7 @@ export interface Feed {
   gy: number
   fov: number  // zoom
   muted: boolean // per-feed audio, layered under the global mute
+  winMode?: 'win' | 'max' | 'min' // draggable window / fill screen / title only
 }
 
 // unit right-click carries unitId; empty-handed structure right-click carries structId

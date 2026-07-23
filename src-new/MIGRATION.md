@@ -82,13 +82,28 @@ is post-migration cleanup, not part of the port.
       now arrives via bus.on('radio') instead of a direct sim call; radioBus.inNode
       expando replaced by a module-local radioIn; HMR-guarded wiring on
       __WOD2_AUDIO_WIRED; hashStr deduped into lib/math).
-      Remaining: map/ (MapView.tsx + picking.ts extracted) → drone/ (DroneView.tsx +
-      DroneCamera.ts + feedAudio.ts split) → ui/ (feed/, tray/, menus/, panels/,
-      store, thin HUD.tsx). These are verbatim JSX→TSX ports off the running UI —
-      read each old file IN FULL immediately before porting (they are large:
-      HUD ~1100, DroneView ~1500+, MapView ~1000+ lines).
-- [ ] **6** cutover: index.html → `/src-new/main.tsx`; full browser verification sweep;
-      rebuild `window.__game`/`__advance` hooks from the new sim.
+      **map ✓** (symbols/mapRender/MapView verbatim; ctxMenu type gained structId) ·
+      **drone ✓** (DroneView + DroneCamera + feedAudio split; _snd/_sndFireT
+      presentation flags typed on the entities; dead formationOffset dropped) ·
+      **ui ✓** (theme/styles/store/Rail/NetPanel/TopBar/palette/CommandPanel/
+      Splash/HUD; Feed gained winMode; HUD's dead feedRayToGround dropped and
+      HeaderMenu's out-of-scope lookPoint — a latent crash — fixed via prop).
+- [x] **6** ✓ **CUTOVER COMPLETE — the game runs on the TypeScript sim.**
+      index.html → `/src-new/main.tsx` (old `/src/main.jsx` kept as the rollback
+      path — just swap the script src back). App.tsx/main.tsx ported;
+      devtools/hooks.ts rebuilds the full `window.__game`/`__advance` surface from
+      the new modules; SimLoop self-accepts HMR (edits to other sim modules
+      full-reload — restoring whole-graph acceptance is post-migration work).
+      Browser verification: splash → new game (small/regular) → map+rails+HUD
+      render, zero console errors; fieldUnit/deployDrone/advance(120) via hooks —
+      OPFOR battlegroup spawned, Shadow on station, spot report on the net,
+      contact plotted; feed window opened with live IR imagery and controls.
+
+## Post-migration cleanup (deliberately NOT part of the port)
+- Route the 4 raw Math.random() sim sites through S.rng (breaks golden vs old — do
+  it once the old sim is deleted, then re-baseline).
+- Fine-grained HMR accepts for sim modules (only SimLoop self-accepts today).
+- Delete old `src/` once the new app has soaked (user's call).
 
 ## Module map (old → new)
 | old | new |
