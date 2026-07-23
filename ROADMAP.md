@@ -1128,10 +1128,11 @@ viewport) is currently a flat dark fill, which reads as harsh "black edges."
 - Design notes: reuse the splash's backdrop treatment for the map canvas's off-world fill (behind
   the world-edge border); keep it theme-aware (day/night).
 
-### Fit-to-Screen Control Overlaps the UAV Window ⬜
-> **Still colliding.** The ⛶ sits at `right: 10, bottom: 10` (z-index 16) and the first
-> docked feed defaults to the same corner at z-index 40. Moving the button inside the map
-> column cleared the *net rail*, which is a different problem — the feed dock still buries it.
+### Fit-to-Screen Control Overlaps the UAV Window ✅
+> **Fixed** — the bottom-right 50 px strip is reserved for map controls: feeds now default-dock
+> at `bottom: 50` so the ⛶ corner stays clear. Verified: docked feed's bottom edge sits 10 px
+> above the button and the button is the top element at its own centre. (A hand-dragged feed can
+> still be parked over it deliberately — that's the player's choice, not a default collision.)
 
 The bottom-right **fit-to-screen (⛶)** map control sits in the same corner where UAV feeds dock, so
 it overlaps the drone window. (The UAV window is now top-most z-index, so it covers the button, but

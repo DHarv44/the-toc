@@ -828,7 +828,8 @@ function FeedWindow({ feed, index }) {
 
   // default dock position: stack bottom-right
   const style = feed.x == null
-    ? { right: 10 + (index % 2) * (feed.w + 8), bottom: 10 + Math.floor(index / 2) * (feed.h + 8) }
+    // dock above the reserved map-control strip (the ⛶ corner), so feeds never bury it
+    ? { right: 10 + (index % 2) * (feed.w + 8), bottom: 50 + Math.floor(index / 2) * (feed.h + 8) }
     : { left: feed.x, top: feed.y }
 
   function startDrag(e) {
