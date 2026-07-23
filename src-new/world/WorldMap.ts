@@ -1,0 +1,53 @@
+// The typed world model: terrain rasters + query surface returned by genMap.
+// NOTE: carries closures — never JSON-serialize a WorldMap; persist { seed, GRID }
+// and regenerate (genMap is deterministic per seed+size).
+import type { Mobility, TerrainName } from './mobility'
+
+// terrain codes (raster values in `terr`)
+export const T_FIELD = 0, T_FOREST = 1, T_URBAN = 2, T_WATER = 3
+export type Terrain = typeof T_FIELD | typeof T_FOREST | typeof T_URBAN | typeof T_WATER
+export const TERR_NAME: readonly TerrainName[] = ['field', 'forest', 'urban', 'water']
+
+export const GRID_DEFAULT = 256   // default (large) cells per side
+export const CELL = 50            // meters per cell (constant across sizes)
+export const WORLD_DEFAULT = GRID_DEFAULT * CELL
+
+// selectable map sizes — cells per side (world span = size * CELL meters)
+export const MAP_SIZES = {
+  small: 96,    // 4.8 km — dev sandbox / quick skirmish
+  medium: 160,  // 8.0 km
+  large: 256,   // 12.8 km — the original full map
+} as const
+export type MapSizeKey = keyof typeof MAP_SIZES
+
+export interface Vec2 { x: number; y: number }
+
+export interface Town extends Vec2 {
+  gx: number
+  gy: number
+  name: string
+}
+
+export interface WorldMap {
+  GRID: number
+  CELL: number
+  WORLD: number
+  elev: Float32Array
+  terr: Uint8Array
+  road: Uint8Array
+  waterSurf: Float32Array
+  slope: Float32Array
+  towns: Town[]
+  seed: number
+  fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
+  enemyBase: Vec2
+  devView?: { cx: number; cy: number; fit: number }  // sandbox initial framing
+  idx(gx: number, gy: number): number
+  inBounds(gx: number, gy: number): boolean
+  cellAt(x: number, y: number): number
+  terrAt(x: number, y: number): Terrain
+  terrNameAt(x: number, y: number): TerrainName | 'road'
+  elevAt(x: number, y: number): number
+  moveFactor(x: number, y: number, mob: Mobility): number
+  moveFactorCell(i: number, mob: Mobility): number
+}

@@ -18,9 +18,14 @@ is post-migration cleanup, not part of the port.
 ## Waves
 - [x] **0** tooling: typescript+types (pinned to runtime majors), strict tsconfig,
       `typecheck` script, golden harness (`devtools/`), `?golden` loader in index.html
-- [ ] **1** leaves: `engine/rng` ✓ · `world/mapgen`+`WorldMap` · `world/pathfinding`
-      (MinHeap moves here) · domain catalogs (`forces/air/installations` from units.js,
-      `economy/difficulty`) · `lib/` (format, math)
+- [~] **1** leaves: `engine/rng` ✓ · **world/ ✓ VERIFIED** (`WorldMap` types, `mobility`
+      — MOVE_FACTORS moved here so domains→world, never reverse — `minheap`, `mapgen`,
+      `pathfinding`). Parity proven in Node via esbuild bundle: mapgen raster-identical
+      (elev/terr/road/waterSurf/slope/towns/bases) on 4 seed×size combos; findPath
+      waypoint-identical on 6 cases covering all route modes.
+      Remaining: domain catalogs (`forces/air/installations` from units.js — full source
+      now in session record, incl. carrier/def/indirect/logi/df/canBridge/carries fields
+      and the gunship weapon table), `economy/difficulty`, `lib/` (format, math)
 - [ ] **2** `engine/GameState` (counters nextId/designators/groupSeq move INTO state —
       flagged deviation; in-run behavior identical, fixes HMR counter reset) ·
       `engine/events` (RadioTraffic/Toast/GameOver) · `engine/scenario` (init/initDevGame)
