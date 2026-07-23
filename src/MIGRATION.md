@@ -13,7 +13,9 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline (old sim) digest hash: `696495692`** — deterministic across back-to-back runs.
+**Baseline digest hash: `4133144527`** — deterministic across back-to-back runs.
+(The pre-cleanup hash matching the old JS sim was `696495692`; it changed when the
+last raw Math.random sites were rerouted through S.rng — see cleanup below.)
 The harness seeds `Math.random` globally; the four raw `Math.random()` sim sites
 (surrender, gunship bursts/dispersion, radio closings, formSeed fallback) are ported
 verbatim so old and new consume the identical sequence. Re-routing them through `S.rng`
@@ -104,10 +106,14 @@ is post-migration cleanup, not part of the port.
       contact plotted; feed window opened with live IR imagery and controls.
 
 ## Post-migration cleanup (deliberately NOT part of the port)
-- Route the 4 raw Math.random() sim sites through S.rng, then re-baseline the
-  golden hash (the old sim is gone, so the harness now regression-tests the new
-  sim against itself).
-- Fine-grained HMR accepts for sim modules (only SimLoop self-accepts today).
+- ~~Route the raw Math.random() sim sites through S.rng~~ ✓ done — surrender rolls,
+  gunship bursts/dispersion and radio closings now draw from S.rng (pre-init
+  fallbacks only); the whole battle replays from its seed. Golden re-baselined to
+  `4133144527`.
+- ~~Fine-grained HMR accepts~~ ✓ done — devtools/hooks.ts and devtools/entry.ts are
+  now self-accepting boundaries (they import the whole sim from the entry chain),
+  and the UI pump interval is stashed so it replaces instead of stacking. Sim
+  edits now hot-apply with the session preserved.
 - ~~Delete old `src/`~~ ✓ done — deleted and `src-new` renamed over it.
 
 ## Module map (old → new)

@@ -56,11 +56,12 @@ reads ground truth — there is no enemy contact model).
    and the only one that degrades badly with a large selection.
 
 ### Next — the enablers
-5. **Code quality — TypeScript & componentization** — `HUD.jsx` is still ~1000 lines and
-   `sim.js` ~1970. Split first, type second. This gates the unit wiki, the tray rework, and
-   the dashboard.
+5. ~~**Code quality — TypeScript & componentization**~~ ✅ **DONE** — full strict-TS,
+   domain-driven rewrite, golden-run verified (`src/MIGRATION.md`). The gate on the unit
+   wiki, tray rework, and dashboard is open.
 6. **Save / continue game** — highest player-facing value per unit of work, and the natural
-   first API surface now that there's a server.
+   first API surface now that there's a server. Easier now: the sim is fully seeded and the
+   state is typed plain data built for a JSON round-trip.
 7. **Enemy AI / OPFOR** — battlegroups exist; what's missing is a commander above them,
    a reserve, counterattacks, and any use of the air/ISR layer.
 8. **Symmetric fog & counter-recon** — the AI cheats today. This is the single change that
@@ -1146,17 +1147,21 @@ overlaps the imagery and the footer controls.
 - Move the resize affordance **into the footer bar** (e.g., a grip at the footer's right edge) so it
   doesn't sit on top of the video, matching the tidy three-part header/view/footer layout.
 
-### Code Quality — TypeScript & Componentization 🟡 *(TopBar/CommandPanel/NetPanel/Rail/palette/styles split out; HUD.jsx still ~1000 lines, sim.js ~1970, zero TypeScript)*
-The codebase has grown organically; `HUD.jsx` in particular is a large monolith.
-- **Rewrite in TypeScript** — type the sim state (`S`), unit/drone/structure models, and the UI
-  props for real safety and editor support.
-- **Break up the monoliths** — split `HUD.jsx` (and `sim.js`) into focused components/modules
-  (deploy panel, selection tray, feed window + its subparts, radio log, top bar; sim into
-  combat / movement / drones / fires / AI files).
-- **General cleanup** — extract shared UI primitives (now that Mantine + a theme are in), remove
-  dead code, and standardize styling on the theme instead of scattered inline styles.
-- Design notes: incremental migration (allowJs + rename file-by-file); lean on the Mantine theme
-  and components introduced with the UAV-window rebuild as the pattern to extend.
+### Code Quality — TypeScript & Componentization ✅ *(full migration complete — the game runs on a strict-TypeScript, domain-driven `src/`)*
+Done as a formal rewrite-in-place migration (see `src/MIGRATION.md` for the full record):
+- **Strict TypeScript everywhere** — sim state (`GameState`), every entity (units/elements/
+  drones/structures/shells/contacts/battlegroups), catalogs, orders, and all UI props typed;
+  `npm run typecheck` is clean and gates every change.
+- **Monoliths gone** — `sim.js` (~2400 lines) split into domain modules
+  (`engine/ world/ domains/{forces,air,installations,fires,intel,economy,comms,opfor}`) with a
+  frozen tick order composed in `engine/SimLoop`; `HUD.jsx` and friends ported to typed TSX with
+  DroneView split into view/camera/feedAudio.
+- **Behavior-proven** — a golden-run harness (`?golden`, baseline hash `4133144527`) digests a
+  scripted 10-minute battle; the port matched the old sim bit-for-bit before cleanup.
+- **Bonus fixes landed en route** — HMR counter-reset bug (callsign reuse), a latent crash in the
+  feed hamburger's Lock control, dead code removed, the sim is now fully seeded (whole battles
+  replay from their seed — groundwork for save/replay), and sim edits hot-apply without killing
+  the running session.
 
 ### Save / Continue Game
 Persist a session so a game can be resumed later:

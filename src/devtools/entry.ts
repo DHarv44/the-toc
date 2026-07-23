@@ -38,3 +38,7 @@ window.__goldenDiff = () => {
 }
 
 console.log('[golden] harness loaded — __golden() / __goldenNew() / __goldenDiff()')
+
+// HMR boundary: dynamically imported from index.html (which can't accept), so
+// without a self-accept any sim edit under ?golden would full-reload the page.
+if (import.meta.hot) import.meta.hot.accept()

@@ -3,9 +3,9 @@
 // radioMsg() directly, the new one emits a 'radio' event on the bus and the
 // audio layer subscribes (wave 5).
 //
-// PARITY NOTE: phraseRadio's closing proword uses raw Math.random() on purpose
-// — the golden harness seeds Math.random globally, so old and new must consume
-// the identical sequence. Re-routing through S.rng is post-migration cleanup.
+// The closing proword draws from S.rng (seeded), so a whole battle — chatter
+// included — replays identically from its seed. (Was raw Math.random during
+// the migration for old-sim parity; re-baselined after the cutover.)
 import { S, bus } from '../../engine/state'
 import type { RadioKind, Unit } from '../../engine/GameState'
 import { grid } from '../../lib/format'
@@ -30,7 +30,8 @@ function radioHash(s: string): number {
 function phraseRadio(callsign: string, kind: RadioKind, msg: string, x?: number, y?: number): string {
   if (callsign === 'NET') return `ALL STATIONS, THIS IS NET CONTROL. ${msg}, OUT.`
   const higher = NET_HIGHER[radioHash(callsign) % NET_HIGHER.length] // each element calls the same higher
-  const close = RADIO_CLOSINGS[(Math.random() * RADIO_CLOSINGS.length) | 0]
+  const rng = S.rng || Math.random // seeded in-game; fallback only pre-init
+  const close = RADIO_CLOSINGS[(rng() * RADIO_CLOSINGS.length) | 0]
   let dist = ''
   if ((kind === 'spot' || kind === 'contact') && x != null && y != null) {
     const u = S.units.find(uu => uu.label === callsign) || S.drones.find(dd => dd.label === callsign)

@@ -172,8 +172,12 @@ export const useUI = create<UIState>()((set, get) => ({
   }),
 }))
 
-// HUD refresh pump (10 Hz) — decoupled from render loops
-setInterval(() => useUI.setState((s) => ({ tick: s.tick + 1 })), 100)
+// HUD refresh pump (10 Hz) — decoupled from render loops. Stashed on globalThis
+// so an HMR re-execution of this module replaces the old interval instead of
+// stacking a second one (the stale pump would keep ticking a dead store).
+const gPump = globalThis as typeof globalThis & { __WOD2_UI_PUMP?: ReturnType<typeof setInterval> }
+if (gPump.__WOD2_UI_PUMP) clearInterval(gPump.__WOD2_UI_PUMP)
+gPump.__WOD2_UI_PUMP = setInterval(() => useUI.setState((s) => ({ tick: s.tick + 1 })), 100)
 
 // dev hook: reach the UI store from the console (mirrors window.__game)
 if (typeof window !== 'undefined') {

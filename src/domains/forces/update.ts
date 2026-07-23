@@ -3,9 +3,9 @@
 // Ported verbatim from src/game/sim.js tick(); engine/SimLoop composes these in
 // the frozen phase order — do not call them from anywhere else.
 //
-// PARITY NOTE: the surrender roll uses raw Math.random() on purpose — the
-// golden harness seeds Math.random globally, so old and new must consume the
-// identical sequence.
+// The surrender roll draws from S.rng (seeded), so a battle replays identically
+// from its seed. (Was raw Math.random during the migration for old-sim parity;
+// re-baselined after the cutover.)
 import { S } from '../../engine/state'
 import type { Unit } from '../../engine/GameState'
 import { findPath } from '../../world/pathfinding'
@@ -283,8 +283,9 @@ export function surrenderUpdate(): void {
     if (u.strength > 30) continue
     if (u.targetId == null && S.t - (u.lastCombatT ?? -99) > 12) continue // not under duress
     u.surrenderRolled = true
-    const p = 0.01 + Math.random() * 0.04 // 1–5%
-    if (Math.random() < p) {
+    const rng = S.rng || Math.random // seeded in-game; fallback only pre-init
+    const p = 0.01 + rng() * 0.04 // 1–5%
+    if (rng() < p) {
       S.contacts.delete(u.id)
       if (u.side === 'friend') {
         radio(u.label, 'loss', 'ELEMENTS SURRENDERING — WE ARE COMBAT INEFFECTIVE', u.x, u.y)

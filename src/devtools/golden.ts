@@ -2,11 +2,10 @@
 // digests the end state. The SAME function runs against the old sim (window.__game) and
 // the new one (window.__newGame) — digest equality is the migration's behavior gate.
 //
-// Determinism: the old sim still calls raw Math.random() in four places (surrender rolls,
-// gunship bursts/dispersion, radio closings, formSeed fallback). The harness seeds
-// Math.random globally for the duration of the run so both sims consume the identical
-// sequence. The new sim ports those sites as Math.random() on purpose — parity over
-// purity; routing them through S.rng is a post-migration cleanup.
+// Determinism: the sim is fully seeded through S.rng (post-migration cleanup done).
+// The harness still seeds Math.random globally for the run as a belt-and-braces
+// guard: it pins the pre-init fallback paths and would surface any stray raw
+// Math.random that ever creeps back into sim code (the digest would go flaky).
 import { makeRng } from '../engine/rng'
 
 // The slice of the sim surface the harness drives. Structural on purpose: the old

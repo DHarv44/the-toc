@@ -1,10 +1,9 @@
 // The AC-130 gun suite: weapon selection, fire modes, the manual 105, and the
 // per-tick automatic guns. Ported verbatim from src/game/sim.js.
 //
-// PARITY NOTE: burst length, inter-burst gap and dispersion use raw
-// Math.random() on purpose — the golden harness seeds Math.random globally, so
-// old and new must consume the identical sequence. S.rng re-routing is
-// post-migration cleanup.
+// Burst length, inter-burst gap and dispersion draw from S.rng (seeded), so a
+// battle replays identically from its seed. (Was raw Math.random during the
+// migration for old-sim parity; re-baselined after the cutover.)
 import { S } from '../../engine/state'
 import type { Drone, GunFireMode } from '../../engine/GameState'
 import { clampWorld } from '../../world/place'
@@ -110,16 +109,17 @@ export function updateGunship(d: Drone, dt: number): void {
     }
   }
   if (!aim) { d.burstLeft = 0; return }   // nothing to shoot — end any burst in progress
+  const rng = S.rng || Math.random // seeded in-game; fallback only pre-init
   // fire in bursts, not a continuous stream: N rounds at ROF, then an inter-burst pause
   if (!(d.burstLeft! > 0)) {
-    d.burstLeft = w.burst[0] + Math.floor(Math.random() * (w.burst[1] - w.burst[0] + 1))
+    d.burstLeft = w.burst[0] + Math.floor(rng() * (w.burst[1] - w.burst[0] + 1))
   }
   d.gunAmmo![d.gunSel!]--
   d.burstLeft!--
   // within a burst rounds come at the ROF; after the last round hold for the gap
-  d.gunCd = d.burstLeft! > 0 ? 1 / w.rof : w.gap + Math.random() * 0.5
+  d.gunCd = d.burstLeft! > 0 ? 1 / w.rof : w.gap + rng() * 0.5
   // dispersed aim: Gaussian scatter (sum of uniforms) — area fire, never pinpoint
-  const gs = () => (Math.random() + Math.random() + Math.random() - 1.5) * (2 / 1.5)
+  const gs = () => (rng() + rng() + rng() - 1.5) * (2 / 1.5)
   let dx0 = aim.x + gs() * w.disp, dy0 = aim.y + gs() * w.disp
   // keep every round inside the visible orbit ring: the gunship only brings guns to
   // bear inboard of its pylon turn, so dispersion can't fling a round past the ring

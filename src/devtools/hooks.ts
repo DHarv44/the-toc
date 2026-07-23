@@ -31,3 +31,9 @@ if (typeof window !== 'undefined') {
   }
   ;(window as unknown as { __advance?: unknown }).__advance = advance
 }
+
+// HMR boundary: this module imports the whole sim, and is itself imported by
+// main (the entry). Without a self-accept, ANY sim edit would bubble through
+// here to the entry and force a full page reload, killing the session.
+// Re-running this module just reassigns window.__game with the fresh functions.
+if (import.meta.hot) import.meta.hot.accept()
