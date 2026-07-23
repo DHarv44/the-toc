@@ -1,5 +1,9 @@
 # TypeScript Migration — status
 
+> **FINISHED.** The old JS `src/` was deleted and `src-new/` renamed to `src/`
+> (this document's `src-new` paths are historical). Remaining optional cleanup
+> is listed at the bottom.
+
 Old `src/` stays untouched and keeps running the game until Wave 6 cutover.
 `npm run typecheck` must stay clean after every migrated module.
 
@@ -100,10 +104,11 @@ is post-migration cleanup, not part of the port.
       contact plotted; feed window opened with live IR imagery and controls.
 
 ## Post-migration cleanup (deliberately NOT part of the port)
-- Route the 4 raw Math.random() sim sites through S.rng (breaks golden vs old — do
-  it once the old sim is deleted, then re-baseline).
+- Route the 4 raw Math.random() sim sites through S.rng, then re-baseline the
+  golden hash (the old sim is gone, so the harness now regression-tests the new
+  sim against itself).
 - Fine-grained HMR accepts for sim modules (only SimLoop self-accepts today).
-- Delete old `src/` once the new app has soaked (user's call).
+- ~~Delete old `src/`~~ ✓ done — deleted and `src-new` renamed over it.
 
 ## Module map (old → new)
 | old | new |

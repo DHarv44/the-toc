@@ -12,5 +12,5 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src-new"]
+  "include": ["src"]
 }
