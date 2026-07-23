@@ -86,7 +86,7 @@ export interface DroneType {
   gunship?: GunshipSpec
 }
 
-export const DRONE_TYPES = {
+const DRONE_TYPES_LITERAL = {
   SHADOW: {
     key: 'SHADOW', name: 'RQ-7 Shadow', abbr: 'SHD', src: 'airfield', cost: 350,
     speed: 45, alt: 550, sight: 1500, endurance: 600, orbitR: 420,
@@ -138,7 +138,10 @@ export const DRONE_TYPES = {
   },
 } as const satisfies Record<string, DroneType>
 
-export type DroneTypeKey = keyof typeof DRONE_TYPES
+export type DroneTypeKey = keyof typeof DRONE_TYPES_LITERAL
+// the table viewed through the interface: sim code accesses specs by a generic
+// key (DRONE_TYPES[d.type]), which needs the optional fields visible on every member
+export const DRONE_TYPES: Readonly<Record<DroneTypeKey, DroneType>> = DRONE_TYPES_LITERAL
 
 // compile-time check: every UAS a ground unit can carry is a real drone type
 type _AssertCarriedKeysExist = CarriedUasKey extends DroneTypeKey ? true : never

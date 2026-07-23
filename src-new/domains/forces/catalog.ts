@@ -74,7 +74,7 @@ export interface UnitType {
   logi?: LogiSpec
 }
 
-export const UNIT_TYPES = {
+const UNIT_TYPES_LITERAL = {
   INF: {
     key: 'INF', name: 'Rifle Platoon', abbr: 'IN', cat: 'MANEUVER', mob: 'foot', speed: 3.2,
     sight: 800, range: 550, dpsSoft: 3.4, dpsHard: 1.5, soft: 1.0,
@@ -154,7 +154,10 @@ export const UNIT_TYPES = {
   },
 } as const satisfies Record<string, UnitType>
 
-export type UnitTypeKey = keyof typeof UNIT_TYPES
+export type UnitTypeKey = keyof typeof UNIT_TYPES_LITERAL
+// the table viewed through the interface: sim code accesses specs by a generic
+// key (UNIT_TYPES[u.type]), which needs the optional fields visible on every member
+export const UNIT_TYPES: Readonly<Record<UnitTypeKey, UnitType>> = UNIT_TYPES_LITERAL
 
 // Damage taken multiplier when defending in cover.
 export const COVER_DEF: Record<TerrainName, number> = {

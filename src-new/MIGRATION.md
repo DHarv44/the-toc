@@ -43,7 +43,17 @@ is post-migration cleanup, not part of the port.
       radioMsg(full, callsign, priority); NOT a general message bus).
       `engine/scenario` MOVED after wave 3: initGame calls domain behavior
       (addStructure/deployUnit/spawnEnemy/orderMove) that doesn't exist yet.
-- [ ] **3** domains: comms → economy → forces → intel → fires → installations → air → opfor
+- [~] **3** domains: **comms ✓** (radio/netRadio/toast; radioMsg call replaced by bus
+      emit; Math.random closing kept verbatim for golden parity) · **economy ✓**
+      (SUPPLY_INTERVAL/UPKEEP_DIVISOR, upkeepPerMin, templateCost, forceCount/forceCap,
+      unitAvailability, stampFieldCooldown, incomePerMin) · **air: availability ✓**
+      (airAvailability/endSortie). Also: `engine/state.ts` — the S+bus singletons,
+      HMR-stashed on NEW keys (__WOD2_*) so old+new sims coexist under ?golden;
+      singleton pattern deliberately retained (flagged). Catalogs now export the
+      literal table viewed through their interface (Record<Key, Type>) so
+      generic-key access sees optional fields.
+      Remaining: forces (elements/effStats/newUnit/movement orders) → intel →
+      fires → installations → air (drone orders + update) → opfor
 - [ ] **4** per-domain `update.ts` + `engine/SimLoop` composing the FROZEN tick order:
       economy → construction/garrison → columns → movement → direct fire → ballistics →
       drills/surrender/reports → attrition/deaths → airframes → contacts → opfor.

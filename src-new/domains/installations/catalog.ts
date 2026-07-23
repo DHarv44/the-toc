@@ -17,7 +17,7 @@ export interface StructureType {
   launchesDrones?: boolean
 }
 
-export const STRUCTURES = {
+const STRUCTURES_LITERAL = {
   OP: {
     key: 'OP', name: 'Observation Post', abbr: 'OP', cost: 150, hp: 150,
     buildTime: 25, sight: 1600, deployZone: 0, near: 2000, income: 0,
@@ -37,4 +37,7 @@ export const STRUCTURES = {
   },
 } as const satisfies Record<string, StructureType>
 
-export type StructureTypeKey = keyof typeof STRUCTURES
+export type StructureTypeKey = keyof typeof STRUCTURES_LITERAL
+// the table viewed through the interface: sim code accesses specs by a generic
+// key (STRUCTURES[s.kind]), which needs the optional fields visible on every member
+export const STRUCTURES: Readonly<Record<StructureTypeKey, StructureType>> = STRUCTURES_LITERAL
