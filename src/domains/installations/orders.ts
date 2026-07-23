@@ -61,6 +61,7 @@ export function deployUnit(typeKey: UnitTypeKey, x: number, y: number, free = fa
       if (S.resources < type.cost) return toast('INSUFFICIENT SUPPLY')
       S.resources -= type.cost
     }
+    S.stats.supplySpent += type.cost
   }
   const u = newUnit(typeKey, 'friend', x, y)
   S.units.push(u)
@@ -110,6 +111,7 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
     if (S.resources < type.cost) return toast('INSUFFICIENT SUPPLY')
     S.resources -= type.cost
   }
+  S.stats.supplySpent += type.cost
 
   const mob = type.carrier ? type.carrier.mob : type.mob
   const spawn = nearestLand(S.map!, st.x, st.y, mob)
@@ -153,6 +155,7 @@ export function deployStructure(kind: StructureTypeKey, x: number, y: number): S
         : kind === 'FOB' ? 'TOO FAR FROM BASE — NEEDS A SUPPLY TRUCK ON SITE'
           : 'TOO FAR FROM EXISTING BASE')
   S.resources -= spec.cost
+  S.stats.supplySpent += spec.cost
   const s = addStructure('friend', kind, x, y)
   toast(s.label + ' — CONSTRUCTION STARTED')
   return s
@@ -168,6 +171,7 @@ export function convertToHq(structId: number): Structure | null {
   if (S.resources < 300) return toast('INSUFFICIENT SUPPLY')
   S.resources += (s.stock || 0) // remaining FOB stock absorbed into the main pool
   S.resources -= 300
+  S.stats.supplySpent += 300
   const spec = STRUCTURES.HQ
   s.kind = 'HQ'
   s.buildT = 40

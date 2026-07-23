@@ -7,6 +7,7 @@ import TopBar from './ui/TopBar'
 import CommandPanel from './ui/CommandPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
+import EndScreenGate from './ui/EndScreen'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
@@ -16,9 +17,9 @@ export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
 
-  const begin: StartFn = (mode, size = 'large', difficulty) => {
+  const begin: StartFn = (mode, size = 'large', difficulty, gameMode) => {
     if (mode === 'dev') initDevGame()
-    else initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty)
+    else initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty, gameMode)
     startLoop()
     setStarted(true)
   }
@@ -43,6 +44,9 @@ export default function App() {
         </div>
         <NetPanel />
       </div>
+      {/* end-of-match overlay: unmounts with the layout on NEW GAME, so a fresh
+          match always gets a fresh (undismissed) gate */}
+      <EndScreenGate onNewGame={() => setStarted(false)} />
     </div>
   )
 }

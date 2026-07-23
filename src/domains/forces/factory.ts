@@ -37,6 +37,7 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
     elements: [],
   }
   initElements(u)
+  if (side === 'friend') S.stats.fielded++ // after-action counter
   return u
 }
 

@@ -27,6 +27,7 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   const cost = rounds * (ROUND_COST[shell] || 15)
   if (S.resources < cost) return toast('INSUFFICIENT SUPPLY FOR MISSION')
   S.resources -= cost
+  if (u.side === 'friend') S.stats.supplySpent += cost
   u.missionCooldown = ind.cooldown * Math.max(0.6, rounds / ind.salvo)
   // a battery ordered to fire mid-march holds its route and resumes it after the
   // reload (see drillsUpdate) instead of silently forgetting the move order

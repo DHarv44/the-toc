@@ -7,6 +7,7 @@
 // counter persisted across initGame calls within a session).
 import { S } from './state'
 import { makeRng } from './rng'
+import { DEFAULT_MODE, type ModeId } from './modes'
 import { genMap } from '../world/mapgen'
 import { MAP_SIZES } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
@@ -20,6 +21,7 @@ import type { UnitTypeKey } from '../domains/forces/catalog'
 
 export function initGame(
   seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
+  mode: ModeId = DEFAULT_MODE,
 ): void {
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
@@ -52,7 +54,11 @@ export function initGame(
   S.fieldCooldown = {}
   S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
   S.resources = diff.supplies
+  S.mode = mode
   S.won = false; S.lost = false
+  S.endT = null
+  S.stats = { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 }
+  S.speed = 1 // a previous match may have ended frozen
   S.nextWave = 60
   S.airCooldown = {}
   S.enemyGroups = []

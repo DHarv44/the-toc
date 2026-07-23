@@ -1,7 +1,7 @@
 // Installations tick slices: construction, garrison reconstitution, integrity
 // reports, and structure deaths (with win/lose and tethered-aerostat teardown).
 // Ported verbatim from src/game/sim.js tick().
-import { S, bus } from '../../engine/state'
+import { S } from '../../engine/state'
 import { healUnit } from '../forces/elements'
 import { endSortie } from '../economy/economy'
 import { radio, toast } from '../comms/radio'
@@ -52,7 +52,9 @@ export function structReports(): void {
   }
 }
 
-// deaths: structures (units died first — the frozen order matters)
+// deaths: structures (units died first — the frozen order matters).
+// Win/lose is NOT decided here any more: the active game mode's checkEnd runs
+// right after this phase in SimLoop, so each mode owns its own ending.
 export function structureDeaths(): void {
   for (let i = S.structures.length - 1; i >= 0; i--) {
     const s = S.structures[i]!
@@ -67,20 +69,6 @@ export function structureDeaths(): void {
           radio(S.drones[k]!.label, 'loss', `AEROSTAT LOST WITH ${s.label}`, s.x, s.y)
           endSortie(S.drones[k]!)
           S.drones.splice(k, 1)
-        }
-      }
-      if (s.side === 'hostile' && s.kind === 'HQ' && !S.won) {
-        S.won = true
-        toast('★ RED HQ DESTROYED — OBJECTIVE SECURED ★')
-        bus.emit('gameover', { result: 'won' })
-      }
-      // losing your command post with no FOB to convert = defeat
-      if (s.side === 'friend' && s.kind === 'HQ' && !S.lost) {
-        const canRecover = S.structures.some(o => o.side === 'friend' && o.kind === 'FOB')
-        if (!canRecover) {
-          S.lost = true
-          toast('!! COMMAND POST LOST — NO FALLBACK !!')
-          bus.emit('gameover', { result: 'lost' })
         }
       }
     }

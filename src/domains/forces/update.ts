@@ -325,8 +325,10 @@ export function surrenderUpdate(): void {
       if (u.side === 'friend') {
         radio(u.label, 'loss', 'ELEMENTS SURRENDERING — WE ARE COMBAT INEFFECTIVE', u.x, u.y)
         toast(u.label + ' SURRENDERED')
+        S.stats.lost++
       } else {
         radio('NET', 'spot', `ENEMY ELEMENT SURRENDERING — GRID ${grid(u.x, u.y)}`, u.x, u.y)
+        S.stats.enemyDestroyed++
       }
       S.units.splice(i, 1)
     }
@@ -348,6 +350,9 @@ export function unitDeaths(): void {
       if (u.side === 'friend') {
         radio('NET', 'loss', `${u.label} SIGNAL LOST — LKP GRID ${grid(u.x, u.y)}`, u.x, u.y)
         toast(u.label + ' DESTROYED')
+        S.stats.lost++
+      } else {
+        S.stats.enemyDestroyed++
       }
       S.units.splice(i, 1)
     }

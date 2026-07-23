@@ -12,6 +12,7 @@
 // engine ← world ← domains layering holds at runtime even though the state
 // shape naturally references catalog keys and the world map.
 import type { Rng } from './rng'
+import type { ModeId } from './modes'
 import type { WorldMap, Vec2 } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { DroneTypeKey } from '../domains/air/catalog'
@@ -305,6 +306,15 @@ export interface Counters {
   groupSeq: number
 }
 
+// After-action counters, accumulated during the run — units lost and enemy
+// destroyed can't be recovered from final state, so they're counted as they happen.
+export interface RunStats {
+  fielded: number        // friendly units that entered the board (incl. starting force)
+  lost: number           // friendly units destroyed or surrendered
+  enemyDestroyed: number // hostile units destroyed or surrendered
+  supplySpent: number    // supply spent on units/structures/aircraft/fire missions
+}
+
 export interface GameState {
   t: number
   map: WorldMap | null
@@ -336,8 +346,11 @@ export interface GameState {
   speed: number
   toasts: Toast[]
   radio: NetEntry[]
+  mode: ModeId               // which game mode's rules this match runs under
   won: boolean
   lost: boolean
+  endT: number | null        // sim time the match ended (the end screen's mission clock)
+  stats: RunStats
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
@@ -378,8 +391,11 @@ export function createInitialState(): GameState {
     speed: 1,
     toasts: [],
     radio: [],
+    mode: 'attack-defend',
     won: false,
     lost: false,
+    endT: null,
+    stats: { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 },
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],

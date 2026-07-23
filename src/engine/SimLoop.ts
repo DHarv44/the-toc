@@ -5,7 +5,8 @@
 //
 // This module (with scenario.ts) is the engine's composition root — the one
 // place above the domains that may import them.
-import { S } from './state'
+import { S, bus } from './state'
+import { MODES } from './modes'
 import { supplyUpdate } from '../domains/economy/update'
 import { constructionUpdate, structReports, structureDeaths } from '../domains/installations/update'
 import {
@@ -16,6 +17,22 @@ import { directFireUpdate, ballisticsUpdate } from '../domains/fires/update'
 import { airUpdate } from '../domains/air/update'
 import { updateContacts } from '../domains/intel/sensing'
 import { enemyAI } from '../domains/opfor/ai'
+import { toast } from '../domains/comms/radio'
+
+// The active mode decides when the match is over; the framework lands it:
+// flags set, clock captured, sim frozen (the time controls can still resume it
+// for a look around), and the gameover event fired for the end screen/audio.
+function checkMatchEnd(): void {
+  if (S.won || S.lost) return
+  const outcome = MODES[S.mode].checkEnd(S)
+  if (!outcome) return
+  if (outcome === 'won') S.won = true
+  else S.lost = true
+  S.endT = S.t
+  S.speed = 0
+  toast(MODES[S.mode].endText[outcome].title)
+  bus.emit('gameover', { result: outcome })
+}
 
 export function tick(dt: number): void {
   S.t += dt
@@ -30,7 +47,8 @@ export function tick(dt: number): void {
   structReports()
   attritionSync()         // elements brought in line with strength
   unitDeaths()
-  structureDeaths()       // incl. win/lose + tethered aerostat teardown
+  structureDeaths()       // incl. tethered aerostat teardown
+  checkMatchEnd()         // the active mode's win/lose check, right after deaths
   airUpdate(dt)           // drone state machines
   updateContacts()
   enemyAI(dt)

@@ -62,6 +62,7 @@ export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone 
   }
   if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
   S.resources -= spec.cost
+  S.stats.supplySpent += spec.cost
   const id = S.counters.nextId++
   const d: Drone = {
     id, type: typeKey, x: ox, y: oy, ox, oy,

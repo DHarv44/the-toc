@@ -79,7 +79,8 @@ contact model).
 Unit wiki · scenario builder · tutorial map · call for fire · counter-battery · attack
 helicopters · air defence & SEAD · sustainment (ammo/fuel, MEDEVAC, speedballs) ·
 true line-of-sight · smoke triggers · auto break-contact · installations' defences & C-RAM ·
-radio channels/nets · better three.js assets & particles · game modes 2 and 3.
+radio channels/nets · better three.js assets & particles · game modes 2–3 · campaign (mode 4,
+after 2–3 exist).
 
 ### Someday — architecture
 SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
@@ -173,6 +174,27 @@ Contested-line control:
 - Design notes: zone-ownership state, capture progress from friendly vs. enemy
   presence, a frontline/lattice of which zones are currently contestable, and
   scoring/victory tied to zone control rather than base destruction.
+
+### 4. Campaign ⬜
+A linked series of operations where the outcome of one mission shapes the next —
+the mode that makes losses matter beyond a single match:
+- **A theatre above the maps** — a simple sector/front view; each mission is played
+  as one of the other modes (A&D to take a sector, Base Defense to hold one, Zone
+  Capture to push a front) on a generated map for that sector.
+- **The force carries over** — surviving units persist between missions (strength,
+  maybe experience later); losses are permanent until replacements are bought from
+  a campaign-level supply pool. Suddenly the surrender/reconstitution/MEDEVAC
+  systems have a long-term reason to exist.
+- **Consequences flow forward** — a lost sector moves the front, costs income
+  (pairs with *Earned Income*), and changes where the next mission starts; a won
+  one banks supply and opens the adjacent sector.
+- **Campaign end** — take the enemy's rear sector / lose your own.
+- Design notes: sits directly on the mode framework (each mission is just a
+  `ModeSpec` run with a campaign-provided setup + carry-over serialization) and on
+  *Save / Continue* (a campaign IS persistent state — same JSON round-trip the
+  typed GameState was built for). The after-action stats the end screen already
+  accumulates become the campaign ledger. Build after modes 2–3 exist so missions
+  have variety.
 
 ---
 
