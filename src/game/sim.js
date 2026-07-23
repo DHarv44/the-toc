@@ -918,18 +918,14 @@ function gunshipHowitzerFire(d) {
 // engage the killbox INSIDE its orbit ring — not everything within gun range. The
 // bound matches the drawn orbit ring exactly (no margin) so nothing outside the
 // visible circle is ever acquired.
-// Where the gunship's rounds actually leave the airframe. On a left-hand pylon turn the
-// gun line is the port beam, which faces the orbit centre — so the muzzle sits a wingspan
-// inboard of the centroid and below the fuselage, never at the sensor/camera position.
+// Where the gunship's rounds leave the airframe: directly BELOW the sensor. A point
+// straight under the camera projects onto the frame's vertical centre-line, below the
+// aim point, at every bearing and altitude — so tracers always depart from bottom-centre
+// of the feed like a gun camera, instead of wandering with the orbit geometry. (A lateral
+// offset was tried first and projected ABOVE the sight line — top of frame — because the
+// steep look-down angle drops faster than any plausible muzzle drop.)
 function gunMuzzle(d, spec) {
-  const cx = d.tx - d.x, cy = d.ty - d.y
-  const cl = Math.hypot(cx, cy) || 1
-  const OFF = 14, DROP = 7
-  return {
-    x: d.x + (cx / cl) * OFF,
-    y: d.y + (cy / cl) * OFF,
-    alt: Math.max(20, spec.alt * (d.altMul || 1) - DROP),
-  }
+  return { x: d.x, y: d.y, alt: Math.max(20, spec.alt * (d.altMul || 1) - 10) }
 }
 
 function inKillbox(d, x, y) {
