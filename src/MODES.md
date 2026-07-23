@@ -80,12 +80,38 @@ map-gen or zone-placement logic, and map rendering for zone ownership.
 
 ## Mode 4 — Campaign · not started (build after 2–3)
 
-Linked operations: a theatre of sectors, each mission played as one of the other
-modes with the force carrying over between missions. Full product sketch in
-ROADMAP.md → Game Modes → 4. Campaign. Framework fit: a campaign layer that
-picks a `ModeSpec` + setup per mission and serializes carry-over state — leans
-on *Save / Continue* (persistent JSON state) and consumes the RunStats ledger
-this framework already accumulates. Greyed entry already on the splash.
+**One Large map, one long war** — a continuous operation fought as sequential
+missions on the SAME persistent map (nothing resets: front line, units, FOBs,
+bridges, wrecks, contacts). Seven-mission arc designed in ROADMAP.md → Game
+Modes → 4. Campaign: LODGMENT (capture/defend/stronghold) → LINES OF SUPPLY
+(build a FOB + convoy) → EYES FORWARD (ISR the belt) → SEIZE THE CROSSING →
+BREAK THE BELT → DEEP OPERATIONS → THE OBJECTIVE. Framework fit: missions
+generalize `checkEnd` into **objective specs** (hold-for-time / build-X /
+deliver-N / recon-% / seize-area / destroy-set) run sequentially over
+persistent state, with scripted OPFOR posture per phase; failing a mission
+sags the front rather than ending the campaign. Hard prerequisite:
+*Save / Continue*. RunStats becomes the campaign ledger. Greyed entry already
+on the splash.
+
+## Mode 5 — King of the Hill · not started
+
+Single capture zone on the map's dominant terrain feature (read the elevation
+raster for the highest defensible cluster near centre); control by presence,
+first side to N accumulated minutes wins; OPFOR pressure cycles onto the
+objective instead of the player's HQ. Shares the presence/ownership machinery
+Zone Capture needs — good candidate for the SECOND mode implemented, since it's
+smaller than Waves and forces that plumbing. Full sketch in ROADMAP.md → Game
+Modes → 5.
+
+## Mode 6 — Spec Ops Missions · not started
+
+Small fixed force (no economy/fielding — gate the palette off), one objective
+per run, night by default, stealth via the existing detection systems
+(concealment, earshot/DF). Mission templates: HVT RAID / SENSOR SMASH / CSAR /
+CLOSE RECON (no-detection scoring). OPFOR alert-state machine (quiet →
+searching → alerted) with QRF battlegroups hunting the last known position —
+machinery that *Symmetric Fog* will want in the big modes anyway. Win =
+objective + exfil zone. Full sketch in ROADMAP.md → Game Modes → 6.
 
 ## Rules of the road (apply to all mode work)
 

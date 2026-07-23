@@ -79,8 +79,8 @@ contact model).
 Unit wiki · scenario builder · tutorial map · call for fire · counter-battery · attack
 helicopters · air defence & SEAD · sustainment (ammo/fuel, MEDEVAC, speedballs) ·
 true line-of-sight · smoke triggers · auto break-contact · installations' defences & C-RAM ·
-radio channels/nets · better three.js assets & particles · game modes 2–3 · campaign (mode 4,
-after 2–3 exist).
+radio channels/nets · better three.js assets & particles · additional game modes (waves ·
+zone capture · king of the hill · spec ops) · campaign (last — it builds on the others).
 
 ### Someday — architecture
 SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
@@ -175,26 +175,109 @@ Contested-line control:
   presence, a frontline/lattice of which zones are currently contestable, and
   scoring/victory tied to zone control rather than base destruction.
 
-### 4. Campaign ⬜
-A linked series of operations where the outcome of one mission shapes the next —
-the mode that makes losses matter beyond a single match:
-- **A theatre above the maps** — a simple sector/front view; each mission is played
-  as one of the other modes (A&D to take a sector, Base Defense to hold one, Zone
-  Capture to push a front) on a generated map for that sector.
-- **The force carries over** — surviving units persist between missions (strength,
-  maybe experience later); losses are permanent until replacements are bought from
-  a campaign-level supply pool. Suddenly the surrender/reconstitution/MEDEVAC
-  systems have a long-term reason to exist.
-- **Consequences flow forward** — a lost sector moves the front, costs income
-  (pairs with *Earned Income*), and changes where the next mission starts; a won
-  one banks supply and opens the adjacent sector.
-- **Campaign end** — take the enemy's rear sector / lose your own.
-- Design notes: sits directly on the mode framework (each mission is just a
-  `ModeSpec` run with a campaign-provided setup + carry-over serialization) and on
-  *Save / Continue* (a campaign IS persistent state — same JSON round-trip the
-  typed GameState was built for). The after-action stats the end screen already
-  accumulates become the campaign ledger. Build after modes 2–3 exist so missions
-  have variety.
+### 4. Campaign ⬜ *(one large map, one long war)*
+A single **Large (12.8 km) map**, one continuous operation fought as a sequence of
+missions **on that same map**. Nothing resets between missions: the front moves, your
+units, FOBs, bridges, wrecks and contact picture all persist. Long play, large scale —
+the mode where every system already built gets a career instead of a cameo.
+
+**The operation** — from a lodgment in your corner to the enemy command complex in
+theirs. The OPFOR starts with the map: garrisoned towns, a prepared main defensive
+belt behind the river line, and its own rear-area installations. Proposed mission arc
+(each is an objective phase, briefed at its start, debriefed by the end-of-match
+framework):
+1. **LODGMENT** — capture, defend and stronghold a position: take the crossroads/town
+   nearest your entry, dig in, and defeat the first counterattack. (movement, defense,
+   the dig-in system)
+2. **LINES OF SUPPLY** — build a FOB forward of the strongpoint with engineers, stand
+   up a logistics run, raise an aerostat. Objective: FOB established + N supply
+   delivered by convoy. (engineering, logistics, tethered ISR)
+3. **EYES FORWARD** — stand up the airfield and map the enemy's first belt: put a
+   required share of the defensive line on the COP and find the river crossings.
+   (fixed-wing ISR, recon, the contact picture)
+4. **SEIZE THE CROSSING** — force the river line: take a bridge or emplace pontoons
+   under pressure, then hold the bridgehead against the counterattack. (bridging pays
+   off; defense round 2)
+5. **BREAK THE BELT** — deliberate attack on the dug-in main belt: shaping fires,
+   smoke, flank through the bridgehead, take the central town. (fires, smoke,
+   maneuver — the *Make Maneuver Beat Mass* systems earning their keep)
+6. **DEEP OPERATIONS** — interdict the OPFOR rear: kill its FOBs/convoys and silence
+   its guns; gunship on-station windows. (enemy economy as a target set,
+   counter-battery once it exists)
+7. **THE OBJECTIVE** — combined-arms assault on the enemy HQ complex with whatever
+   you've kept alive. Campaign victory.
+
+**Persistence & consequences:**
+- **The force carries over** — losses are permanent; replacements come from a
+  campaign supply ledger (mission payouts + *Earned Income* from ground held).
+  Surrender, reconstitution and (later) MEDEVAC finally matter long-term.
+- **Failing a mission doesn't hard-end the campaign** — the front sags instead: the
+  OPFOR counterattacks toward your last stronghold and the mission re-briefs from
+  the fallback position with what's left. The campaign is lost only when the
+  lodgment/HQ is gone.
+- **The map remembers** — pontoons stay laid, wrecks litter old battlefields, spotted
+  enemy structures stay marked. Fighting back over ground you lost should feel like it.
+- Design notes: missions generalize the mode framework's `checkEnd` into **objective
+  specs** (hold-for-time, build-X, deliver-N, recon-%, seize-area, destroy-set) run
+  sequentially over persistent state — the campaign is a list of those plus scripted
+  OPFOR posture per phase (garrison → counterattack → defend-belt → collapse inward).
+  *Save / Continue* is a hard prerequisite (long play means multiple sessions), and
+  the end-screen RunStats become the campaign ledger. OPFOR belt/garrison pre-placement
+  wants the seed-generated large map plus a placement pass keyed to the river line and
+  towns. Build after modes 2–3: waves gives the counterattack machinery, zone logic
+  gives capture-and-hold.
+
+### 5. King of the Hill ⬜
+One objective, both sides want it, terrain decides who keeps it:
+- **The hill is real** — pick the map's dominant terrain feature (the elevation
+  raster already exists): a hilltop, or the central town on flatter seeds. Mark a
+  control radius on the BFT.
+- **Control by presence** — friendly units inside, no live hostiles → your clock
+  runs. Contested or empty → nobody's does. First side to accumulate N minutes of
+  control wins.
+- **Why it's not a blob fight** — the hill itself pays: holding high ground extends
+  sight (ties into *True Line-of-Sight* later), and the control radius is small
+  enough that arty, smoke and flanks around the shoulder matter more than mass in
+  the open (leans on *Make Maneuver Beat Mass*).
+- **OPFOR posture** — continuous pressure: battlegroups cycle onto the objective
+  instead of marching on your HQ; its economy decides how hard each push is.
+- Design notes: a single capture zone sharing Zone Capture's presence/ownership
+  machinery (build whichever first, the other inherits it); mode-owned clock in
+  `S`; `checkEnd` = first-to-N-minutes; the hill picker reads the elevation raster
+  for the highest defensible cell cluster near map centre. A natural second
+  implementation after A&D — smaller than Waves and it forces the capture-zone
+  plumbing Zone Capture needs anyway.
+
+### 6. Spec Ops Missions ⬜
+The inverse of the big war: a small fixed force, one discrete objective, and the fog
+doing the heavy lifting. No economy, no fielding, no reinforcements — what you take
+in is what you have.
+- **A hand-picked team** — a scout section, a rifle or ATGM element, organic UAS
+  (Raven/Switchblade), maybe a gunship or Viper on a limited on-station window.
+  Night by default; the NVG/IR feeds become the primary way you fight.
+- **Mission templates** (one per run, on a generated map):
+  - **HVT RAID** — kill/capture a high-value element inside a garrisoned site, then
+    exfil to the extraction point.
+  - **SENSOR SMASH** — destroy a rear-area installation (arty battery, radar/OP)
+    and get out before the reaction force arrives.
+  - **CSAR** — reach a downed pilot before the enemy sweep does, then escort him to
+    the pickup zone.
+  - **CLOSE RECON** — put eyes on N positions and get the picture home **without
+    being detected** — the only template where shooting means failing.
+- **Alert states make it stealth** — the garrison starts quiet; detection (visual
+  contact, heard gunfire — `firingDetected` already models this) escalates it:
+  quiet → searching → alerted, and alerted spawns a QRF battlegroup hunting your
+  last known position. Going loud is survivable but expensive.
+- **Win/lose** — objective complete + team at exfil = win; team destroyed, HVT
+  escaped, or pilot captured = loss. Exfil with partial losses reads out in the
+  after-action stats.
+- Design notes: a `ModeSpec` per template family with a scenario-setup hook (fixed
+  force, no palette — gate the fielding UI off in this mode), an alert-state
+  machine on the OPFOR side reusing the battlegroup spawner for QRFs, and an
+  extraction-zone check in `checkEnd`. Leans hard on systems already built
+  (concealment, DF/earshot detection, organic UAS, night mode) and pays forward:
+  the alert/QRF machinery is exactly what *Symmetric Fog* wants the OPFOR to do in
+  the big modes too.
 
 ---
 

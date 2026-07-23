@@ -16,7 +16,9 @@ export type StartFn = (
 const COMING_SOON = [
   { label: 'BASE DEFENSE', sub: 'Survive escalating waves · banked supply, payouts between assaults' },
   { label: 'ZONE CAPTURE', sub: 'Contested-line control · push the front zone by zone' },
-  { label: 'CAMPAIGN', sub: 'Linked operations · your force and the front carry over between missions' },
+  { label: 'KING OF THE HILL', sub: 'One objective · hold the high ground to run out the clock' },
+  { label: 'SPEC OPS', sub: 'Small team, one objective, night · get in, get it done, get out' },
+  { label: 'CAMPAIGN', sub: 'One large map, one long war · missions and losses carry forward' },
 ]
 
 const SIZES: ReadonlyArray<{ key: MapSizeKey; label: string; sub: string }> = [
