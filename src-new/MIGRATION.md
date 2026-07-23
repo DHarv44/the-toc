@@ -78,8 +78,15 @@ is post-migration cleanup, not part of the port.
       re-exports. Verified headless: esbuild bundle of devtools/newGame api + runGolden
       in Node vs the browser-verified old baseline. `?golden` page now wires
       window.__newGame for in-browser __goldenDiff() too.
-- [ ] **5** presentation: audio → map (picking extracted) → drone (camera/feedAudio split) →
-      ui (feed/, tray/, menus/, panels/, store, HUD thin)
+- [~] **5** presentation: **audio ✓** (audio/audio.ts — synth graph verbatim; net chatter
+      now arrives via bus.on('radio') instead of a direct sim call; radioBus.inNode
+      expando replaced by a module-local radioIn; HMR-guarded wiring on
+      __WOD2_AUDIO_WIRED; hashStr deduped into lib/math).
+      Remaining: map/ (MapView.tsx + picking.ts extracted) → drone/ (DroneView.tsx +
+      DroneCamera.ts + feedAudio.ts split) → ui/ (feed/, tray/, menus/, panels/,
+      store, thin HUD.tsx). These are verbatim JSX→TSX ports off the running UI —
+      read each old file IN FULL immediately before porting (they are large:
+      HUD ~1100, DroneView ~1500+, MapView ~1000+ lines).
 - [ ] **6** cutover: index.html → `/src-new/main.tsx`; full browser verification sweep;
       rebuild `window.__game`/`__advance` hooks from the new sim.
 
