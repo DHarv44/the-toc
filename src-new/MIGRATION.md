@@ -52,8 +52,17 @@ is post-migration cleanup, not part of the port.
       singleton pattern deliberately retained (flagged). Catalogs now export the
       literal table viewed through their interface (Record<Key, Type>) so
       generic-key access sees optional fields.
-      Remaining: forces (elements/effStats/newUnit/movement orders) → intel →
-      fires → installations → air (drone orders + update) → opfor
+      **forces ✓** (world/place clampWorld+nearestLand w/ map param · elements —
+      effStats cache moved off the catalog into a module Map, flagged, same outputs ·
+      factory newUnit/spawnEnemy on S.counters · orders incl. column orderGroupMove) ·
+      **intel ✓** (sensing.ts: concealment/unitSees/isVisibleToFriendlies/findSpotter/
+      revealContact/updateContacts/firingDetected/canEngage) · **fires ✓** (fireMission)
+      · **installations ✓** (addStructure/fundingStructure/deployUnit/rallyPoint/
+      fieldUnit/deployStructure/convertToHq; fieldAerostat moved to AIR — it calls
+      deployDrone) · **air ✓** (targeting/orders/gunship/availability; Math.random
+      burst+dispersion kept verbatim for parity) · **opfor ✓** (ai.ts commander —
+      issues only player-legal orders).
+      ALL WAVE-3 DOMAIN LOGIC PORTED. Verification is the wave-4 golden gate.
 - [ ] **4** per-domain `update.ts` + `engine/SimLoop` composing the FROZEN tick order:
       economy → construction/garrison → columns → movement → direct fire → ballistics →
       drills/surrender/reports → attrition/deaths → airframes → contacts → opfor.
