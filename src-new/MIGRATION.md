@@ -32,9 +32,17 @@ is post-migration cleanup, not part of the port.
       costs. `lib/format` (grid/fmtClock/fmtCooldown) + `lib/math` (clamp/hashStr/
       hash01) — verbatim one-liners lifted from sim.js/styles.js/audio.js/DroneView;
       old copies stay until their consumers migrate (waves 3-5).
-- [ ] **2** `engine/GameState` (counters nextId/designators/groupSeq move INTO state —
-      flagged deviation; in-run behavior identical, fixes HMR counter reset) ·
-      `engine/events` (RadioTraffic/Toast/GameOver) · `engine/scenario` (init/initDevGame)
+- [~] **2** `engine/GameState` ✓ (full entity inventory from a complete sim.js re-read:
+      Unit incl. late-added underFireT/threatX/colWait/bgGroup/surrenderRolled ·
+      Structure · Drone incl. gunship/aerostat fields · Shell/GunRound/Impact/Smoke/
+      Wreck · Contact · NetEntry/Toast · Battlegroup. Counters nextId/designators/
+      groupSeq move INTO state — flagged deviation; in-run behavior identical, fixes
+      HMR counter reset. createInitialState() mirrors the old literal defaults.
+      Type-only imports of catalog keys/WorldMap — no runtime layering violation) ·
+      `engine/events` ✓ (RadioTraffic/Toast/GameOver typed bus; radio payload =
+      radioMsg(full, callsign, priority); NOT a general message bus).
+      `engine/scenario` MOVED after wave 3: initGame calls domain behavior
+      (addStructure/deployUnit/spawnEnemy/orderMove) that doesn't exist yet.
 - [ ] **3** domains: comms → economy → forces → intel → fires → installations → air → opfor
 - [ ] **4** per-domain `update.ts` + `engine/SimLoop` composing the FROZEN tick order:
       economy → construction/garrison → columns → movement → direct fire → ballistics →
