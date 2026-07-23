@@ -55,12 +55,13 @@ contact model).
    (straight below the sensor) at every bearing and altitude.
 2. ~~**Deployment & fielding mechanics**~~ ✅ — the ⊕ one-click flow off the installations
    roster shipped, with refit cooldowns and force-cap gating shown in the palette.
-3. **Game modes & end-of-match handling** — victory/defeat is a *mode* question: each mode
-   defines its win/lose conditions and feeds one shared end-of-match screen. The July 2026
-   playtest made the gap concrete — the HQ fell, one 6-second toast fired, and the sim just
-   kept running. Mode selector on the splash; Attack & Defend formalized as mode 1. See
-   *Game Modes → End of Match*.
-4. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
+3. ~~**Game modes & end-of-match handling**~~ ✅ *(framework + three playable modes:
+   A&D, Base Defense, King of the Hill — see Game Modes)*. Zone Capture parked for a
+   design discussion; Campaign in design, paused behind the map overhaul below.
+4. **Maps & Terrain overhaul** ← **CURRENT FOCUS** *(decided 2026-07-23: nail the map
+   system before anything else — see the Maps & Terrain section)*. Campaign development
+   resumes on top of it.
+5. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
    and the only one that degrades badly with a large selection.
 
 ### Next — the enablers
@@ -89,12 +90,102 @@ early buys nothing until the game underneath is worth spreading across screens.
 
 ---
 
+## Maps & Terrain  🟡 *(CURRENT FOCUS — direction decided 2026-07-23)*
+
+### Design laws (agreed 2026-07-23 — every map decision is tested against these)
+1. **The drone feed is the product; the map exists to serve it.** The feeds must remain a
+   mostly-accurate representation of the ground. Nothing ships that makes the map cooler
+   at the feeds' expense — which is why full real-world (OSM) maps were rejected: our
+   synthesized ground would be competing with the player's mental image of a real place.
+2. **This is the war in Iraq, not the war in Baghdad.** Operational maneuver at 50 m/cell.
+   The smallest orderable element is a platoon; towns are terrain a company occupies,
+   cordons or shells — never building-by-building mazes. Buildings exist only as drone-feed
+   scenery (footprint render data), never as gameplay entities. Every theater must be
+   *maneuver country*: valleys, river plains, ridge-and-farmland, steppe — at most one
+   modest town per map, no megacities.
+3. **One map contract, many sources.** Everything compiles to `WorldMap` (elev / terr /
+   road / slope rasters + towns + names). Map *sources* are swappable compilers:
+   `procgen noise | baked real-DEM theater | authored heightmap | (someday) builder file`.
+   Both renderers (BFT and feeds) read `WorldMap`, so drone-cam ground truth is accurate
+   by construction regardless of source.
+
+### The plan
+- **M1 — Real-DEM theaters** ⬜: real elevation, procedural culture. A curated **theater
+  library** — hand-picked real-world terrain patches (Copernicus/SRTM 30 m, public-domain
+  government data, fetched once and baked into small repo assets — no runtime downloads,
+  no keys, offline). `genMap` swaps only its elevation step; depression fill, flow-accum
+  rivers, terrain classing, forests, towns, roads and bridges all run unchanged on real
+  relief — flow accumulation on a real DEM puts rivers where the real rivers are. Seeds
+  still vary the culture *and* pick a sub-window of the (larger) theater patch, so one
+  theater yields many battlefields. Splash: theater picker (or RANDOM) in the Skirmish
+  flow. Candidate theaters (doctrine-test compliant): wide river plain with bluffs ·
+  glacial valley · karst hills · high-desert mesa country · forested ridge lines
+  (Ardennes-like) · alpine pass · coastal fjord · open steppe with wadis.
+  *Pure-noise procgen stays as a source (and as the golden-run default — baseline
+  unchanged; theater maps are additive).*
+- **M2 — Cartography glow-up** ⬜: hillshade + contour rendering under the BFT symbology
+  (real military-map look), better water/forest/field rendering. Visual only, golden-safe.
+  Fixes most of "the maps feel lackluster" on its own; twice as good over real relief.
+- **M3 — Culture layer upgrades** ⬜: towns strung along roads and valleys instead of
+  scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
+  scenery only, per design law 2) rendered by the drone feeds so village orbits stop
+  looking empty; **named features** (rivers from the flow-accum pass, dominant hills,
+  towns already named) feeding radio calls, briefings and objective labels
+  ("crossing the KOMA RIVER", "contact on HILL 402"). Wider open areas and 2–4 km
+  engagement geometry so the terrain plays at company/battalion frontage, not
+  skirmish-game density.
+- **M4 — Mode recipes** ⬜: per-mode map validation (the Campaign's guaranteed river belt
+  across the axis, ≥2 crossings, towns along the way; KotH's central dominant hill), by
+  generate-validate-reroll. Campaign development resumes here.
+- **Map authoring v0** *(free with M1)*: a "map" is a heightmap + a culture recipe —
+  Claude can author maps by hand (painted or real-DEM heightmap + placement params JSON)
+  with zero tooling. The community-facing **map builder** lands later as a Scenario
+  Builder tab; players who want to build maps get the old-school-RTS custom-map loop
+  (share JSON + PNG), the player who doesn't (Dave) never touches it.
+- **Parked**: full OSM real-world import (roads-as-data is solved — it's a graph — but it
+  fails design law 1 in the feeds); vector/polygon map rewrite (raster bones are good).
+
+---
+
+## C2 & Echelon  ⬜ *(design direction agreed 2026-07-23)*
+
+**You command the echelon the mission deserves.** Small maps / Spec Ops → battalion (or a
+task-force slice). Medium → brigade. Large / Campaign → division — **division is the
+player ceiling**. Multiplayer someday: a human **corps** commander with human division
+commanders under them — the C2 hierarchy *is* the multiplayer structure.
+
+- **Platoon stays the atomic element** at every echelon; the drone feed remains the only
+  window below it.
+- **Intent-based subordinate commanders** make high echelons playable: you don't
+  micromanage 60 platoons, you tell 2nd Battalion to seize the crossing and screen north.
+  The machinery already exists — the OPFOR battlegroup AI is exactly this (a commander
+  that issues only player-legal orders, tactical execution in shared code, built to be
+  side-agnostic). A friendly battalion commander is that code pointed the other way.
+- **The directed telescope**: the player can always reach down and directly order any
+  platoon. Delegation is the default, never a cage.
+- **ORBAT / task organization**: units roll into companies/battalions/brigades in a task
+  org tree (UI: an ORBAT rail; orders at any node). Prerequisite for combat groups,
+  formations, and the campaign's later missions.
+- **Campaign promotion arc**: the campaign *promotes* you — mission 1 is a battalion
+  command (the tutorial, solved organically); by the river crossing you run a brigade;
+  the endgame is yours as division commander. Teaching arc and echelon ladder are the
+  same mechanism.
+
+---
+
 ## Game Modes
 
 The game currently plays as one open scenario. Add a mode selector and three modes.
 **Modes own the ending**: each mode defines its victory/defeat conditions, its run stats,
 and what happens when the match ends — all feeding one shared end-of-match framework
-(below). The July 2026 playtest made the gap concrete: the HQ fell, one toast fired and
+(below).
+
+**Main-menu structure (decided 2026-07-23):** the splash offers **CAMPAIGN**,
+**SKIRMISH**, and **DEV SANDBOX**. Skirmish is the umbrella for single-match play —
+picking it opens the mode chooser (Attack & Defend, Base Defense, King of the Hill,
+plus the in-development modes) and then map size / difficulty. The player-built
+Scenario Builder (see 7) lands under Skirmish when it exists. Dev Sandbox stays as-is,
+and will eventually let the player place enemy units too. The July 2026 playtest made the gap concrete: the HQ fell, one toast fired and
 scrolled away, and the sim kept running — orders still worked, the OPFOR kept fighting,
 nothing acknowledged the loss.
 
@@ -165,7 +256,7 @@ A survival/horde mode built around a supply economy that is spent, not idled:
   scaling** of the wave table (identical on Recruit and Elite today); wave pacing on
   larger maps (foot-heavy early waves walk a long way).
 
-### 3. Zone Capture  *(Hell Let Loose style)*
+### 3. Zone Capture ⬜ *(Hell Let Loose style — NEEDS DESIGN DISCUSSION before build)*
 Contested-line control:
 - A chain of capture zones/objectives across the map.
 - Zones are captured by presence and held; contested zones flip over time.
@@ -175,10 +266,24 @@ Contested-line control:
 - Design notes: zone-ownership state, capture progress from friendly vs. enemy
   presence, a frontline/lattice of which zones are currently contestable, and
   scoring/victory tied to zone control rather than base destruction.
+- **Open design questions (deliberately parked 2026-07-23 — discuss before build):**
+  - *Zone layout* — chain of zones along the HQ–HQ axis vs. a full sector grid
+    (HLL style) vs. a terrain-anchored node graph with explicit adjacency.
+  - *Win condition* — capture the enemy's base zone vs. ticket bleed from majority
+    control vs. timed score. Each changes the OPFOR posture and the match arc.
+  - Campaign was pulled ahead of this in the build order (see 4); its objective-spec
+    and capture/hold machinery may settle some of these questions for free.
 
-### 4. Campaign ⬜ *(one large map, one long war)*
-A single **Large (12.8 km) map**, one continuous operation fought as a sequence of
-missions **on that same map**. Nothing resets between missions: the front moves, your
+### 4. Campaign 🟡 *(one large map, one long war — in design; paused 2026-07-23 behind the Maps & Terrain overhaul)*
+Moved up in the build order ahead of Zone Capture: the campaign doubles as the
+**new-player teaching arc** (each mission introduces one system), and building it may
+surface design changes that feed back into the other modes. Development paused at the
+state-scaffolding stage (`S.campaign` exists) until the map overhaul lands — the campaign
+wants M4's guaranteed map shape and M3's named terrain for its briefings. Two design
+decisions made in the meantime: the **main menu** is CAMPAIGN / SKIRMISH / DEV SANDBOX
+(see the menu note above), and the campaign uses the **promotion arc** (see C2 & Echelon):
+mission 1 is a battalion command, the endgame a division. A single **Large (12.8 km)
+map**, one continuous operation fought as a sequence of missions **on that same map**. Nothing resets between missions: the front moves, your
 units, FOBs, bridges, wrecks and contact picture all persist. Long play, large scale —
 the mode where every system already built gets a career instead of a cameo.
 
@@ -281,6 +386,9 @@ in is what you have.
   the big modes too.
 
 ### 7. Skirmish — Player-Built Scenarios ⬜
+*(Note 2026-07-23: "Skirmish" is now also the main-menu umbrella for all single-match
+modes — see the menu structure note above. This entry is the future custom-scenario
+capability inside that menu.)*
 The **Scenario Builder** (see its own entry under UI & Tools) played as a first-class
 mode: you build the battle, then fight it.
 - **Build** — lay out both sides' order of battle, structures, drones and staging on

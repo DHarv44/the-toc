@@ -329,6 +329,26 @@ export interface WaveState {
   target: number             // waves to survive for the win
 }
 
+// Campaign mode state. null in other modes. One long operation on one map:
+// `mission` / `objIdx` index into the mission table in engine/campaign.ts; the
+// accumulators (hold / delivered) belong to whatever the current objective is
+// and are zeroed on each objective advance. Landmarks picked at setup
+// (strongpoint / crossing / centerTown) anchor later missions' objectives, and
+// the rear target sets are the ids the DEEP OPERATIONS mission must kill.
+export interface CampaignState {
+  mission: number            // 1-based index into MISSIONS
+  objIdx: number             // current objective within the mission (sequential)
+  briefed: boolean           // current mission's briefing acknowledged
+  hold: number               // accumulated hold seconds (hold objectives)
+  delivered: number          // convoy supply delivered since the objective began
+  eventT: number | null      // sim time a scripted counterattack launches (null = none pending)
+  strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
+  crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
+  centerTown: Vec2 | null    // central belt town for BREAK THE BELT
+  rearStructIds: number[]    // pre-placed OPFOR rear installations (DEEP OPERATIONS target set)
+  rearUnitIds: number[]      // pre-placed OPFOR rear guns (same target set)
+}
+
 // After-action counters, accumulated during the run — units lost and enemy
 // destroyed can't be recovered from final state, so they're counted as they happen.
 export interface RunStats {
@@ -376,6 +396,7 @@ export interface GameState {
   stats: RunStats
   hill: HillState | null     // King of the Hill objective (null in other modes)
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
+  campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
@@ -423,6 +444,7 @@ export function createInitialState(): GameState {
     stats: { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 },
     hill: null,
     waves: null,
+    campaign: null,
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],

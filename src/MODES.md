@@ -94,7 +94,17 @@ tick (respect the frozen order — add it explicitly in SimLoop with a comment),
 map-gen or zone-placement logic, and map rendering for zone ownership.
 `checkEnd`: line held/broken per the spec's scoring.
 
-## Mode 4 — Campaign · not started (build after 2–3)
+## Mode 4 — Campaign · PAUSED 2026-07-23 (state scaffolding landed; resumes after the Maps & Terrain overhaul)
+
+Status: `CampaignState` + `S.campaign` exist in `engine/GameState.ts` (reset in
+initGame); nothing else is built. Paused per user direction — the map system gets
+nailed down first (ROADMAP → Maps & Terrain: real-DEM theaters, cartography,
+named features, mode recipes), because the campaign wants a guaranteed map shape
+(river belt + crossings) and named terrain for briefings. Also decided meanwhile:
+main menu becomes **CAMPAIGN / SKIRMISH / DEV SANDBOX** (Skirmish wraps the mode
+chooser = MODE_ORDER + coming-soon entries), and the campaign uses the **promotion
+arc** — mission 1 battalion, endgame division (ROADMAP → C2 & Echelon). Zone
+Capture is parked pending a layout/win-condition design discussion.
 
 **One Large map, one long war** — a continuous operation fought as sequential
 missions on the SAME persistent map (nothing resets: front line, units, FOBs,
