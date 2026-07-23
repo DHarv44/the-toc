@@ -18,7 +18,11 @@ self-reported. Last audited 2026-07-22.
 
 ## Status at a Glance
 
-**✅ Shipped (26)** — AC-130 Spectre gunship · Air asset caps & re-tasking cooldowns ·
+**✅ Shipped (29)** — TypeScript migration *(full domain-driven rewrite, golden-run
+verified, fully seeded sim)* · AC-130 Spectre gunship · AC-130 muzzle origin *(fixed —
+bottom-centre of the feed)* · Movement & orders playtest hardening *(spread routing,
+waypoint right-click delete, break-contact resume, long-detour advisory, artillery march
+resume, structure select)* · Air asset caps & re-tasking cooldowns ·
 Ground force caps + refit cooldowns · Difficulty presets · One-click fielding + rally ·
 Formation column movement *(built; parked until combat groups)* · Road-aware routing + route
 modes · Economy: upkeep, stepped resupply, difficulty income · Aerostat turret (auto/free,
@@ -29,30 +33,34 @@ Move UAV resize handle to footer · Per-feed mute · Radio chatter & CIC soundsc
 chatter audio (squelch + mumble) · Rest & refit at a FOB *(main bullet)* · Sensor-lock transit
 bug *(fixed)* · ROUTE IMPASSABLE toast spam *(fixed)*
 
-**🟡 Partial (13)** — Attack & Defend *(win/lose yes, no mode selector)* · Air asset cost &
-access · Drone team & organic UAS ·
+**🟡 Partial (12)** — Attack & Defend *(win/lose yes; no mode selector, no end-of-match
+handling)* · Air asset cost & access · Drone team & organic UAS ·
 Drone airframe types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF
 only)* · Enemy AI / OPFOR · Engineers build roads & bridges *(bridges only)* · Radio chatter
 library & message factory · Seed-generated maps *(seed not surfaced)* · Installation-gated
-unlocks *(no existence gating)* · Bottom panel / selection tray · Code quality — TS &
-componentization *(split started, zero TS)*
+unlocks *(no existence gating)* · Bottom panel / selection tray
 
 **⬜ Everything else is not started.** Two items are commonly mistaken for started —
-they are not: **Individual unit formations** (`formationOffset` is dead code, zero call
-sites) and **Symmetric fog & counter-recon** (`updateContacts` is one-directional; the AI
-reads ground truth — there is no enemy contact model).
+they are not: **Individual unit formations** (the old `formationOffset` dead code was
+removed in the TS migration — nothing exists) and **Symmetric fog & counter-recon**
+(`updateContacts` is one-directional; the AI reads ground truth — there is no enemy
+contact model).
 
 ---
 
 ## Priority
 
 ### Now — finish what's half-built
-1. **AC-130 gun muzzle origin** *(bug)* — rounds spawn at the aircraft centroid at sensor
-   altitude, which is exactly where the feed camera sits, so tracers leave the eye point and
-   the origin slides with altitude. Small, visible, and wrong in every gunship sortie.
-2. **Deployment & fielding mechanics** — the **+** one-click flow off the new installations
-   roster. The rail that makes it natural now exists; fielding is still click-the-map.
-3. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
+1. ~~**AC-130 gun muzzle origin**~~ ✅ — rounds depart from bottom-centre of the feed
+   (straight below the sensor) at every bearing and altitude.
+2. ~~**Deployment & fielding mechanics**~~ ✅ — the ⊕ one-click flow off the installations
+   roster shipped, with refit cooldowns and force-cap gating shown in the palette.
+3. **Game modes & end-of-match handling** — victory/defeat is a *mode* question: each mode
+   defines its win/lose conditions and feeds one shared end-of-match screen. The July 2026
+   playtest made the gap concrete — the HQ fell, one 6-second toast fired, and the sim just
+   kept running. Mode selector on the splash; Attack & Defend formalized as mode 1. See
+   *Game Modes → End of Match*.
+4. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
    and the only one that degrades badly with a large selection.
 
 ### Next — the enablers
@@ -82,9 +90,32 @@ early buys nothing until the game underneath is worth spreading across screens.
 
 ## Game Modes
 
-The game currently plays as one open scenario. Add a mode selector and three modes:
+The game currently plays as one open scenario. Add a mode selector and three modes.
+**Modes own the ending**: each mode defines its victory/defeat conditions, its run stats,
+and what happens when the match ends — all feeding one shared end-of-match framework
+(below). The July 2026 playtest made the gap concrete: the HQ fell, one toast fired and
+scrolled away, and the sim kept running — orders still worked, the OPFOR kept fighting,
+nothing acknowledged the loss.
 
-### 1. Attack & Defend 🟡 *(win/lose conditions exist; no mode selector — the splash offers map size and Dev Sandbox only)*
+### End of Match — Shared Framework ⬜ *(absorbs the old Victory/Defeat Screen item)*
+The mode declares the outcome; this framework lands it:
+- **Mode-declared outcomes** — each mode registers its win/lose checks and end text
+  (A&D: objective secured / command post lost; Waves: waves survived / base overrun;
+  Zone Capture: line held / line broken). `S.won`/`S.lost` become the A&D mode's
+  implementation detail, not the global rule.
+- **A modal, not a toast** — full-screen overlay in the splash's visual language (radial
+  wash + faint grid), with the outcome stated plainly.
+- **After-action summary** — mission clock, units fielded and lost, enemy destroyed,
+  supply spent, mode/difficulty/map played. Wants a few counters accumulated during the
+  run — units lost and enemy killed aren't recoverable from final state.
+- **The sim actually ends** — freeze (or wind down) the loop on match end; post-defeat
+  today the OPFOR keeps spawning and the palette still half-works. NEW GAME goes straight
+  back to the splash; continue-watching stays as a secondary action for reading the map.
+- Design notes: render from `App` above the rails, reusing the Splash backdrop. A small
+  `ModeSpec` (id, label, init hook, `checkEnd(S) → outcome | null`, end text, stat lines)
+  keeps modes 2 and 3 from re-implementing the screen.
+
+### 1. Attack & Defend 🟡 *(win/lose conditions exist; no mode selector, no end-of-match handling — see the shared framework above)*
 The existing sandbox: take the enemy HQ while defending your own. Formalize it as
 a named mode with explicit win/lose objectives and a mode-select entry point.
 
@@ -421,6 +452,10 @@ unit counts alone won't fix it. Straight-line mass wins because **nothing punish
 - No flanking, no facing, no suppression, no morale. Position is nearly consequence-free.
 - Recon buys little, because the AI reads ground truth and never needed it (see *Symmetric Fog*).
 - Losses cost supply, and supply regenerates — nothing is scarce enough to be worth protecting.
+- The July 2026 Medium/Regular playtest reinforced it from the defender's side: a fully dug-in
+  line was picked apart flank-first by massed OPFOR armor (mech infantry radioing HARD TARGET,
+  CANNOT PENETRATE) — the prepared-position multiplier isn't decisive, and AT access on Regular
+  is thin against the OPFOR's tank density.
 
 **Highest-leverage fix: prepared positions should decisively beat frontal attacks.** If a dug-in
 platoon in cover reliably defeats two or three attackers walking straight at it, the rush stops
@@ -641,6 +676,44 @@ instead **originate from the fielding source and move out** to where the player 
   straight from the palette row with the selected structure as the origin, then issues an
   `orderMove` to the rally. A per-installation rally point the player can drag (RTS-style) is the
   natural follow-on.
+
+### Movement & Orders — Playtest Hardening ✅ *(July 2026 full-campaign playtest)*
+A complete Medium/Regular campaign played end-to-end through the real input handlers
+(ended in an honest defeat — see *Make Maneuver Beat Mass* for the balance read) shook out
+seven movement/order defects, all fixed and verified:
+- **Spread-drag road U-turns** — per-slot road inference made any slot landing within
+  100 m of a road cling to the network the whole way and hook back in a J (measured
+  2–5.6× detours) while neighbours went direct. Spreads now route cross-country with mild
+  road damping unless a route mode is explicitly set.
+- **Right-click deletes waypoints** — on any pip, units and drones; removing a middle
+  waypoint re-paths the bridge between its neighbours. Previously a right-click near a
+  pip cleared the whole selection.
+- **Break-contact resumes the mission** — one retry once contact is broken (the playtest
+  supply truck silently dropped four successive move orders); a route that keeps drawing
+  fire is abandoned with UNABLE TO CONTINUE. Convoys exempt — their loop self-heals.
+- **Long-detour advisory** — a move order whose route runs >1.6× the straight line
+  radios TAKING LONG DETOUR with the route length (two engineers died on silent 5 km
+  detours through the fight before this existed).
+- **Artillery keeps its march** — a fire mission ordered mid-move holds the route and
+  resumes it after the reload (ROUNDS COMPLETE — RESUMING MOVEMENT), and the FIRING
+  state relaxes to hold instead of sticking forever.
+- **Structures select like units** — clicking a friendly installation with units in hand
+  selects it (shift-click still appends a move onto it), instead of marching the
+  selection onto the base.
+
+### Threat-Aware Routing ⬜ *(playtest finding)*
+The detour advisory warns; it doesn't stop the pathfinder routing straight through the
+enemy's axis. Around water the only crossing is often exactly where the fighting is, and
+units take it without hesitation — both playtest engineers died this way.
+- **Route cost from the contact picture** — known live contacts project a soft cost
+  bubble into `findPath` for friendly planning (fog-honest: it reads the COP, not ground
+  truth).
+- **A "safe route" option** beside ROADS ONLY rather than always-on — sometimes through
+  *is* the order.
+- Design notes: an additive cost raster rebuilt from `S.contacts` at order time, sampled
+  in the A* neighbour loop like `roadBias`. Keep it away from the AI's own moves until
+  *Symmetric Fog* gives it an honest picture too. Combat groups (escorted moves) are the
+  deeper fix.
 
 ## Enemy AI / OPFOR 🟡
 
@@ -1064,20 +1137,10 @@ With both rails permanent, the player needs the screen back on demand.
   map's `clampView` re-fits smoothly rather than snapping. The existing `showNet` toggle in the
   top bar becomes the NET rail's collapse control.
 
-### Victory / Defeat Screen ⬜
-Winning and losing currently pass almost unnoticed: `S.won` / `S.lost` fire a single toast that
-scrolls away with everything else. The end of a match should land.
-- **A modal, not a toast** — full-screen overlay in the splash's visual language (radial wash +
-  faint grid), with the outcome stated plainly: objective secured, or command post lost.
-- **A short after-action summary** — mission clock, units fielded and lost, enemy elements
-  destroyed, supply spent, difficulty and map size played. Enough to make the run feel like it
-  had a shape.
-- **New Game button** — straight back to the splash, so a loss is one click from a rematch.
-  Continue-watching / dismiss as a secondary action, for anyone who wants to look at the map.
-- Design notes: `S.won` is set on destroying the hostile HQ, `S.lost` when the player's HQ is
-  gone with no FOB. Render from `App` above the rails so it covers the whole console; reuse the
-  Splash backdrop treatment. The stats want a few counters accumulated during the run rather
-  than derived at the end — units lost and enemy killed aren't recoverable from final state.
+### Victory / Defeat Screen → moved to Game Modes
+Folded into **Game Modes → End of Match — Shared Framework**: victory/defeat conditions
+belong to the mode being played, so the screen (modal, after-action summary, and the sim
+actually ending) is specified there and shared by all three modes.
 
 ### HUD Polish — Small Fixes ⬜
 A running list of small, self-contained UI corrections:
