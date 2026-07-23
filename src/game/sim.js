@@ -904,8 +904,9 @@ function gunshipHowitzerFire(d) {
     const p = targetPoint(t)
     if (Math.hypot(d.x - p.x, d.y - p.y) > w.range) continue
     d.gunAmmo[d.gunSel]--
+    const m105 = gunMuzzle(d, DRONE_TYPES[d.type])
     S.shells.push({
-      fromX: d.x, fromY: d.y, x: p.x, y: p.y,
+      fromX: m105.x, fromY: m105.y, x: p.x, y: p.y,
       impactT: S.t + w.flight, dmg: w.dmg, blast: w.blast, side: 'friend', splashFrom: d.label,
       t0: S.t, bigGun: true, // firing-report cue for feed audio (deepest thud)
     })
@@ -917,6 +918,20 @@ function gunshipHowitzerFire(d) {
 // engage the killbox INSIDE its orbit ring — not everything within gun range. The
 // bound matches the drawn orbit ring exactly (no margin) so nothing outside the
 // visible circle is ever acquired.
+// Where the gunship's rounds actually leave the airframe. On a left-hand pylon turn the
+// gun line is the port beam, which faces the orbit centre — so the muzzle sits a wingspan
+// inboard of the centroid and below the fuselage, never at the sensor/camera position.
+function gunMuzzle(d, spec) {
+  const cx = d.tx - d.x, cy = d.ty - d.y
+  const cl = Math.hypot(cx, cy) || 1
+  const OFF = 14, DROP = 7
+  return {
+    x: d.x + (cx / cl) * OFF,
+    y: d.y + (cy / cl) * OFF,
+    alt: Math.max(20, spec.alt * (d.altMul || 1) - DROP),
+  }
+}
+
 function inKillbox(d, x, y) {
   const spec = DRONE_TYPES[d.type]
   const oR = spec.orbitR * (d.orbitMul || 1)
@@ -981,11 +996,16 @@ function updateGunship(d, dt) {
   const ix = clampWorld(dx0)
   const iy = clampWorld(dy0)
   // ballistic round from the (moving) aircraft muzzle; time-of-flight forces lead,
-  // damage/flash resolve on impact, not at the trigger pull
-  const mAlt = spec.alt * (d.altMul || 1)
-  const dist = Math.hypot(ix - d.x, iy - d.y, mAlt)
+  // damage/flash resolve on impact, not at the trigger pull.
+  // The muzzle is NOT the aircraft centroid — that's exactly where the feed camera
+  // sits, so rounds spawned there streak out of the viewer's own eye and the origin
+  // slides with the ALT setting. The guns fire out the PORT beam, inboard of the
+  // left-hand pylon turn: offset the spawn ~14m toward the orbit centre and ~7m
+  // below the fuselage so tracers visibly depart from off-camera.
+  const m = gunMuzzle(d, spec)
+  const dist = Math.hypot(ix - m.x, iy - m.y, m.alt)
   S.gunRounds.push({
-    fromX: d.x, fromY: d.y, mAlt, x: ix, y: iy,
+    fromX: m.x, fromY: m.y, mAlt: m.alt, x: ix, y: iy,
     t0: S.t, impactT: S.t + dist / w.muzzleV,
     blast: w.blast, dmg: w.dmg, flash: w.flash, ap: w.ap || 1,
   })

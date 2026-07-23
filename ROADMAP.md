@@ -1204,7 +1204,7 @@ machine, same browser*, so it's all client-side:
 
 ## Bugs & Fixes
 
-### AC-130 Gun Rounds Originate From the Wrong Point ⬜ *(confirmed still present)*
+### AC-130 Gun Rounds Originate From the Wrong Point ✅ *(fixed — `gunMuzzle()` spawns rounds 14 m inboard on the port beam, 7 m below the fuselage; the drop rides the airframe so it no longer slides with ALT. Applied to the 25/40 mm cannon path and the 105 shell.)*
 Tracers don't look like they leave the aircraft's guns, and the apparent origin **shifts when
 altitude is changed** — both symptoms of the round's spawn point being the aircraft's own
 camera position rather than a muzzle on the airframe.
