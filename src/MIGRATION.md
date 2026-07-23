@@ -13,9 +13,10 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `4133144527`** — deterministic across back-to-back runs.
-(The pre-cleanup hash matching the old JS sim was `696495692`; it changed when the
-last raw Math.random sites were rerouted through S.rng — see cleanup below.)
+**Baseline digest hash: `1929051837`** — deterministic across back-to-back runs.
+(History: `696495692` matched the old JS sim bit-for-bit at cutover; `4133144527`
+after the S.rng seeding cleanup; current value after the playtest fixes —
+break-drill resume, fire-mission route hold, firing-state reset, detour advisory.)
 The harness seeds `Math.random` globally; the four raw `Math.random()` sim sites
 (surrender, gunship bursts/dispersion, radio closings, formSeed fallback) are ported
 verbatim so old and new consume the identical sequence. Re-routing them through `S.rng`

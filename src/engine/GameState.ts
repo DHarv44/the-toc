@@ -100,6 +100,8 @@ export interface Unit {
   threatY?: number
   colWait?: boolean          // halted for column stragglers
   surrenderRolled?: boolean  // one-shot surrender roll consumed
+  resumeDest?: Vec2          // mission objective saved by the break drill (resume once clear)
+  breakRetried?: boolean     // the one break-resume retry has been spent
   _sndFireT?: number         // feed-audio throttle (stamped by DroneView's audio pass)
 }
 

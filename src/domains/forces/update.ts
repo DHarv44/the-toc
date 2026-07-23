@@ -191,7 +191,12 @@ export function movementUpdate(dt: number): void {
           if (u.legs.length) netRadio(u, 'arrive', `WP CLEAR GRID ${grid(leg.x, leg.y)} — CONTINUING`, leg.x, leg.y)
           else netRadio(u, 'arrive', `AT GRID ${grid(leg.x, leg.y)} — HOLDING`, leg.x, leg.y)
         }
-        if (!u.path.length) { u.legs = []; u.state = 'hold' }
+        if (!u.path.length) {
+          u.legs = []; u.state = 'hold'
+          // arriving completes the mission — drop any break-resume bookkeeping
+          // (unless this was the evasion leg itself, which still wants its resume)
+          if (!u.breaking) { u.resumeDest = undefined; u.breakRetried = undefined }
+        }
       } else {
         u.x += (dx / d) * spd * dt
         u.y += (dy / d) * spd * dt
@@ -234,10 +239,34 @@ export function drillsUpdate(dt: number): void {
     }
     if (u.breaking && !u.targetId && S.t - u.lastCombatT > 15) {
       u.breaking = false
-      netRadio(u, 'contact', 'CONTACT BROKEN — HOLDING, AWAITING ORDERS', u.x, u.y)
+      // resume the interrupted mission once contact is broken — one retry, so a
+      // soft unit doesn't need re-tasking for every brush, but a route that keeps
+      // drawing fire is abandoned rather than ping-ponged forever
+      if (u.resumeDest && !u.breakRetried) {
+        u.breakRetried = true
+        const p = findPath(S.map!, u.x, u.y, u.resumeDest.x, u.resumeDest.y, effStats(u).mob)
+        if (p) {
+          u.path = p
+          u.legs = [{ x: u.resumeDest.x, y: u.resumeDest.y, n: p.length }]
+          u.state = 'moving'
+          netRadio(u, 'move', `CONTACT BROKEN — RESUMING MOVEMENT TO GRID ${grid(u.resumeDest.x, u.resumeDest.y)}`, u.resumeDest.x, u.resumeDest.y)
+        } else {
+          u.resumeDest = undefined
+          netRadio(u, 'contact', 'CONTACT BROKEN — HOLDING, AWAITING ORDERS', u.x, u.y)
+        }
+      } else {
+        const spent = u.breakRetried
+        u.resumeDest = undefined
+        u.breakRetried = undefined
+        netRadio(u, 'contact', spent
+          ? 'UNABLE TO CONTINUE — HOLDING, AWAITING ORDERS'
+          : 'CONTACT BROKEN — HOLDING, AWAITING ORDERS', u.x, u.y)
+      }
     }
     const calm = !u.targetId && S.t - u.lastCombatT > 12
-    if (calm && (u.heldRoute || u.autoDismounted)) {
+    // missionCooldown gate: a battery that held its route to fire stays emplaced
+    // through the reload, then rolls again (shoot-and-scoot without re-tasking)
+    if (calm && u.missionCooldown <= 0 && (u.heldRoute || u.autoDismounted)) {
       const nearBusy = S.units.some(o => o !== u && o.side === u.side && o.targetId
         && Math.hypot(o.x - u.x, o.y - u.y) < 600)
       if (!nearBusy) {
@@ -249,14 +278,20 @@ export function drillsUpdate(dt: number): void {
         }
         u.autoDismounted = false
         if (u.heldRoute) {
+          const afterFire = u.state === 'firing'
           u.path = u.heldRoute.path
           u.legs = u.heldRoute.legs
           u.heldRoute = null
           u.state = 'moving'
-          netRadio(u, 'move', 'CONTACT CLEAR — CONTINUING MISSION', u.x, u.y)
+          netRadio(u, 'move', afterFire
+            ? 'ROUNDS COMPLETE — RESUMING MOVEMENT'
+            : 'CONTACT CLEAR — CONTINUING MISSION', u.x, u.y)
         }
       }
     }
+    // a battery that finished its fire mission stands relaxed again instead of
+    // reading FIRING forever
+    if (u.state === 'firing' && u.missionCooldown <= 0 && !u.path.length) u.state = 'hold'
   }
 }
 

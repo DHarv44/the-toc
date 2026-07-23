@@ -5,10 +5,10 @@ import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
 import {
-  orderMove, orderAttack, removeLastWaypoint, orderConvoy, orderBridge,
+  orderMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
 } from '../domains/forces/orders'
 import { deployUnit, deployStructure } from '../domains/installations/orders'
-import { deployDrone, orderDroneMove, droneDropWp } from '../domains/air/orders'
+import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
 import { fireMission } from '../domains/fires/orders'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
@@ -206,8 +206,20 @@ export default function MapView() {
         panDrag = false
         if (e.button === 2 && !dragMoved) {
           const wx = s2wX(mX(e)), wy = s2wY(mY(e))
-          const hit = pickAny(wx, wy)
           const ui = useUI.getState()
+          // right-click on a waypoint pip of the current selection deletes that
+          // waypoint (mid-route waypoints re-path the gap) — checked before
+          // anything else so route editing never nukes the selection
+          const pipR = 12 / view.ppm
+          for (const u of selectedFriendlies()) {
+            const i = u.legs.findIndex(l => Math.hypot(l.x - wx, l.y - wy) <= pipR)
+            if (i >= 0) { removeWaypoint(u.id, i); return }
+          }
+          for (const d of selectedDrones()) {
+            const i = (d.route || []).findIndex(p => Math.hypot(p.x - wx, p.y - wy) <= pipR)
+            if (i >= 0) { removeDroneWaypoint(d.id, i); return }
+          }
+          const hit = pickAny(wx, wy)
           if (hit && hit.kind === 'unit') {
             ui.setSelected([hit.obj.id])
             ui.openMenu({ x: mX(e), y: mY(e), unitId: hit.obj.id })
@@ -252,11 +264,19 @@ export default function MapView() {
           // a fan-out is a formation shape, not a new mission: shift-drag appends it as
           // the next waypoint so an existing route survives being spread out at the end
           const app = e.shiftKey
+          // A spread is a formation SHAPE, not a road order. In AUTO the per-slot road
+          // inference made any slot that happened to land within 100 m of a road cling
+          // to the network the whole way and hook back in a U-turn, while neighbours
+          // went direct. Spread slots therefore route cross-country (mild road damping)
+          // unless the player explicitly picked a route mode.
+          const spreadOpts = ui.routeMode === 'auto'
+            ? { crossCountry: true }
+            : { ...(ROUTE_OPTS[ui.routeMode] || {}) }
           sorted.forEach((o, i) => {
             const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
             const px = wx0 + ldx * t, py = wy0 + ldy * t
             if ((S.drones as Array<Unit | Drone>).includes(o)) orderDroneMove(o.id, px, py, app)
-            else orderMove(o.id, px, py, app, attack, gid, { ...(ROUTE_OPTS[ui.routeMode] || {}) })
+            else orderMove(o.id, px, py, app, attack, gid, { ...spreadOpts })
           })
         }
         return
@@ -327,9 +347,11 @@ export default function MapView() {
         else ui.setSelected([picked.obj.id])
         return
       }
-      // empty-handed click on a friendly structure selects it, opening its
-      // context-sensitive deploy menu (HQ/FOB → units, airfield → aircraft)
-      if (!picked && !sel.length && !selD.length) {
+      // a plain click on a friendly structure selects it — same semantics as
+      // clicking a unit, even with a selection in hand (before this, clicking your
+      // own HQ with units selected marched them onto the base). Shift-click still
+      // appends a move waypoint onto the structure.
+      if (!picked && !e.shiftKey) {
         const st = pickStructure(wx, wy)
         if (st) { ui.setSelected([st.id]); return }
       }

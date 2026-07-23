@@ -135,6 +135,20 @@ export function droneDropWp(droneId: number): void {
   }
 }
 
+// remove one specific route waypoint (right-click on its pip); flight legs are
+// straight lines so no re-path is needed
+export function removeDroneWaypoint(droneId: number, index: number): void {
+  const d = S.drones.find(d => d.id === droneId)
+  if (!d || !d.route || !d.route[index]) return
+  d.route.splice(index, 1)
+  if (d.route.length) {
+    if (index === 0) { d.tx = d.route[0]!.x; d.ty = d.route[0]!.y }
+  } else if (d.state === 'transit') {
+    d.tx = d.x; d.ty = d.y
+    d.state = 'onstation'
+  }
+}
+
 // altitude / orbit radius / turret presets from the drone context menu and feed
 export type DroneSetPatch = Partial<Pick<Drone, 'altMul' | 'orbitMul' | 'scanAngle' | 'tilt' | 'scanMul'>>
 export function droneSet(droneId: number, patch: DroneSetPatch): void {

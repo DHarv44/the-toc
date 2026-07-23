@@ -106,6 +106,12 @@ export function directFireUpdate(dt: number): void {
         : underFire && u.threatX != null ? { x: u.threatX, y: u.threatY! } : null
       if (threat) {
         u.breaking = true
+        // remember the objective so the drill can resume it once clear (one retry —
+        // see drillsUpdate). Convoys are exempt: their loop already re-paths itself.
+        if (!u.convoy && u.legs.length && !u.resumeDest) {
+          const dest = u.legs[u.legs.length - 1]!
+          u.resumeDest = { x: dest.x, y: dest.y }
+        }
         u.heldRoute = null
         const bdx = u.x - threat.x, bdy = u.y - threat.y
         const bL = Math.hypot(bdx, bdy) || 1

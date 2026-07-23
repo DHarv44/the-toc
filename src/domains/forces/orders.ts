@@ -155,6 +155,7 @@ export function orderMove(
   u.bridging = null
   u.heldRoute = null
   u.breaking = false
+  u.resumeDest = undefined; u.breakRetried = undefined // fresh order supersedes any break-resume
   // don't clear autoDismounted here — autoRemount() already remounted it if it was
   // clear of contact; if it's still in contact the flag must survive so it climbs
   // back in once the fight is over (see the auto-remount drill in the tick)
@@ -173,6 +174,17 @@ export function orderMove(
     netRadio(u, 'move', attack
       ? `ADVANCING TO CONTACT — GRID ${grid(x, y)}`
       : `MOVING TO GRID ${grid(x, y)}`, x, y)
+    // long-detour advisory: water/terrain can turn a short click into a route
+    // through half the map (often through the fight) — say so when it happens,
+    // because the faint route line is easy to miss
+    if (u.side === 'friend') {
+      let len = 0, px = u.x, py = u.y
+      for (const pt of p) { len += Math.hypot(pt.x - px, pt.y - py); px = pt.x; py = pt.y }
+      const straight = Math.hypot(x - u.x, y - u.y)
+      if (straight > 800 && len > straight * 1.6) {
+        netRadio(u, 'move', `TAKING LONG DETOUR — ${(len / 1000).toFixed(1)} KM ROUTE`, u.x, u.y)
+      }
+    }
   }
   u.state = 'moving'
 }
@@ -187,6 +199,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   const p = findPath(S.map!, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
   u.bridging = null; u.heldRoute = null; u.breaking = false
+  u.resumeDest = undefined; u.breakRetried = undefined
   u.convoy = null // autoDismounted survives (see autoRemount / the remount drill)
   u.groupId = groupId
   u.attackId = enemyId
@@ -206,9 +219,35 @@ export function removeLastWaypoint(unitId: number): void {
   if (!u.path.length) { u.legs = []; u.state = 'hold' }
 }
 
+// Remove one specific waypoint (right-click on its pip). The tail pops like
+// removeLastWaypoint; removing a middle waypoint re-paths the bridge between
+// its neighbours so the route stays continuous.
+export function removeWaypoint(unitId: number, legIndex: number): void {
+  const u = S.units.find(u => u.id === unitId)
+  if (!u || !u.legs[legIndex]) return
+  if (legIndex === u.legs.length - 1) {
+    const last = u.legs.pop()!
+    u.path.length = Math.max(0, u.path.length - last.n)
+    if (!u.path.length) { u.legs = []; u.state = 'hold' }
+    netRadio(u, 'move', `WP ${legIndex + 1} DELETED`, u.x, u.y)
+    return
+  }
+  const before = u.legs.slice(0, legIndex).reduce((n, l) => n + l.n, 0)
+  const removed = u.legs[legIndex]!
+  const next = u.legs[legIndex + 1]!
+  const start = legIndex === 0 ? { x: u.x, y: u.y } : u.path[before - 1]!
+  const bridge = findPath(S.map!, start.x, start.y, next.x, next.y, effStats(u).mob,
+    roadIntent(next.x, next.y, {}))
+    || [{ x: next.x, y: next.y }]
+  u.path = [...u.path.slice(0, before), ...bridge, ...u.path.slice(before + removed.n + next.n)]
+  u.legs.splice(legIndex, 1)
+  next.n = bridge.length
+  netRadio(u, 'move', `WP ${legIndex + 1} DELETED — ROUTE ADJUSTED`, u.x, u.y)
+}
+
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {
