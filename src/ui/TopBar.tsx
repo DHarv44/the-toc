@@ -63,6 +63,14 @@ export default function TopBar() {
 
       <SupplyReadout />
       <Stat label="MISSION" value={fmtClock(S.t)} color="dark.1" />
+      {S.waves && (
+        <Stat label={`WAVE ${Math.min(S.waves.n, S.waves.target)}/${S.waves.target}`}
+          value={S.waves.phase === 'intermission'
+            ? `NEXT ${Math.max(0, Math.ceil(S.waves.interT))}S`
+            : 'ASSAULT'}
+          color={S.waves.phase === 'assault' ? 'orange.5' : 'teal.5'}
+          title="Base Defense: survive every wave. Supply does not regenerate — repelled waves pay out." />
+      )}
 
       <Group gap={6} wrap="nowrap" ml="auto">
         <Tooltip label="Command panel" withArrow>

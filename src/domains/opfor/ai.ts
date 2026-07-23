@@ -46,15 +46,46 @@ function enemyObjective(from: Vec2): Vec2 {
   return best || { x: S.map!.fob.x, y: S.map!.fob.y }
 }
 
+// Muster a battlegroup of the given composition at a base. Shared by the
+// economy-driven spawner below and the wave scheduler (Base Defense mode).
+function raiseGroup(
+  comp: readonly UnitTypeKey[], name: string,
+  base: { x: number; y: number }, musterT: number,
+): number {
+  const rng = S.rng!
+  const gid = newMoveGroup()
+  const grp: Battlegroup = {
+    id: gid, name, phase: 'muster',
+    musterT, retaskT: 0, objective: null,
+    members: [], initStr: comp.length * 100, dead: false,
+  }
+  // muster at the base that's actually fielding them, not a fixed map coordinate
+  const bx = base.x, by = base.y
+  for (const t of comp) {
+    const u = spawnEnemy(t, bx + (rng() - 0.5) * 500, by + (rng() - 0.5) * 300 + 150)
+    u.aiRole = 'bg'
+    u.bgGroup = gid
+    u.bgRole = (t === 'SCT' || t === 'CAV') ? 'recon' : 'main'
+    // recon screens & disengages; the main body advances to contact and fights
+    orderRoe(u.id, u.bgRole === 'recon' ? 'break' : 'halt')
+  }
+  grp.members = S.units.filter(u => u.bgGroup === gid).map(u => u.id)
+  S.enemyGroups.push(grp)
+  return gid
+}
+
+// a live hostile HQ/FOB to field from — lose them all and the OPFOR is done reinforcing
+function fieldingBase() {
+  return S.structures.find(s => s.side === 'hostile' && s.buildT <= 0
+    && (s.kind === 'HQ' || s.kind === 'FOB'))
+}
+
 function spawnBattlegroup(): void | null {
   // The OPFOR buys its battlegroups. It can only field what it has banked, so it can't
   // put everything on the board at once — and because it pays upkeep on what's already
   // out, a large standing force starves the next group. Same constraint the player has.
   // You can't field from a base you no longer hold — the same rule the player plays by.
-  // Battlegroups muster at a live hostile HQ/FOB; lose them all and the OPFOR is done
-  // reinforcing, whatever it has banked.
-  const base = S.structures.find(s => s.side === 'hostile' && s.buildT <= 0
-    && (s.kind === 'HQ' || s.kind === 'FOB'))
+  const base = fieldingBase()
   if (!base) return null
 
   // and it lives under the same force cap — a template that would breach it isn't fielded
@@ -65,24 +96,18 @@ function spawnBattlegroup(): void | null {
   const rng = S.rng!
   const tpl = affordable[Math.floor(rng() * affordable.length)]!
   S.enemyResources -= templateCost(tpl.comp)
-  const gid = newMoveGroup()
-  const grp: Battlegroup = {
-    id: gid, name: tpl.name, phase: 'muster',
-    musterT: 10 + rng() * 8, retaskT: 0, objective: null,
-    members: [], initStr: tpl.comp.length * 100, dead: false,
-  }
-  // muster at the base that's actually fielding them, not a fixed map coordinate
-  const bx = base.x, by = base.y
-  for (const t of tpl.comp) {
-    const u = spawnEnemy(t, bx + (rng() - 0.5) * 500, by + (rng() - 0.5) * 300 + 150)
-    u.aiRole = 'bg'
-    u.bgGroup = gid
-    u.bgRole = (t === 'SCT' || t === 'CAV') ? 'recon' : 'main'
-    // recon screens & disengages; the main body advances to contact and fights
-    orderRoe(u.id, u.bgRole === 'recon' ? 'break' : 'halt')
-  }
-  grp.members = S.units.filter(u => u.bgGroup === gid).map(u => u.id)
-  S.enemyGroups.push(grp)
+  const musterT = 10 + rng() * 8
+  raiseGroup(tpl.comp, tpl.name, base, musterT)
+}
+
+// Scripted assault for the wave modes: no affordability, no force cap — the
+// schedule IS the difficulty. Returns null if the OPFOR has no base left.
+export function spawnScriptedBattlegroup(comp: readonly UnitTypeKey[], name: string): number | null {
+  const base = fieldingBase()
+  if (!base) return null
+  const rng = S.rng!
+  const musterT = 5 + rng() * 5
+  return raiseGroup(comp, name, base, musterT)
 }
 
 function updateBattlegroup(grp: Battlegroup, dt: number): void {

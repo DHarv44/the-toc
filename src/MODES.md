@@ -56,19 +56,35 @@ framework.
       CONTINUE WATCHING collapses to the REVIEW pill → pill reopens → NEW GAME
       returns to splash step 1. Zero console errors.
 
-## Mode 2 — Base Defense (waves) · not started
+## Mode 2 — Base Defense (waves) · IMPLEMENTED v1 ✓ (2026-07-23)
 
-Product spec in ROADMAP.md. Implementation sketch against this framework:
-- New `ModeId 'waves'` + spec. `checkEnd`: lose = friendly HQ gone (no FOB
-  recovery? decide), win = none (endless) or wave target reached.
-- Init hook needs to exist — today `initGame` is A&D-shaped (spawns garrisons +
-  starts `S.nextWave`). Suggest extending ModeSpec with a
-  `setup(S)`/scenario-variant hook rather than branching initGame inline.
-- Economy: gate the passive lift off (`S.supplyLift = 0`), grant a banked
-  payout between waves; wave schedule replaces `S.nextWave`'s flat timer —
-  reuse `spawnBattlegroup` with a scaling template/count curve.
-- Between-wave intermission + "ready" trigger; wave counter in `S` (digest-
-  relevant: re-baseline golden if the A&D path is touched at all).
+- `S.waves: WaveState` (n / phase / interT / groupIds / survived / target 10),
+  created by the mode's setup hook, which also freezes the economy: passive
+  lifts AND upkeep off (`supplyUpdate` returns early while `S.waves` exists),
+  OPFOR economy zeroed, `S.nextWave = Infinity` kills the A&D auto-spawner.
+- Scripted escalation: hand-tuned `WAVE_COMPS` table (2×INF probe → combined
+  arms → 4×ARM + CAV + ARTY at wave 10), launched through
+  `spawnScriptedBattlegroup` — a new export in opfor/ai built on a shared
+  `raiseGroup` extracted from `spawnBattlegroup` (rng draw order preserved;
+  golden verified unchanged). No affordability/cap gates: the schedule IS the
+  difficulty.
+- Cycle: 90 s first delay → assault → wave repelled when none of its groups
+  remain in `S.enemyGroups` (destroyed or withdrawn home) → payout
+  (500 + 200n) + NET call + toast → 75 s intermission → next. If the OPFOR
+  has no base left to launch from, the source is cut and the defense stands
+  (instant win path).
+- `checkEnd`: survived ≥ target → won; no friendly HQ and no FOB → lost.
+- TopBar shows a WAVE n/10 stat (NEXT xxS / ASSAULT, teal/orange).
+- VERIFIED in browser: economy frozen (resources flat through lifts), wave 1
+  launched on schedule with the NET announcement, repelled → +700 payout →
+  wave 2 inbound; final-wave clear → POSITION HELD end screen, honest stats,
+  sim frozen. Golden UNCHANGED at `1929051837`; typecheck + console clean.
+- Follow-ups (deliberate v1 cuts): a manual "READY" trigger to launch the
+  next wave early (banked intermission time as bonus payout?); wave pacing —
+  foot-heavy early waves take minutes to walk in on bigger maps (consider
+  spawn-closer or transport-only comps for waves 1–2); difficulty scaling of
+  the comp table (currently identical on Recruit and Elite — only the
+  player-side levers differ).
 
 ## Mode 3 — Zone Capture · not started
 

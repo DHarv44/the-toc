@@ -3,8 +3,11 @@
 // lives in SimLoop/EndScreen and works for every mode. Modes 2 and 3 (Base
 // Defense waves, Zone Capture) slot in here without touching the framework.
 import type { GameState } from './GameState'
+import type { UnitTypeKey } from '../domains/forces/catalog'
+import { spawnScriptedBattlegroup } from '../domains/opfor/ai'
+import { radio, toast } from '../domains/comms/radio'
 
-export type ModeId = 'attack-defend' | 'king-of-the-hill'
+export type ModeId = 'attack-defend' | 'base-defense' | 'king-of-the-hill'
 export type Outcome = 'won' | 'lost'
 
 export interface ModeSpec {
@@ -21,6 +24,27 @@ export interface ModeSpec {
   endText: Record<Outcome, { title: string; sub: string }>
 }
 
+// --- Base Defense (waves) tuning -----------------------------------------
+const WAVE_TARGET = 10          // assaults to survive for the win
+const WAVE_FIRST_DELAY = 90     // seconds before wave 1 (time to dig in)
+const WAVE_INTERMISSION = 75    // seconds between a repelled wave and the next
+const wavePayout = (n: number) => 500 + 200 * n
+
+// hand-tuned escalation: light probes → combined arms → armor with guns behind it
+const WAVE_COMPS: ReadonlyArray<readonly UnitTypeKey[]> = [
+  ['INF', 'INF'],                                     // 1
+  ['INF', 'INF', 'SCT'],                              // 2
+  ['MECH', 'INF', 'INF'],                             // 3
+  ['MECH', 'MECH', 'SCT', 'INF'],                     // 4
+  ['ARM', 'MECH', 'INF', 'INF'],                      // 5
+  ['ARM', 'ARM', 'MECH', 'SCT'],                      // 6
+  ['ARM', 'ARM', 'MECH', 'MOR', 'INF'],               // 7
+  ['ARM', 'ARM', 'ARM', 'CAV', 'MECH'],               // 8
+  ['ARM', 'ARM', 'ARM', 'CAV', 'MECH', 'MOR'],        // 9
+  ['ARM', 'ARM', 'ARM', 'ARM', 'CAV', 'CAV', 'ARTY'], // 10
+]
+
+// --- King of the Hill tuning ----------------------------------------------
 // seconds of accumulated, uncontested control of the hill needed to win
 const HILL_HOLD_TARGET = 360
 const HILL_RADIUS = 350
@@ -65,6 +89,75 @@ export const MODES: Record<ModeId, ModeSpec> = {
       lost: {
         title: 'COMMAND POST LOST',
         sub: 'No fallback remained. The operation is over.',
+      },
+    },
+  },
+
+  'base-defense': {
+    id: 'base-defense',
+    label: 'BASE DEFENSE',
+    sub: 'Survive escalating waves · banked supply, payouts between assaults',
+    setup(S) {
+      // banked economy: no passive lifts, no upkeep (supplyUpdate returns early
+      // while S.waves exists), and the OPFOR's own economy-driven waves are off —
+      // the scripted schedule IS the opposition
+      S.nextWave = Infinity
+      S.enemySupplyLift = 0
+      S.enemyResources = 0
+      S.waves = {
+        n: 1, phase: 'intermission', interT: WAVE_FIRST_DELAY,
+        groupIds: [], survived: 0, target: WAVE_TARGET,
+      }
+    },
+    update(S, dt) {
+      const w = S.waves
+      if (!w || w.survived >= w.target) return
+      if (w.phase === 'intermission') {
+        w.interT -= dt
+        if (w.interT > 0) return
+        const comp = WAVE_COMPS[Math.min(w.n, WAVE_COMPS.length) - 1]!
+        const gid = spawnScriptedBattlegroup(comp, `WAVE ${w.n}`)
+        if (gid == null) {
+          // no hostile base left to launch from — the player cut the source;
+          // nothing can ever threaten the base again, so the defense stands
+          w.survived = w.target
+          return
+        }
+        w.groupIds = [gid]
+        w.phase = 'assault'
+        radio('NET', 'contact', `WAVE ${w.n} INBOUND — ${comp.length} ELEMENTS`, undefined, undefined)
+      } else {
+        // repelled when every group of the wave is gone (destroyed or withdrawn home)
+        if (S.enemyGroups.some(g => w.groupIds.includes(g.id))) return
+        w.survived = w.n
+        if (w.survived >= w.target) return // checkEnd takes it from here
+        const payout = wavePayout(w.n)
+        S.resources += payout
+        radio('NET', 'arrive', `WAVE ${w.n} REPELLED — RESUPPLY DELIVERED, +${payout}`, undefined, undefined)
+        toast(`WAVE ${w.n} REPELLED — +${payout} SUPPLY`)
+        w.n++
+        w.phase = 'intermission'
+        w.interT = WAVE_INTERMISSION
+      }
+    },
+    // survive the schedule to win; lose the base network and it's over
+    checkEnd(S) {
+      const w = S.waves
+      if (!w) return null
+      if (w.survived >= w.target) return 'won'
+      const hq = S.structures.some(s => s.side === 'friend' && s.kind === 'HQ')
+      const fob = S.structures.some(s => s.side === 'friend' && s.kind === 'FOB')
+      if (!hq && !fob) return 'lost'
+      return null
+    },
+    endText: {
+      won: {
+        title: 'POSITION HELD',
+        sub: 'Every assault repelled — relief forces arrive on your perimeter.',
+      },
+      lost: {
+        title: 'BASE OVERRUN',
+        sub: 'The defense collapsed. The position is lost.',
       },
     },
   },
@@ -123,5 +216,5 @@ export const MODES: Record<ModeId, ModeSpec> = {
   },
 }
 
-export const MODE_ORDER: readonly ModeId[] = ['attack-defend', 'king-of-the-hill']
+export const MODE_ORDER: readonly ModeId[] = ['attack-defend', 'base-defense', 'king-of-the-hill']
 export const DEFAULT_MODE: ModeId = 'attack-defend'

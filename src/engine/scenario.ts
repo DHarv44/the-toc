@@ -58,7 +58,8 @@ export function initGame(
   S.won = false; S.lost = false
   S.endT = null
   S.stats = { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 }
-  S.hill = null // the mode's setup hook creates it if the mode wants one
+  S.hill = null // the mode's setup hook creates these if the mode wants them
+  S.waves = null
   S.speed = 1 // a previous match may have ended frozen
   S.nextWave = 60
   S.airCooldown = {}

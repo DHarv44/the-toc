@@ -14,7 +14,6 @@ export type StartFn = (
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
 // as a real choice with a future, not a single lonely button
 const COMING_SOON = [
-  { label: 'BASE DEFENSE', sub: 'Survive escalating waves · banked supply, payouts between assaults' },
   { label: 'ZONE CAPTURE', sub: 'Contested-line control · push the front zone by zone' },
   { label: 'SPEC OPS', sub: 'Small team, one objective, night · get in, get it done, get out' },
   { label: 'SKIRMISH', sub: 'Build your own scenario · pick the victory condition, save and share' },

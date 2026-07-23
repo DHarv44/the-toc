@@ -318,6 +318,17 @@ export interface HillState {
   target: number             // seconds of control needed to win
 }
 
+// Base Defense (waves) mode state. null in other modes. The passive economy is
+// off while this exists — supply is banked at start and paid out per wave held.
+export interface WaveState {
+  n: number                  // wave number currently inbound / being fought (1-based)
+  phase: 'intermission' | 'assault'
+  interT: number             // seconds until the next wave launches
+  groupIds: number[]         // battlegroup ids of the current wave
+  survived: number           // waves fully repelled
+  target: number             // waves to survive for the win
+}
+
 // After-action counters, accumulated during the run — units lost and enemy
 // destroyed can't be recovered from final state, so they're counted as they happen.
 export interface RunStats {
@@ -364,6 +375,7 @@ export interface GameState {
   endT: number | null        // sim time the match ended (the end screen's mission clock)
   stats: RunStats
   hill: HillState | null     // King of the Hill objective (null in other modes)
+  waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
@@ -410,6 +422,7 @@ export function createInitialState(): GameState {
     endT: null,
     stats: { fielded: 0, lost: 0, enemyDestroyed: 0, supplySpent: 0 },
     hill: null,
+    waves: null,
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],

@@ -150,19 +150,20 @@ faucet: a fixed lift every few seconds, identical whether you hold one base or h
   friendly structures instead of returning a flat lift, and surface the breakdown in the
   supply tooltip. Pairs with the upkeep model already in place.
 
-### 2. Base Defense (Waves)
+### 2. Base Defense (Waves) ✅ *(v1 shipped — playable from the splash; "ready" trigger and difficulty-scaled waves still open)*
 A survival/horde mode built around a supply economy that is spent, not idled:
-- **Start with lower supplies** than the open scenario.
-- **Supplies do NOT continuously generate** (unlike the current passive income). You
-  bank what you're given and spend deliberately.
-- **Enemy waves scale up over time** — early waves are small, light units; later
-  waves grow in size, quality, and combined-arms complexity.
-- **Earn a supply payout after clearing each wave/level**, letting you reinforce,
-  build, and dig in between assaults.
-- Hold your base/objective across escalating waves; loss = base overrun.
-- Design notes: reuse the battlegroup spawner with a wave schedule + difficulty
-  curve; gate the passive `S.income` off in this mode; add between-wave intermission
-  with a payout and a "ready" trigger.
+- ~~**Supplies do NOT continuously generate**~~ ✅ — passive lifts AND upkeep are off
+  while the mode runs; you bank your starting supply and spend deliberately.
+- ~~**Enemy waves scale up over time**~~ ✅ — a hand-tuned 10-wave escalation from a
+  two-platoon probe to massed armor with guns behind it, launched as scripted
+  battlegroups (no economy/cap gates — the schedule is the difficulty).
+- ~~**Earn a supply payout after clearing each wave**~~ ✅ — 500 + 200×wave on repel,
+  with a NET call and toast; 75 s intermission to spend it, 90 s grace before wave 1.
+- ~~Hold your base across escalating waves~~ ✅ — survive all 10 → POSITION HELD;
+  base network lost → BASE OVERRUN. Cutting the OPFOR's launch base ends the threat.
+- Still open: a manual **"READY" trigger** to call the next wave early; **difficulty
+  scaling** of the wave table (identical on Recruit and Elite today); wave pacing on
+  larger maps (foot-heavy early waves walk a long way).
 
 ### 3. Zone Capture  *(Hell Let Loose style)*
 Contested-line control:
