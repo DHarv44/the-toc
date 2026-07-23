@@ -18,14 +18,20 @@ is post-migration cleanup, not part of the port.
 ## Waves
 - [x] **0** tooling: typescript+types (pinned to runtime majors), strict tsconfig,
       `typecheck` script, golden harness (`devtools/`), `?golden` loader in index.html
-- [~] **1** leaves: `engine/rng` ✓ · **world/ ✓ VERIFIED** (`WorldMap` types, `mobility`
+- [x] **1** leaves: `engine/rng` ✓ · **world/ ✓ VERIFIED** (`WorldMap` types, `mobility`
       — MOVE_FACTORS moved here so domains→world, never reverse — `minheap`, `mapgen`,
       `pathfinding`). Parity proven in Node via esbuild bundle: mapgen raster-identical
       (elev/terr/road/waterSurf/slope/towns/bases) on 4 seed×size combos; findPath
       waypoint-identical on 6 cases covering all route modes.
-      Remaining: domain catalogs (`forces/air/installations` from units.js — full source
-      now in session record, incl. carrier/def/indirect/logi/df/canBridge/carries fields
-      and the gunship weapon table), `economy/difficulty`, `lib/` (format, math)
+      **catalogs ✓ VERIFIED**: `forces/catalog` (UNIT_TYPES + COVER_DEF; CarriedUasKey
+      literal union keeps forces upstream of air, air statically asserts it),
+      `air/catalog` (DRONE_TYPES, gunship weapons discriminated on kind gun/howitzer),
+      `installations/catalog` (STRUCTURES), `economy/difficulty` (type-only import of
+      UnitTypeKey — no runtime dep). Value-parity proven in Node (deep-eq incl.
+      Infinity endurance): all 10 exported tables identical + fieldCooldownFor on 13
+      costs. `lib/format` (grid/fmtClock/fmtCooldown) + `lib/math` (clamp/hashStr/
+      hash01) — verbatim one-liners lifted from sim.js/styles.js/audio.js/DroneView;
+      old copies stay until their consumers migrate (waves 3-5).
 - [ ] **2** `engine/GameState` (counters nextId/designators/groupSeq move INTO state —
       flagged deviation; in-run behavior identical, fixes HMR counter reset) ·
       `engine/events` (RadioTraffic/Toast/GameOver) · `engine/scenario` (init/initDevGame)
