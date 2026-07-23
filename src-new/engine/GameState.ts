@@ -100,6 +100,7 @@ export interface Unit {
   threatY?: number
   colWait?: boolean          // halted for column stragglers
   surrenderRolled?: boolean  // one-shot surrender roll consumed
+  _sndFireT?: number         // feed-audio throttle (stamped by DroneView's audio pass)
 }
 
 // --- installations --------------------------------------------------------
@@ -203,6 +204,7 @@ export interface Shell {
   splashFrom?: string        // callsign that gets the SPLASH call
   t0?: number
   bigGun?: boolean           // firing-report cue for feed audio (deepest thud)
+  _snd?: boolean             // one-shot feed-audio flag (global across open feeds)
 }
 
 export interface GunRound {
@@ -217,6 +219,7 @@ export interface GunRound {
   dmg: number
   flash: number
   ap: number
+  _snd?: boolean             // one-shot feed-audio flag
 }
 
 export interface Impact {
@@ -225,6 +228,7 @@ export interface Impact {
   t: number
   gun?: boolean
   sz?: number
+  _snd?: boolean             // one-shot feed-audio flag
 }
 
 export interface Smoke {
