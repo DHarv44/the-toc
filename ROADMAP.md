@@ -178,6 +178,21 @@ per map, no megacities.
   fallback otherwise. Precision traffic (fire missions, waypoints, LKPs, orbits)
   deliberately keeps raw grids — that's how real nets split it. Drone-feed buildings
   already existed (instanced boxes in urban cells), so hamlets show up in feeds free.
+- **M3c — Oversized world (feed surround done right)** ⬜ **← NEXT UP** *(decided
+  2026-07-23)*: the interim drone-feed apron (a 1.6 km blurred smear of the map)
+  doesn't match the real terrain and is too small — sensors can still find the edge.
+  The right architecture, per Dave: **generate a larger world than the AO** — mapgen
+  produces the AO plus a wide margin (~3× the current apron, ≈5 km) of *real*
+  generated terrain: same elevation source, terrain classes, forests, even roads
+  running off-map. The **BFT crops/contains to the AO** (sim, units, orders, fog all
+  stay inside — the margin is scenery, not battlespace); the **UAV feeds render the
+  full extent**. DroneView then deletes the blur-apron hack and just consumes the
+  bigger rasters/textures. Theater patches already carry the surplus real elevation
+  (512² baked vs. 256 AO window — the margin is sitting in the asset). Feed ground
+  rendering just moved from vertex colors to painted 2048² textures (smooth
+  shorelines/treelines, vector-true roads, no diagonal river pinch) — M3c builds on
+  that directly. **Verification recipe: deploy an aerostat at the HQ, slew the
+  sensor south past the map edge.**
 - **M3 — Culture layer upgrades** ⬜ *(remaining)*: towns strung along roads and valleys instead of
   scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
   scenery only, per design law 2) rendered by the drone feeds so village orbits stop
@@ -186,7 +201,25 @@ per map, no megacities.
   ("crossing the KOMA RIVER", "contact on HILL 402"). Wider open areas and 2–4 km
   engagement geometry so the terrain plays at company/battalion frontage, not
   skirmish-game density.
-- **M4 — Mode recipes** ⬜: per-mode map validation (the Campaign's guaranteed river belt
+- **Urban depth — cities that are places** ⬜ *(added 2026-07-23 — NEEDS DESIGN
+  DISCUSSION before build)*: towns today are a blob of urban cells — plain and boring.
+  Wanted: real urban structure (arterial road grid + districts, dense core vs.
+  sprawl, compounds, industrial edges, named neighborhoods/key facilities), and
+  support for **mostly-urban AOs** — a Baghdad-style mission with the HQ at a
+  Camp Liberty/Victory-type base on the outskirts. Design law 2 stands: the urban
+  fight at our echelon is **route clearance, not room clearing** — MSRs through the
+  urban canyon, convoy security, cordons and overwatch, intersections and overpasses
+  as decision points, ambush/IED threat on named routes (ROUTE IRISH energy). Open
+  questions: urban generator design (district graph vs. denser cell classes), how
+  concealment/engagement ranges behave in city blocks at platoon atomicity, what
+  route-clearance gameplay actually consists of, feed density (buildings LOD).
+  - **Units occupying buildings** *(thought 2026-07-23)*: at some point let a platoon
+    strongpoint a building/compound — the building becomes a real defensive position
+    (hard cover, sight lines) and a real *target*: the classic dilemma of drop the
+    building with a bomb vs. cordon vs. assault. Stays platoon-atomic (a unit holds
+    *the building*, no room-by-room) so it composes with law 2. Ties into structures/
+    destructibility and the fires systems.
+  Discuss, then slot into the M-track.
   across the axis, ≥2 crossings, towns along the way; KotH's central dominant hill), by
   generate-validate-reroll. Campaign development resumes here.
 - **Map authoring v0** *(free with M1)*: a "map" is a heightmap + a culture recipe —

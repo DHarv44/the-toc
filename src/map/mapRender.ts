@@ -112,7 +112,10 @@ export function renderTerrainLayer(map: WorldMap): HTMLCanvasElement {
 
         const fo = forestPx[o]! + (nz - 0.5) * 0.22
         const ur = urbanPx[o]!
-        if (fo > 0.5) {
+        if (ur > 0.45) {
+          // urban wins the tie where town and treeline coverage bleed together
+          r = r * 0.35 + 197 * 0.65; g = g * 0.35 + 191 * 0.65; b = b * 0.35 + 183 * 0.65
+        } else if (fo > 0.5) {
           // forest overlay with canopy texture + a darker treeline at the edge
           r = r * 0.3 + 133 * 0.7; g = g * 0.3 + 167 * 0.7; b = b * 0.3 + 117 * 0.7
           const m = 0.93 + 0.1 * nz
@@ -125,8 +128,6 @@ export function renderTerrainLayer(map: WorldMap): HTMLCanvasElement {
           if (Math.min(foR, foD, foL, foU) + (nz - 0.5) * 0.22 <= 0.42) {
             r *= 0.78; g *= 0.82; b *= 0.78
           }
-        } else if (ur > 0.45) {
-          r = r * 0.35 + 197 * 0.65; g = g * 0.35 + 191 * 0.65; b = b * 0.35 + 183 * 0.65
         } else {
           // open ground: farmland mosaic on flat ground, fading out on slopes.
           // The field lattice is domain-warped by elevation, so boundaries

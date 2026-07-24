@@ -265,15 +265,22 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   }
 
   // --- 10. urban blocks ---
+  // cells the stamp skips still get their woods cleared — a town's footprint
+  // is yards and lots, not forest (rng draw order preserved: one draw per
+  // dx,dy exactly as before)
   for (const t of towns) {
     const size = 4 + Math.floor(rng() * 4)
     for (let dy = -size; dy <= size; dy++) {
       for (let dx = -size; dx <= size; dx++) {
-        if (rng() < 0.65 && Math.hypot(dx, dy) < size) {
-          const x = t.gx + dx, y = t.gy + dy
-          if (x < 1 || y < 1 || x >= GRID - 1 || y >= GRID - 1) continue
-          const i = idx(x, y)
+        const r = rng()
+        const inTown = Math.hypot(dx, dy) < size
+        const x = t.gx + dx, y = t.gy + dy
+        if (x < 1 || y < 1 || x >= GRID - 1 || y >= GRID - 1) continue
+        const i = idx(x, y)
+        if (r < 0.65 && inTown) {
           if (terr[i] !== T_WATER && slope[i]! < 8) terr[i] = T_URBAN
+        } else if (inTown && terr[i] === T_FOREST) {
+          terr[i] = T_FIELD
         }
       }
     }
@@ -419,9 +426,12 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
         if (!clear) continue
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
-            if (rng() < 0.55 && Math.abs(dx) + Math.abs(dy) < 2) {
-              const j = idx(gx + dx, gy + dy)
+            const r = rng()
+            const j = idx(gx + dx, gy + dy)
+            if (r < 0.55 && Math.abs(dx) + Math.abs(dy) < 2) {
               if (terr[j] !== T_WATER && slope[j]! < 8) terr[j] = T_URBAN
+            } else if (terr[j] === T_FOREST) {
+              terr[j] = T_FIELD // hamlet clearings — no woods against the walls
             }
           }
         }

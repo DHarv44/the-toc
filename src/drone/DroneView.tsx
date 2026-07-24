@@ -27,6 +27,8 @@ type SensorMode = 'WHOT' | 'BHOT' | 'NVG' | 'EO' | string
 interface Detail {
   map: WorldMap
   geo: THREE.BufferGeometry
+  texIR: THREE.CanvasTexture
+  texEO: THREE.CanvasTexture
   trees: Array<{ x: number; y: number; h: number; s: number; n: number }>
   bldgs: Array<{ x: number; y: number; h: number; w: number; d: number; bh: number; rot: number; n: number }>
 }
@@ -35,7 +37,7 @@ let cache: Detail | null = null
 function getDetail(): Detail {
   if (cache && cache.map === S.map) return cache
   const map = S.map!
-  const { elev, terr, road, waterSurf, GRID, WORLD } = map
+  const { elev, terr, waterSurf, GRID, WORLD } = map
 
   const elevAtBilinear = (x: number, y: number): number => {
     const cx = x / CELL - 0.5, cy = y / CELL - 0.5
@@ -48,46 +50,142 @@ function getDetail(): Detail {
     return a * (1 - wx) * (1 - wy) + b * wx * (1 - wy) + c * (1 - wx) * wy + d * wx * wy
   }
 
-  // --- terrain geometry: RES², micro-displacement, dual color attributes ---
+  // --- ground color lives on a painted TEXTURE, not the vertices ---
+  // Vertex colors cap edge sharpness at the mesh resolution (~20-25 m), which
+  // reads as hard blocks up close and lets diagonal river cells pinch apart
+  // between vertices. Instead: paint a 2048² canvas per palette — cell classes
+  // upscaled with bilinear smoothing (soft shorelines/treelines, diagonals stay
+  // connected), grain noise for texture, and the VECTOR road polylines stroked
+  // at true widths on top so feed roads match the BFT curves (design law 1).
+  const EXT = 1600 // apron beyond the AO so edge orbits don't stare into the void
+  const SPAN = WORLD + EXT * 2
+  const waterC = new Float32Array(GRID * GRID)
+  for (let i = 0; i < GRID * GRID; i++) if (terr[i] === T_WATER) waterC[i] = 1
+  const fieldAt = (arr: Float32Array, x: number, y: number): number => {
+    const cx = x / CELL - 0.5, cy = y / CELL - 0.5
+    let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
+    const wx = cx - gx0, wy = cy - gy0
+    gx0 = Math.max(0, Math.min(GRID - 1, gx0)); gy0 = Math.max(0, Math.min(GRID - 1, gy0))
+    const gx1 = Math.min(GRID - 1, gx0 + 1), gy1 = Math.min(GRID - 1, gy0 + 1)
+    return arr[gy0 * GRID + gx0]! * (1 - wx) * (1 - wy) + arr[gy0 * GRID + gx1]! * wx * (1 - wy)
+      + arr[gy1 * GRID + gx0]! * (1 - wx) * wy + arr[gy1 * GRID + gx1]! * wx * wy
+  }
+
+  const makeGroundTex = (palette: 'IR' | 'EO'): THREE.CanvasTexture => {
+    const TEX = 2048
+    // per-cell base colors on a GRID-sized canvas
+    const tiny = document.createElement('canvas')
+    tiny.width = tiny.height = GRID
+    const tctx = tiny.getContext('2d')!
+    const img = tctx.createImageData(GRID, GRID)
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const ci = gy * GRID + gx
+        const t = terr[ci]
+        const dry = hash01(gx, gy)
+        let r: number, g: number, b: number
+        if (palette === 'IR') {
+          let v: number
+          if (t === T_WATER) v = 0.05 + dry * 0.015
+          else if (t === T_FOREST) v = 0.15 + dry * 0.06
+          else if (t === T_URBAN) v = 0.40 + dry * 0.14
+          else v = 0.28 + dry * 0.07
+          r = g = b = v * 255
+        } else {
+          if (t === T_WATER) { r = 33; g = (0.22 + dry * 0.03) * 255; b = (0.30 + dry * 0.04) * 255 }
+          else if (t === T_FOREST) { r = (0.10 + dry * 0.05) * 255; g = (0.22 + dry * 0.08) * 255; b = (0.08 + dry * 0.03) * 255 }
+          else if (t === T_URBAN) { r = (0.38 + dry * 0.1) * 255; g = (0.37 + dry * 0.1) * 255; b = (0.35 + dry * 0.09) * 255 }
+          else { r = (0.32 + dry * 0.14) * 255; g = (0.32 + dry * 0.08) * 255; b = (0.16 + dry * 0.05) * 255 }
+        }
+        const o = ci * 4
+        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255
+      }
+    }
+    tctx.putImageData(img, 0, 0)
+
+    const cv = document.createElement('canvas')
+    cv.width = cv.height = TEX
+    const ctx = cv.getContext('2d')!
+    const scale = TEX / SPAN // texture px per meter
+    ctx.imageSmoothingEnabled = true
+    // apron: the whole map smeared across the full canvas (blur) continues the
+    // edge tones into the surround, then the accurate AO is drawn on top
+    ctx.filter = 'blur(20px)'
+    ctx.drawImage(tiny, 0, 0, TEX, TEX)
+    ctx.filter = 'none'
+    ctx.drawImage(tiny, EXT * scale, EXT * scale, WORLD * scale, WORLD * scale)
+
+    // grain so flat ground doesn't read as plastic (feed-only texture noise)
+    const nz = document.createElement('canvas')
+    nz.width = nz.height = 256
+    const nctx = nz.getContext('2d')!
+    const nimg = nctx.createImageData(256, 256)
+    for (let i = 0; i < 256 * 256; i++) {
+      const v = 96 + Math.random() * 64
+      const o = i * 4
+      nimg.data[o] = v; nimg.data[o + 1] = v; nimg.data[o + 2] = v; nimg.data[o + 3] = 255
+    }
+    nctx.putImageData(nimg, 0, 0)
+    ctx.globalCompositeOperation = 'overlay'
+    ctx.globalAlpha = 0.16
+    for (let ty = 0; ty < TEX; ty += 256) for (let tx = 0; tx < TEX; tx += 256) ctx.drawImage(nz, tx, ty)
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
+
+    // vector roads at true widths (over water = the bridge deck)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    const stroke = (cls: number, color: string, widthM: number) => {
+      ctx.strokeStyle = color
+      ctx.lineWidth = Math.max(1, widthM * scale)
+      ctx.beginPath()
+      for (const rd of map.roads) {
+        if (rd.cls !== cls) continue
+        ctx.moveTo((rd.pts[0]!.x + EXT) * scale, (rd.pts[0]!.y + EXT) * scale)
+        for (let i = 1; i < rd.pts.length; i++) ctx.lineTo((rd.pts[i]!.x + EXT) * scale, (rd.pts[i]!.y + EXT) * scale)
+      }
+      ctx.stroke()
+    }
+    if (palette === 'IR') {
+      stroke(1, 'rgb(118,118,118)', 8)
+      stroke(2, 'rgb(138,138,138)', 13)
+      stroke(3, 'rgb(146,146,146)', 20)
+    } else {
+      stroke(1, 'rgb(84,71,51)', 8)
+      stroke(2, 'rgb(77,66,51)', 13)
+      stroke(3, 'rgb(87,77,59)', 20)
+    }
+
+    const tex = new THREE.CanvasTexture(cv)
+    tex.flipY = false // uv v runs with world +y (canvas row order)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.anisotropy = 8
+    return tex
+  }
+  const texIR = makeGroundTex('IR')
+  const texEO = makeGroundTex('EO')
+
+  // --- terrain geometry: RES² over the AO plus the apron, micro-displacement.
+  // The apron continues the edge elevation (clamped sampling) with a gentle
+  // roll so the surround isn't a billiard table.
   const geo = new THREE.BufferGeometry()
   const pos = new Float32Array(RES * RES * 3)
-  const colIR = new Float32Array(RES * RES * 3)
-  const colEO = new Float32Array(RES * RES * 3)
-  const step = WORLD / (RES - 1)
+  const uv = new Float32Array(RES * RES * 2)
+  const step = SPAN / (RES - 1)
   for (let j = 0; j < RES; j++) {
     for (let i = 0; i < RES; i++) {
       const vi = j * RES + i
-      const x = i * step, y = j * step
-      const gx = Math.max(0, Math.min(GRID - 1, Math.floor(x / CELL)))
-      const gy = Math.max(0, Math.min(GRID - 1, Math.floor(y / CELL)))
-      const ci = gy * GRID + gx
-      const t = terr[ci]
+      const x = i * step - EXT, y = j * step - EXT
       const n = hash01(i, j)
-      let h: number
-      if (t === T_WATER) h = waterSurf[ci]!
-      else h = elevAtBilinear(x, y) + (n - 0.5) * 1.1
+      const over = Math.max(0, -x, x - WORLD, -y, y - WORLD)
+      // height: smooth banks (blend toward the water surface), apron rolls gently
+      const w = fieldAt(waterC, x, y) * Math.max(0, 1 - over / 600)
+      const wMix = w < 0.35 ? 0 : w > 0.65 ? 1 : (w - 0.35) / 0.3
+      const roll = over > 0 ? (hash01(i >> 3, j >> 3) - 0.5) * 6 * Math.min(1, over / 500) : 0
+      const hLand = elevAtBilinear(x, y) + (n - 0.5) * 1.1 + roll
+      const h = hLand * (1 - wMix) + fieldAt(waterSurf, x, y) * wMix
       pos[vi * 3] = x; pos[vi * 3 + 1] = h; pos[vi * 3 + 2] = y
-
-      // IR luminance
-      let v: number
-      if (t === T_WATER) v = 0.045 + n * 0.015
-      else if (t === T_FOREST) v = 0.15 + n * 0.06
-      else if (t === T_URBAN) v = 0.40 + n * 0.14
-      else v = 0.28 + n * 0.07
-      if (road[ci]) v = 0.53 + n * 0.05
-      colIR[vi * 3] = v; colIR[vi * 3 + 1] = v; colIR[vi * 3 + 2] = v
-
-      // EO natural color
-      let r: number, g: number, b: number
-      if (t === T_WATER) { r = 0.13; g = 0.22 + n * 0.03; b = 0.30 + n * 0.04 }
-      else if (t === T_FOREST) { r = 0.10 + n * 0.05; g = 0.22 + n * 0.08; b = 0.08 + n * 0.03 }
-      else if (t === T_URBAN) { r = 0.38 + n * 0.1; g = 0.37 + n * 0.1; b = 0.35 + n * 0.09 }
-      else {
-        const dry = hash01(gx, gy)
-        r = 0.32 + dry * 0.14 + n * 0.05; g = 0.32 + dry * 0.08 + n * 0.05; b = 0.16 + dry * 0.05
-      }
-      if (road[ci]) { r = 0.30 + n * 0.05; g = 0.26 + n * 0.04; b = 0.20 }
-      colEO[vi * 3] = r; colEO[vi * 3 + 1] = g; colEO[vi * 3 + 2] = b
+      uv[vi * 2] = (x + EXT) / SPAN; uv[vi * 2 + 1] = (y + EXT) / SPAN
     }
   }
   const idx = new Uint32Array((RES - 1) * (RES - 1) * 6)
@@ -100,9 +198,7 @@ function getDetail(): Detail {
     }
   }
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  geo.setAttribute('colorIR', new THREE.BufferAttribute(colIR, 3))
-  geo.setAttribute('colorEO', new THREE.BufferAttribute(colEO, 3))
-  geo.setAttribute('color', new THREE.BufferAttribute(colIR, 3))
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
   geo.setIndex(new THREE.BufferAttribute(idx, 1))
   geo.computeVertexNormals()
 
@@ -142,20 +238,16 @@ function getDetail(): Detail {
     if (bldgs.length >= 3000) break
   }
 
-  cache = { map, geo, trees, bldgs }
+  cache = { map, geo, texIR, texEO, trees, bldgs }
   return cache
 }
 
 function TerrainMesh({ mode }: { mode: SensorMode }) {
   const detail = useMemo(getDetail, [])
-  useEffect(() => {
-    const src = mode === 'EO' ? detail.geo.attributes.colorEO! : detail.geo.attributes.colorIR!
-    ;(detail.geo.attributes.color as THREE.BufferAttribute).array = (src as THREE.BufferAttribute).array
-    detail.geo.attributes.color!.needsUpdate = true
-  }, [mode, detail])
+  const tex = mode === 'EO' ? detail.texEO : detail.texIR
   return (
     <mesh geometry={detail.geo}>
-      <meshLambertMaterial vertexColors />
+      <meshLambertMaterial map={tex} />
     </mesh>
   )
 }
