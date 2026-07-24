@@ -345,7 +345,7 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   const wetAlong = (pts: Vec2[]): boolean => {
     for (let s = 0; s < pts.length - 1; s++) {
       const p = pts[s]!, q = pts[s + 1]!
-      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))
+      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 4)))
       for (let k = 0; k <= steps; k++) {
         const t = k / steps
         const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL)
@@ -597,10 +597,18 @@ function roadAstar(
       const ni = ny * GRID + nx
       if (closed[ni]) continue
       const dist = (dx && dy) ? 1.414 : 1
+      // a diagonal step between two diagonally-adjacent water cells slips
+      // "between" them (corner-cutting the river) — treat it as a crossing:
+      // impossible for paths, worse than a real perpendicular bridge for roads
+      const cornerWet = dx !== 0 && dy !== 0
+        && (terr[cy * GRID + (cx + dx)] === T_WATER || terr[(cy + dy) * GRID + cx] === T_WATER)
       let c = 1
       if (terr[ni] === T_WATER) {
         if (!isFinite(waterCost)) continue
         c = waterCost
+      } else if (cornerWet) {
+        if (!isFinite(waterCost)) continue
+        c = waterCost * 1.5
       } else if (terr[ni] === T_FOREST) c = 2.6
       else if (terr[ni] === T_URBAN) c = 0.8
       c += Math.abs(elev[ni]! - elev[cur]!) * 1.8
