@@ -957,7 +957,7 @@ units take it without hesitation — both playtest engineers died this way.
 
 ## Enemy AI / OPFOR 🟡
 
-### Decision Layer — Utility Scoring for Commander & Units ⬜ *(added 2026-07-23 — the architecture for "smarter"; explicitly NOT machine learning)*
+### Decision Layer — Utility Scoring for Commander & Units 🟡 *(phase 1 shipped 2026-07-24: substrate + FIRE_HE / SMOKE_SCREEN / DIG_IN on battlegroup commanders — `domains/opfor/decide.ts`; verified in hour-long headless runs: prep fires when the assault is close enough to support, smoke answering incoming fire on the reported threat vector, digging in on taken ground; `fireMission` made side-aware (OPFOR pays its own purse); debug via `__game.S.enemyGroups.map(g => g.lastDecision)`. Next: unit-SOP echelon, fix+flank schemes, reserve; tuning follow-ups: DIG_IN only digs currently-idle members, garrison ARTY at the base never participates)*
 Every deciding agent knows its full menu of available actions and scores each against
 the situation — a **utility system**: many small hand-written evaluations flowing into
 a decision. Deterministic, hand-tunable, debuggable; no training, no models.

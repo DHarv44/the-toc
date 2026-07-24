@@ -13,12 +13,14 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `1377301839`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-23 for the water-discipline fixes: findPath no longer
-corner-cuts diagonally between water cells, its impassable-goal shortcut
-terminates at the walked-to passable cell instead of the raw in-water point,
-and spawnEnemy snaps muster/garrison placement through nearestLand — same
-services both sides. Deliberate movement-behavior change; prior `60356280`.)
+**Baseline digest hash: `4056482884`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for the commander decision layer phase 1: battlegroups
+with indirect members now call fire missions — HE prep, smoke screens — and dig
+in on taken ground, all through the shared player-legal order functions;
+fireMission became side-aware (OPFOR pays from S.enemyResources, toasts stay
+player-only). Prior baselines: `1377301839` water discipline · `60356280` road
+hierarchy · `1929051837` playtest fixes · `4133144527` rng seeding ·
+`696495692` JS-parity cutover.)
 (History: `696495692` matched the old JS sim bit-for-bit at cutover; `4133144527`
 after the S.rng seeding cleanup; `1929051837` after the playtest fixes —
 break-drill resume, fire-mission route hold, firing-state reset, detour advisory;

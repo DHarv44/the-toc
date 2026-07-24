@@ -292,6 +292,11 @@ export interface Battlegroup {
   members: number[]
   initStr: number
   dead: boolean
+  // commander decision layer (utility scoring — see domains/opfor/decide.ts)
+  decideT?: number           // countdown to the next decision cycle
+  lastFiresT?: number        // last supporting fire mission (per-group throttle)
+  digging?: boolean          // commander ordered a defense on the current objective
+  lastDecision?: { t: number; id: string; scores: Record<string, number> } // dev/debug
 }
 
 // --- the state ------------------------------------------------------------

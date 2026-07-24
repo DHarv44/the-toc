@@ -12,6 +12,7 @@ import type { UnitTypeKey } from '../forces/catalog'
 import { spawnEnemy } from '../forces/factory'
 import { newMoveGroup, orderMove, orderRoe, orderDefend } from '../forces/orders'
 import { templateCost, forceCap, forceCount } from '../economy/economy'
+import { commanderDecide } from './decide'
 
 interface BgTemplate {
   name: string
@@ -134,7 +135,20 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
   grp.retaskT -= dt
   if (grp.phase === 'advance' && grp.retaskT <= 0) {
     grp.retaskT = 10
+    const prev = grp.objective
     grp.objective = enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem)!)
+    // a new objective ends a prepared defense — the idle-redirect below remobilizes
+    if (prev && grp.objective
+      && Math.hypot(prev.x - grp.objective.x, prev.y - grp.objective.y) > 400) grp.digging = false
+  }
+
+  // commander decision cycle (the utility layer): supporting fires, smoke
+  // screens, digging in on ground taken — choosing only among player-legal
+  // orders (see decide.ts)
+  grp.decideT = (grp.decideT ?? 0) - dt
+  if (grp.phase === 'advance' && grp.decideT <= 0) {
+    grp.decideT = 8 + S.rng!() * 4
+    commanderDecide(grp, mem)
   }
 
   const obj = grp.objective
