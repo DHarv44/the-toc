@@ -72,6 +72,7 @@ export function initGame(
   S.waves = null
   S.campaign = null
   S.speed = 1 // a previous match may have ended frozen
+  S.enemyFiresOkT = -999
   S.nextWave = 60
   S.airCooldown = {}
   S.enemyGroups = []

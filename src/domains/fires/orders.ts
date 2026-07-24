@@ -24,8 +24,10 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   const friendly = u.side === 'friend'
   if (u.missionCooldown > 0) return friendly ? toast('BATTERY RELOADING') : undefined
   if (Math.hypot(x - u.x, y - u.y) > ind.range) return friendly ? toast('TARGET BEYOND MAX RANGE') : undefined
+  // basic load: no rounds, no mission — resupply near a base or a LOG unit
+  if ((u.ammo ?? 0) < 1) return friendly ? toast('WINCHESTER — NO ROUNDS, RESUPPLY REQUIRED') : undefined
   const shell = opts.shell || 'HE'
-  const rounds = opts.rounds || ind.salvo
+  const rounds = Math.min(opts.rounds || ind.salvo, Math.floor(u.ammo ?? ind.salvo))
   const sheafMul = opts.sheaf === 'AREA' ? 2.2 : opts.sheaf === 'POINT' ? 0.55 : 1
   const cost = rounds * (ROUND_COST[shell] || 15)
   if ((friendly ? S.resources : S.enemyResources) < cost) {
@@ -33,6 +35,7 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   }
   if (friendly) { S.resources -= cost; S.stats.supplySpent += cost }
   else S.enemyResources -= cost
+  u.ammo = (u.ammo ?? rounds) - rounds
   u.missionCooldown = ind.cooldown * Math.max(0.6, rounds / ind.salvo)
   // a battery ordered to fire mid-march holds its route and resumes it after the
   // reload (see drillsUpdate) instead of silently forgetting the move order

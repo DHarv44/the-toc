@@ -51,6 +51,17 @@ function dangerClose(c: CmdCtx, at: Vec2): boolean {
   return c.mem.some(m => Math.hypot(m.x - at.x, m.y - at.y) < 320)
 }
 
+// rolled refire windows: per-group 90–240 s, theater-wide 40–90 s. Random so
+// incoming fire has no countable rhythm; drawn from S.rng so runs replay.
+function firesWindowOpen(grp: Battlegroup): boolean {
+  return S.t >= (grp.nextFiresT ?? -Infinity) && S.t >= S.enemyFiresOkT
+}
+function rollFiresWindows(grp: Battlegroup): void {
+  const rng = S.rng!
+  grp.nextFiresT = S.t + 90 + rng() * 150
+  S.enemyFiresOkT = S.t + 40 + rng() * 50
+}
+
 // densest player element reachable by the group's guns, biased toward the
 // objective axis so fires support the fight the group is actually in
 function pickTarget(guns: Unit[], grp: Battlegroup): (Vec2 & { n: number }) | null {
@@ -111,23 +122,28 @@ const ACTIONS: CmdAction[] = [
     },
   },
   {
-    // prep/suppress a spotted concentration with HE
+    // prep/suppress a spotted concentration with HE. Fire tempo is governed by
+    // ammo (basic load) plus ROLLED refire windows — a group waits 90–240 s
+    // between its own missions and the whole OPFOR at least 40–90 s between
+    // any two, so incoming fire never falls into a countable rhythm.
     id: 'FIRE_HE',
     available: c => !!c.tgt && c.guns.length > 0 && !dangerClose(c, c.tgt!)
-      && S.enemyResources > 150,
+      && S.enemyResources > 150 && firesWindowOpen(c.grp),
     considerations: [
-      { name: 'density', w: 1, eval: c => c.tgt!.n / 3 },
-      { name: 'spacing', w: 1, eval: c => clamp01((S.t - (c.grp.lastFiresT ?? -999)) / 60) },
+      // lone vehicles don't earn a salvo — save the rounds for concentrations
+      { name: 'density', w: 1, eval: c => c.tgt!.n / 4 },
       // prep fires support an imminent assault — don't drain the bank plinking
       // from max range while the main body is still half a map away
       { name: 'support', w: 1, eval: c => clamp01(1.4 - Math.hypot(c.cen.x - c.tgt!.x, c.cen.y - c.tgt!.y) / 2500) },
+      // conserve the racks when they run low
+      { name: 'ammo', w: 0.5, eval: c => clamp01(Math.max(...c.guns.map(g => g.ammo ?? 0)) / 24) },
     ],
     execute: c => {
       const gun = c.guns.find(g =>
         Math.hypot(c.tgt!.x - g.x, c.tgt!.y - g.y) <= UNIT_TYPES[g.type].indirect!.range)
       if (!gun) return
       fireMission(gun.id, c.tgt!.x, c.tgt!.y, { shell: 'HE' })
-      c.grp.lastFiresT = S.t
+      rollFiresWindows(c.grp)
     },
   },
   {
@@ -137,7 +153,8 @@ const ACTIONS: CmdAction[] = [
     // reads the same report a real net would carry)
     id: 'SMOKE_SCREEN',
     available: c => c.guns.length > 0 && c.grp.phase === 'advance' && S.enemyResources > 100
-      && c.mem.some(m => S.t - (m.underFireT ?? -999) < 8 && m.threatX != null),
+      && c.mem.some(m => S.t - (m.underFireT ?? -999) < 8 && m.threatX != null)
+      && firesWindowOpen(c.grp),
     considerations: [
       {
         // how much of the group is being shot at right now
@@ -146,7 +163,7 @@ const ACTIONS: CmdAction[] = [
           return n / Math.max(2, c.mem.length * 0.5)
         },
       },
-      { name: 'spacing', w: 1, eval: c => clamp01((S.t - (c.grp.lastFiresT ?? -999)) / 40) },
+      { name: 'ammo', w: 0.5, eval: c => clamp01(Math.max(...c.guns.map(g => g.ammo ?? 0)) / 24) },
     ],
     execute: c => {
       const um = c.mem
@@ -161,7 +178,7 @@ const ACTIONS: CmdAction[] = [
         Math.hypot(px - g.x, py - g.y) <= UNIT_TYPES[g.type].indirect!.range)
       if (!gun) return
       fireMission(gun.id, px, py, { shell: 'SMOKE', sheaf: 'AREA' })
-      c.grp.lastFiresT = S.t
+      rollFiresWindows(c.grp)
     },
   },
   {
@@ -201,7 +218,8 @@ export function commanderDecide(grp: Battlegroup, mem: Unit[]): void {
   let cx = 0, cy = 0
   for (const u of body) { cx += u.x; cy += u.y }
   const cen = { x: cx / body.length, y: cy / body.length }
-  const guns = mem.filter(u => UNIT_TYPES[u.type].indirect && u.missionCooldown <= 0 && u.strength > 0)
+  const guns = mem.filter(u => UNIT_TYPES[u.type].indirect && u.missionCooldown <= 0
+    && u.strength > 0 && (u.ammo ?? 0) >= 1)
   const obj = grp.objective
   const defNearObj = obj
     ? S.units.filter(p => p.side === 'friend' && p.strength > 0

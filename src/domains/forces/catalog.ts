@@ -40,6 +40,7 @@ export interface IndirectSpec {
   dmg: number
   cooldown: number
   flight: number
+  load: number      // basic load: rounds carried before needing resupply
   scatter: number
   blast: number
 }
@@ -124,14 +125,14 @@ const UNIT_TYPES_LITERAL = {
     key: 'MOR', name: 'Mortar Section', abbr: 'MO', cat: 'FIRES', mob: 'foot', speed: 3.0,
     sight: 600, range: 300, dpsSoft: 1.4, dpsHard: 0.4, soft: 0.9,
     cost: 250, veh: 0, troops: 9, glyph: 'mor',
-    indirect: { range: 3000, salvo: 4, dmg: 14, cooldown: 20, flight: 8, scatter: 45, blast: 90 },
+    indirect: { range: 3000, salvo: 4, dmg: 14, cooldown: 20, flight: 8, load: 48, scatter: 45, blast: 90 },
     def: { time: 75, factor: 0.5, name: 'GUN PITS' },
   },
   ARTY: {
     key: 'ARTY', name: 'SP Howitzer Bty', abbr: 'FA', cat: 'FIRES', mob: 'tracked', speed: 7,
     sight: 500, range: 400, dpsSoft: 1.0, dpsHard: 0.4, soft: 0.5,
     cost: 500, veh: 3, troops: 0, glyph: 'arty',
-    indirect: { range: 6500, salvo: 6, dmg: 22, cooldown: 35, flight: 14, scatter: 70, blast: 130 },
+    indirect: { range: 6500, salvo: 6, dmg: 22, cooldown: 35, flight: 14, load: 48, scatter: 70, blast: 130 },
     def: { time: 80, factor: 0.55, name: 'EMPLACED W/ REVETMENTS' },
   },
   ENG: {

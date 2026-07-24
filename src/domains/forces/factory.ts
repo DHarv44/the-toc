@@ -37,6 +37,7 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
     _spd: type.speed,
     elements: [],
   }
+  if (type.indirect) u.ammo = type.indirect.load // basic load, both sides
   initElements(u)
   if (side === 'friend') S.stats.fielded++ // after-action counter
   return u

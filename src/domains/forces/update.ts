@@ -81,6 +81,18 @@ export function movementUpdate(dt: number): void {
         && !u.targetId && S.t - u.lastCombatT > 20) {
       healUnit(u, 0.15 * dt, 70, false) // buddy-aid patches crews; destroyed vics stay dead
     }
+    // ammo resupply (indirect basic load, both sides): trickle near an own-side
+    // base, faster with an own-side LOG truck alongside. Calm only — nobody
+    // cross-loads rounds under fire.
+    if (type.indirect && u.strength > 0 && (u.ammo ?? 0) < type.indirect.load
+        && !u.targetId && S.t - u.lastCombatT > 20) {
+      const nearBase = S.structures.some(s => s.side === u.side && s.buildT <= 0
+        && (s.kind === 'HQ' || s.kind === 'FOB') && Math.hypot(s.x - u.x, s.y - u.y) < 350)
+      const nearLog = S.units.some(o => o.side === u.side && o.strength > 0
+        && UNIT_TYPES[o.type].logi && Math.hypot(o.x - u.x, o.y - u.y) < 150)
+      const rate = nearLog ? 1.0 : nearBase ? 0.5 : 0
+      if (rate > 0) u.ammo = Math.min(type.indirect.load, (u.ammo ?? 0) + rate * dt)
+    }
     // logistics loop: HQ -> load -> FOB -> unload -> repeat
     if (u.convoy && u.side === 'friend' && u.strength > 0) {
       const c = u.convoy

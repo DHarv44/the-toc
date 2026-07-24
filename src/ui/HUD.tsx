@@ -209,6 +209,7 @@ function SelectionTray() {
                 {u.posture === 'dig' ? `DUG ${Math.round(u.digT * 100)}% · ` : ''}
                 {u.weapons === 'hold' ? 'W-HOLD · ' : u.weapons === 'tight' ? 'W-TIGHT · ' : ''}
                 {u.convoy ? `LOG ${u.convoy.phase.toUpperCase()}${u.convoy.carrying ? ' ' + u.convoy.carrying : ''} · ` : ''}
+                {type.indirect ? `${Math.floor(u.ammo ?? 0)} RDS · ` : ''}
                 {u.state.toUpperCase()}{u.targetId ? ' ⚔' : ''}{u.bridging ? ` ${Math.ceil(u.bridging.t)}S` : ''}
               </div>
               {(() => {
@@ -391,8 +392,10 @@ function ContextMenu() {
         {type.carrier && item(u.mounted ? 'DISMOUNT TROOPS' : 'MOUNT UP',
           () => orderMount(u.id, !u.mounted), !u.mounted && !!u.targetId && false)}
         {type.indirect && item(
-          u.missionCooldown > 0 ? `FIRE MISSION (RELOAD ${Math.ceil(u.missionCooldown)}S)` : 'FIRE MISSION…',
-          () => ui.setMode('target'), u.missionCooldown > 0)}
+          (u.ammo ?? 0) < 1 ? 'FIRE MISSION (WINCHESTER — RESUPPLY)'
+            : u.missionCooldown > 0 ? `FIRE MISSION (RELOAD ${Math.ceil(u.missionCooldown)}S)`
+            : `FIRE MISSION… (${Math.floor(u.ammo ?? 0)} RDS)`,
+          () => ui.setMode('target'), u.missionCooldown > 0 || (u.ammo ?? 0) < 1)}
         {type.canBridge && item('PONTOON BRIDGE…', () => ui.setMode('bridge'))}
         {item('CENTER MAP', () => { const v = winView(); if (v) { v.cx = u.x; v.cy = u.y } })}
       </div>

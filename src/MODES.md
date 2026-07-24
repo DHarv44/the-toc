@@ -167,8 +167,8 @@ Game Modes → 7.
 - `npm run typecheck` clean after every unit of work.
 - Golden gate: `?golden` page → `__golden()`, or headless via esbuild-bundling
   `src/devtools/golden.ts` + `newGame.ts` into a Node runner (see MIGRATION.md).
-  Baseline `2572358428` (re-baselined 2026-07-24 for the AI decision layer
-  phase 2 — flank scheme; full history in MIGRATION.md — older hashes
+  Baseline `1580513923` (re-baselined 2026-07-24 for indirect basic loads +
+  rolled OPFOR fire windows; full history in MIGRATION.md — older hashes
   referenced above predate it). Behavioral changes to the A&D tick path require a
   deliberate re-baseline (run twice, confirm deterministic, update MIGRATION.md
   + this file).

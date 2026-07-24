@@ -13,8 +13,13 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `2572358428`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for decision-layer phase 2: the FLANK scheme — fastest
+**Baseline digest hash: `1580513923`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for indirect-fire basic loads + rolled fire windows:
+guns carry 48 rounds both sides (fireMission decrements, WINCHESTER at zero,
+trickle resupply near own base / faster beside an own-side LOG truck), and the
+OPFOR commander's fire tempo runs on rolled windows — 90–240 s per group,
+40–90 s theater-wide — instead of linear spacing. Measured ~13 and ~8 missions
+per hour (was ~64). Phase-2 baseline `2572358428`: the FLANK scheme — fastest
 slice of the main body hooks wide on a two-leg route while the rest fix — and
 DIG_IN now digs everyone on the position, latching only when most are set.
 Phase 1 baseline `4056482884`: battlegroups

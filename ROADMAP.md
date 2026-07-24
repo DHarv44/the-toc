@@ -957,7 +957,7 @@ units take it without hesitation — both playtest engineers died this way.
 
 ## Enemy AI / OPFOR 🟡
 
-### Decision Layer — Utility Scoring for Commander & Units 🟡 *(phase 1 shipped 2026-07-24: substrate + FIRE_HE / SMOKE_SCREEN / DIG_IN on battlegroup commanders — `domains/opfor/decide.ts`; verified in hour-long headless runs: prep fires when the assault is close enough to support, smoke answering incoming fire on the reported threat vector, digging in on taken ground; `fireMission` made side-aware (OPFOR pays its own purse); debug via `__game.S.enemyGroups.map(g => g.lastDecision)`. Phase 2 shipped same day: the FLANK scheme — against a defended objective with maneuver room, the fastest 40% of the main body hooks 1.2 km wide on a two-leg route while the rest fix; one scheme per approach, cleared when the hook completes or the objective moves. DIG_IN now digs everyone on the position and latches only when most are set. Next: unit-SOP echelon, the reserve, an OPFOR commander above the groups; tuning follow-ups: garrison ARTY at the base never participates, SMOKE_SCREEN cadence in long grinds may be over-eager)*
+### Decision Layer — Utility Scoring for Commander & Units 🟡 *(phase 1 shipped 2026-07-24: substrate + FIRE_HE / SMOKE_SCREEN / DIG_IN on battlegroup commanders — `domains/opfor/decide.ts`; verified in hour-long headless runs: prep fires when the assault is close enough to support, smoke answering incoming fire on the reported threat vector, digging in on taken ground; `fireMission` made side-aware (OPFOR pays its own purse); debug via `__game.S.enemyGroups.map(g => g.lastDecision)`. Phase 2 shipped same day: the FLANK scheme — against a defended objective with maneuver room, the fastest 40% of the main body hooks 1.2 km wide on a two-leg route while the rest fix; one scheme per approach, cleared when the hook completes or the objective moves. DIG_IN now digs everyone on the position and latches only when most are set. Fire tempo reworked 2026-07-24 after playtest feedback ("frequency, not accuracy"): rolled refire windows — 90–240 s per group, 40–90 s theater-wide, drawn from S.rng so incoming fire has no countable rhythm — plus the shared indirect basic load (48 rds) as the hard budget; measured ~8–13 OPFOR missions/hour, down from ~64. Next: unit-SOP echelon, the reserve, an OPFOR commander above the groups; tuning follow-ups: garrison ARTY at the base never participates)*
 Every deciding agent knows its full menu of available actions and scores each against
 the situation — a **utility system**: many small hand-written evaluations flowing into
 a decision. Deterministic, hand-tunable, debuggable; no training, no models.
@@ -1101,7 +1101,7 @@ Terrain should block sight and fire, not just slow movement:
 
 ## Sustainment
 
-### Ammo & Fuel Consumption + Accompanying Logistics
+### Ammo & Fuel Consumption + Accompanying Logistics 🟡 *(indirect-fire basic load shipped 2026-07-24: MOR/ARTY carry 48 rounds, both sides — fireMission consumes them, WINCHESTER blocks at zero, trickle resupply within 350 m of an own-side HQ/FOB (0.5 rd/s) or 150 m of an own-side LOG truck (1 rd/s), calm only; rounds shown on the tray card and the fire-mission menu. Fuel, small-arms ammo, and the deeper LOG mechanics below remain open.)*
 Make the LOG chain operationally decisive:
 - Units **consume ammo and fuel**; run dry and they can't fire / can't move until resupplied
   (like the gunship's winchester, but for ground units).

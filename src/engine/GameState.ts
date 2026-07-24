@@ -79,6 +79,7 @@ export interface Unit {
   weapons: WeaponsControl
   fireCooldown: number
   missionCooldown: number
+  ammo?: number              // indirect-fire rounds remaining (basic load; both sides)
   targetId: number | null
   bridging: { cells: number[]; t: number } | null
   lastContactT: number
@@ -294,7 +295,7 @@ export interface Battlegroup {
   dead: boolean
   // commander decision layer (utility scoring — see domains/opfor/decide.ts)
   decideT?: number           // countdown to the next decision cycle
-  lastFiresT?: number        // last supporting fire mission (per-group throttle)
+  nextFiresT?: number        // next sim time THIS group may fire again (rolled window)
   digging?: boolean          // commander ordered a defense on the current objective
   scheme?: 'flank' | null    // maneuver scheme in progress (fix + flank)
   flankIds?: number[]        // members detached as the flanking element
@@ -404,6 +405,7 @@ export interface GameState {
   hill: HillState | null     // King of the Hill objective (null in other modes)
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
+  enemyFiresOkT: number      // next sim time ANY OPFOR fire mission may launch (rolled window)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
@@ -452,6 +454,7 @@ export function createInitialState(): GameState {
     hill: null,
     waves: null,
     campaign: null,
+    enemyFiresOkT: -999,
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],
