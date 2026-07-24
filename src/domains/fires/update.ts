@@ -12,7 +12,7 @@ import { UNIT_TYPES, COVER_DEF } from '../forces/catalog'
 import { effStats, postureFactor, precisionBlast, syncElements } from '../forces/elements'
 import { canEngage, concealment, firingDetected, SMOKE_DURATION } from '../intel/sensing'
 import { netRadio, radio } from '../comms/radio'
-import { TERR_NAME } from '../../world/WorldMap'
+import { CELL, TERR_NAME, T_FOREST, T_URBAN } from '../../world/WorldMap'
 
 // direct-fire combat: units first, then structures
 export function directFireUpdate(dt: number): void {
@@ -48,6 +48,39 @@ export function directFireUpdate(dt: number): void {
             && tdist < type.range * 0.85) {
           u.heldRoute = { path: u.path, legs: u.legs }
           u.path = []; u.legs = []
+        }
+        // unit SOP — the platoon leader's call, not the TOC's: caught fighting
+        // in the open, bound to nearby cover and fight from it. One scan per
+        // contact; never a bound that closes on the shooter; both sides.
+        if (!u.coverSought && u.posture !== 'dig' && !u.path.length && !u.bridging) {
+          u.coverSought = true
+          const m = S.map!
+          const here = m.terrAt(u.x, u.y)
+          if (here !== T_FOREST && here !== T_URBAN) {
+            const gx0 = Math.floor(u.x / CELL), gy0 = Math.floor(u.y / CELL)
+            let cbx = 0, cby = 0, cbd = Infinity
+            for (let dy = -5; dy <= 5; dy++) {
+              for (let dx = -5; dx <= 5; dx++) {
+                if (!dx && !dy) continue
+                const gx = gx0 + dx, gy = gy0 + dy
+                if (!m.inBounds(gx, gy)) continue
+                const t2 = m.terr[gy * m.GRID + gx]
+                if (t2 !== T_FOREST && t2 !== T_URBAN) continue
+                const px = (gx + 0.5) * CELL, py = (gy + 0.5) * CELL
+                const dSelf = Math.hypot(px - u.x, py - u.y)
+                if (dSelf >= cbd || dSelf > 260) continue
+                if (Math.hypot(px - tgt.x, py - tgt.y) < tdist * 0.8) continue // no bounding toward the guns
+                cbd = dSelf; cbx = px; cby = py
+              }
+            }
+            if (isFinite(cbd)) {
+              const cp = findPath(S.map!, u.x, u.y, cbx, cby, effStats(u).mob)
+              if (cp) {
+                u.path = cp // no legs: the bound is silent SOP, not a reported move
+                netRadio(u, 'move', 'CONTACT — BOUNDING TO COVER', u.x, u.y)
+              }
+            }
+          }
         }
       }
       // push: no halt, no dismount — return fire on the move and keep rolling
@@ -100,8 +133,11 @@ export function directFireUpdate(dt: number): void {
     if (fired && u.side === 'hostile' && firingDetected(u)) {
       S.contacts.set(u.id, { x: u.x, y: u.y, type: u.type, lastSeen: S.t, live: true, strength: u.strength })
     }
-    // break-contact drill: triggers on acquiring a target OR on taking fire
-    if (u.roe === 'break' && !u.breaking) {
+    // break-contact drill: triggers on acquiring a target OR on taking fire.
+    // Break FATIGUE: a unit that only just finished running does not run again —
+    // it stands and fights this one (kills the push/retreat yo-yo where an AI
+    // commander re-tasks a broken unit straight back into the same contact)
+    if (u.roe === 'break' && !u.breaking && S.t - (u.lastBreakT ?? -999) > 120) {
       const underFire = S.t - (u.underFireT ?? -99) < 3
       const threat = tgt ? { x: tgt.x, y: tgt.y }
         : underFire && u.threatX != null ? { x: u.threatX, y: u.threatY! } : null

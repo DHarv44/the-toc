@@ -13,8 +13,12 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `1580513923`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for indirect-fire basic loads + rolled fire windows:
+**Baseline digest hash: `1469771434`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for unit-SOP v1: units on halt-ROE bound up to 260 m
+to cover when caught fighting in the open (both sides, shared drill code),
+break fatigue (no re-break within 120 s of completing one), and garrison
+defensive fires wired in. Prior `1580513923`: indirect-fire basic loads +
+rolled fire windows:
 guns carry 48 rounds both sides (fireMission decrements, WINCHESTER at zero,
 trickle resupply near own base / faster beside an own-side LOG truck), and the
 OPFOR commander's fire tempo runs on rolled windows — 90–240 s per group,

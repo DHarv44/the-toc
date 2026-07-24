@@ -210,7 +210,7 @@ export function movementUpdate(dt: number): void {
           u.legs = []; u.state = 'hold'
           // arriving completes the mission — drop any break-resume bookkeeping
           // (unless this was the evasion leg itself, which still wants its resume)
-          if (!u.breaking) { u.resumeDest = undefined; u.breakRetried = undefined }
+          if (!u.breaking) { u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined }
         }
       } else {
         u.x += (dx / d) * spd * dt
@@ -254,6 +254,7 @@ export function drillsUpdate(dt: number): void {
     }
     if (u.breaking && !u.targetId && S.t - u.lastCombatT > 15) {
       u.breaking = false
+      u.lastBreakT = S.t // break fatigue window starts when the run completes
       // resume the interrupted mission once contact is broken — one retry, so a
       // soft unit doesn't need re-tasking for every brush, but a route that keeps
       // drawing fire is abandoned rather than ping-ponged forever
@@ -292,6 +293,7 @@ export function drillsUpdate(dt: number): void {
           netRadio(u, 'move', 'REMOUNTING', u.x, u.y)
         }
         u.autoDismounted = false
+        u.coverSought = undefined // next contact gets a fresh cover scan
         if (u.heldRoute) {
           const afterFire = u.state === 'firing'
           u.path = u.heldRoute.path

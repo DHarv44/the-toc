@@ -104,6 +104,8 @@ export interface Unit {
   surrenderRolled?: boolean  // one-shot surrender roll consumed
   resumeDest?: Vec2          // mission objective saved by the break drill (resume once clear)
   breakRetried?: boolean     // the one break-resume retry has been spent
+  coverSought?: boolean      // this contact's cover scan is spent (unit SOP)
+  lastBreakT?: number        // when the last break-contact completed (break fatigue)
   _sndFireT?: number         // feed-audio throttle (stamped by DroneView's audio pass)
 }
 

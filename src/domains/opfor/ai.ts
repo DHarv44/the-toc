@@ -12,7 +12,7 @@ import type { UnitTypeKey } from '../forces/catalog'
 import { spawnEnemy } from '../forces/factory'
 import { newMoveGroup, orderMove, orderRoe, orderDefend } from '../forces/orders'
 import { templateCost, forceCap, forceCount } from '../economy/economy'
-import { commanderDecide } from './decide'
+import { commanderDecide, garrisonFires } from './decide'
 
 interface BgTemplate {
   name: string
@@ -207,6 +207,10 @@ export function enemyAI(dt: number): void {
 
   for (const grp of S.enemyGroups) updateBattlegroup(grp, dt)
   S.enemyGroups = S.enemyGroups.filter(g => !g.dead)
+
+  // the base battery answers assaults on the base network (defensive fires —
+  // same windows and racks as everything else)
+  garrisonFires()
 
   // garrison defenders: hold their anchor, dig in when a threat closes
   for (const u of S.units) {

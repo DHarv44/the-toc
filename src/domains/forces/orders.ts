@@ -156,7 +156,7 @@ export function orderMove(
   u.bridging = null
   u.heldRoute = null
   u.breaking = false
-  u.resumeDest = undefined; u.breakRetried = undefined // fresh order supersedes any break-resume
+  u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined // fresh order supersedes any break-resume
   // don't clear autoDismounted here — autoRemount() already remounted it if it was
   // clear of contact; if it's still in contact the flag must survive so it climbs
   // back in once the fight is over (see the auto-remount drill in the tick)
@@ -200,7 +200,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   const p = findPath(S.map!, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
   u.bridging = null; u.heldRoute = null; u.breaking = false
-  u.resumeDest = undefined; u.breakRetried = undefined
+  u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined
   u.convoy = null // autoDismounted survives (see autoRemount / the remount drill)
   u.groupId = groupId
   u.attackId = enemyId
@@ -248,7 +248,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
 
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {

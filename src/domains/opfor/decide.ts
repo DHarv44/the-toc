@@ -204,6 +204,41 @@ const ACTIONS: CmdAction[] = [
   },
 ]
 
+// Defensive fires for garrison guns (the base battery): not part of any
+// battlegroup, so they get their own pass — when a player concentration is
+// pressing toward an own-side installation, the guns answer. Same iron rule
+// (plain fireMission), same theater window, same 48-round racks; winchester
+// silences the base until something resupplies it.
+export function garrisonFires(): void {
+  if (S.t < S.enemyFiresOkT) return
+  for (const g of S.units) {
+    if (g.side !== 'hostile' || g.aiRole !== 'garrison' || g.strength <= 0) continue
+    const ind = UNIT_TYPES[g.type].indirect
+    if (!ind || g.missionCooldown > 0 || (g.ammo ?? 0) < 1) continue
+    // a defended place worth shooting for: the nearest own-side structure
+    let best: (Vec2 & { n: number }) | null = null
+    let bs = 0
+    for (const p of S.units) {
+      if (p.side !== 'friend' || p.strength <= 0) continue
+      if (Math.hypot(p.x - g.x, p.y - g.y) > ind.range) continue
+      // only fires in defense of the base network — not interdiction
+      const nearOwn = S.structures.some(s => s.side === 'hostile' && s.buildT <= 0
+        && Math.hypot(s.x - p.x, s.y - p.y) < 1800)
+      if (!nearOwn) continue
+      const n = S.units.filter(q => q.side === 'friend' && q.strength > 0
+        && Math.hypot(q.x - p.x, q.y - p.y) < 250).length
+      if (n >= 2 && n > bs) { bs = n; best = { x: p.x, y: p.y, n } }
+    }
+    if (!best) continue
+    // no dropping on our own defenders
+    if (S.units.some(m => m.side === 'hostile' && m.strength > 0
+      && Math.hypot(m.x - best!.x, m.y - best!.y) < 320)) continue
+    fireMission(g.id, best.x, best.y, { shell: 'HE' })
+    S.enemyFiresOkT = S.t + 40 + S.rng!() * 50
+    return // one defensive mission per window
+  }
+}
+
 // one decision cycle for one battlegroup — called from enemyAI on the group's
 // cadence. Scores every available action, executes the best above the floor.
 export function commanderDecide(grp: Battlegroup, mem: Unit[]): void {
