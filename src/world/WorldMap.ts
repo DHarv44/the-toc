@@ -48,6 +48,14 @@ export interface BridgeSpan extends Vec2 {
   cls: RoadClass
 }
 
+// named terrain: rivers (biggest drainage lines) and hills (prominent peaks,
+// military-labelled by elevation — "HILL 91"). Radio calls, briefings and
+// objectives anchor to these instead of bare grid references.
+export interface MapFeature extends Vec2 {
+  kind: 'river' | 'hill'
+  name: string
+}
+
 export interface WorldMap {
   GRID: number
   CELL: number
@@ -57,6 +65,7 @@ export interface WorldMap {
   road: Uint8Array          // road class per cell (0 none / 1 path / 2 road / 3 highway)
   roads: RoadPoly[]
   bridges: BridgeSpan[]
+  features: MapFeature[]
   waterSurf: Float32Array
   slope: Float32Array
   towns: Town[]

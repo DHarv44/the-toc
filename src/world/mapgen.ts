@@ -10,8 +10,8 @@ import type { TheaterData } from './theaters'
 import {
   CELL, GRID_DEFAULT, TERR_NAME, T_FIELD, T_FOREST, T_URBAN, T_WATER,
   R_PATH, R_ROAD, R_HIGHWAY,
-  type BridgeSpan, type RoadClass, type RoadPoly, type Terrain, type Town,
-  type Vec2, type WorldMap,
+  type BridgeSpan, type MapFeature, type RoadClass, type RoadPoly, type Terrain,
+  type Town, type Vec2, type WorldMap,
 } from './WorldMap'
 
 const D8: ReadonlyArray<readonly [number, number]> = [
@@ -42,6 +42,10 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   // relief scale adapts: subtle steppe stays subtle, mountain theaters clamp
   // to what mobility costs are tuned for. A whisper of detail noise keeps
   // close zoom from looking silky (30 m source data under 50 m cells).
+  // maps gameplay elevation back to real-world meters for labels (identity on
+  // procgen maps; theater maps invert their normalization so HILL numbers read
+  // as true spot elevations)
+  let elevLabel = (e: number) => e
   if (theater) {
     const P = theater.meta.size
     const ox = Math.floor(rng() * (P - GRID + 1))
@@ -62,6 +66,7 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
         elev[idx(gx, gy)] = Math.max(4, 8 + (m - lo) * s + 1.6 * n2(gx * 0.1, gy * 0.1))
       }
     }
+    elevLabel = (e) => lo + (e - 8) / s
   } else {
     for (let gy = 0; gy < GRID; gy++) {
       for (let gx = 0; gx < GRID; gx++) {
@@ -387,8 +392,121 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   edges.forEach(([a, b], k) => lay(nodes[a]!, nodes[b]!, trunk.has(k) ? R_HIGHWAY : R_ROAD))
   for (const [a, b] of pathEdges) lay(nodes[a]!, nodes[b]!, R_PATH)
 
+  // --- 12. hamlets: small settlements strung along the paved network ---
+  // Real culture follows the road, not the noise field: every so often along a
+  // road/highway, far enough from towns and each other, a few urban cells dab
+  // in a hamlet. Unnamed — they're texture and cover, not objectives.
+  {
+    const HAMLET_CAP = GRID >= 256 ? 7 : GRID >= 160 ? 4 : 2
+    const hamlets: Vec2[] = []
+    outer: for (const r of roads) {
+      if (r.cls === R_PATH) continue
+      let along = 0
+      for (let s = 0; s < r.pts.length - 1; s++) {
+        const p = r.pts[s]!, q = r.pts[s + 1]!
+        along += Math.hypot(q.x - p.x, q.y - p.y)
+        if (along < 900) continue
+        along = 0
+        if (rng() < 0.45) continue // irregular spacing
+        const gx = Math.floor(q.x / CELL), gy = Math.floor(q.y / CELL)
+        if (gx < 2 || gy < 2 || gx >= GRID - 2 || gy >= GRID - 2) continue
+        const i = idx(gx, gy)
+        if (terr[i] !== T_FIELD || slope[i]! > 6) continue
+        const clear = towns.every(t => Math.hypot(t.x - q.x, t.y - q.y) > 1200)
+          && hamlets.every(h => Math.hypot(h.x - q.x, h.y - q.y) > 1500)
+          && Math.hypot(fobCell.gx * CELL - q.x, fobCell.gy * CELL - q.y) > 1500
+          && Math.hypot(baseCell.gx * CELL - q.x, baseCell.gy * CELL - q.y) > 1500
+        if (!clear) continue
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (rng() < 0.55 && Math.abs(dx) + Math.abs(dy) < 2) {
+              const j = idx(gx + dx, gy + dy)
+              if (terr[j] !== T_WATER && slope[j]! < 8) terr[j] = T_URBAN
+            }
+          }
+        }
+        terr[i] = T_URBAN
+        hamlets.push({ x: q.x, y: q.y })
+        if (hamlets.length >= HAMLET_CAP) break outer
+      }
+    }
+  }
+
+  // --- 13. named features: hills and rivers ---
+  const features: MapFeature[] = []
+  {
+    // hills: prominent local maxima (no higher ground within R), well
+    // separated, labelled military-style by their map elevation
+    const R = Math.max(8, Math.round(GRID * 0.055))
+    const peaks: Array<{ gx: number; gy: number; e: number }> = []
+    for (let gy = 2; gy < GRID - 2; gy += 2) {
+      for (let gx = 2; gx < GRID - 2; gx += 2) {
+        const i = idx(gx, gy)
+        if (terr[i] === T_WATER) continue
+        const e = elev[i]!
+        let peak = true
+        scan: for (let dy = -R; dy <= R; dy += 2) {
+          for (let dx = -R; dx <= R; dx += 2) {
+            const nx = gx + dx, ny = gy + dy
+            if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue
+            if (elev[idx(nx, ny)]! > e) { peak = false; break scan }
+          }
+        }
+        if (peak) peaks.push({ gx, gy, e })
+      }
+    }
+    peaks.sort((a, b) => b.e - a.e)
+    const HILL_CAP = GRID >= 256 ? 5 : GRID >= 160 ? 4 : 3
+    const used: Array<{ gx: number; gy: number }> = []
+    const names = new Set<string>()
+    for (const p of peaks) {
+      if (used.length >= HILL_CAP) break
+      if (!used.every(u => Math.hypot(u.gx - p.gx, u.gy - p.gy) > R * 2.2)) continue
+      const name = `HILL ${Math.round(elevLabel(p.e))}`
+      if (names.has(name)) continue // twin elevations read as one hill — skip
+      names.add(name)
+      used.push(p)
+      features.push({ kind: 'hill', name, x: (p.gx + 0.5) * CELL, y: (p.gy + 0.5) * CELL })
+    }
+
+    // rivers: connected water components that carry real drainage, biggest
+    // first; the label sits on the widest point of the main channel
+    const RIVER_NAMES = ['VARDA', 'KESSEL', 'OSTRA', 'LENNE', 'MIRKA']
+    const comp = new Int32Array(N).fill(-1)
+    const comps: Array<{ cells: number[]; maxAcc: number; at: number }> = []
+    for (let i0 = 0; i0 < N; i0++) {
+      if (terr[i0] !== T_WATER || comp[i0] !== -1) continue
+      const cells: number[] = []
+      let maxAcc = 0, at = i0
+      const q = [i0]; comp[i0] = comps.length
+      while (q.length) {
+        const c = q.pop()!
+        cells.push(c)
+        if (acc[c]! > maxAcc) { maxAcc = acc[c]!; at = c }
+        const cx = c % GRID, cy = (c / GRID) | 0
+        for (const [dx, dy] of D8) {
+          const nx = cx + dx, ny = cy + dy
+          if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue
+          const ni = ny * GRID + nx
+          if (terr[ni] === T_WATER && comp[ni] === -1) { comp[ni] = comps.length; q.push(ni) }
+        }
+      }
+      comps.push({ cells, maxAcc, at })
+    }
+    const rivers = comps
+      .filter(c => c.cells.length >= 25 && c.maxAcc > RIVER_T * 1.5)
+      .sort((a, b) => b.cells.length - a.cells.length)
+      .slice(0, 3)
+    rivers.forEach((c, k) => {
+      features.push({
+        kind: 'river', name: `${RIVER_NAMES[k]!} RIVER`,
+        x: (c.at % GRID + 0.5) * CELL, y: ((c.at / GRID | 0) + 0.5) * CELL,
+      })
+    })
+  }
+
   const map: WorldMap = {
-    GRID, CELL, WORLD, elev, terr, road, roads, bridges, waterSurf, slope, towns, seed,
+    GRID, CELL, WORLD, elev, terr, road, roads, bridges, features, waterSurf, slope, towns, seed,
     ...(theater ? { theaterId: theater.meta.id } : {}),
     fob: { x: (fobCell.gx + 0.5) * CELL, y: (fobCell.gy + 0.5) * CELL },
     enemyBase: { x: (baseCell.gx + 0.5) * CELL, y: (baseCell.gy + 0.5) * CELL },

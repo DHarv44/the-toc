@@ -166,7 +166,14 @@ per map, no megacities.
   water crossing gets a bridge span object; dirt paths that can't route dry aren't
   built. Per-class MOVE_FACTORS; pontoons stamp class 2. Golden re-baselined
   `60356280` (deliberate — the network itself changed).
-- **M3 — Culture layer upgrades** ⬜: towns strung along roads and valleys instead of
+- **M3a — Hamlets + named terrain** ✅ *(shipped 2026-07-23)*: small hamlets strung
+  along the paved network (unnamed texture/cover, spaced off towns and bases);
+  `WorldMap.features` — prominent peaks labelled military-style (real meters on
+  theaters: "HILL 1190" on the Golan; gameplay elevation on procgen) and the biggest
+  drainage components named ("VARDA RIVER"), rendered as faint reference marks on the
+  BFT. Radio calls/briefings can now anchor to named terrain (wiring into the radio
+  message factory is still open). Golden baseline unchanged (`60356280`).
+- **M3 — Culture layer upgrades** ⬜ *(remaining)*: towns strung along roads and valleys instead of
   scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
   scenery only, per design law 2) rendered by the drone feeds so village orbits stop
   looking empty; **named features** (rivers from the flow-accum pass, dominant hills,

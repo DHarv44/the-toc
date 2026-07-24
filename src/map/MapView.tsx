@@ -566,6 +566,25 @@ export default function MapView() {
       ctx.fillStyle = night ? 'rgba(160,195,225,0.8)' : 'rgba(40,40,45,0.85)'
       ctx.textAlign = 'center'
       for (const t of S.map!.towns) ctx.fillText(t.name, w2sX(t.x), w2sY(t.y) - 6)
+
+      // named terrain: hills (spot-elevation style) and rivers (blue italic).
+      // Fainter than town names — reference marks, not objectives.
+      if (view.ppm > 0.03) {
+        for (const f of S.map!.features) {
+          const fx = w2sX(f.x), fy = w2sY(f.y)
+          if (f.kind === 'hill') {
+            ctx.fillStyle = night ? 'rgba(170,150,120,0.55)' : 'rgba(96,72,44,0.75)'
+            ctx.font = '9px Consolas, monospace'
+            ctx.fillText('▲', fx, fy + 3)
+            ctx.font = '8.5px Consolas, monospace'
+            ctx.fillText(f.name, fx, fy - 6)
+          } else {
+            ctx.fillStyle = night ? 'rgba(120,170,215,0.6)' : 'rgba(36,88,138,0.8)'
+            ctx.font = 'italic 9px Consolas, monospace'
+            ctx.fillText(f.name, fx, fy - 5)
+          }
+        }
+      }
       ctx.textAlign = 'left'
 
       const ui = useUI.getState()
