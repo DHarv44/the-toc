@@ -153,9 +153,10 @@ per map, no megacities.
   (Ardennes-like) · alpine pass · coastal fjord · open steppe with wadis.
   *Pure-noise procgen stays as a source (and as the golden-run default — baseline
   unchanged; theater maps are additive).*
-- **M2 — Cartography glow-up** ⬜: hillshade + contour rendering under the BFT symbology
-  (real military-map look), better water/forest/field rendering. Visual only, golden-safe.
-  Fixes most of "the maps feel lackluster" on its own; twice as good over real relief.
+- **M2 — Cartography glow-up** ✅ *(shipped 2026-07-23)*: Lambertian hillshade from the
+  terrain gradient (NW light, vertical exaggeration), elevation-warped farmland mosaic
+  that hugs the contours (fades on slopes), forest-edge treelines, solid river/lake bank
+  lines, stronger contours. Visual only — golden untouched.
 - **M3 — Culture layer upgrades** ⬜: towns strung along roads and valleys instead of
   scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
   scenery only, per design law 2) rendered by the drone feeds so village orbits stop
