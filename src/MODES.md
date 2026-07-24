@@ -102,9 +102,11 @@ nailed down first (ROADMAP → Maps & Terrain: real-DEM theaters, cartography,
 named features, mode recipes), because the campaign wants a guaranteed map shape
 (river belt + crossings) and named terrain for briefings. Also decided meanwhile:
 main menu becomes **CAMPAIGN / SKIRMISH / DEV SANDBOX** (Skirmish wraps the mode
-chooser = MODE_ORDER + coming-soon entries), and the campaign uses the **promotion
-arc** — mission 1 battalion, endgame division (ROADMAP → C2 & Echelon). Zone
-Capture is parked pending a layout/win-condition design discussion.
+chooser = MODE_ORDER + coming-soon entries), and the game's identity was settled:
+the player is a **battalion commander** — the campaign is one battalion's war
+through a division operation, with an NPC higher-HQ character issuing FRAGOs and
+allocations (ROADMAP → Design Laws + C2 & Echelon). Zone Capture is parked
+pending a layout/win-condition design discussion.
 
 **One Large map, one long war** — a continuous operation fought as sequential
 missions on the SAME persistent map (nothing resets: front line, units, FOBs,

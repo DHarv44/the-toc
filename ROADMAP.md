@@ -90,24 +90,51 @@ early buys nothing until the game underneath is worth spreading across screens.
 
 ---
 
-## Maps & Terrain  🟡 *(CURRENT FOCUS — direction decided 2026-07-23)*
+## Design Laws
 
-### Design laws (agreed 2026-07-23 — every map decision is tested against these)
-1. **The drone feed is the product; the map exists to serve it.** The feeds must remain a
+Agreed 2026-07-23 after the maps / echelon design sessions. Every feature, map and
+system decision is tested against these; cite them by number ("fails law 1").
+
+0. **Built for people who've sat in a real TOC.** The audience is military enthusiasts
+   and vets who have run actual BFTs. Authenticity is the product — when a vet notices
+   something, it should be because it's *right*.
+1. **The drone feed is the product; the map serves it.** The feeds must remain a
    mostly-accurate representation of the ground. Nothing ships that makes the map cooler
-   at the feeds' expense — which is why full real-world (OSM) maps were rejected: our
-   synthesized ground would be competing with the player's mental image of a real place.
-2. **This is the war in Iraq, not the war in Baghdad.** Operational maneuver at 50 m/cell.
-   The smallest orderable element is a platoon; towns are terrain a company occupies,
-   cordons or shells — never building-by-building mazes. Buildings exist only as drone-feed
-   scenery (footprint render data), never as gameplay entities. Every theater must be
-   *maneuver country*: valleys, river plains, ridge-and-farmland, steppe — at most one
-   modest town per map, no megacities.
+   at the feeds' expense — why full real-world (OSM) maps were rejected: our synthesized
+   ground would be competing with the player's mental image of a real place.
+2. **73 Easting, not Fallujah.** The sim resolves *maneuver warfare*: the platoon is the
+   smallest thing that exists as gameplay, cells are 50 m, and fights happen between
+   terrain features — treelines, ridgelines, crossings — not between buildings. Towns
+   are terrain a company occupies, cordons or shells, never mazes. Buildings are
+   drone-feed scenery (footprint render data), never gameplay entities. Nothing below
+   the platoon (soldiers, rooms, streets) is simulated — it is only *seen*, in the feeds.
+   (Both anchors are battles, not places: this law is about simulation grain, not AO
+   size — AO size is law 5's business.)
 3. **One map contract, many sources.** Everything compiles to `WorldMap` (elev / terr /
    road / slope rasters + towns + names). Map *sources* are swappable compilers:
    `procgen noise | baked real-DEM theater | authored heightmap | (someday) builder file`.
    Both renderers (BFT and feeds) read `WorldMap`, so drone-cam ground truth is accurate
    by construction regardless of source.
+4. **Automation adds seats; it never takes the stick out of your hand.** Personally
+   calling the fire mission, flying the sensor, walking rounds onto the treeline — the
+   *doing* is the game. AI staff, subordinate commanders and request flows are optional
+   capacity for scale, never a replacement. Any change that makes the game feel less
+   like being in the TOC and more like watching one gets rolled back.
+5. **Battalion is the home echelon.** The player is a battalion commander; the game is
+   their TOC — the lowest echelon where a real TOC exists, the highest where personally
+   running every seat is doctrinally honest. Higher echelons are *characters*: they
+   issue your orders, grant your allocations, and deny your requests (an NPC HHQ today,
+   maybe a human division commander in multiplayer). Lower echelons are yours to command
+   down to the platoon; below platoon you only watch, through the sensors. Playable
+   brigade/division/corps seats: eventually, maybe.
+
+---
+
+## Maps & Terrain  🟡 *(CURRENT FOCUS — direction decided 2026-07-23)*
+
+Governed by laws 1–3. Theater curation rule from law 2: every theater is *maneuver
+country* — valleys, river plains, ridge-and-farmland, steppe; at most one modest town
+per map, no megacities.
 
 ### The plan
 - **M1 — Real-DEM theaters** ⬜: real elevation, procedural culture. A curated **theater
@@ -147,29 +174,46 @@ early buys nothing until the game underneath is worth spreading across screens.
 
 ---
 
-## C2 & Echelon  ⬜ *(design direction agreed 2026-07-23)*
+## C2 & Echelon  ⬜ *(FINAL 2026-07-23 — battalion-TOC model; supersedes the earlier echelon-ladder draft)*
 
-**You command the echelon the mission deserves.** Small maps / Spec Ops → battalion (or a
-task-force slice). Medium → brigade. Large / Campaign → division — **division is the
-player ceiling**. Multiplayer someday: a human **corps** commander with human division
-commanders under them — the C2 hierarchy *is* the multiplayer structure.
+**The player is a battalion commander; the game is their TOC** (law 5). Today's game is
+already a battalion task force with every seat played manually — the audit against 1st
+Cavalry Division's real ORBAT confirmed the scale: 12–20 platoons ≈ a battalion TF with
+attachments (our force caps), 5–13 km ≈ a battalion AO (our map sizes). A division is
+~250 platoon-equivalents across a 100 km AO — not a map, and no longer a goal: the big
+war exists as *context* delivered by higher headquarters.
 
-- **Platoon stays the atomic element** at every echelon; the drone feed remains the only
-  window below it.
-- **Intent-based subordinate commanders** make high echelons playable: you don't
-  micromanage 60 platoons, you tell 2nd Battalion to seize the crossing and screen north.
-  The machinery already exists — the OPFOR battlegroup AI is exactly this (a commander
-  that issues only player-legal orders, tactical execution in shared code, built to be
-  side-agnostic). A friendly battalion commander is that code pointed the other way.
-- **The directed telescope**: the player can always reach down and directly order any
-  platoon. Delegation is the default, never a cage.
-- **ORBAT / task organization**: units roll into companies/battalions/brigades in a task
-  org tree (UI: an ORBAT rail; orders at any node). Prerequisite for combat groups,
-  formations, and the campaign's later missions.
-- **Campaign promotion arc**: the campaign *promotes* you — mission 1 is a battalion
-  command (the tutorial, solved organically); by the river crossing you run a brigade;
-  the endgame is yours as division commander. Teaching arc and echelon ladder are the
-  same mechanism.
+- **Real formations (decided).** The player's TF comes from the real 1st Cav ORBAT
+  (e.g. 1-8 CAV, 2nd BCT "Black Jack"). Future factions get the same treatment — a
+  research deep-dive into each faction's actual battle assets, scoped to
+  battalion-and-below fidelity (higher echelons are narrative structure).
+- **E1 — 2525 echelon amplifiers** *(quick win, do early)*: `•••` above every unit frame
+  now (everything fielded is a platoon), the task-force bracket for cross-attached
+  teams, higher-formation text amplifier once the ORBAT tree exists. Doctrinal
+  designations — "1/A/1-8 CAV" — alongside the radio callsigns. For this audience the
+  amplifiers are the difference between game icons and a COP (law 0).
+- **E2 — ORBAT / task organization**: platoons roll into companies inside the battalion
+  in a small task-org tree (A/B/C CO + scouts + mortars + attachments); an ORBAT rail
+  UI; orders at the company node ride the existing group machinery. Unlocks the parked
+  formation/column work and the campaign's allocation model.
+- **HHQ is a character, not a seat** *(lands with the campaign)*: an NPC higher-HQ
+  system delivers the big war — FRAGOs come down, allocations are granted ("SPOOKY 41
+  on station 0200–0300, then it's 2-8's"), priorities of fire shift, your requests go
+  up and sometimes come back DENIED, a company gets detached from you for 48 hours.
+  Requests flow one way (up); everything task-organized TO you stays hands-on (law 4).
+  In multiplayer the NPC seat is what a human division commander later occupies —
+  human battalion COs under a human allocator is the long-term MP structure.
+- **Economy split (decided)**: Skirmish keeps the buy-economy (the game-y sandbox);
+  the Campaign uses doctrinal allocation — you receive a task organization from higher,
+  not a shopping cart, and replacements flow through sustainment.
+- **The directed telescope**: the player can always directly order any platoon and
+  personally run any seat they own (law 4). Future AI company XOs executing intent
+  orders (the OPFOR battlegroup brain pointed our way — the architecture already
+  supports it) are optional QoL, never required.
+- **Eventually, maybe**: playable brigade/division seats, zoom-out aggregation
+  (platoons collapse into their company's `❘` frame), corps-structured multiplayer.
+  Nothing rots meanwhile — the HHQ system and the campaign's theater map are those
+  features' foundations.
 
 ---
 
@@ -185,9 +229,11 @@ and what happens when the match ends — all feeding one shared end-of-match fra
 picking it opens the mode chooser (Attack & Defend, Base Defense, King of the Hill,
 plus the in-development modes) and then map size / difficulty. The player-built
 Scenario Builder (see 7) lands under Skirmish when it exists. Dev Sandbox stays as-is,
-and will eventually let the player place enemy units too. The July 2026 playtest made the gap concrete: the HQ fell, one toast fired and
-scrolled away, and the sim kept running — orders still worked, the OPFOR kept fighting,
-nothing acknowledged the loss.
+and will eventually let the player place enemy units too.
+
+(The July 2026 playtest is what forced the end-of-match framework: the HQ fell, one
+toast fired and scrolled away, and the sim kept running — orders still worked, the
+OPFOR kept fighting, nothing acknowledged the loss. Shipped since.)
 
 ### End of Match — Shared Framework ⬜ *(absorbs the old Victory/Defeat Screen item)*
 The mode declares the outcome; this framework lands it:
@@ -279,11 +325,16 @@ Moved up in the build order ahead of Zone Capture: the campaign doubles as the
 **new-player teaching arc** (each mission introduces one system), and building it may
 surface design changes that feed back into the other modes. Development paused at the
 state-scaffolding stage (`S.campaign` exists) until the map overhaul lands — the campaign
-wants M4's guaranteed map shape and M3's named terrain for its briefings. Two design
-decisions made in the meantime: the **main menu** is CAMPAIGN / SKIRMISH / DEV SANDBOX
-(see the menu note above), and the campaign uses the **promotion arc** (see C2 & Echelon):
-mission 1 is a battalion command, the endgame a division. A single **Large (12.8 km)
-map**, one continuous operation fought as a sequence of missions **on that same map**. Nothing resets between missions: the front moves, your
+wants M4's guaranteed map shape and M3's named terrain for its briefings. Design decisions made in the meantime: the **main menu** is CAMPAIGN / SKIRMISH /
+DEV SANDBOX (see the menu note above), and per law 5 the campaign is **one battalion's
+war**: your TF carried through a division operation mission by mission. The theater map
+is the division's operation graphic (NPC HHQ context — flanking battalions you hear on
+the net but never control), and each mission's ground map is an AO cut from the same
+baked theater patch, so the battalion fights across one continuous piece of real ground.
+Your force comes as a task organization from higher (allocation, not the buy-economy),
+and losses carry. The original framing below (one Large procgen map, missions as phases
+on it) predates the theater-patch model — the arc and persistence goals stand, the map
+substrate is now M1's theaters. Nothing resets between missions: the front moves, your
 units, FOBs, bridges, wrecks and contact picture all persist. Long play, large scale —
 the mode where every system already built gets a career instead of a cameo.
 
