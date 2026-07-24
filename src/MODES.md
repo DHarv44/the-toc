@@ -167,7 +167,9 @@ Game Modes → 7.
 - `npm run typecheck` clean after every unit of work.
 - Golden gate: `?golden` page → `__golden()`, or headless via esbuild-bundling
   `src/devtools/golden.ts` + `newGame.ts` into a Node runner (see MIGRATION.md).
-  Baseline `1929051837`. Behavioral changes to the A&D tick path require a
+  Baseline `60356280` (re-baselined 2026-07-23 for the road-hierarchy rework —
+  highway/road/path classes + vector polylines; history in MIGRATION.md; the
+  `1929051837` references above predate it). Behavioral changes to the A&D tick path require a
   deliberate re-baseline (run twice, confirm deterministic, update MIGRATION.md
   + this file).
 - The tick order in SimLoop is FROZEN — new phases get an explicit slot and

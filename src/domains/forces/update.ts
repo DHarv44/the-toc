@@ -130,7 +130,9 @@ export function movementUpdate(dt: number): void {
       u.bridging.t -= dt
       if (u.bridging.t <= 0) {
         for (const i of u.bridging.cells) {
-          if (!S.map!.road[i]) { S.map!.road[i] = 1; S.pontoons.push(i) }
+          // class 2 (road): a pontoon deck carries traffic at paved-road speed,
+          // matching the pre-hierarchy behavior where any road cell did
+          if (!S.map!.road[i]) { S.map!.road[i] = 2; S.pontoons.push(i) }
         }
         toast(u.label + ' — PONTOON BRIDGE ESTABLISHED')
         u.bridging = null

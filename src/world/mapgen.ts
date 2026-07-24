@@ -5,11 +5,13 @@
 import { createNoise2D } from 'simplex-noise'
 import { makeRng } from '../engine/rng'
 import { MinHeap } from './minheap'
-import { MOVE_FACTORS, type Mobility } from './mobility'
+import { MOVE_FACTORS, ROAD_NAME, type Mobility } from './mobility'
 import type { TheaterData } from './theaters'
 import {
   CELL, GRID_DEFAULT, TERR_NAME, T_FIELD, T_FOREST, T_URBAN, T_WATER,
-  type Terrain, type Town, type WorldMap,
+  R_PATH, R_ROAD, R_HIGHWAY,
+  type BridgeSpan, type RoadClass, type RoadPoly, type Terrain, type Town,
+  type Vec2, type WorldMap,
 } from './WorldMap'
 
 const D8: ReadonlyArray<readonly [number, number]> = [
@@ -272,7 +274,14 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     }
   }
 
-  // --- 11. roads: MST over strongpoints, slope-averse, bridge at narrows ---
+  // --- 11. roads: a hierarchical network, slope-averse, bridge at narrows ---
+  // MST over strongpoints = the paved net. The trunk from friendly base to
+  // enemy base through the tree (the future MSR) is promoted to highway;
+  // extra near-neighbour links that the MST skipped are laid as dirt paths.
+  // Each A* cell path becomes a Chaikin-smoothed world-space polyline — the
+  // vector source of truth for rendering and the future road graph — and the
+  // raster gets the class stamped back in for O(1) mobility lookups (higher
+  // class wins where routes overlap).
   const nodes = [
     { gx: fobCell.gx, gy: fobCell.gy },
     ...towns.map(t => ({ gx: t.gx, gy: t.gy })),
@@ -280,13 +289,106 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   ]
   const edges = mstEdges(nodes)
   if (towns.length >= 2) edges.push([1, 2])
-  for (const [a, b] of edges) {
-    const path = roadAstar(nodes[a]!, nodes[b]!, elev, terr, GRID)
-    for (const i of path) road[i] = 1
+
+  // trunk: the edge chain from node 0 (friendly base) to the enemy base
+  const trunk = new Set<number>()
+  {
+    const adj: number[][] = nodes.map(() => [])
+    edges.forEach(([a, b], k) => { adj[a]!.push(k); adj[b]!.push(k) })
+    const prevEdge = new Int32Array(nodes.length).fill(-1)
+    const prevNode = new Int32Array(nodes.length).fill(-1)
+    const seen = new Uint8Array(nodes.length)
+    const q = [0]; seen[0] = 1
+    while (q.length) {
+      const n = q.shift()!
+      for (const ek of adj[n]!) {
+        const [a, b] = edges[ek]!
+        const m = a === n ? b : a
+        if (!seen[m]) { seen[m] = 1; prevEdge[m] = ek; prevNode[m] = n; q.push(m) }
+      }
+    }
+    for (let n = nodes.length - 1; n > 0 && prevEdge[n]! >= 0; n = prevNode[n]!) trunk.add(prevEdge[n]!)
   }
 
+  // dirt paths: shortest not-yet-connected neighbour pairs, ≤ 2 per node —
+  // deterministic (no rng), so the road pass stays replayable per seed
+  const pathEdges: Array<[number, number]> = []
+  {
+    const have = new Set(edges.map(([a, b]) => (a < b ? `${a}-${b}` : `${b}-${a}`)))
+    const cands: Array<{ a: number; b: number; d: number }> = []
+    for (let a = 0; a < nodes.length; a++) {
+      for (let b = a + 1; b < nodes.length; b++) {
+        if (have.has(`${a}-${b}`)) continue
+        const d = Math.hypot(nodes[a]!.gx - nodes[b]!.gx, nodes[a]!.gy - nodes[b]!.gy)
+        if (d < GRID * 0.45) cands.push({ a, b, d })
+      }
+    }
+    cands.sort((x, y) => x.d - y.d)
+    const deg = new Map<number, number>()
+    for (const c of cands) {
+      if (pathEdges.length >= Math.max(2, towns.length)) break
+      if ((deg.get(c.a) || 0) >= 2 || (deg.get(c.b) || 0) >= 2) continue
+      pathEdges.push([c.a, c.b])
+      deg.set(c.a, (deg.get(c.a) || 0) + 1)
+      deg.set(c.b, (deg.get(c.b) || 0) + 1)
+    }
+  }
+
+  const roads: RoadPoly[] = []
+  const bridges: BridgeSpan[] = []
+  const bridgeCells = new Set<number>()
+  const wetAlong = (pts: Vec2[]): boolean => {
+    for (let s = 0; s < pts.length - 1; s++) {
+      const p = pts[s]!, q = pts[s + 1]!
+      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps
+        const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL)
+        const gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+        if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) continue
+        if (terr[idx(gx, gy)] === T_WATER) return true
+      }
+    }
+    return false
+  }
+  const lay = (a: { gx: number; gy: number }, b: { gx: number; gy: number }, cls: RoadClass) => {
+    // dirt paths may not cross water at all — no route without one, no path.
+    // Roads/highways may (every water cell they touch becomes a bridge).
+    const cellPath = roadAstar(a, b, elev, terr, GRID, cls === R_PATH ? Infinity : 60)
+    if (cellPath.length < 2) return
+    const raw: Vec2[] = cellPath.map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
+    let pts = chaikin(chaikin(raw))
+    // smoothing can cut a corner across a river bend the A* went around — for
+    // paths that would break the no-water rule, so fall back to the raw line
+    if (cls === R_PATH && wetAlong(pts)) pts = raw
+    roads.push({ cls, pts })
+    // stamp the smoothed line into the raster (sub-cell steps so no gaps)
+    for (let s = 0; s < pts.length - 1; s++) {
+      const p = pts[s]!, q = pts[s + 1]!
+      const segLen = Math.hypot(q.x - p.x, q.y - p.y)
+      const steps = Math.max(1, Math.ceil(segLen / (CELL / 2)))
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps
+        const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL)
+        const gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+        if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) continue
+        const i = idx(gx, gy)
+        if (road[i]! < cls) road[i] = cls
+        if (terr[i] === T_WATER && !bridgeCells.has(i)) {
+          bridgeCells.add(i)
+          bridges.push({
+            x: (gx + 0.5) * CELL, y: (gy + 0.5) * CELL,
+            angle: Math.atan2(q.y - p.y, q.x - p.x), cls,
+          })
+        }
+      }
+    }
+  }
+  edges.forEach(([a, b], k) => lay(nodes[a]!, nodes[b]!, trunk.has(k) ? R_HIGHWAY : R_ROAD))
+  for (const [a, b] of pathEdges) lay(nodes[a]!, nodes[b]!, R_PATH)
+
   const map: WorldMap = {
-    GRID, CELL, WORLD, elev, terr, road, waterSurf, slope, towns, seed,
+    GRID, CELL, WORLD, elev, terr, road, roads, bridges, waterSurf, slope, towns, seed,
     ...(theater ? { theaterId: theater.meta.id } : {}),
     fob: { x: (fobCell.gx + 0.5) * CELL, y: (fobCell.gy + 0.5) * CELL },
     enemyBase: { x: (baseCell.gx + 0.5) * CELL, y: (baseCell.gy + 0.5) * CELL },
@@ -300,22 +402,34 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     terrAt(x, y) { return terr[map.cellAt(x, y)] as Terrain },
     terrNameAt(x, y) {
       const i = map.cellAt(x, y)
-      return road[i] ? 'road' : TERR_NAME[terr[i]!]!
+      return road[i] ? ROAD_NAME[road[i]!]! : TERR_NAME[terr[i]!]!
     },
     elevAt(x, y) { return elev[map.cellAt(x, y)]! },
     moveFactor(x, y, mob: Mobility) {
-      const i = map.cellAt(x, y)
-      const f = MOVE_FACTORS[mob]
-      if (road[i]) return f.road
-      return f[TERR_NAME[terr[i]!]!]
+      return map.moveFactorCell(map.cellAt(x, y), mob)
     },
     moveFactorCell(i, mob: Mobility) {
       const f = MOVE_FACTORS[mob]
-      if (road[i]) return f.road
+      if (road[i]) return f[ROAD_NAME[road[i]!]!]
       return f[TERR_NAME[terr[i]!]!]
     },
   }
   return map
+}
+
+// Chaikin corner-cutting: one pass replaces each interior segment with two
+// points at 1/4 and 3/4 — two passes turn the A* cell stair-steps into the
+// natural curves the road renderer strokes. Endpoints are preserved.
+function chaikin(pts: Vec2[]): Vec2[] {
+  if (pts.length < 3) return pts
+  const out: Vec2[] = [pts[0]!]
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p = pts[i]!, q = pts[i + 1]!
+    out.push({ x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25 })
+    out.push({ x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75 })
+  }
+  out.push(pts[pts.length - 1]!)
+  return out
 }
 
 // Prim's MST on euclidean distance between node cells
@@ -337,10 +451,12 @@ function mstEdges(nodes: Array<{ gx: number; gy: number }>): Array<[number, numb
   return edges
 }
 
-// A* used only at generation time to lay roads (slope-averse, bridges expensive)
+// A* used only at generation time to lay roads (slope-averse, bridges
+// expensive). waterCost Infinity = this class may not cross water at all
+// (dirt paths — only engineered roads get bridges).
 function roadAstar(
   from: { gx: number; gy: number }, to: { gx: number; gy: number },
-  elev: Float32Array, terr: Uint8Array, GRID: number,
+  elev: Float32Array, terr: Uint8Array, GRID: number, waterCost = 60,
 ): number[] {
   const N = GRID * GRID
   const g = new Float32Array(N).fill(Infinity)
@@ -364,8 +480,10 @@ function roadAstar(
       if (closed[ni]) continue
       const dist = (dx && dy) ? 1.414 : 1
       let c = 1
-      if (terr[ni] === T_WATER) c = 60
-      else if (terr[ni] === T_FOREST) c = 2.6
+      if (terr[ni] === T_WATER) {
+        if (!isFinite(waterCost)) continue
+        c = waterCost
+      } else if (terr[ni] === T_FOREST) c = 2.6
       else if (terr[ni] === T_URBAN) c = 0.8
       c += Math.abs(elev[ni]! - elev[cur]!) * 1.8
       const ng = g[cur]! + dist * c

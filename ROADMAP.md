@@ -157,6 +157,15 @@ per map, no megacities.
   terrain gradient (NW light, vertical exaggeration), elevation-warped farmland mosaic
   that hugs the contours (fades on slopes), forest-edge treelines, solid river/lake bank
   lines, stronger contours. Visual only — golden untouched.
+- **M2.5 — Road hierarchy & vector roads** ✅ *(shipped 2026-07-23)*: roads are vector
+  polyline objects (`WorldMap.roads`, Chaikin-smoothed A* routes) stroked per-frame as
+  canvas vectors — crisp at every zoom — with the raster stamped from them for O(1)
+  mobility. Three classes: **highway** (the MST trunk between the bases — the future
+  MSR; fastest for wheels), **road** (the paved MST net), **path** (dirt links the MST
+  skipped; helps wheels over open ground, never crosses water). Every road/highway
+  water crossing gets a bridge span object; dirt paths that can't route dry aren't
+  built. Per-class MOVE_FACTORS; pontoons stamp class 2. Golden re-baselined
+  `60356280` (deliberate — the network itself changed).
 - **M3 — Culture layer upgrades** ⬜: towns strung along roads and valleys instead of
   scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
   scenery only, per design law 2) rendered by the drone feeds so village orbits stop
@@ -872,7 +881,41 @@ Expand the SIG unit beyond direction-finding:
 - Design notes: build on the existing `df` mechanic; add an emitter/RWR model shared with the
   radar/SAM work; jamming as an area effect on comms and drone control.
 
+### HUMINT ⬜ *(added 2026-07-23 — bake in later, after Symmetric Fog)*
+Human intelligence as a third INT alongside the ISR (IMINT) and SIG (SIGINT) pictures —
+slower, fuzzier, and sometimes the only thing that sees through terrain and fog:
+- **Population as a sensor** — towns you control or patrol near generate tips: "armor moved
+  through ELMSTED heading south before dawn." Delayed, area-grade, occasionally wrong —
+  rendered as aged/uncertain contacts, never crisp tracks.
+- **EPW debriefs** — the surrender system already yields prisoners; interrogation turns them
+  into intel about their parent formation (composition, objective, supply state). A reason
+  to accept surrenders instead of finishing the fight.
+- **Patrol debriefs** — dismounted elements that transit an area contribute passive
+  observations on return, even without contact reports.
+- **A HUMINT team asset** — a small attachable element (the strange-but-interesting people)
+  that multiplies tip rate and reliability when parked in or near a population center.
+- Design notes: feeds the same contact/report pipeline as recon; tips are radio-net entries
+  + low-confidence map marks with big age/uncertainty. Wants Symmetric Fog (so intel has
+  real value) and pairs with the NPC HHQ (intel summaries in FRAGO traffic). OPFOR mirror
+  eventually: the population can rat *you* out in enemy-sympathetic areas.
+
 ## Command & Control
+
+### Staff-Section Views (S1–S6) ⬜ *(added 2026-07-23)*
+The TOC UI reorganized the way a real battalion staff splits the fight — one COP, with
+switchable staff-section views that filter overlays and panels to one seat's concerns
+(design law 4: you're playing every seat; this makes each seat feel like a seat):
+- **S1 Personnel** — strength states, casualties, replacements/reconstitution, (later) MEDEVAC.
+- **S2 Intelligence** — the contact picture, ISR coverage, SIGINT/DF fixes, HUMINT tips,
+  named areas of interest; fog emphasized rather than friendly clutter.
+- **S3 Operations** — current ops: orders, routes, ROE/postures, fire missions, the fight.
+  (Effectively today's default view.)
+- **S4 Logistics** — supply stocks, convoy runs, upkeep burn, FOB status, fielding queues.
+- **S5 Plans** — (later) draft orders/overlays for the next phase without touching current ops.
+- **S6 Signal** — net status, jamming, retrans/SIG coverage once Comms & Jamming exists.
+- Design notes: views are filters + panel presets over the existing 10 Hz UI pump, not new
+  state; a compact selector (S1…S6 tabs) on the top bar. Start with S2/S3/S4 — they map to
+  systems that already exist; S1/S5/S6 light up as their systems land.
 
 ### Comms & Jamming (fall back to SOPs)
 Coordination is **not** limited by distance — units stay linked to HQ at any range — but it

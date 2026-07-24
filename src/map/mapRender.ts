@@ -202,47 +202,9 @@ export function renderTerrainLayer(map: WorldMap): HTMLCanvasElement {
     }
   }
 
-  // roads: casing + fill, connect neighbouring road cells
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  for (const pass of [
-    { color: 'rgba(52,44,34,0.85)', w: 5 },
-    { color: '#96794f', w: 2.8 },
-  ]) {
-    ctx.strokeStyle = pass.color
-    ctx.lineWidth = pass.w
-    ctx.beginPath()
-    for (let gy = 0; gy < GRID; gy++) {
-      for (let gx = 0; gx < GRID; gx++) {
-        const i = gy * GRID + gx
-        if (!road[i]) continue
-        const cx = gx * PX + PX / 2, cy = gy * PX + PX / 2
-        for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]] as const) {
-          const nx = gx + dx, ny = gy + dy
-          if (nx < 0 || nx >= GRID || ny >= GRID) continue
-          if (road[ny * GRID + nx]) {
-            ctx.moveTo(cx, cy)
-            ctx.lineTo(nx * PX + PX / 2, ny * PX + PX / 2)
-          }
-        }
-      }
-    }
-    ctx.stroke()
-  }
-
-  // bridges: dark abutment ticks + light deck over water road cells
-  for (let gy = 0; gy < GRID; gy++) {
-    for (let gx = 0; gx < GRID; gx++) {
-      const i = gy * GRID + gx
-      if (road[i] && terr[i] === T_WATER) {
-        ctx.strokeStyle = '#26221c'
-        ctx.lineWidth = 1.2
-        ctx.strokeRect(gx * PX - 1, gy * PX - 1, PX + 2, PX + 2)
-        ctx.fillStyle = '#b8a67e'
-        ctx.fillRect(gx * PX + 1.5, gy * PX + 1.5, PX - 3, PX - 3)
-      }
-    }
-  }
+  // Roads and bridges are NOT baked here — they're vector polylines
+  // (map.roads / map.bridges) stroked per-frame by MapView, so they stay
+  // crisp at every zoom and can be styled per class.
 
   return cv
 }
