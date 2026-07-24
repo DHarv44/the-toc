@@ -3,6 +3,7 @@
 // deviation) instead of module-level variables.
 import { S } from '../../engine/state'
 import type { Side, Unit } from '../../engine/GameState'
+import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { initElements } from './elements'
 
@@ -42,9 +43,12 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
 }
 
 export function spawnEnemy(typeKey: UnitTypeKey, x: number, y: number): Unit {
-  const u = newUnit(typeKey, 'hostile', x, y)
+  // same placement service the player's start force uses: random muster/garrison
+  // offsets never drop a unit into a river or lake
+  const p = S.map ? nearestLand(S.map, x, y) : { x, y }
+  const u = newUnit(typeKey, 'hostile', p.x, p.y)
   u.aiRole = 'garrison'
-  u.anchorX = x; u.anchorY = y
+  u.anchorX = p.x; u.anchorY = p.y
   S.units.push(u)
   return u
 }

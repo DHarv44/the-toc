@@ -39,7 +39,9 @@ export function findPath(
   const start = map.cellAt(sx, sy)
   let goal = map.cellAt(tx, ty)
 
-  // if target cell impassable, walk outward to nearest passable cell
+  // if target cell impassable, walk outward to nearest passable cell — and
+  // terminate AT that cell, never at the raw (possibly in-water) click point
+  let gtx = tx, gty = ty
   if (!isFinite(map.moveFactorCell(goal, mob))) {
     const ggx = goal % GRID, ggy = (goal / GRID) | 0
     let found: number | null = null
@@ -52,8 +54,10 @@ export function findPath(
     }
     if (found == null) return null
     goal = found
+    gtx = ((goal % GRID) + 0.5) * CELL
+    gty = (((goal / GRID) | 0) + 0.5) * CELL
   }
-  if (start === goal) return [{ x: tx, y: ty }]
+  if (start === goal) return [{ x: gtx, y: gty }]
 
   const N = GRID * GRID
   const g = new Float32Array(N).fill(Infinity)
@@ -86,6 +90,13 @@ export function findPath(
       if (closed[ni]) continue
       let f = map.moveFactorCell(ni, mob)
       if (!isFinite(f)) continue
+      // no cutting corners past impassable cells: a diagonal step between two
+      // diagonally-adjacent water cells is fording the river at the elbow —
+      // both orthogonal neighbours must be passable to take the diagonal.
+      // (Bridge/pontoon cells are water WITH road → finite → still fine.)
+      if (dx !== 0 && dy !== 0
+        && (!isFinite(map.moveFactorCell(cy * GRID + (cx + dx), mob))
+          || !isFinite(map.moveFactorCell((cy + dy) * GRID + cx, mob)))) continue
       if (map.road[ni]) {
         if (xc > 1) f *= xc // dampen road preference for tactical moves
       } else {
@@ -126,5 +137,5 @@ export function findPath(
   }
   out.push(pts[pts.length - 1]!)
   out.shift() // drop the cell we're standing in
-  return out.length ? out : [{ x: tx, y: ty }]
+  return out.length ? out : [{ x: gtx, y: gty }]
 }

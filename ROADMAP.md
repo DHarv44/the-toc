@@ -1707,6 +1707,24 @@ machine, same browser*, so it's all client-side:
 
 ## Bugs & Fixes
 
+### OPFOR Units Cross Rivers / Ignore Terrain ✅ *(fixed 2026-07-23 — three leaks, all in SHARED services)*
+CPU units were observed moving across rivers and going wherever they want. The rule
+(architectural, non-negotiable): **the AI layer uses the SAME order functions,
+factories and movement services as the player — it never grows its own movement
+code.** The AI was in fact already compliant — all three leaks were in the shared
+layer, affecting both sides:
+1. `findPath` corner-cut fords: a diagonal step between two diagonally-adjacent water
+   cells slipped "between" them at river elbows. Diagonals now require both orthogonal
+   neighbours passable (bridges/pontoons are water-with-road → still fine).
+2. `findPath`'s impassable-goal shortcut returned the RAW target point: order a unit
+   to a point in the river and the goal *cell* walked to the bank, but the final
+   waypoint stayed in the water — screening recon parked mid-river. Now terminates at
+   the walked-to passable cell.
+3. `spawnEnemy` placed at raw muster/garrison offsets — now snaps through
+   `nearestLand`, the same placement service the player's start force uses.
+Verified headless: 215 random paths sampled at 8 m — zero water contact; 3 full games
+run 10 sim-minutes — zero units on water. Golden re-baselined `1377301839`.
+
 ### AC-130 Gun Rounds Originate From the Wrong Point ✅ *(fixed — `gunMuzzle()` spawns rounds 14 m inboard on the port beam, 7 m below the fuselage; the drop rides the airframe so it no longer slides with ALT. Applied to the 25/40 mm cannon path and the 105 shell.)*
 Tracers don't look like they leave the aircraft's guns, and the apparent origin **shifts when
 altitude is changed** — both symptoms of the round's spawn point being the aircraft's own
