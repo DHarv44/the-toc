@@ -14,7 +14,13 @@ Open `http://localhost:5187/?golden` →
 - `__goldenDiff()` — both, digest equality
 
 **Baseline digest hash: `1469771434`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for unit-SOP v1: units on halt-ROE bound up to 260 m
+(2026-07-24: the OPFOR operational commander — `S.opforCmd`, persistent main
+effort + defensive posture — landed golden-NEUTRAL: for the golden scenario the
+main effort resolves to the same nearest-HQ objective each group already picked,
+and the player never masses on the OPFOR base, so posture stays 'attack' and the
+digest is unchanged. It only diverges from the old per-group objective when the
+player holds multiple spread structures or pushes deep.
+Baseline re-set earlier 2026-07-24 for unit-SOP v1: units on halt-ROE bound up to 260 m
 to cover when caught fighting in the open (both sides, shared drill code),
 break fatigue (no re-break within 120 s of completing one), and garrison
 defensive fires wired in. Prior `1580513923`: indirect-fire basic loads +

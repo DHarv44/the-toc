@@ -6,7 +6,7 @@
 // makes a future second human/AI commander a drop-in.
 // Ported verbatim from src/game/sim.js.
 import { S } from '../../engine/state'
-import type { Battlegroup, Unit } from '../../engine/GameState'
+import type { Battlegroup, Structure, Unit } from '../../engine/GameState'
 import type { Vec2 } from '../../world/WorldMap'
 import type { UnitTypeKey } from '../forces/catalog'
 import { spawnEnemy } from '../forces/factory'
@@ -45,6 +45,66 @@ function enemyObjective(from: Vec2): Vec2 {
     if (w < bd) { bd = w; best = { x: s.x, y: s.y } }
   }
   return best || { x: S.map!.fob.x, y: S.map!.fob.y }
+}
+
+// --- operational commander -------------------------------------------------
+// One level above the battlegroups: a persistent main effort so groups
+// converge, and a defensive posture that recalls attackers when the player
+// masses on the OPFOR base. Only chooses objectives — the groups fight.
+
+// the operational objective of an attack: the player's command post
+// (decapitation, HQ discounted so it's preferred), else the FOB nearest home.
+function pickMainEffort(): number | null {
+  const base = S.map!.enemyBase
+  let best: Structure | null = null, bd = Infinity
+  for (const s of S.structures) {
+    if (s.side !== 'friend' || s.buildT > 0) continue
+    if (s.kind !== 'HQ' && s.kind !== 'FOB') continue
+    const w = Math.hypot(s.x - base.x, s.y - base.y) * (s.kind === 'HQ' ? 0.5 : 1)
+    if (w < bd) { bd = w; best = s }
+  }
+  return best ? best.id : null
+}
+
+function updateOpforCmd(dt: number): void {
+  const cmd = S.opforCmd
+  // posture: a player force massing on our base (≳2.5 platoons within 2.6 km)
+  // flips the whole OPFOR to the defensive — committed groups get recalled to
+  // crush the overextension. Wave modes never defend (no base of their own).
+  if (!S.waves && S.map) {
+    const base = S.map.enemyBase
+    let threat = 0
+    for (const u of S.units) {
+      if (u.side === 'friend' && u.strength > 0
+        && Math.hypot(u.x - base.x, u.y - base.y) < 2600) threat += u.strength
+    }
+    cmd.posture = threat > 260 ? 'defend' : 'attack'
+  } else {
+    cmd.posture = 'attack'
+  }
+  // main effort: persistent, re-evaluated slowly and whenever the target falls
+  cmd.effortT -= dt
+  const alive = cmd.effortId != null
+    && S.structures.some(s => s.id === cmd.effortId && s.side === 'friend' && s.buildT <= 0)
+  if (!alive || cmd.effortT <= 0) {
+    cmd.effortT = 45
+    cmd.effortId = pickMainEffort()
+  }
+}
+
+// the objective for a battlegroup, per the operational commander: the hill in
+// KotH, the base in defensive posture (rally home to counterattack), else the
+// commander's shared main effort — falling back to the group's own nearest
+// target only if no main effort is set.
+function groupObjective(mem: Unit[]): Vec2 {
+  if (S.hill) return { x: S.hill.x, y: S.hill.y }
+  const cmd = S.opforCmd
+  if (cmd.posture === 'defend' && S.map) return { x: S.map.enemyBase.x, y: S.map.enemyBase.y }
+  if (cmd.effortId != null) {
+    const eff = S.structures.find(s => s.id === cmd.effortId)
+    if (eff) return { x: eff.x, y: eff.y }
+  }
+  return enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem)!)
 }
 
 // Muster a battlegroup of the given composition at a base. Shared by the
@@ -120,7 +180,7 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
 
   if (grp.phase === 'muster') {
     grp.musterT -= dt
-    if (grp.musterT <= 0) { grp.objective = enemyObjective(centroidOf(mem)!); grp.phase = 'advance' }
+    if (grp.musterT <= 0) { grp.objective = groupObjective(mem); grp.phase = 'advance' }
     return
   }
 
@@ -136,7 +196,7 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
   if (grp.phase === 'advance' && grp.retaskT <= 0) {
     grp.retaskT = 10
     const prev = grp.objective
-    grp.objective = enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem)!)
+    grp.objective = groupObjective(mem)
     // a new objective ends a prepared defense and any maneuver scheme —
     // the idle-redirect below remobilizes everyone against the new aim
     if (prev && grp.objective
@@ -197,6 +257,8 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
 }
 
 export function enemyAI(dt: number): void {
+  updateOpforCmd(dt)
+
   S.nextWave -= dt
   if (S.nextWave <= 0) {
     const rng = S.rng!

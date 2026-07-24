@@ -304,6 +304,18 @@ export interface Battlegroup {
   lastDecision?: { t: number; id: string; scores: Record<string, number> } // dev/debug
 }
 
+// The OPFOR operational commander — one level above the battlegroups. It sets
+// a persistent MAIN EFFORT so groups converge on one objective instead of each
+// marching at its own nearest target, and flips POSTURE to the defensive
+// (recalling attackers home to crush an overextended player) when the player
+// masses on the OPFOR base. It only chooses objectives; the battlegroups and
+// the shared drill code do the fighting (same iron rule as the rest of the AI).
+export interface OpforCmd {
+  posture: 'attack' | 'defend'
+  effortId: number | null    // structure id of the current main effort (null = per-group fallback)
+  effortT: number            // countdown to re-evaluate the main effort
+}
+
 // --- the state ------------------------------------------------------------
 
 // Id/callsign/group counters live IN the state (flagged deviation from the old
@@ -411,6 +423,7 @@ export interface GameState {
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
+  opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
   version: number
   counters: Counters
@@ -460,6 +473,7 @@ export function createInitialState(): GameState {
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],
+    opforCmd: { posture: 'attack', effortId: null, effortT: 0 },
     rng: null,
     version: 0,
     counters: { nextId: 1, designators: { friend: 0, hostile: 0 }, groupSeq: 1 },
