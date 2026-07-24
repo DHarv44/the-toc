@@ -13,8 +13,11 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `4056482884`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for the commander decision layer phase 1: battlegroups
+**Baseline digest hash: `2572358428`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for decision-layer phase 2: the FLANK scheme — fastest
+slice of the main body hooks wide on a two-leg route while the rest fix — and
+DIG_IN now digs everyone on the position, latching only when most are set.
+Phase 1 baseline `4056482884`: battlegroups
 with indirect members now call fire missions — HE prep, smoke screens — and dig
 in on taken ground, all through the shared player-legal order functions;
 fireMission became side-aware (OPFOR pays from S.enemyResources, toasts stay

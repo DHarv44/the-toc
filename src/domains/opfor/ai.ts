@@ -137,9 +137,14 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
     grp.retaskT = 10
     const prev = grp.objective
     grp.objective = enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem)!)
-    // a new objective ends a prepared defense — the idle-redirect below remobilizes
+    // a new objective ends a prepared defense and any maneuver scheme —
+    // the idle-redirect below remobilizes everyone against the new aim
     if (prev && grp.objective
-      && Math.hypot(prev.x - grp.objective.x, prev.y - grp.objective.y) > 400) grp.digging = false
+      && Math.hypot(prev.x - grp.objective.x, prev.y - grp.objective.y) > 400) {
+      grp.digging = false
+      grp.scheme = null
+      grp.flankIds = []
+    }
   }
 
   // commander decision cycle (the utility layer): supporting fires, smoke

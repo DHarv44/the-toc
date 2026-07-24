@@ -296,6 +296,8 @@ export interface Battlegroup {
   decideT?: number           // countdown to the next decision cycle
   lastFiresT?: number        // last supporting fire mission (per-group throttle)
   digging?: boolean          // commander ordered a defense on the current objective
+  scheme?: 'flank' | null    // maneuver scheme in progress (fix + flank)
+  flankIds?: number[]        // members detached as the flanking element
   lastDecision?: { t: number; id: string; scores: Record<string, number> } // dev/debug
 }
 

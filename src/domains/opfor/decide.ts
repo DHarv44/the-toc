@@ -17,7 +17,7 @@ import { S } from '../../engine/state'
 import type { Battlegroup, Unit } from '../../engine/GameState'
 import type { Vec2 } from '../../world/WorldMap'
 import { UNIT_TYPES } from '../forces/catalog'
-import { orderDefend } from '../forces/orders'
+import { orderDefend, orderMove } from '../forces/orders'
 import { fireMission } from '../fires/orders'
 
 interface CmdCtx {
@@ -27,6 +27,7 @@ interface CmdCtx {
   cen: Vec2                            // main-body centroid
   guns: Unit[]                         // indirect-capable members off cooldown
   tgt: (Vec2 & { n: number }) | null   // densest player element inside the gun envelope
+  defNearObj: number                   // player units defending near the objective
 }
 
 interface Consideration {
@@ -69,6 +70,46 @@ function pickTarget(guns: Unit[], grp: Battlegroup): (Vec2 & { n: number }) | nu
 }
 
 const ACTIONS: CmdAction[] = [
+  {
+    // fix + flank: against a defended objective, detach the fastest slice of
+    // the main body on a wide hook while the rest press the axis — the same
+    // two orderMove legs a player would click. One scheme per approach; a
+    // moved objective or the flankers arriving clears it (see commanderDecide).
+    id: 'FLANK',
+    available: c => c.grp.phase === 'advance' && !!c.grp.objective && !c.grp.scheme
+      && c.main.length >= 3 && c.defNearObj >= 1,
+    considerations: [
+      {
+        // maneuver wants room: too close and it's just a charge, too far and
+        // the detour dies of old age
+        name: 'room', w: 1, eval: c => {
+          const d = Math.hypot(c.cen.x - c.grp.objective!.x, c.cen.y - c.grp.objective!.y)
+          return d < 900 || d > 3200 ? 0 : d < 1200 ? (d - 900) / 300 : d > 2500 ? (3200 - d) / 700 : 1
+        },
+      },
+      { name: 'defenders', w: 1, eval: c => c.defNearObj / 3 },
+      { name: 'strength', w: 0.5, eval: c => clamp01(c.mem.reduce((s, u) => s + u.strength, 0) / c.grp.initStr / 0.7) },
+    ],
+    execute: c => {
+      const obj = c.grp.objective!
+      // fastest movers make the hook; at least two stay to fix
+      const sorted = [...c.main].sort((a, b) => UNIT_TYPES[b.type].speed - UNIT_TYPES[a.type].speed)
+      const nFlank = Math.max(1, Math.min(3, Math.floor(c.main.length * 0.4)))
+      const flankers = sorted.slice(0, nFlank)
+      // hook goes left or right of the axis (deterministic S.rng draw)
+      const side = S.rng!() < 0.5 ? 1 : -1
+      const ax = obj.x - c.cen.x, ay = obj.y - c.cen.y
+      const L = Math.hypot(ax, ay) || 1
+      const px = (-ay / L) * side, py = (ax / L) * side
+      const mx = c.cen.x + ax * 0.55 + px * 1200, my = c.cen.y + ay * 0.55 + py * 1200
+      for (const u of flankers) {
+        orderMove(u.id, mx, my, false, false, null, { crossCountry: true })
+        orderMove(u.id, obj.x + px * 250, obj.y + py * 250, true, true, null, { crossCountry: true })
+      }
+      c.grp.scheme = 'flank'
+      c.grp.flankIds = flankers.map(u => u.id)
+    },
+  },
   {
     // prep/suppress a spotted concentration with HE
     id: 'FIRE_HE',
@@ -133,8 +174,15 @@ const ACTIONS: CmdAction[] = [
       { name: 'calm', w: 1, eval: c => clamp01((S.t - Math.max(...c.mem.map(m => m.lastCombatT))) / 20) },
     ],
     execute: c => {
-      for (const u of c.mem) if (!u.path.length) orderDefend(u.id, true)
-      c.grp.digging = true
+      // dig everyone already on the position (moving members included — they
+      // are basically there); only latch the scheme once most of the group is
+      // set, so stragglers get picked up by a later cycle
+      const obj = c.grp.objective!
+      let dug = 0
+      for (const u of c.mem) {
+        if (Math.hypot(u.x - obj.x, u.y - obj.y) < 450) { orderDefend(u.id, true); dug++ }
+      }
+      if (dug >= c.mem.length * 0.6) c.grp.digging = true
     },
   },
 ]
@@ -142,15 +190,27 @@ const ACTIONS: CmdAction[] = [
 // one decision cycle for one battlegroup — called from enemyAI on the group's
 // cadence. Scores every available action, executes the best above the floor.
 export function commanderDecide(grp: Battlegroup, mem: Unit[]): void {
+  // a flank scheme is spent once its element is destroyed or has finished the
+  // hook — free the group to scheme again on the next approach
+  if (grp.scheme === 'flank') {
+    const flk = (grp.flankIds ?? []).map(id => mem.find(u => u.id === id)).filter((u): u is Unit => !!u)
+    if (!flk.length || flk.every(u => !u.path.length)) { grp.scheme = null; grp.flankIds = [] }
+  }
   const main = mem.filter(u => u.bgRole === 'main')
   const body = main.length ? main : mem
   let cx = 0, cy = 0
   for (const u of body) { cx += u.x; cy += u.y }
   const cen = { x: cx / body.length, y: cy / body.length }
   const guns = mem.filter(u => UNIT_TYPES[u.type].indirect && u.missionCooldown <= 0 && u.strength > 0)
+  const obj = grp.objective
+  const defNearObj = obj
+    ? S.units.filter(p => p.side === 'friend' && p.strength > 0
+      && Math.hypot(p.x - obj.x, p.y - obj.y) < 1200).length
+    : 0
   const ctx: CmdCtx = {
     grp, mem, main: body, cen, guns,
     tgt: guns.length ? pickTarget(guns, grp) : null,
+    defNearObj,
   }
   let best: CmdAction | null = null
   let bs = 0.3 // action floor: below this, doing nothing beats doing something
