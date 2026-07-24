@@ -10,9 +10,12 @@ import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES, COVER_DEF } from '../forces/catalog'
 import { effStats, postureFactor, precisionBlast, syncElements } from '../forces/elements'
-import { canEngage, concealment, firingDetected, SMOKE_DURATION } from '../intel/sensing'
+import { canEngage, concealment, firingDetected, observedByDrone, SMOKE_DURATION } from '../intel/sensing'
 import { netRadio, radio } from '../comms/radio'
 import { CELL, TERR_NAME, T_FOREST, T_URBAN } from '../../world/WorldMap'
+
+// observed-fire DPS multiplier when a friendly UAV is watching the target
+const OBSERVED_FIRE_MUL = 1.3
 
 // direct-fire combat: units first, then structures
 export function directFireUpdate(dt: number): void {
@@ -91,6 +94,10 @@ export function directFireUpdate(dt: number): void {
       dps *= postureFactor(tgt)
       if (et.soft < 0.3 && at.soft >= 0.7 && concealment(S.map!, u.x, u.y) < 1 && tdist < 400) dps *= 2.2
       if (u.state === 'moving') dps *= 0.6
+      // observed fire: a friendly UAV watching the target walks rounds onto it —
+      // every friendly gun on that target hits ~30% harder. Drones are friendly
+      // only, so this is a player edge for now (OPFOR UAS is future work).
+      if (u.side === 'friend' && observedByDrone(tgt.x, tgt.y)) dps *= OBSERVED_FIRE_MUL
       tgt.strength -= dps * dt * (u.strength / 100) * (S.damageMul ?? 1)
       // the victim is in contact too, even if it can't answer
       tgt.underFireT = S.t

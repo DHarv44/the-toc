@@ -30,6 +30,18 @@ export function unitSees(u: Unit, sight: number, x: number, y: number): boolean 
   return d <= sight * concealment(S.map!, x, y)
 }
 
+// Is this point inside a friendly UAV's sensor coverage right now? Used for
+// observed/adjusted fire: units shooting at a target a drone is watching hit
+// harder (terminal guidance / a spotter walking rounds on). On-station only —
+// a bird still in transit isn't steadied on the target.
+export function observedByDrone(x: number, y: number): boolean {
+  for (const d of S.drones) {
+    if (d.state !== 'onstation') continue
+    if (Math.hypot(d.tx - x, d.ty - y) <= DRONE_TYPES[d.type].sight * (d.sightMul || 1)) return true
+  }
+  return false
+}
+
 export function isVisibleToFriendlies(x: number, y: number): boolean {
   for (const u of S.units) {
     if (u.side !== 'friend') continue

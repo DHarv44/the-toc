@@ -1549,6 +1549,13 @@ are called out here *and* stubbed in the active sections above where they matter
   loose ends.)*
 - **Aerostat fixed stare + distinct airframe silhouettes** — shipped inside the 🟡
   airframe-types entry (see active section for what remains).
+- **Observed fire — UAV terminal guidance** *(2026-07-24)* — a friendly unit firing at
+  a target inside a friendly UAV's on-station sensor coverage hits ~30% harder
+  (`OBSERVED_FIRE_MUL = 1.3`, applied in the direct-fire DPS pass via
+  `sensing.observedByDrone`). Drones are friendly-only, so it's a player edge for now;
+  side-agnostic once OPFOR UAS exists. Verified 1.30× (51.3 → 66.7 damage). Golden
+  unchanged (didn't fire in the golden scenario). *Possible extension: observed indirect
+  fire (tighter arty sheaf when a UAV spots for it).*
 
 ### Interface & UX
 - **Total War control scheme** *(2026-07-24)* — LEFT = selection only (click a
