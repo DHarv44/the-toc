@@ -220,6 +220,25 @@ export function removeLastWaypoint(unitId: number): void {
   if (!u.path.length) { u.legs = []; u.state = 'hold' }
 }
 
+// Re-point a unit's final leg to (x, y), re-pathing just that segment (silent —
+// no radio). Used to collapse a group's terminal fan to a common transit point
+// when a new waypoint is appended, so the spread lives only at the last leg
+// instead of freezing into a kink mid-route.
+export function convergeLastLeg(unitId: number, x: number, y: number, opts: PathOpts = {}): void {
+  const u = S.units.find(u => u.id === unitId)
+  if (!u || !u.legs || !u.legs.length) return
+  x = clampWorld(S.map, x); y = clampWorld(S.map, y)
+  const last = u.legs[u.legs.length - 1]!
+  // start of the last leg = the path point just before its segment, else the unit
+  const before = u.path.length - last.n - 1
+  const start = before >= 0 ? u.path[before]! : { x: u.x, y: u.y }
+  const p = findPath(S.map!, start.x, start.y, x, y, effStats(u).mob, roadIntent(x, y, opts))
+  if (!p) return
+  u.path.length = u.path.length - last.n
+  u.path = u.path.concat(p)
+  u.legs[u.legs.length - 1] = { x, y, n: p.length }
+}
+
 // Remove one specific waypoint (right-click on its pip). The tail pops like
 // removeLastWaypoint; removing a middle waypoint re-paths the bridge between
 // its neighbours so the route stays continuous.

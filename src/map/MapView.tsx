@@ -12,6 +12,7 @@ import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
 import {
   orderMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
+  convergeLastLeg,
 } from '../domains/forces/orders'
 import { deployUnit, deployStructure } from '../domains/installations/orders'
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
@@ -239,6 +240,14 @@ export default function MapView() {
             const spreadOpts = ui.routeMode === 'auto'
               ? { crossCountry: true }
               : { ...(ROUTE_OPTS[ui.routeMode] || {}) }
+            // appending a new formation collapses the previous terminal fan to
+            // its centre first (units only, drones don't fan)
+            if (app) {
+              const us = sorted.filter(o => !(S.drones as Array<Unit | Drone>).includes(o)) as Unit[]
+              let cx = 0, cy = 0, n = 0
+              for (const u of us) { const l = u.legs[u.legs.length - 1]; if (l) { cx += l.x; cy += l.y; n++ } }
+              if (n) { cx /= n; cy /= n; for (const u of us) convergeLastLeg(u.id, cx, cy, spreadOpts) }
+            }
             sorted.forEach((o, i) => {
               const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
               const px = wx0 + ldx * t, py = wy0 + ldy * t
@@ -364,6 +373,17 @@ export default function MapView() {
       const opts = ROUTE_OPTS[useUI.getState().routeMode] || {}
       const cols = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / cols)
+      // appending a waypoint: collapse the previous terminal fan to its common
+      // centre first, so the spread ends up only at the new final waypoint
+      // instead of leaving a kink where the old destination was
+      if (append) {
+        let cx = 0, cy = 0, n = 0
+        for (const u of units) {
+          const last = u.legs[u.legs.length - 1]
+          if (last) { cx += last.x; cy += last.y; n++ }
+        }
+        if (n) { cx /= n; cy /= n; for (const u of units) convergeLastLeg(u.id, cx, cy, opts) }
+      }
       units.forEach((u, k) => {
         const ox = ((k % cols) - (cols - 1) / 2) * 90
         const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
