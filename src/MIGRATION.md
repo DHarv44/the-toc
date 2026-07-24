@@ -13,13 +13,14 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `1469771434`** — deterministic across back-to-back runs.
-(2026-07-24: the OPFOR operational commander — `S.opforCmd`, persistent main
-effort + defensive posture — landed golden-NEUTRAL: for the golden scenario the
-main effort resolves to the same nearest-HQ objective each group already picked,
-and the player never masses on the OPFOR base, so posture stays 'attack' and the
-digest is unchanged. It only diverges from the old per-group objective when the
-player holds multiple spread structures or pushes deep.
+**Baseline digest hash: `289931028`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for the OPFOR held reserve: once ≥2 groups are committed
+the next fielded group is held near the base (dug-in backstop) and committed only
+to counterattack a defensive posture, sustain a culminating attack (committed
+force worn below half), or on a 180 s staleness timeout — the golden scenario
+holds a 3rd group back, so the digest moved. The operational commander's main
+effort + supporting effort + defensive posture landed golden-NEUTRAL just before
+this (same objectives for the golden disposition, prior `1469771434`).
 Baseline re-set earlier 2026-07-24 for unit-SOP v1: units on halt-ROE bound up to 260 m
 to cover when caught fighting in the open (both sides, shared drill code),
 break fatigue (no re-break within 120 s of completing one), and garrison

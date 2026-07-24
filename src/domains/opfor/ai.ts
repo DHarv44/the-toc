@@ -142,6 +142,43 @@ function assignEffort(grp: Battlegroup): void {
   grp.effort = (cmd.supportId != null && !supportLive) ? 'support' : 'main'
 }
 
+function groupStrength(g: Battlegroup): number {
+  let s = 0
+  for (const id of g.members) {
+    const u = S.units.find(x => x.id === id)
+    if (u && u.strength > 0) s += u.strength
+  }
+  return s
+}
+
+// hold this fresh group as the reserve? Only once there's real pressure already
+// committed (≥2 groups advancing) and no reserve is live — never hold back the
+// opening blow. Not while defending (everything commits) or in wave modes.
+function shouldReserve(grp: Battlegroup): boolean {
+  if (S.opforCmd.posture === 'defend' || S.waves) return false
+  const committed = S.enemyGroups.filter(g => g !== grp && !g.dead && g.phase === 'advance').length
+  const reserveLive = S.enemyGroups.some(g => g !== grp && !g.dead && g.phase === 'reserve')
+  return committed >= 2 && !reserveLive
+}
+
+// commit the reserve when it can be decisive: counterattack a defensive
+// posture, sustain a culminating attack (committed force worn below half), or
+// on a staleness timeout so it never just sits.
+function reserveShouldCommit(grp: Battlegroup, dt: number): boolean {
+  if (S.opforCmd.posture === 'defend') return true
+  grp.reserveT = (grp.reserveT ?? 180) - dt
+  if (grp.reserveT <= 0) return true
+  const committed = S.enemyGroups.filter(g => g !== grp && !g.dead && g.phase === 'advance')
+  if (committed.length) {
+    const str = committed.reduce((s, g) => s + groupStrength(g), 0)
+    const init = committed.reduce((s, g) => s + g.initStr, 0)
+    if (init > 0 && str < init * 0.5) return true
+  } else {
+    return true // nothing left committed — commit the reserve rather than idle
+  }
+  return false
+}
+
 // Muster a battlegroup of the given composition at a base. Shared by the
 // economy-driven spawner below and the wave scheduler (Base Defense mode).
 function raiseGroup(
@@ -216,9 +253,33 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
   if (grp.phase === 'muster') {
     grp.musterT -= dt
     if (grp.musterT <= 0) {
+      if (shouldReserve(grp)) {
+        grp.phase = 'reserve'
+        grp.reserveT = 180
+      } else {
+        assignEffort(grp)
+        grp.objective = groupObjective(grp, mem)
+        grp.phase = 'advance'
+      }
+    }
+    return
+  }
+
+  // reserve: hold near home (dug in, a defensive backstop) until the commander
+  // commits it — then it joins the fight like any other group
+  if (grp.phase === 'reserve') {
+    if (reserveShouldCommit(grp, dt)) {
       assignEffort(grp)
       grp.objective = groupObjective(grp, mem)
       grp.phase = 'advance'
+      for (const u of mem) { u.posture = 'mobile'; u.digT = 0 }
+      return
+    }
+    const base = S.map!.enemyBase
+    for (const u of mem) {
+      if (u.targetId || u.path.length) continue
+      if (Math.hypot(u.x - base.x, u.y - base.y) > 700) orderMove(u.id, base.x, base.y)
+      else if (u.posture !== 'dig') orderDefend(u.id, true)
     }
     return
   }

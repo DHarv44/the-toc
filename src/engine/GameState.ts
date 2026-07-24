@@ -288,8 +288,9 @@ export interface Toast {
 export interface Battlegroup {
   id: number
   name: string
-  phase: 'muster' | 'advance' | 'withdraw'
+  phase: 'muster' | 'reserve' | 'advance' | 'withdraw'
   musterT: number
+  reserveT?: number          // reserve staleness countdown — commit when it expires
   retaskT: number
   objective: Vec2 | null
   members: number[]
