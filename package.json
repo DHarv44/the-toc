@@ -27,6 +27,7 @@
     "@types/react-dom": "^18.3.7",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "pngjs": "^7.0.0",
     "postcss": "^8.5.22",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",

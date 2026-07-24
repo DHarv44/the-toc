@@ -6,6 +6,7 @@ import { createNoise2D } from 'simplex-noise'
 import { makeRng } from '../engine/rng'
 import { MinHeap } from './minheap'
 import { MOVE_FACTORS, type Mobility } from './mobility'
+import type { TheaterData } from './theaters'
 import {
   CELL, GRID_DEFAULT, TERR_NAME, T_FIELD, T_FOREST, T_URBAN, T_WATER,
   type Terrain, type Town, type WorldMap,
@@ -15,7 +16,7 @@ const D8: ReadonlyArray<readonly [number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
 ]
 
-export function genMap(seed: number, gridSize: number = GRID_DEFAULT): WorldMap {
+export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: TheaterData): WorldMap {
   const GRID = gridSize
   const WORLD = GRID * CELL
   const rng = makeRng(seed)
@@ -30,19 +31,49 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT): WorldMap 
   const waterSurf = new Float32Array(N)
   const idx = (gx: number, gy: number) => gy * GRID + gx
 
-  // --- 1. elevation: domain-warped fbm + ridged component ---
-  for (let gy = 0; gy < GRID; gy++) {
-    for (let gx = 0; gx < GRID; gx++) {
-      const wx = 34 * n3(gx * 0.005, gy * 0.005)
-      const wy = 34 * n3(gx * 0.005 + 57.3, gy * 0.005 + 57.3)
-      let e = 0
-      e += 46 * n1((gx + wx) * 0.0045, (gy + wy) * 0.0045)
-      e += 20 * n1(gx * 0.013, gy * 0.013)
-      e += 7 * n1(gx * 0.04, gy * 0.04)
-      e += 2.5 * n2(gx * 0.1, gy * 0.1)
-      const r = 1 - Math.abs(n2(gx * 0.007, gy * 0.007))
-      e += 30 * r * r
-      elev[idx(gx, gy)] = Math.max(4, 38 + e)
+  // --- 1. elevation: real-DEM theater window, or domain-warped fbm noise ---
+  // Theater path: the baked patch is 50 m/px — one cell — so a GRID-sized
+  // sub-window (seeded offset: one theater, many battlefields) maps 1:1 with
+  // no resampling. Real meters are renormalized into the generator's gameplay
+  // elevation range so every downstream pass (depression fill, flow-accum
+  // rivers, slope mobility, town siting) runs unchanged on real relief. The
+  // relief scale adapts: subtle steppe stays subtle, mountain theaters clamp
+  // to what mobility costs are tuned for. A whisper of detail noise keeps
+  // close zoom from looking silky (30 m source data under 50 m cells).
+  if (theater) {
+    const P = theater.meta.size
+    const ox = Math.floor(rng() * (P - GRID + 1))
+    const oy = Math.floor(rng() * (P - GRID + 1))
+    let lo = Infinity, hi = -Infinity
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const m = theater.hgt[(oy + gy) * P + (ox + gx)]!
+        if (m < lo) lo = m
+        if (m > hi) hi = m
+      }
+    }
+    const relief = Math.min(110, Math.max(40, (hi - lo) * 0.35))
+    const s = relief / (hi - lo || 1)
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const m = theater.hgt[(oy + gy) * P + (ox + gx)]!
+        elev[idx(gx, gy)] = Math.max(4, 8 + (m - lo) * s + 1.6 * n2(gx * 0.1, gy * 0.1))
+      }
+    }
+  } else {
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const wx = 34 * n3(gx * 0.005, gy * 0.005)
+        const wy = 34 * n3(gx * 0.005 + 57.3, gy * 0.005 + 57.3)
+        let e = 0
+        e += 46 * n1((gx + wx) * 0.0045, (gy + wy) * 0.0045)
+        e += 20 * n1(gx * 0.013, gy * 0.013)
+        e += 7 * n1(gx * 0.04, gy * 0.04)
+        e += 2.5 * n2(gx * 0.1, gy * 0.1)
+        const r = 1 - Math.abs(n2(gx * 0.007, gy * 0.007))
+        e += 30 * r * r
+        elev[idx(gx, gy)] = Math.max(4, 38 + e)
+      }
     }
   }
 
@@ -256,6 +287,7 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT): WorldMap 
 
   const map: WorldMap = {
     GRID, CELL, WORLD, elev, terr, road, waterSurf, slope, towns, seed,
+    ...(theater ? { theaterId: theater.meta.id } : {}),
     fob: { x: (fobCell.gx + 0.5) * CELL, y: (fobCell.gy + 0.5) * CELL },
     enemyBase: { x: (baseCell.gx + 0.5) * CELL, y: (baseCell.gy + 0.5) * CELL },
     idx,

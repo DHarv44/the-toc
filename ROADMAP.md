@@ -137,7 +137,10 @@ country* — valleys, river plains, ridge-and-farmland, steppe; at most one mode
 per map, no megacities.
 
 ### The plan
-- **M1 — Real-DEM theaters** ⬜: real elevation, procedural culture. A curated **theater
+- **M1 — Real-DEM theaters** ✅ *(v1 shipped 2026-07-23 — 7 theaters baked, terrain
+  step in the splash, golden baseline unchanged; still open: a RANDOM theater button,
+  sea-level water for coastal patches, feeding the theater name into briefings/HHQ
+  flavor)*: real elevation, procedural culture. A curated **theater
   library** — hand-picked real-world terrain patches (Copernicus/SRTM 30 m, public-domain
   government data, fetched once and baked into small repo assets — no runtime downloads,
   no keys, offline). `genMap` swaps only its elevation step; depression fill, flow-accum

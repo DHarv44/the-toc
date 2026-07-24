@@ -12,16 +12,24 @@ import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
+import { loadTheater } from './world/theaters'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
 
-  const begin: StartFn = (mode, size = 'large', difficulty, gameMode) => {
-    if (mode === 'dev') initDevGame()
-    else initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty, gameMode)
-    startLoop()
-    setStarted(true)
+  // theater elevation loads async (a one-time fetch of our own baked asset,
+  // then cached) — the splash stays up for the few ms it takes
+  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId) => {
+    void (async () => {
+      if (mode === 'dev') initDevGame()
+      else {
+        const theater = theaterId ? await loadTheater(theaterId) : undefined
+        initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty, gameMode, theater)
+      }
+      startLoop()
+      setStarted(true)
+    })().catch((e) => console.error('failed to start game', e))
   }
 
   if (!started) return <Splash onStart={begin} />

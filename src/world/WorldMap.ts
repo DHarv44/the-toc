@@ -39,6 +39,7 @@ export interface WorldMap {
   slope: Float32Array
   towns: Town[]
   seed: number
+  theaterId?: string        // real-DEM theater the elevation came from (absent = procgen noise)
   fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
   enemyBase: Vec2
   devView?: { cx: number; cy: number; fit: number }  // sandbox initial framing

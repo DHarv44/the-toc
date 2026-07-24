@@ -9,6 +9,7 @@ import { S } from './state'
 import { makeRng } from './rng'
 import { DEFAULT_MODE, MODES, type ModeId } from './modes'
 import { genMap } from '../world/mapgen'
+import type { TheaterData } from '../world/theaters'
 import { MAP_SIZES } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
 import {
@@ -21,11 +22,11 @@ import type { UnitTypeKey } from '../domains/forces/catalog'
 
 export function initGame(
   seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
-  mode: ModeId = DEFAULT_MODE,
+  mode: ModeId = DEFAULT_MODE, theater?: TheaterData,
 ): void {
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
-  S.map = genMap(seed, gridSize)
+  S.map = genMap(seed, gridSize, theater)
   S.t = 0
   S.units = []
   S.structures = []
