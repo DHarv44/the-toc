@@ -11,6 +11,7 @@ import { effStats } from '../forces/elements'
 import { DRONE_TYPES } from '../air/catalog'
 import { radio } from '../comms/radio'
 import { grid } from '../../lib/format'
+import { locRef } from '../../world/ref'
 
 export const SMOKE_DURATION = 75
 
@@ -104,9 +105,10 @@ export function updateContacts(): void {
   for (const [obj, batch] of newSpots) {
     if (S.t - (obj.lastSpotT ?? -99) <= 12) continue
     obj.lastSpotT = S.t
+    const at = locRef(S.map!, batch.x, batch.y)
     const msg = batch.types.length === 1
-      ? `SPOT REPORT — ${UNIT_TYPES[batch.types[0]!].name.toUpperCase()} GRID ${grid(batch.x, batch.y)}`
-      : `SPOT REPORT — ${batch.types.length}X HOSTILE (${batch.types.map(t => UNIT_TYPES[t].abbr).join(', ')}) GRID ${grid(batch.x, batch.y)}`
+      ? `SPOT REPORT — ${UNIT_TYPES[batch.types[0]!].name.toUpperCase()} ${at}`
+      : `SPOT REPORT — ${batch.types.length}X HOSTILE (${batch.types.map(t => UNIT_TYPES[t].abbr).join(', ')}) ${at}`
     radio(batch.cs, 'spot', msg, batch.x, batch.y)
   }
   for (const [id, c] of S.contacts) {

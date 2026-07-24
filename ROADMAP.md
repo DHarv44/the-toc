@@ -171,8 +171,13 @@ per map, no megacities.
   `WorldMap.features` — prominent peaks labelled military-style (real meters on
   theaters: "HILL 1190" on the Golan; gameplay elevation on procgen) and the biggest
   drainage components named ("VARDA RIVER"), rendered as faint reference marks on the
-  BFT. Radio calls/briefings can now anchor to named terrain (wiring into the radio
-  message factory is still open). Golden baseline unchanged (`60356280`).
+  BFT. Golden baseline unchanged (`60356280`).
+- **M3b — Terrain-anchored radio** ✅ *(shipped 2026-07-23)*: `world/ref.ts locRef` —
+  report-type traffic (spot reports, contact calls, surrender reports) says
+  "VIC CALDER" / "VIC HILL 1190" when within anchor range of named terrain, grid
+  fallback otherwise. Precision traffic (fire missions, waypoints, LKPs, orbits)
+  deliberately keeps raw grids — that's how real nets split it. Drone-feed buildings
+  already existed (instanced boxes in urban cells), so hamlets show up in feeds free.
 - **M3 — Culture layer upgrades** ⬜ *(remaining)*: towns strung along roads and valleys instead of
   scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
   scenery only, per design law 2) rendered by the drone feeds so village orbits stop

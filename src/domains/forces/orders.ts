@@ -7,6 +7,7 @@ import { findPath, type PathOpts } from '../../world/pathfinding'
 import { CELL, T_WATER } from '../../world/WorldMap'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
+import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { effStats, syncElements } from './elements'
 import { netRadio, radio, toast } from '../comms/radio'
@@ -208,7 +209,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   u.path = p
   u.legs = [{ x: e.x, y: e.y, n: p.length }]
   u.state = 'moving'
-  netRadio(u, 'contact', `ATTACKING ${UNIT_TYPES[e.type].name.toUpperCase()} — GRID ${grid(e.x, e.y)}`, e.x, e.y)
+  netRadio(u, 'contact', `ATTACKING ${UNIT_TYPES[e.type].name.toUpperCase()} — ${locRef(S.map!, e.x, e.y)}`, e.x, e.y)
 }
 
 export function removeLastWaypoint(unitId: number): void {

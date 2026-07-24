@@ -7,6 +7,7 @@ import type { Unit, Structure } from '../../engine/GameState'
 import { findPath } from '../../world/pathfinding'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
+import { locRef } from '../../world/ref'
 import { UNIT_TYPES, COVER_DEF } from '../forces/catalog'
 import { effStats, postureFactor, precisionBlast, syncElements } from '../forces/elements'
 import { canEngage, concealment, firingDetected, SMOKE_DURATION } from '../intel/sensing'
@@ -67,7 +68,7 @@ export function directFireUpdate(dt: number): void {
       if (u.side === 'friend') {
         if (S.t - u.lastContactT > 25) {
           u.lastContactT = S.t
-          radio(u.label, 'contact', `CONTACT — ${et.name.toUpperCase()} GRID ${grid(tgt.x, tgt.y)}, ENGAGING`, tgt.x, tgt.y)
+          radio(u.label, 'contact', `CONTACT — ${et.name.toUpperCase()} ${locRef(S.map!, tgt.x, tgt.y)}, ENGAGING`, tgt.x, tgt.y)
         }
         if (S.t - u.lastReqT > 60) {
           if (et.soft < 0.25 && type.dpsHard < 2.5) {

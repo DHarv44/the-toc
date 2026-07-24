@@ -10,6 +10,7 @@ import { S } from '../../engine/state'
 import type { Unit } from '../../engine/GameState'
 import { findPath } from '../../world/pathfinding'
 import { grid } from '../../lib/format'
+import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { effStats, healUnit, syncElements } from './elements'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
@@ -329,7 +330,7 @@ export function surrenderUpdate(): void {
         toast(u.label + ' SURRENDERED')
         S.stats.lost++
       } else {
-        radio('NET', 'spot', `ENEMY ELEMENT SURRENDERING — GRID ${grid(u.x, u.y)}`, u.x, u.y)
+        radio('NET', 'spot', `ENEMY ELEMENT SURRENDERING — ${locRef(S.map!, u.x, u.y)}`, u.x, u.y)
         S.stats.enemyDestroyed++
       }
       S.units.splice(i, 1)
