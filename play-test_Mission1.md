@@ -102,3 +102,11 @@ town with zero support — now survives at **38%** (2 of 4 Bradleys lost) and cl
 the garrison in ~6 min. The tutorial's 3-platoon group assault is strictly easier;
 losses should be light on Recruit. Counterattack (MECH+INF vs the player's force in
 urban cover) remains the real fight, as intended.
+
+**FULL-MISSION ACCEPTANCE (`.tmp-mig/m1-final`, Recruit, tutorial flow — recon
+screens forward, 3-platoon group assault, hold the town):** garrison cleared,
+counterattack defeated, **all 4 friendly units survive, 0 lost**. End strengths:
+MECH 54 · INF 9 · INF 100 · SCT 100 — the assault-lead INF survives but is mauled
+(the future WIA/CASEVAC systems make that platoon the story). Note: the sim is
+fully seeded, so repeated identical scripts give identical outcomes — this
+certifies the tutorial play pattern, not outcome variance.
