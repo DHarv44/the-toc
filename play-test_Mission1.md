@@ -53,3 +53,32 @@ map (Chorwon, seed 1). Force: MECH (GOLF-7) · INF (HOTEL-8) · INF (INDIA-9) ·
 *(Open: exact AT round counts per infantry type, small-arms residual vs armor, and how
 this interacts with the M1 garrison strength so the mission is winnable on Recruit
 with all/most platoons surviving.)*
+
+---
+
+## UPDATE 2026-07-24 — after FORCE-MODEL Phase 3 (derived combat + munitions)
+
+The munitions model is IN (finite AT, winchester, resupply — golden `2409198223`).
+Open-ground mechanics verified: infantry spend their AT4 volley in ~15 s and their
+Javelins over ~75 s against armor, then their small arms can't kill it (damage rate
+collapses to <35%). The infinite-AT disease is cured.
+
+**But M1 re-runs on the real map still lose** — and the trace shows why, precisely:
+- Urban concealment means the garrison is INVISIBLE until it opens fire at its own
+  chosen range (~550 m). There is no standoff gunnery against concealed urban
+  infantry — by design.
+- The halt drill stops attacking armor INSIDE the 400 m close-ambush band (×2.2).
+- The garrison digs in while fighting (damage taken → ×0.45 over 90 s).
+- Results: MECH vs the 2×INF garrison → MECH destroyed, garrison 89/87%. Even a
+  TANK platoon vs a 1×INF garrison → all 4 tanks lost (garrison 70%), the
+  garrison's entire Javelin load expended. The tanks died during the AT window
+  because the fight happened at 362 m.
+
+**Conclusion: this is now mission CONTENT tuning, not engine work.** The doctrinal
+counter to concealed urban defenders is prep fires — which M1's design withholds.
+Adjustment options for the discussion:
+1. Garrison = 1×INF **without Javelins** (second-line troops with AT4s only) and/or
+   no dig-in — the 3-platoon group assault then wins with acceptable losses.
+2. Give the M1 fixed force an organic MOR section + a prep-fires tutorial beat
+   ("suppress the town before the assault") — teaches the real lesson.
+3. Keep 2×INF but make the counterattack the main event (garrison token).

@@ -10,6 +10,7 @@ import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES, COVER_DEF } from '../forces/catalog'
 import { effStats, postureFactor, precisionBlast, syncElements } from '../forces/elements'
+import { unitFirepower, consumeAmmo } from '../forces/firepower'
 import { canEngage, concealment, firingDetected, observedByDrone, SMOKE_DURATION } from '../intel/sensing'
 import { netRadio, radio } from '../comms/radio'
 import { CELL, TERR_NAME, T_FOREST, T_URBAN } from '../../world/WorldMap'
@@ -89,7 +90,12 @@ export function directFireUpdate(dt: number): void {
       // push: no halt, no dismount — return fire on the move and keep rolling
       const at = effStats(u)
       const et = effStats(tgt)
-      let dps = at.dpsSoft * et.soft + at.dpsHard * (1 - et.soft)
+      // Derived firepower (FORCE-MODEL Phase 3): what this unit's SURVIVORS
+      // with ammo remaining can actually put out — replaces the catalog dps
+      // pools AND the old strength scaling (fewer live shooters already means
+      // less fire). A winchester unit's small arms cannot kill armor.
+      const fp = unitFirepower(u, et.soft)
+      let dps = fp.dpsSoft * et.soft + fp.dpsHard * (1 - et.soft)
       dps *= COVER_DEF[TERR_NAME[S.map!.terr[S.map!.cellAt(tgt.x, tgt.y)]!]!]
       dps *= postureFactor(tgt)
       if (et.soft < 0.3 && at.soft >= 0.7 && concealment(S.map!, u.x, u.y) < 1 && tdist < 400) dps *= 2.2
@@ -98,7 +104,8 @@ export function directFireUpdate(dt: number): void {
       // every friendly gun on that target hits ~30% harder. Drones are friendly
       // only, so this is a player edge for now (OPFOR UAS is future work).
       if (u.side === 'friend' && observedByDrone(tgt.x, tgt.y)) dps *= OBSERVED_FIRE_MUL
-      tgt.strength -= dps * dt * (u.strength / 100) * (S.damageMul ?? 1)
+      tgt.strength -= dps * dt * (S.damageMul ?? 1)
+      consumeAmmo(u, fp.consumers, dt)
       // the victim is in contact too, even if it can't answer
       tgt.underFireT = S.t
       tgt.lastCombatT = S.t
@@ -129,7 +136,10 @@ export function directFireUpdate(dt: number): void {
         if (d < sd && canEngage(u, s.x, s.y)) { st = s; sd = d }
       }
       if (st) {
-        st.hp -= (type.dpsSoft * 0.6 + type.dpsHard * 0.5) * dt * (u.strength / 100)
+        // derived firepower vs structures (buildings read as half-hard)
+        const fp = unitFirepower(u, 0.5)
+        st.hp -= (fp.dpsSoft * 0.6 + fp.dpsHard * 0.5) * dt
+        consumeAmmo(u, fp.consumers, dt)
         u.state = u.path.length ? 'moving' : 'engaging'
         fired = true
       } else if (u.state === 'engaging') {

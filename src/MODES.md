@@ -228,8 +228,9 @@ Game Modes → 7.
 - `npm run typecheck` clean after every unit of work.
 - Golden gate: `?golden` page → `__golden()`, or headless via esbuild-bundling
   `src/devtools/golden.ts` + `newGame.ts` into a Node runner (see MIGRATION.md).
-  Baseline `289931028` (re-baselined 2026-07-24 for the OPFOR held reserve;
-  full history in MIGRATION.md — older hashes referenced above predate it).
+  Baseline `2409198223` (re-baselined 2026-07-24 for FORCE-MODEL Phase 3 —
+  derived combat + munitions; full history in MIGRATION.md — older hashes
+  referenced above predate it).
   Behavioral changes to the A&D tick path require a
   deliberate re-baseline (run twice, confirm deterministic, update MIGRATION.md
   + this file).

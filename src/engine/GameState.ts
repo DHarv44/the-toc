@@ -15,7 +15,7 @@ import type { Rng } from './rng'
 import type { ModeId } from './modes'
 import type { WorldMap, Vec2 } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import type { TroopKindKey, VehicleKey } from '../domains/forces/composition'
+import type { AmmoKey, TroopKindKey, VehicleKey } from '../domains/forces/composition'
 import type { DroneTypeKey } from '../domains/air/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 import type { DifficultyKey } from '../domains/economy/difficulty'
@@ -118,6 +118,8 @@ export interface Unit {
   elements: UnitElement[]
   soldiers: Soldier[]        // composition roster (mirrors elements in Phase 2)
   vehicles: UnitVehicle[]
+  stowage: Partial<Record<AmmoKey, number>>  // consumable munitions pool (AT/cannon rounds)
+  winch?: Partial<Record<AmmoKey, boolean>>  // winchester radio sent for this ammo type
   // added later by AI / tick code
   anchorX?: number           // garrison hold point
   anchorY?: number

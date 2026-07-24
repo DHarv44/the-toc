@@ -12,6 +12,7 @@ import { findPath } from '../../world/pathfinding'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
+import { stowageMax } from './composition'
 import { effStats, healUnit, rosterSync, syncElements } from './elements'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
 import { netRadio, radio, toast } from '../comms/radio'
@@ -81,17 +82,36 @@ export function movementUpdate(dt: number): void {
         && !u.targetId && S.t - u.lastCombatT > 20) {
       healUnit(u, 0.15 * dt, 70, false) // buddy-aid patches crews; destroyed vics stay dead
     }
-    // ammo resupply (indirect basic load, both sides): trickle near an own-side
-    // base, faster with an own-side LOG truck alongside. Calm only — nobody
-    // cross-loads rounds under fire.
-    if (type.indirect && u.strength > 0 && (u.ammo ?? 0) < type.indirect.load
-        && !u.targetId && S.t - u.lastCombatT > 20) {
-      const nearBase = S.structures.some(s => s.side === u.side && s.buildT <= 0
-        && (s.kind === 'HQ' || s.kind === 'FOB') && Math.hypot(s.x - u.x, s.y - u.y) < 350)
-      const nearLog = S.units.some(o => o.side === u.side && o.strength > 0
-        && UNIT_TYPES[o.type].logi && Math.hypot(o.x - u.x, o.y - u.y) < 150)
-      const rate = nearLog ? 1.0 : nearBase ? 0.5 : 0
-      if (rate > 0) u.ammo = Math.min(type.indirect.load, (u.ammo ?? 0) + rate * dt)
+    // munitions resupply (both sides): trickle near an own-side base, faster
+    // with an own-side LOG truck alongside. Calm only — nobody cross-loads
+    // rounds under fire. Covers the indirect basic load AND the consumable
+    // stowage (AT rockets/missiles, cannon rounds — FORCE-MODEL Phase 3).
+    if (u.strength > 0 && !u.targetId && S.t - u.lastCombatT > 20) {
+      const smax = stowageMax(u.type)
+      const needsIndirect = !!type.indirect && (u.ammo ?? 0) < type.indirect.load
+      const needsStow = (Object.keys(smax) as (keyof typeof smax)[])
+        .some(k => (u.stowage[k] ?? 0) < smax[k]!)
+      if (needsIndirect || needsStow) {
+        const nearBase = S.structures.some(s => s.side === u.side && s.buildT <= 0
+          && (s.kind === 'HQ' || s.kind === 'FOB') && Math.hypot(s.x - u.x, s.y - u.y) < 350)
+        const nearLog = S.units.some(o => o.side === u.side && o.strength > 0
+          && UNIT_TYPES[o.type].logi && Math.hypot(o.x - u.x, o.y - u.y) < 150)
+        const rate = nearLog ? 1.0 : nearBase ? 0.5 : 0
+        if (rate > 0) {
+          if (needsIndirect) u.ammo = Math.min(type.indirect!.load, (u.ammo ?? 0) + rate * dt)
+          if (needsStow) {
+            // fraction-based per type (loads span 4 rockets to 1200 cannon rds):
+            // full basic load in ~8 min at a base, ~4 min beside a LOG truck
+            for (const k of Object.keys(smax) as (keyof typeof smax)[]) {
+              const max = smax[k]!, cur = u.stowage[k] ?? 0
+              if (cur >= max) continue
+              const next = Math.min(max, cur + max * (rate / 480) * dt)
+              u.stowage[k] = next
+              if (u.winch?.[k] && next > max * 0.15) u.winch[k] = false // back in the fight
+            }
+          }
+        }
+      }
     }
     // logistics loop: HQ -> load -> FOB -> unload -> repeat
     if (u.convoy && u.side === 'friend' && u.strength > 0) {

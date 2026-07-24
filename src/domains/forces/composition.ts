@@ -45,7 +45,10 @@ export const AMMO: Readonly<Record<AmmoKey, AmmoType>> = AMMO_LITERAL
 // --- weapon systems --------------------------------------------------------
 // dps values are per-shooter sustained contributions on the existing arcade
 // scale (they sum to a unit's dpsSoft/dpsHard). `load` = basic load carried
-// per shooter/mount of this weapon, in rounds of its ammo type.
+// per shooter/mount of this weapon, in rounds of its ammo type. `shotTime` =
+// seconds per round in sustained engagement, for AMMO CONSUMPTION (Phase 3);
+// weapons without it (small arms) don't deplete — their loads are effectively
+// bottomless at engagement timescales (small-arms logistics is a later item).
 
 export interface WeaponType {
   key: string
@@ -55,6 +58,7 @@ export interface WeaponType {
   dpsSoft: number
   dpsHard: number
   load: number
+  shotTime?: number
 }
 
 const WEAPONS_LITERAL = {
@@ -63,11 +67,11 @@ const WEAPONS_LITERAL = {
   M240: { key: 'M240', name: 'M240 MG', ammo: 'A_762', range: 800, dpsSoft: 0.3, dpsHard: 0.02, load: 600 },
   M240C: { key: 'M240C', name: 'M240 coax', ammo: 'A_762', range: 800, dpsSoft: 0.5, dpsHard: 0.02, load: 800 },
   M2_50: { key: 'M2_50', name: 'M2 .50cal', ammo: 'A_50', range: 1200, dpsSoft: 0.45, dpsHard: 0.17, load: 400 },
-  AT4: { key: 'AT4', name: 'AT4 (disposable)', ammo: 'R_AT4', range: 300, dpsSoft: 0.02, dpsHard: 0.125, load: 1 },
-  JAVELIN: { key: 'JAVELIN', name: 'Javelin CLU', ammo: 'M_JAVELIN', range: 2000, dpsSoft: 0.02, dpsHard: 0.5, load: 3 },
-  TOW: { key: 'TOW', name: 'TOW launcher', ammo: 'M_TOW', range: 2500, dpsSoft: 0.02, dpsHard: 1.1, load: 8 },
-  M242: { key: 'M242', name: 'M242 25mm', ammo: 'A_25MM', range: 900, dpsSoft: 1.15, dpsHard: 0.35, load: 300 },
-  M256: { key: 'M256', name: 'M256 120mm', ammo: 'A_120MM', range: 1600, dpsSoft: 0.4, dpsHard: 1.375, load: 40 },
+  AT4: { key: 'AT4', name: 'AT4 (disposable)', ammo: 'R_AT4', range: 300, dpsSoft: 0.02, dpsHard: 0.125, load: 1, shotTime: 12 },
+  JAVELIN: { key: 'JAVELIN', name: 'Javelin CLU', ammo: 'M_JAVELIN', range: 2000, dpsSoft: 0.02, dpsHard: 0.5, load: 3, shotTime: 25 },
+  TOW: { key: 'TOW', name: 'TOW launcher', ammo: 'M_TOW', range: 2500, dpsSoft: 0.02, dpsHard: 1.1, load: 8, shotTime: 20 },
+  M242: { key: 'M242', name: 'M242 25mm', ammo: 'A_25MM', range: 900, dpsSoft: 1.15, dpsHard: 0.35, load: 300, shotTime: 0.5 },
+  M256: { key: 'M256', name: 'M256 120mm', ammo: 'A_120MM', range: 1600, dpsSoft: 0.4, dpsHard: 1.375, load: 40, shotTime: 8 },
   // indirect tubes: dps here is DIRECT-LAY defensive fire only (the catalog's
   // dpsSoft for MOR/ARTY); the fire-mission system stays on IndirectSpec
   M252: { key: 'M252', name: 'M252 81mm mortar', ammo: 'MORT_81', range: 3000, dpsSoft: 0.12, dpsHard: 0.05, load: 24 },
@@ -146,32 +150,38 @@ export interface UnitComposition {
   dismounts: readonly { kind: TroopKindKey; n: number }[]
 }
 
+// NOTE on order: dismount arrays are listed in CASUALTY ORDER. rosterSync
+// partitions the dismounts over the troop elements in sequence and elements
+// die front-first, so kinds listed first are lost first — riflemen up front,
+// crew-served/AT specialists later, leaders and the medic last. This shapes
+// how a platoon's capabilities degrade as it takes losses (Phase 3: derived
+// firepower reads the survivors).
 const COMPOSITIONS_LITERAL = {
   INF: {
     unit: 'INF',
     vehicles: [{ type: 'HMMWV', n: 4 }],
     dismounts: [
-      { kind: 'LEADER', n: 3 }, { kind: 'RIFLEMAN', n: 14 }, { kind: 'RIFLEMAN_AT', n: 4 },
+      { kind: 'RIFLEMAN', n: 14 }, { kind: 'RIFLEMAN_AT', n: 4 },
       { kind: 'AUTO_RIFLEMAN', n: 6 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 2 },
-      { kind: 'MEDIC', n: 1 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 3 },
     ],
   },
   STRY: {
     unit: 'STRY',
     vehicles: [{ type: 'STRYKER', n: 4 }],
     dismounts: [
-      { kind: 'LEADER', n: 3 }, { kind: 'RIFLEMAN', n: 16 }, { kind: 'RIFLEMAN_AT', n: 6 },
+      { kind: 'RIFLEMAN', n: 16 }, { kind: 'RIFLEMAN_AT', n: 6 },
       { kind: 'AUTO_RIFLEMAN', n: 6 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 2 },
-      { kind: 'MEDIC', n: 1 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 3 },
     ],
   },
   MECH: {
     unit: 'MECH',
     vehicles: [{ type: 'BRADLEY', n: 4 }],
     dismounts: [
-      { kind: 'LEADER', n: 2 }, { kind: 'RIFLEMAN', n: 8 }, { kind: 'RIFLEMAN_AT', n: 4 },
+      { kind: 'RIFLEMAN', n: 8 }, { kind: 'RIFLEMAN_AT', n: 4 },
       { kind: 'AUTO_RIFLEMAN', n: 4 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 3 },
-      { kind: 'MEDIC', n: 1 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 2 },
     ],
   },
   ARM: {
@@ -183,7 +193,7 @@ const COMPOSITIONS_LITERAL = {
     unit: 'AT',
     vehicles: [],
     dismounts: [
-      { kind: 'LEADER', n: 1 }, { kind: 'ATGM_GUNNER', n: 4 }, { kind: 'RIFLEMAN', n: 3 },
+      { kind: 'RIFLEMAN', n: 3 }, { kind: 'ATGM_GUNNER', n: 4 }, { kind: 'LEADER', n: 1 },
     ],
   },
   SCT: {
@@ -199,7 +209,7 @@ const COMPOSITIONS_LITERAL = {
   MOR: {
     unit: 'MOR',
     vehicles: [],
-    dismounts: [{ kind: 'LEADER', n: 1 }, { kind: 'MORTARMAN', n: 8 }],
+    dismounts: [{ kind: 'MORTARMAN', n: 8 }, { kind: 'LEADER', n: 1 }],
   },
   ARTY: {
     unit: 'ARTY',
@@ -210,13 +220,13 @@ const COMPOSITIONS_LITERAL = {
     unit: 'ENG',
     vehicles: [{ type: 'ESV', n: 3 }],
     dismounts: [
-      { kind: 'LEADER', n: 2 }, { kind: 'SAPPER', n: 10 }, { kind: 'RIFLEMAN_AT', n: 4 },
+      { kind: 'SAPPER', n: 10 }, { kind: 'RIFLEMAN_AT', n: 4 }, { kind: 'LEADER', n: 2 },
     ],
   },
   SIG: {
     unit: 'SIG',
     vehicles: [{ type: 'RETRANS', n: 2 }],
-    dismounts: [{ kind: 'LEADER', n: 1 }, { kind: 'SIGNALLER', n: 7 }],
+    dismounts: [{ kind: 'SIGNALLER', n: 7 }, { kind: 'LEADER', n: 1 }],
   },
   LOG: {
     unit: 'LOG',
@@ -251,6 +261,35 @@ export function buildRoster(key: UnitTypeKey): { soldiers: Soldier[]; vehicles: 
     for (let i = 0; i < n; i++) soldiers.push({ id: sid++, kind, status: 'FIT', vehId: null })
   }
   return { soldiers, vehicles }
+}
+
+// --- munitions stowage (Phase 3) -------------------------------------------
+// A unit's basic load of CONSUMABLE munitions (weapons with a shotTime — AT
+// rockets/missiles and cannon rounds), pooled per ammo type at unit level:
+// the platoon cross-loads, so the pool is the honest granularity. Small-arms
+// loads are tracked per-weapon `load` but not consumed (bottomless for now);
+// INDIRECT rounds live on the existing Unit.ammo / fireMission system.
+export type Stowage = Partial<Record<AmmoKey, number>>
+
+export function initialStowage(key: UnitTypeKey): Stowage {
+  const c = COMPOSITIONS[key]
+  const stow: Stowage = {}
+  const add = (wk: WeaponKey, n: number) => {
+    const w = WEAPONS[wk]
+    if (w.shotTime == null) return
+    stow[w.ammo] = (stow[w.ammo] ?? 0) + w.load * n
+  }
+  for (const { type, n } of c.vehicles) for (const wk of VEHICLES[type].weapons) add(wk, n)
+  for (const { kind, n } of c.dismounts) for (const wk of TROOP_KINDS[kind].weapons) add(wk, n)
+  return stow
+}
+
+// full-basic-load reference for resupply (immutable — do NOT mutate)
+const stowMaxCache = new Map<UnitTypeKey, Stowage>()
+export function stowageMax(key: UnitTypeKey): Stowage {
+  let s = stowMaxCache.get(key)
+  if (!s) { s = initialStowage(key); stowMaxCache.set(key, s) }
+  return s
 }
 
 // --- derivation ------------------------------------------------------------

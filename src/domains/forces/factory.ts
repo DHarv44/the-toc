@@ -5,7 +5,7 @@ import { S } from '../../engine/state'
 import type { Side, Unit } from '../../engine/GameState'
 import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
-import { buildRoster } from './composition'
+import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
 
 const FRIEND_CALLS = [
@@ -39,6 +39,7 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
     elements: [],
     // composition roster (FORCE-MODEL Phase 2): deterministic, rng-free build
     ...buildRoster(typeKey),
+    stowage: initialStowage(typeKey), // consumable munitions basic load (Phase 3)
   }
   if (type.indirect) u.ammo = type.indirect.load // basic load, both sides
   initElements(u)

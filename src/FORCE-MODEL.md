@@ -91,13 +91,41 @@ Unit     ...command fields unchanged... + soldiers: Soldier[], vehicles: Vehicle
       mounted-INF vic+crew losses, dismounted-INF fire-team losses, tank
       platoon 2 tanks + 8 crew KIA at 45%) · campaign-check 26/26 · browser
       boot clean, all live units carry rosters. Typecheck clean.
-- [ ] **Phase 3 — Inversion + derived combat + munitions (golden re-baseline;
-      fixes M1).** Casualties happen to individual soldiers/vehicles and
-      strength derives from the roster; DPS computed per tick from alive/armed/
-      supplied shooters; ammo decrements; winchester (small arms cannot kill
-      armor); resupply extends the existing LOG/FOB trickle. Re-playtest M1
-      (play-test_Mission1.md findings must resolve: assault survivable, no
-      clear-the-town deadlock).
+- [x] **Phase 3 — Derived combat + munitions.** *Landed 2026-07-24; golden
+      re-baselined `2409198223` (×2 deterministic).* Direct-fire dps now derives
+      from the LIVE roster (`forces/firepower.ts → unitFirepower`): alive
+      shooters whose weapons still have ammo, exposure mirroring the element
+      rules (mounted → vehicle weapon systems — the fireMul fudge is GONE;
+      dismounted → foot soldiers; integral → both; crews serve vics, not
+      rifles). The old `× strength/100` damage scaling is removed — fewer live
+      shooters already means less fire, stepwise as the roster dies. Consumable
+      munitions (`Unit.stowage`, pooled per AmmoKey; weapons with `shotTime`)
+      deplete while firing — AT-class weapons only engage targets with a real
+      hard fraction — with a WINCHESTER net call at zero and fraction-based
+      trickle resupply near a base (~8 min) / LOG truck (~4 min), sharing the
+      indirect-load rules. Structures take derived fire too (read half-hard).
+      **Verified `.tmp-mig/phase3-check` 12/12:** AT4 volley spends in ~15 s,
+      Javelins over ~75 s, winchester radio fires, post-winchester damage vs
+      armor collapses to <35% of armed rate; casualty ORDER works (composition
+      arrays are listed riflemen-first, leaders/medic last — at 40% the AT4
+      carriers are KIA but the Javelin teams still answer with ≥1.0 hard dps);
+      resupply refills and clears winchester. roster-check 8/8,
+      campaign-check 26/26, typecheck clean, browser clean.
+      **Strength inversion deferred to Phase 4**: `strength` stays the damage
+      ledger (roster mirrors it); flipping to per-soldier damage allocation
+      pays off only with WIA/KIA rolls, so it lands with them.
+      **M1 playtest finding (needs Dave decision — mission CONTENT, not model):**
+      even proper tactics lose to the current M1 garrison. Urban concealment
+      means defenders open the fight at their chosen range (~550 m), the halt
+      drill stops armor inside the 400 m close-ambush band (×2.2), and the
+      garrison digs while it fights: MECH vs 2×INF garrison → MECH dead,
+      garrison 89/87%; even a TANK platoon vs a 1×INF garrison → tanks dead
+      (garrison 70%), Javelins fully expended. Standoff gunnery vs concealed
+      urban infantry doesn't exist by design, and M1 withholds the doctrinal
+      counter (prep fires). Options: shrink the garrison to 1×INF without
+      Javelins (second-line troops), give the M1 force organic mortars + a
+      prep-fires tutorial beat, and/or delay garrison dig-in. See
+      play-test_Mission1.md.
 - [ ] **Phase 4 — Roster surfaces.** Names, S1 view, campaign persistence,
       CASEVAC/WIA/KIA/MIA states. The Battalion Roster roadmap item lands here —
       including per-troop BIOS (clickable backstory, WIA/KIA reflected; see

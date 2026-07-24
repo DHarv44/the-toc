@@ -13,12 +13,22 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `289931028`** — deterministic across back-to-back runs.
-(The **Campaign slice v1** (M1+M2, the objective engine + runner + palette gating +
-per-mission AO crop — see `MODES.md → Mode 4`) landed **golden-NEUTRAL**: it's a new
-`campaign` mode/tick path and the A&D golden scenario never enters it; the campaign's
-own headless gate is `.tmp-mig/campaign-check.entry.mjs` (25/25). Re-baselined
-2026-07-24 for the OPFOR held reserve: once ≥2 groups are committed
+**Baseline digest hash: `2409198223`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-24 for **FORCE-MODEL Phase 3 — derived combat + munitions**:
+direct-fire dps now derives from each unit's LIVE roster (alive shooters whose
+weapons have ammo — `forces/firepower.ts`) instead of the catalog dps pools; the
+old `× strength/100` scaling is gone (fewer live shooters already means less
+fire); consumable munitions (AT rockets/missiles, cannon rounds) deplete with
+WINCHESTER at zero — a dry unit's small arms cannot kill armor — and trickle-
+resupply near a base/LOG like the indirect load. Mounted carrier units now fight
+with their vehicles' real weapon systems (Bradley 25mm/coax/TOW — the fireMul
+fudge is gone), so combat values shifted broadly by design; drift table + tuning
+notes in `FORCE-MODEL.md`. Gates: `.tmp-mig/phase3-check` 12/12, roster-check
+8/8, campaign-check 26/26. Prior baseline `289931028`: the **Campaign slice v1**
+(M1+M2, objective engine + runner + palette gating + per-mission AO crop — see
+`MODES.md → Mode 4`) landed golden-NEUTRAL on it, as did FORCE-MODEL Phases 1-2
+(composition catalog + runtime rosters). `289931028` itself came from the OPFOR
+held reserve: once ≥2 groups are committed
 the next fielded group is held near the base (dug-in backstop) and committed only
 to counterattack a defensive posture, sustain a culminating attack (committed
 force worn below half), or on a 180 s staleness timeout — the golden scenario
