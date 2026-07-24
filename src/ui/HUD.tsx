@@ -300,7 +300,8 @@ function SelectionTray() {
         <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>CMD:</span>
           <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
-          <button style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
+          <button data-tut="attack-mode"
+            style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
             onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ROUTE:</span>
           <RouteSelect />

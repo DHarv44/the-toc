@@ -93,9 +93,7 @@ function DeploySection() {
         <Text fz={9.5} c="toc.3" px="xs" pb={2} truncate style={{ letterSpacing: 1 }}>{ctx.title}</Text>
       </RailSection>
       {ctx.sections.map((sec, si) => (
-        // tag the organic-UAS section so the campaign tutorial can highlight it
-        <div key={si} data-tut={sec.header === 'ORGANIC UAS' ? 'uas' : undefined}>
-        <RailSection label={sec.header}>
+        <RailSection key={si} label={sec.header}>
           {sec.items.map(it => {
             // ground units, the aerostat, and organic UAS all field immediately from the
             // selected site/unit — no deploy mode, no map click. Airfield UAS still place
@@ -114,16 +112,19 @@ function DeploySection() {
               const d = fieldAerostat(ctx.sourceId!)
               if (d && d.id != null) ui.showDrone(d.id)
             }
-            return (
+            const row = (
               <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
                 note={it.note} disabled={it.disabled || !!short}
                 onPlus={oneClick ? fire : undefined}
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fire() : pick(it.mode))} />
             )
+            // tag just the Raven row so the campaign tutorial highlights only it
+            return it.key === 'RAVEN'
+              ? <div key={it.mode} data-tut="uas-raven">{row}</div>
+              : row
           })}
         </RailSection>
-        </div>
       ))}
     </>
   )

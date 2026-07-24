@@ -36,7 +36,7 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 
 export default function Splash({ onStart }: { onStart: StartFn }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
-  const [campaignTut, setCampaignTut] = useState<boolean | null>(null) // guided vs standard
+  const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
   const [size, setSize] = useState<MapSizeKey | null>(null)
   // undefined = not chosen yet · null = procedural · string = theater id
@@ -76,7 +76,7 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>NEW GAME</SectionLabel>
           <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
-            accent="#7ec8ff" onClick={() => { setCampaignTut(null); setTop('campaign') }} />
+            accent="#7ec8ff" onClick={() => setTop('campaign')} />
           <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
             accent="#2a5a8a" onClick={() => setTop('skirmish')} />
 
@@ -85,28 +85,25 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
           <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
             accent="#3a5a3a" onClick={() => onStart('dev')} />
         </div>
-      ) : top === 'campaign' && campaignTut == null ? (
-        <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>CAMPAIGN · TRAINING</SectionLabel>
-          <SplashButton label="GUIDED" sub="First time in — on-screen prompts teach each action as it comes up"
-            accent="#3a5a3a" recommended onClick={() => setCampaignTut(true)} />
-          <SplashButton label="STANDARD" sub="No prompts — straight into the fight"
-            accent="#2a5a8a" onClick={() => setCampaignTut(false)} />
-          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
-        </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>CAMPAIGN · DIFFICULTY {campaignTut ? '· GUIDED' : '· STANDARD'}</SectionLabel>
+          <SectionLabel>CAMPAIGN · DIFFICULTY</SectionLabel>
           {DIFFICULTY_ORDER.map((k) => {
             const d = DIFFICULTIES[k]
             return (
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={toughness(d.damageMul)}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut ?? false)} />
+                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut)} />
             )
           })}
-          <BackButton onClick={() => setCampaignTut(null)}>← TRAINING — CHANGE</BackButton>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
+            </div>
+            <CheckRow checked={campaignTut} onToggle={() => setCampaignTut(v => !v)}
+              label="TUTORIAL HINTS" sub="On-screen prompts teach each action as it comes up" />
+          </div>
         </div>
       ) : gameMode == null ? (
         <div style={{ position: 'relative', width: 340 }}>
@@ -200,6 +197,28 @@ function ComingSoon({ label, sub }: { label: string; sub: string }) {
       </div>
       <div style={{ fontSize: 10, letterSpacing: 1, color: '#7f97ab', marginTop: 2 }}>{sub}</div>
     </div>
+  )
+}
+
+// A small inline checkbox — deliberately NOT card-styled, so it never reads as a
+// selectable option alongside the difficulty cards.
+function CheckRow({ checked, onToggle, label, sub }: {
+  checked: boolean; onToggle: () => void; label: string; sub: string
+}) {
+  return (
+    <button onClick={onToggle} title={sub}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+        background: 'none', border: 'none', padding: '0 2px 12px', margin: 0,
+        color: checked ? '#9fd0f5' : '#7f97ab', fontFamily: 'inherit',
+      }}>
+      <span style={{
+        flex: '0 0 auto', width: 15, height: 15, borderRadius: 3, fontSize: 11, lineHeight: '14px',
+        textAlign: 'center', color: checked ? '#0a0e12' : 'transparent',
+        background: checked ? '#7ec8ff' : 'transparent', border: `1px solid ${checked ? '#7ec8ff' : '#4a6478'}`,
+      }}>✓</span>
+      <span style={{ fontSize: 11, letterSpacing: 1.5 }}>{label}</span>
+    </button>
   )
 }
 

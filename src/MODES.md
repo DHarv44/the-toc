@@ -133,13 +133,22 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
 - Per-mission **AO crop**: `CampaignState.ao` bounds the camera/pan; M1 AND M2 crop to
   the same HQ+town pocket (`pocketAO` helper; MapView frames + clamps to it, read
   dynamically so a later mission lifting `ao` widens to the full theater — no remount).
-- **Guided tutorial** (splash GUIDED/STANDARD → `CampaignState.tutorial`/`tutStep`; step
-  DEFINITIONS + rendering live in `ui/tutorial.tsx`, engine stores only the two plain
-  fields). Each step has a sim-observable `done(S)` and an adaptive `hint(S, ui)`; a
-  `<TutorialOverlay>` draws a slow-pulsing ring over the `data-tut` target + a pointer
-  callout, with a SKIP escape. **Gated** steps pause the sim (speed 0) until done, then
-  resume. M1 teaches launching a Raven (adaptive: select a platoon → click the ⊕ on the
-  ORGANIC UAS row). Curriculum is front-loaded to be empty by M4 (M2/M3 steps pending).
+- **Guided tutorial** (splash CAMPAIGN screen has a GUIDED TUTORIAL checkbox, default on →
+  `CampaignState.tutorial`/`tutStep`; step DEFINITIONS + rendering live in `ui/tutorial.tsx`,
+  engine stores only the two plain fields). Each step has a sim-observable `done(S)` and an
+  adaptive `hint(S, ui)`; a `<TutorialOverlay>` draws a slow-pulsing ring over the target —
+  a `data-tut` rail/menu item OR a **unit on the map** (`targetUnit`, world→screen via
+  `__view` + the map canvas rect) OR a **map point** (`targetPoint`, e.g. a move
+  destination snapped to a road) — plus a pointer callout to the right, with a SKIP escape.
+  `done(S, ui)` can read selection. **Gated** steps pause the sim (speed 0) until done, then
+  resume. M1 (5 steps): (1) SELECT RECON — highlights the recon platoon, done on select;
+  (2) MOVE OUT — highlights a standoff marker ~650 m short of the town garrison (so the
+  advance brings the enemy into recon sight); the cue clears once a move order is set and
+  the step completes at ½ klick from the HQ; (3) gated LAUNCH THE RAVEN (⊕ on the Raven row)
+  fires at ½ klick while the platoon keeps walking to the marker; (4) a silent hold until the
+  recon SPOTS the enemy; (5) gated GROUP UP — the sim pauses on contact and teaches
+  box/Shift-selecting the remaining platoons and moving them in to secure the town (done when
+  ≥2 non-recon units share a move group). Curriculum front-loaded to be empty by M4.
 - **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
   launches over the unit via the ⊕ button (like the aerostat at a site) — no map
   placement — capped 1 per unit, so the palette row reads 0/1 → 1/1 and disables.

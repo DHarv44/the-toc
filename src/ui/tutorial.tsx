@@ -4,32 +4,154 @@
 // here. Each step has a sim-observable `done(S)` and an adaptive `hint(S, ui)`
 // that changes as the player makes progress. Gated steps pause the sim (speed 0)
 // until done, then resume — so the player can't skip past an unlearned action.
+//
+// A hint can point at a DOM element (a rail item, via `data-tut`) OR at a unit on
+// the map (via `targetUnit`) — the overlay draws the same pulsing ring on either
+// and floats the callout beside it.
 import { useEffect } from 'react'
 import { S } from '../engine/state'
 import { MISSIONS } from '../engine/campaign'
 import { UNIT_TYPES } from '../domains/forces/catalog'
+import { nearestLand } from '../world/place'
 import { useUI, type UIState } from './store'
 
 export interface TutorialHint {
   text: string
-  targetSel?: string           // data-tut key to ring-highlight; absent = no ring
-  anchor?: 'left' | 'bottom'   // where the callout sits (beside a rail item, or map-bottom)
+  targetSel?: string                   // data-tut key to ring-highlight (a rail/menu item)
+  targetUnit?: number                  // unit id to ring-highlight on the map
+  targetPoint?: { x: number; y: number } // world point to ring-highlight (e.g. a move destination)
+  targetBox?: { x0: number; y0: number; x1: number; y1: number } // world bbox to ring-highlight (a group)
+  hidden?: boolean                     // show no cue this frame (e.g. waiting for a move to finish)
 }
 
 export interface TutorialStep {
   id: string
   gate?: boolean                              // pause the sim until done
-  done: (S: typeof import('../engine/state').S) => boolean
+  done: (S: typeof import('../engine/state').S, ui: UIState) => boolean
   hint: (S: typeof import('../engine/state').S, ui: UIState) => TutorialHint
 }
 
-// Curriculum, keyed by mission id (front-loaded; empty by mission 4). More steps
-// land per mission as the fuller curriculum is wired.
+// the campaign's recon platoon — the scout section that leads the advance
+const recon = () => S.units.find(u => u.side === 'friend' && u.type === 'SCT')
+
+// The move-tutorial destination: a road point a short bound up the axis toward the
+// objective town — cached for the (fixed) campaign map.
+let _moveTarget: { x: number; y: number } | null = null
+function nearestRoad(m: NonNullable<typeof S.map>, x: number, y: number, maxR: number): { x: number; y: number } | null {
+  const gx0 = Math.floor(x / m.CELL), gy0 = Math.floor(y / m.CELL), maxC = Math.ceil(maxR / m.CELL)
+  for (let r = 0; r <= maxC; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
+      const gx = gx0 + dx, gy = gy0 + dy
+      if (gx < 0 || gy < 0 || gx >= m.GRID || gy >= m.GRID) continue
+      if (m.road[gy * m.GRID + gx]) return { x: (gx + 0.5) * m.CELL, y: (gy + 0.5) * m.CELL }
+    }
+  }
+  return null
+}
+function moveTarget(): { x: number; y: number } | null {
+  if (_moveTarget) return _moveTarget
+  const m = S.map, c = S.campaign
+  if (!m || !c) return null
+  const hq = m.fob, town = c.strongpoint
+  const dx = town.x - hq.x, dy = town.y - hq.y, L = Math.hypot(dx, dy) || 1
+  for (let d = 450; d <= 950; d += 50) {
+    const rp = nearestRoad(m, hq.x + (dx / L) * d, hq.y + (dy / L) * d, 220)
+    if (rp) { _moveTarget = rp; return rp }
+  }
+  _moveTarget = { x: hq.x + (dx / L) * 600, y: hq.y + (dy / L) * 600 }
+  return _moveTarget
+}
+
+// nearest hostile to the HQ — the town garrison the recon is sent to scout
+function nearestEnemyUnit() {
+  const hq = S.map?.fob
+  if (!hq) return null
+  let best = null, bd = Infinity
+  for (const u of S.units) {
+    if (u.side !== 'hostile' || u.strength <= 0) continue
+    const d = Math.hypot(u.x - hq.x, u.y - hq.y)
+    if (d < bd) { bd = d; best = u }
+  }
+  return best
+}
+function nearestEnemy(): { x: number; y: number } | null {
+  const u = nearestEnemyUnit()
+  return u ? { x: u.x, y: u.y } : null
+}
+
+// step-2 move marker: a standoff point ~650 m short of the nearest enemy on the
+// HQ side, so advancing the recon there brings the enemy inside its sight (and
+// under its Raven) without walking into rifle range. Snapped toward a road where
+// one is close. Cached for the fixed campaign map (garrison doesn't move).
+let _exposeMarker: { x: number; y: number } | null = null
+function exposeMarker(): { x: number; y: number } | null {
+  if (_exposeMarker) return _exposeMarker
+  const m = S.map, hq = m?.fob, e = nearestEnemy()
+  if (!m || !hq || !e) return moveTarget() // fallback: road point toward the town
+  const dx = hq.x - e.x, dy = hq.y - e.y, L = Math.hypot(dx, dy) || 1
+  const px = e.x + (dx / L) * 650, py = e.y + (dy / L) * 650
+  _exposeMarker = nearestRoad(m, px, py, 260) || nearestLand(m, px, py)
+  return _exposeMarker
+}
+
+// a live enemy contact on the common picture (recon has eyes on)
+const enemySpotted = () => { for (const c of S.contacts.values()) if (c.live) return true; return false }
+
+// the spotted enemy the recon has eyes on — the one to attack (nearest live
+// contact to the recon platoon)
+function spottedEnemy() {
+  const r = recon()
+  let best = null, bd = Infinity
+  for (const u of S.units) {
+    if (u.side !== 'hostile' || u.strength <= 0) continue
+    const c = S.contacts.get(u.id)
+    if (!c || !c.live) continue
+    const d = r ? Math.hypot(u.x - r.x, u.y - r.y) : 0
+    if (d < bd) { bd = d; best = u }
+  }
+  return best
+}
+
+// Curriculum, keyed by mission id (front-loaded; empty by mission 4).
 export const TUTORIALS: Record<string, TutorialStep[]> = {
   lodgment: [
+    // 1) select the recon platoon — just click it.
+    {
+      id: 'select-recon',
+      done: (_S, ui) => {
+        const r = recon()
+        return !!r && ui.selectedIds.length === 1 && ui.selectedIds[0] === r.id
+      },
+      hint: () => ({
+        text: 'SELECT YOUR RECON PLATOON — left-click it to take control. Scouts lead the advance.',
+        targetUnit: recon()?.id,
+      }),
+    },
+    // 2) advance the recon toward the enemy standoff marker. Non-gated so it can
+    //    cover ground; the cue clears the instant a move order is set. This step
+    //    completes at HALF A KLICK from the HQ — where the drone prompt fires —
+    //    while the platoon keeps walking to the marker (and into contact).
+    {
+      id: 'move-recon',
+      done: () => {
+        const r = recon()
+        return !!r && !!S.map && Math.hypot(r.x - S.map.fob.x, r.y - S.map.fob.y) >= 500
+      },
+      hint: () => {
+        const r = recon(), t = exposeMarker()
+        const dest = r && r.legs.length ? r.legs[r.legs.length - 1] : null
+        if (dest && t && Math.hypot(dest.x - t.x, dest.y - t.y) <= 200) return { text: '', hidden: true }
+        return {
+          text: 'MOVE OUT — RIGHT-click the highlighted point to advance your recon platoon toward the town.',
+          targetPoint: t ?? undefined,
+        }
+      },
+    },
+    // 3) eyes forward at half a klick — launch the recon platoon's Raven. Gated.
     {
       id: 'deploy-drone',
-      gate: true, // hold the mission until they've launched a Raven once
+      gate: true,
       done: () => S.drones.length > 0,
       hint: (_S, ui) => {
         const sel = ui.selectedIds.length === 1
@@ -37,15 +159,80 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         const isCarrier = !!sel && sel.side === 'friend'
           && (UNIT_TYPES[sel.type].carries?.length ?? 0) > 0
         if (!isCarrier) {
-          return { text: 'SELECT A PLATOON — left-click one of your units near the HQ. Rifle and scout platoons each carry a hand-launched Raven UAV.', anchor: 'bottom' }
+          return { text: 'EYES FORWARD — left-click your recon platoon to select it. It carries a hand-launched Raven UAV.', targetUnit: recon()?.id }
         }
-        return { text: 'LAUNCH THE RAVEN — in the COMMAND rail on the left, under ORGANIC UAS, click the ⊕ to send its drone up over the platoon.', targetSel: 'uas', anchor: 'left' }
+        return { text: 'LAUNCH THE RAVEN — in the COMMAND rail on the left, under ORGANIC UAS, click the ⊕ to send its drone up over the platoon.', targetSel: 'uas-raven' }
+      },
+    },
+    // 4) silent hold: let the recon keep advancing until it makes contact.
+    {
+      id: 'await-contact',
+      done: () => enemySpotted(),
+      hint: () => ({ text: '', hidden: true }),
+    },
+    // 5) contact — group the rest of the force (select them together). Gated: the
+    //    sim pauses on contact. The box highlight clears once they're all selected.
+    {
+      id: 'group-select',
+      gate: true,
+      done: (_S, ui) => ui.selectedIds.filter(id => {
+        const u = S.units.find(x => x.id === id)
+        return !!u && u.side === 'friend' && u.type !== 'SCT'
+      }).length >= 2,
+      hint: () => {
+        // box the remaining (non-recon) platoons so the player sees who to group
+        const rest = S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0)
+        let targetBox: TutorialHint['targetBox']
+        if (rest.length) {
+          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+          for (const u of rest) { x0 = Math.min(x0, u.x); y0 = Math.min(y0, u.y); x1 = Math.max(x1, u.x); y1 = Math.max(y1, u.y) }
+          const pad = 95
+          targetBox = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }
+        }
+        return {
+          text: 'CONTACT — your recon has eyes on the enemy in the town. GROUP YOUR FORCE: drag a selection box around your remaining platoons (or Shift-click each) to select them all together.',
+          targetBox,
+        }
+      },
+    },
+    // 6) attack — switch the selected group to ATTACK mode, then right-click the enemy.
+    {
+      id: 'attack-enemy',
+      gate: true,
+      done: () => S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && (u.attackId != null || u.attackMove)),
+      hint: (_S, ui) => {
+        if (ui.cmdMode !== 'attack') {
+          return { text: 'SET ATTACK POSTURE — in the selection tray at the bottom, click ATTACK (or press E).', targetSel: 'attack-mode' }
+        }
+        // circle the enemy the recon has eyes on (a live contact), so the player
+        // knows which unit to right-click
+        const e = spottedEnemy()
+        return { text: 'ASSAULT — RIGHT-click the highlighted enemy to send your group in.', targetUnit: e?.id }
       },
     },
   ],
 }
 
 const ACCENT = '#7ec8ff'
+
+// the map canvas is the largest <canvas> in the document; use its rect + __view
+// (exposed by MapView) to convert a world point to a viewport pixel position
+function worldToViewport(wx: number, wy: number): { x: number; y: number; rect: DOMRect } | null {
+  const view = (window as unknown as { __view?: { cx: number; cy: number; ppm: number } }).__view
+  if (!view) return null
+  let canvas: HTMLCanvasElement | null = null, best = 0
+  for (const cv of Array.from(document.querySelectorAll('canvas'))) {
+    const a = cv.clientWidth * cv.clientHeight
+    if (a > best) { best = a; canvas = cv }
+  }
+  if (!canvas) return null
+  const rect = canvas.getBoundingClientRect()
+  return {
+    x: rect.left + (wx - view.cx) * view.ppm + rect.width / 2,
+    y: rect.top + (wy - view.cy) * view.ppm + rect.height / 2,
+    rect,
+  }
+}
 
 export default function TutorialOverlay() {
   const tick = useUI(s => s.tick)
@@ -59,7 +246,7 @@ export default function TutorialOverlay() {
     const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
     if (c.tutStep >= steps.length) return
     const step = steps[c.tutStep]!
-    if (step.done(S)) {
+    if (step.done(S, ui)) {
       c.tutStep++
       const next = steps[c.tutStep]
       S.speed = next?.gate ? 0 : 1 // resume, or hold for the next gated step
@@ -69,42 +256,97 @@ export default function TutorialOverlay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick])
 
+  // inject the pulse keyframes ONCE — re-emitting the <style> every 10 Hz tick
+  // would restart the animation each frame and freeze it visually
+  useEffect(() => {
+    if (document.getElementById('tut-keyframes')) return
+    const st = document.createElement('style')
+    st.id = 'tut-keyframes'
+    st.textContent = `@keyframes tutPulse {
+      0%,100% { box-shadow: 0 0 0 2px ${ACCENT}55, 0 0 8px 2px ${ACCENT}22; opacity: .6; }
+      50%     { box-shadow: 0 0 0 4px ${ACCENT}, 0 0 30px 10px ${ACCENT}99; opacity: 1; }
+    }`
+    document.head.appendChild(st)
+  }, [])
+
   if (!c || !c.tutorial || c.complete || !c.briefed || c.debrief) return null
   const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
   if (c.tutStep >= steps.length) return null
   const hint = steps[c.tutStep]!.hint(S, ui)
+  if (hint.hidden) return null // no cue this frame (e.g. platoon is en route to its waypoint)
 
-  // locate the ring target (if any); fall back to a bottom callout when absent
-  let ring: DOMRect | null = null
+  // resolve the ring target: a DOM element, a map unit/point, or nothing
+  let ring: { left: number; top: number; width: number; height: number } | null = null
+  let callout: { left: number; top: number; width: number; pointer?: 'left' | 'right' | 'up' | 'down' } | null = null
+
+  // a ring + right-side callout anchored to a world point on the map
+  const mapAnchor = (wx: number, wy: number, R: number) => {
+    const p = worldToViewport(wx, wy)
+    if (!p) return
+    if (p.x < p.rect.left || p.x > p.rect.right || p.y < p.rect.top || p.y > p.rect.bottom) return
+    ring = { left: p.x - R, top: p.y - R, width: R * 2, height: R * 2 }
+    const w = 340
+    const top = Math.min(Math.max(p.rect.top + 8, p.y - 30), p.rect.bottom - 110)
+    const fitsRight = p.x + R + 14 + w <= p.rect.right - 8
+    callout = fitsRight
+      ? { left: p.x + R + 14, top, width: w, pointer: 'left' }
+      : { left: Math.max(p.rect.left + 8, p.x - R - 14 - w), top, width: w, pointer: 'right' }
+  }
+
   if (hint.targetSel) {
     const el = document.querySelector(`[data-tut="${hint.targetSel}"]`)
-    if (el) ring = el.getBoundingClientRect()
+    if (el) {
+      const r = el.getBoundingClientRect()
+      ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
+      callout = { left: r.right + 14, top: Math.max(8, r.top + r.height / 2 - 34), width: 300, pointer: 'left' }
+    }
+  } else if (hint.targetUnit != null) {
+    const u = S.units.find(x => x.id === hint.targetUnit)
+    if (u) mapAnchor(u.x, u.y, 26)
+  } else if (hint.targetPoint) {
+    mapAnchor(hint.targetPoint.x, hint.targetPoint.y, 32)
+  } else if (hint.targetBox) {
+    // a rectangle around a group of units, clamped to the map, callout to its right
+    const tl = worldToViewport(hint.targetBox.x0, hint.targetBox.y0)
+    const br = worldToViewport(hint.targetBox.x1, hint.targetBox.y1)
+    if (tl && br) {
+      const L = Math.max(tl.rect.left, tl.x), T = Math.max(tl.rect.top, tl.y)
+      const R = Math.min(tl.rect.right, br.x), B = Math.min(tl.rect.bottom, br.y)
+      if (R > L && B > T) {
+        ring = { left: L, top: T, width: R - L, height: B - T }
+        const w = 340
+        const top = Math.min(Math.max(tl.rect.top + 8, T), tl.rect.bottom - 130)
+        const fitsRight = R + 14 + w <= tl.rect.right - 8
+        callout = fitsRight
+          ? { left: R + 14, top, width: w, pointer: 'left' }
+          : { left: Math.max(tl.rect.left + 8, L - 14 - w), top, width: w, pointer: 'right' }
+      }
+    }
   }
-  const anchor = ring ? 'left' : 'bottom'
+  // fallback: no anchor found → a plain callout at the map bottom
+  if (!callout) callout = { left: -1, top: -1, width: 440 }
+  const isMapCircle = hint.targetUnit != null || hint.targetPoint != null
 
   const skip = () => { if (S.campaign) { S.campaign.tutorial = false; if (S.speed === 0) S.speed = 1 } }
+  const bottom = callout.left < 0
 
   return (
     <>
-      <style>{`@keyframes tutPulse {
-        0%,100% { box-shadow: 0 0 0 2px ${ACCENT}88, 0 0 12px 3px ${ACCENT}33; }
-        50%     { box-shadow: 0 0 0 3px ${ACCENT}ff, 0 0 26px 8px ${ACCENT}66; }
-      }`}</style>
-
-      {/* the slow-pulsing highlight ring over the target element */}
+      {/* the slow-pulsing highlight ring over the target (DOM element or map unit).
+          Stable key so React never remounts it (which would restart the pulse). */}
       {ring && (
-        <div style={{
+        <div key="tut-ring" style={{
           position: 'fixed', zIndex: 108, pointerEvents: 'none',
-          left: ring.left - 5, top: ring.top - 5, width: ring.width + 10, height: ring.height + 10,
-          border: `2px solid ${ACCENT}`, borderRadius: 5,
-          animation: 'tutPulse 1.5s ease-in-out infinite',
+          left: ring.left, top: ring.top, width: ring.width, height: ring.height,
+          border: `2px solid ${ACCENT}`, borderRadius: isMapCircle ? '50%' : 5,
+          animation: 'tutPulse 1.4s ease-in-out infinite',
         }} />
       )}
 
-      {/* the callout: beside the ring (rail item) or centered at the map bottom */}
-      <div style={anchor === 'left' && ring
-        ? { position: 'fixed', zIndex: 109, left: ring.right + 14, top: Math.max(8, ring.top + ring.height / 2 - 34), width: 300 }
-        : { position: 'fixed', zIndex: 109, left: '50%', bottom: 96, transform: 'translateX(-50%)', width: 440, maxWidth: '80vw' }
+      {/* the callout: beside/under the ring, or centered at the map bottom */}
+      <div style={bottom
+        ? { position: 'fixed', zIndex: 109, left: '50%', bottom: 96, transform: 'translateX(-50%)', width: callout.width, maxWidth: '80vw' }
+        : { position: 'fixed', zIndex: 109, left: callout.left, top: callout.top, width: callout.width }
       }>
         <div style={{
           position: 'relative',
@@ -112,25 +354,30 @@ export default function TutorialOverlay() {
           borderRadius: 4, padding: '10px 13px', fontFamily: 'Consolas, monospace', color: '#dceeff',
           boxShadow: '0 4px 18px rgba(0,0,0,0.5)',
         }}>
-          {/* pointer toward the ring when anchored beside a rail item */}
-          {anchor === 'left' && ring && (
-            <div style={{
-              position: 'absolute', left: -7, top: 28, width: 0, height: 0,
-              borderTop: '7px solid transparent', borderBottom: '7px solid transparent',
-              borderRight: `7px solid ${ACCENT}`,
-            }} />
+          {/* pointer toward the ring */}
+          {callout.pointer === 'left' && (
+            <div style={{ position: 'absolute', left: -7, top: 28, width: 0, height: 0,
+              borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderRight: `7px solid ${ACCENT}` }} />
           )}
-          <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f9fd0', marginBottom: 4 }}>
-            ▸ TRAINING
-          </div>
+          {callout.pointer === 'right' && (
+            <div style={{ position: 'absolute', right: -7, top: 28, width: 0, height: 0,
+              borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: `7px solid ${ACCENT}` }} />
+          )}
+          {callout.pointer === 'up' && (
+            <div style={{ position: 'absolute', top: -7, left: '50%', marginLeft: -7, width: 0, height: 0,
+              borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: `7px solid ${ACCENT}` }} />
+          )}
+          {callout.pointer === 'down' && (
+            <div style={{ position: 'absolute', bottom: -7, left: '50%', marginLeft: -7, width: 0, height: 0,
+              borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${ACCENT}` }} />
+          )}
+          <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f9fd0', marginBottom: 4 }}>▸ TRAINING</div>
           <div style={{ fontSize: 12, lineHeight: 1.5 }}>{hint.text}</div>
           <button onClick={skip}
             onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
             onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
-            style={{
-              marginTop: 8, background: 'none', border: 'none', cursor: 'pointer',
-              color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0,
-            }}>SKIP TUTORIAL</button>
+            style={{ marginTop: 8, background: 'none', border: 'none', cursor: 'pointer',
+              color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0 }}>SKIP TUTORIAL</button>
         </div>
       </div>
     </>
