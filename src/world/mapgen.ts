@@ -636,3 +636,64 @@ function roadAstar(
   while (c !== -1) { path.push(c); c = came[c]! }
   return path
 }
+
+// Runtime: lay a dirt access PATH from a freshly-placed structure to the
+// nearest existing road of ANY class (highway/road/path, whichever is closest).
+// Same rules as generated paths — dry only (never crosses water), Chaikin-
+// smoothed, stamped into the raster and pushed to map.roads so the BFT and
+// mobility pick it up. No-op if the structure already sits on the network or no
+// dry route exists. (The drone-feed texture is cached per map, so — like a
+// pontoon bridge — a runtime path shows in the feed only after the feed rebuilds.)
+export function connectStructureToRoads(map: WorldMap, x: number, y: number): void {
+  const { GRID, road, elev, terr, roads } = map
+  const sgx = Math.max(1, Math.min(GRID - 2, Math.floor(x / CELL)))
+  const sgy = Math.max(1, Math.min(GRID - 2, Math.floor(y / CELL)))
+  if (road[sgy * GRID + sgx]) return // already on the network
+  // nearest existing road cell of any class (bounded ring scan)
+  let best = -1, bd = Infinity
+  const R = Math.min(GRID - 2, 90)
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      const gx = sgx + dx, gy = sgy + dy
+      if (gx < 1 || gy < 1 || gx >= GRID - 1 || gy >= GRID - 1) continue
+      if (!road[gy * GRID + gx]) continue
+      const d = dx * dx + dy * dy
+      if (d < bd) { bd = d; best = gy * GRID + gx }
+    }
+  }
+  if (best < 0) return
+  const cellPath = roadAstar(
+    { gx: sgx, gy: sgy }, { gx: best % GRID, gy: (best / GRID) | 0 },
+    elev, terr, GRID, Infinity, // Infinity waterCost: a dirt path can't cross water
+  )
+  if (cellPath.length < 2) return
+  const raw: Vec2[] = cellPath.map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
+  let pts = chaikin(chaikin(raw))
+  // smoothing must not cut a corner across water — fall back to the raw line
+  const crossesWater = (ps: Vec2[]): boolean => {
+    for (let s = 0; s < ps.length - 1; s++) {
+      const p = ps[s]!, q = ps[s + 1]!
+      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 4)))
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps
+        const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+        if (gx >= 0 && gy >= 0 && gx < GRID && gy < GRID && terr[gy * GRID + gx] === T_WATER) return true
+      }
+    }
+    return false
+  }
+  if (crossesWater(pts)) pts = raw
+  roads.push({ cls: R_PATH, pts })
+  // stamp the raster (never downgrade a higher-class road at the junction)
+  for (let s = 0; s < pts.length - 1; s++) {
+    const p = pts[s]!, q = pts[s + 1]!
+    const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps
+      const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+      if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) continue
+      const i = gy * GRID + gx
+      if (road[i]! < R_PATH) road[i] = R_PATH
+    }
+  }
+}

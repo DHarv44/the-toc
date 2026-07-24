@@ -6,6 +6,7 @@ import type { Vec2 } from '../../world/WorldMap'
 import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
+import { connectStructureToRoads } from '../../world/mapgen'
 import { STRUCTURES, type StructureTypeKey } from './catalog'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
@@ -30,6 +31,8 @@ export function addStructure(
     stock: spec.stock0 || 0,
   }
   S.structures.push(s)
+  // a forward base off the network gets a dirt access track to the nearest road
+  if (kind === 'FOB' && S.map) connectStructureToRoads(S.map, x, y)
   return s
 }
 
