@@ -3,6 +3,7 @@
 // lives in SimLoop/EndScreen and works for every mode. Modes 2 and 3 (Base
 // Defense waves, Zone Capture) slot in here without touching the framework.
 import type { GameState } from './GameState'
+import type { WorldMap } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { spawnScriptedBattlegroup } from '../domains/opfor/ai'
 import { radio, toast } from '../domains/comms/radio'
@@ -14,6 +15,10 @@ export interface ModeSpec {
   id: ModeId
   label: string
   sub: string
+  // map recipe: initGame rerolls the map seed (bounded attempts) until this
+  // passes, so the mode always gets the terrain its objective needs. Absent =
+  // any map will do.
+  mapOk?(map: WorldMap): boolean
   // one-time scenario shaping, called at the end of initGame (after the map,
   // bases and starting forces exist)
   setup?(S: GameState): void
@@ -166,6 +171,26 @@ export const MODES: Record<ModeId, ModeSpec> = {
     id: 'king-of-the-hill',
     label: 'KING OF THE HILL',
     sub: 'One objective · hold the high ground to run out the clock',
+    // the mode needs an actual hill: the central third's high ground must rise
+    // meaningfully above its median, or "the objective" is a bump in a field
+    mapOk(map) {
+      const lo = Math.floor(map.GRID * 0.33), hi = Math.ceil(map.GRID * 0.67)
+      const vals: number[] = []
+      let best = -Infinity
+      for (let gy = lo; gy < hi; gy += 2) {
+        for (let gx = lo; gx < hi; gx += 2) {
+          const i = gy * map.GRID + gx
+          if (map.terr[i] === 3) continue
+          const e = map.elev[i]!
+          vals.push(e)
+          if (e > best) best = e
+        }
+      }
+      if (!vals.length) return false
+      vals.sort((a, b) => a - b)
+      const median = vals[vals.length >> 1]!
+      return best - median >= 18
+    },
     setup(S) {
       const p = pickHill(S)
       S.hill = {

@@ -26,7 +26,16 @@ export function initGame(
 ): void {
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
-  S.map = genMap(seed, gridSize, theater)
+  // mode map recipe: reroll the MAP seed (bounded) until the terrain fits the
+  // mode's objective (e.g. KotH needs a real hill). S.rng keeps the original
+  // seed either way, and modes without a recipe generate exactly once — the
+  // default A&D path is byte-identical to before (golden-gated).
+  const mapOk = MODES[mode].mapOk
+  let m = genMap(seed, gridSize, theater)
+  if (mapOk) {
+    for (let a = 1; a <= 24 && !mapOk(m); a++) m = genMap((seed + a * 7919) >>> 0, gridSize, theater)
+  }
+  S.map = m
   S.t = 0
   S.units = []
   S.structures = []

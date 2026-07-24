@@ -115,6 +115,13 @@ system decision is tested against these; cite them by number ("fails law 1").
    `procgen noise | baked real-DEM theater | authored heightmap | (someday) builder file`.
    Both renderers (BFT and feeds) read `WorldMap`, so drone-cam ground truth is accurate
    by construction regardless of source.
+   *Architectural stance (2026-07-23, after the "3D-first?" discussion): we do NOT flip
+   to a 3D-scene-first pipeline — the sim needs rasters and elevation generation is
+   raster math anyway. Instead the contract **thickens over time**: culture gets promoted
+   from implicit (renderers hash-inventing detail) to explicit shared objects, as already
+   done for roads (vector polylines both renderers honor). Next candidates: building
+   footprints, tree instances, hedgerow/wall polylines. End state: one scene
+   description, two honest renderers.*
 4. **Automation adds seats; it never takes the stick out of your hand.** Personally
    calling the fire mission, flying the sensor, walking rounds onto the treeline — the
    *doing* is the game. AI staff, subordinate commanders and request flows are optional
@@ -220,8 +227,14 @@ per map, no megacities.
     *the building*, no room-by-room) so it composes with law 2. Ties into structures/
     destructibility and the fires systems.
   Discuss, then slot into the M-track.
-  across the axis, ≥2 crossings, towns along the way; KotH's central dominant hill), by
-  generate-validate-reroll. Campaign development resumes here.
+- **M4 — Mode recipes** 🟡 *(framework + KotH shipped 2026-07-23)*: `ModeSpec.mapOk(map)`
+  plus a bounded map-seed reroll loop in initGame — modes without a recipe generate
+  exactly once, so the default A&D path is byte-identical (golden-gated, baseline
+  unchanged). KotH's recipe rejects maps whose central third has no real hill (peak
+  ≥ 18 over the median): over 90 test maps, ~half of Small rerolled (≤ 3 attempts),
+  Medium rarely, Large never. Still open: the **Campaign recipe** (river belt across
+  the axis, ≥ 2 crossings, towns along the way) — lands when the campaign restarts,
+  which begins here.
 - **Map authoring v0** *(free with M1)*: a "map" is a heightmap + a culture recipe —
   Claude can author maps by hand (painted or real-DEM heightmap + placement params JSON)
   with zero tooling. The community-facing **map builder** lands later as a Scenario
@@ -635,6 +648,25 @@ next sortie.
   the palette row, which shows `used/total` or `⟳ m:ss` and greys out when unavailable.
   `endSortie()` stamps `S.airCooldown[type]` from every despawn path — recovery, bingo, tether
   loss, and crash — so a lost airframe costs the same wait as a clean recovery.
+
+### UAV Sensor Realism — Footprint & ID Degradation ⬜ *(added 2026-07-23 — UAVs are OP)*
+UAVs currently spot everything in a big omnidirectional radius — too easy, too far.
+Make the sensor ball real:
+- **Sensor footprint, not a halo** — a flying UAV detects only inside what its gimbal is
+  actually looking at (the projected FOV cone on the ground), the way the aerostat's
+  fixed-stare turret already works. Orbiting = the footprint sweeps; slewing the sensor
+  is a real decision.
+- **Identification degrades with range** — the recognition ladder: *detection* (something
+  moved) → *classification* (vehicle vs. troops) → *identification* (tank platoon)
+  requires progressively shorter slant range / narrower zoom. Across the map you get an
+  UNKNOWN contact mark at best, never a typed unit.
+- **The soda-straw tradeoff** — wide FOV scans big but only detects; narrow FOV
+  identifies but stares at a postage stamp. That tension IS real ISR work.
+- Design notes: `Contact` grows a confidence/`unknown` state (spot reports say "UNKNOWN
+  VEHICLE VIC ..."); `updateContacts` gates detection on footprint intersection and ID
+  on slant range; BFT renders unknown contacts with the 2525 unknown frame (yellow).
+  Pairs with *Symmetric Fog* (same ladder for the OPFOR) and makes the aerostat's
+  fixed stare the norm, not the exception.
 
 ### Drone Team & Organic UAS 🟡 *(carrier units + organic launch/RTB/follow shipped; no drone-team unit type, no FPV airframe)*
 Put the airfield-independent drones in the hands of units:
