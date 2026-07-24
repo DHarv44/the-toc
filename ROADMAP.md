@@ -957,6 +957,48 @@ units take it without hesitation — both playtest engineers died this way.
 
 ## Enemy AI / OPFOR 🟡
 
+### Decision Layer — Utility Scoring for Commander & Units ⬜ *(added 2026-07-23 — the architecture for "smarter"; explicitly NOT machine learning)*
+Every deciding agent knows its full menu of available actions and scores each against
+the situation — a **utility system**: many small hand-written evaluations flowing into
+a decision. Deterministic, hand-tunable, debuggable; no training, no models.
+- **The iron rule**: the layer only *chooses among* the existing player-legal order
+  functions and shared drills (`orderMove` / `orderAttack` / `orderRoe` / `orderDefend`
+  / `fireMission` / the deploy paths). It never grows AI-only mechanics. If a decision
+  wants a capability that doesn't exist yet (e.g. unit self-smoke), that capability
+  ships in the shared layer as a player-usable feature FIRST (see *Tactical Smoke*),
+  and then both sides' deciders may use it. AI-specific needs get discussed before
+  being built.
+- **Two echelons of decider**:
+  - *Commander* (per battlegroup, later the OPFOR commander): assign objective ·
+    fix / flank schemes · commit or withhold the reserve · fire missions in support
+    (HE prep on a defense, **SMOKE screening an advancing group**) · dig in on ground
+    taken · withdraw / consolidate.
+  - *Unit SOP*: return fire · break contact (**+ pop self-smoke once it exists**) ·
+    dismount · dig · resume mission · hold. These extend the existing drill/ROE
+    machinery rather than replacing it.
+- **Scoring**: an action = availability predicate + weighted considerations (threat,
+  own strength, ammo/supply, commander's intent, terrain) → 0..1; best score wins,
+  with hysteresis/decision cooldowns so agents don't oscillate. All randomness through
+  `S.rng` in fixed order — golden-gated like everything else in the sim.
+- **Intent flows down**: the commander stamps each group with intent (mission +
+  aggressiveness); intent is an *input to the members' scoring* — a screening unit
+  scores BREAK high, an assaulting unit scores PUSH high. This generalizes the ROE
+  knob that already exists.
+- **Personalities are weight tables**: cautious defender / armor thrust / recon-pull
+  profiles (and difficulty itself) are just different consideration weights — no new
+  code per personality.
+- **Both sides benefit by construction**: the unit-SOP scoring runs the shared drill
+  layer, so *player* units inherit the same smarter automatic behaviors (law 4 —
+  automation adds seats); the commander brain later becomes the friendly AI company
+  XOs and the campaign's scripted OPFOR postures.
+- **Debuggability is a feature**: a dev overlay showing each agent's chosen action and
+  the scores behind it ("why did it do that") — utility AI lives or dies by this.
+- Build order: (1) substrate + wire the actions that already exist (move/attack/ROE/
+  defend + OPFOR arty fire missions) → (2) commander schemes (fix+flank, reserve,
+  dig-on-objective) → (3) new shared capabilities as they ship (self-smoke, etc.) →
+  (4) personalities/difficulty weights. *Symmetric Fog* stays a separate, later
+  prerequisite for honest ISR-driven decisions.
+
 **A priority.** Battlegroups now exist — four templates, recon vs main-effort roles, a
 muster → advance → withdraw cycle, a recon screen 750 m ahead, objective re-selection every
 10 s, and a withdraw under 35% strength. It issues only player-legal orders, so it inherits
