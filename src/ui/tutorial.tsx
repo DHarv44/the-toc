@@ -116,7 +116,8 @@ function spottedEnemy() {
 // Curriculum, keyed by mission id (front-loaded; empty by mission 4).
 export const TUTORIALS: Record<string, TutorialStep[]> = {
   lodgment: [
-    // 1) select the recon platoon — just click it.
+    // 1) select the recon platoon — and teach WHY scouts lead: the garrison is
+    //    concealed, and the scouts are pre-set to BREAK if it springs on them.
     {
       id: 'select-recon',
       done: (_S, ui) => {
@@ -124,14 +125,14 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         return !!r && ui.selectedIds.length === 1 && ui.selectedIds[0] === r.id
       },
       hint: () => ({
-        text: 'SELECT YOUR RECON PLATOON — left-click it to take control. Scouts lead the advance.',
+        text: 'SCOUTS LEAD — the garrison in the town is CONCEALED: nobody sees them until they are found, or they fire. Left-click your recon platoon: it sees farthest, and it is set to BREAK contact automatically if engaged.',
         targetUnit: recon()?.id,
       }),
     },
-    // 2) advance the recon toward the enemy standoff marker. Non-gated so it can
-    //    cover ground; the cue clears the instant a move order is set. This step
-    //    completes at HALF A KLICK from the HQ — where the drone prompt fires —
-    //    while the platoon keeps walking to the marker (and into contact).
+    // 2) screen forward to the standoff marker (≈650 m out — inside scout
+    //    spotting range through urban concealment, outside the garrison's
+    //    trigger range). Non-gated; the cue clears the instant the order is
+    //    set. Completes at HALF A KLICK from the HQ, where the drone prompts.
     {
       id: 'move-recon',
       done: () => {
@@ -143,7 +144,7 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         const dest = r && r.legs.length ? r.legs[r.legs.length - 1] : null
         if (dest && t && Math.hypot(dest.x - t.x, dest.y - t.y) <= 200) return { text: '', hidden: true }
         return {
-          text: 'MOVE OUT — RIGHT-click the highlighted point to advance your recon platoon toward the town.',
+          text: 'SCREEN FORWARD — RIGHT-click the highlighted point to push your scouts toward the town. From there they can spot the hidden garrison at standoff; if it opens fire on them, they will break away on their own.',
           targetPoint: t ?? undefined,
         }
       },
@@ -189,8 +190,15 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
           const pad = 95
           targetBox = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }
         }
+        // narrate whichever way the contact came: a clean standoff spot, or the
+        // garrison springing its ambush and the scouts' BREAK drill kicking in
+        const sct = recon()
+        const ambushed = !!sct && (sct.breaking || S.t - (sct.underFireT ?? -999) < 20)
+        const lead = ambushed
+          ? 'AMBUSH SPRUNG — the hidden garrison opened up on your scouts, and they are breaking contact on their own (their BREAK drill). The enemy is fixed on the map. '
+          : 'CONTACT — your scouts spotted the garrison from standoff without being engaged. '
         return {
-          text: 'CONTACT — your recon has eyes on the enemy in the town. GROUP YOUR FORCE: drag a selection box around your remaining platoons (or Shift-click each) to select them all together.',
+          text: lead + 'GROUP YOUR FORCE: drag a selection box around your remaining platoons (or Shift-click each) to select them all together.',
           targetBox,
         }
       },

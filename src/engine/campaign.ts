@@ -162,10 +162,12 @@ export const MISSIONS: readonly Mission[] = [
     name: 'LODGMENT',
     brief:
       'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
-      + 'seize the crossroads town to your front — it owns the road net. Expect a '
-      + 'light garrison, and a local counterattack once you take it. No fielding, no '
-      + 'fires this phase; your platoons and their organic UAS are what you have. '
-      + 'CLEAR THE TOWN. HOLD IT.',
+      + 'seize the crossroads town to your front — it owns the road net. A light '
+      + 'garrison is CONCEALED in the buildings: you will not see them until your '
+      + 'scouts find them or they open fire. Scouts screen forward — they are set to '
+      + 'break contact if engaged. Expect a counterattack once you take the town. '
+      + 'No fielding, no fires this phase; your platoons and their organic UAS are '
+      + 'what you have. FIND THEM. CLEAR THE TOWN. HOLD IT.',
     objectives: [
       { id: 'clear', label: 'CLEAR THE TOWN', kind: 'clear-area' },
       { id: 'hold', label: 'DEFEAT THE COUNTERATTACK', kind: 'defeat-group', groupTag: 'REINFORCEMENT' },

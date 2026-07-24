@@ -141,18 +141,20 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   `__view` + the map canvas rect) OR a **map point** (`targetPoint`, e.g. a move
   destination snapped to a road) — plus a pointer callout to the right, with a SKIP escape.
   `done(S, ui)` can read selection. **Gated** steps pause the sim (speed 0) until done, then
-  resume. M1 (5 steps): (1) SELECT RECON — highlights the recon platoon, done on select;
-  (2) MOVE OUT — highlights a standoff marker ~650 m short of the town garrison (so the
-  advance brings the enemy into recon sight); the cue clears once a move order is set and
-  the step completes at ½ klick from the HQ; (3) gated LAUNCH THE RAVEN (⊕ on the Raven row)
-  fires at ½ klick while the platoon keeps walking to the marker; (4) a silent hold until the
-  recon SPOTS the enemy; (5) gated GROUP UP — the sim pauses on contact and teaches
-  box/Shift-selecting the remaining platoons and moving them in to secure the town (done when
-  ≥2 non-recon units are selected together); (6) gated ATTACK — set ATTACK posture, then
-  right-click the spotted enemy (ringed) to assault; (7) silent hold until the garrison is
-  cleared; (8) OCCUPY THE TOWN — box highlight on the town, teaches moving into urban cover;
-  (9) gated DIG IN — prepared fighting positions before the counterattack. Curriculum
-  front-loaded to be empty by M4.
+  resume. M1 (9 steps, recon-screen flow — reworked 2026-07-24 with the tuned garrison):
+  (1) SCOUTS LEAD — teaches that the garrison is CONCEALED and the scouts are pre-set to
+  BREAK (M1 setup sets the SCT's ROE); done on selecting the recon platoon; (2) SCREEN
+  FORWARD — standoff marker ~650 m short of the garrison (inside scout spotting range
+  through urban concealment, OUTSIDE the garrison's 550 m trigger); cue clears on the
+  order, completes at ½ klick from the HQ; (3) gated LAUNCH THE RAVEN (⊕ on the Raven
+  row); (4) silent hold until contact; (5) gated GROUP UP — the lead line narrates
+  whichever way contact came: clean standoff spot, or "AMBUSH SPRUNG" + the scouts'
+  automatic break-contact if the player strayed inside the trigger range (reads
+  sct.breaking/underFireT); (6) gated ATTACK — set ATTACK posture, right-click the
+  spotted enemy; (7) silent hold until cleared; (8) OCCUPY THE TOWN (urban cover);
+  (9) gated DIG IN before the counterattack. The M1 briefing sells the same story
+  (concealed garrison · scouts screen · FIND THEM). Curriculum front-loaded to be
+  empty by M4.
 - **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
   launches over the unit via the ⊕ button (like the aerostat at a site) — no map
   placement — capped 1 per unit, so the palette row reads 0/1 → 1/1 and disables.
