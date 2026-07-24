@@ -8,6 +8,8 @@
 // element counts) from composition so the two models can be compared before
 // runtime rosters (Phase 2) and derived combat (Phase 3) switch over.
 import type { Mobility } from '../../world/mobility'
+// type-only, and GameState's composition imports are type-only too — no runtime cycle
+import type { Soldier, UnitVehicle } from '../../engine/GameState'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 
 // --- ammo ------------------------------------------------------------------
@@ -224,6 +226,32 @@ const COMPOSITIONS_LITERAL = {
 } as const satisfies Record<UnitTypeKey, UnitComposition>
 
 export const COMPOSITIONS: Readonly<Record<UnitTypeKey, UnitComposition>> = COMPOSITIONS_LITERAL
+
+// --- runtime roster construction (Phase 2) ---------------------------------
+// Build a unit's actual soldiers/vehicles from its composition. Deterministic
+// and rng-free (golden-neutral): fixed template order, sequential unit-local
+// ids. Crews are CREWMAN soldiers assigned to their vehicle; dismounts ride
+// with vehId null. Names/bios attach in Phase 4; per-soldier ammo in Phase 3.
+export function buildRoster(key: UnitTypeKey): { soldiers: Soldier[]; vehicles: UnitVehicle[] } {
+  const c = COMPOSITIONS[key]
+  const soldiers: Soldier[] = []
+  const vehicles: UnitVehicle[] = []
+  let sid = 1, vid = 1
+  for (const { type, n } of c.vehicles) {
+    const spec = VEHICLES[type]
+    for (let i = 0; i < n; i++) {
+      const v: UnitVehicle = { id: vid++, type, status: 'OK' }
+      vehicles.push(v)
+      for (let k = 0; k < spec.crew; k++) {
+        soldiers.push({ id: sid++, kind: 'CREWMAN', status: 'FIT', vehId: v.id })
+      }
+    }
+  }
+  for (const { kind, n } of c.dismounts) {
+    for (let i = 0; i < n; i++) soldiers.push({ id: sid++, kind, status: 'FIT', vehId: null })
+  }
+  return { soldiers, vehicles }
+}
 
 // --- derivation ------------------------------------------------------------
 // Aggregate stats computed FROM composition, for comparison against the

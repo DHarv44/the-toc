@@ -12,7 +12,7 @@ import { findPath } from '../../world/pathfinding'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
-import { effStats, healUnit, syncElements } from './elements'
+import { effStats, healUnit, rosterSync, syncElements } from './elements'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -353,9 +353,11 @@ export function surrenderUpdate(): void {
 }
 
 // element attrition: bring each unit's vics/troops in line with its strength,
-// spawning individual wrecks/explosions as they're picked off by direct fire
+// spawning individual wrecks/explosions as they're picked off by direct fire.
+// The composition roster mirrors the result (FORCE-MODEL Phase 2: elements
+// stay authoritative; Phase 3 inverts this).
 export function attritionSync(): void {
-  for (const u of S.units) syncElements(u, false)
+  for (const u of S.units) { syncElements(u, false); rosterSync(u) }
 }
 
 // deaths: units (per-element wrecks were already spawned as elements died)

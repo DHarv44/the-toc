@@ -115,6 +115,40 @@ export function syncElements(u: Unit, allowRevive = false): void {
   }
 }
 
+// Roster mirror (FORCE-MODEL.md, Phase 2 scaffolding): project element fates
+// onto the unit's composition roster. Elements/strength stay authoritative;
+// this keeps the Soldier[]/Vehicle[] records honest until Phase 3 inverts the
+// relationship. Deterministic mapping, both directions (handles revive):
+//  - veh element[i] ↔ vehicles[i]; a destroyed vic takes its whole crew
+//  - troop elements partition the dismounts in order (≈fire teams of 4)
+//  - units whose catalog troop elements ARE crews (SCT/LOG: no dismounts)
+//    lose people only through vehicle losses
+export function rosterSync(u: Unit): void {
+  if (!u.vehicles.length && !u.soldiers.length) return
+  // vehicles: element[i] (veh elements are pushed first, same order) ↔ vehicles[i]
+  let vi = 0
+  for (const el of u.elements) {
+    if (el.kind !== 'veh') break
+    const v = u.vehicles[vi++]
+    if (!v) break
+    v.status = el.alive ? 'OK' : 'DESTROYED'
+    for (const s of u.soldiers) {
+      if (s.vehId === v.id) s.status = v.status === 'OK' ? 'FIT' : 'KIA'
+    }
+  }
+  // dismounts: troop element k covers its even slice of the dismount roster
+  const dismounts = u.soldiers.filter(s => s.vehId === null)
+  const D = dismounts.length
+  if (!D) return
+  const troopEls = u.elements.filter(el => el.kind === 'troop')
+  const T = troopEls.length
+  if (!T) return
+  for (let k = 0; k < T; k++) {
+    const lo = Math.floor(k * D / T), hi = Math.floor((k + 1) * D / T)
+    for (let j = lo; j < hi; j++) dismounts[j]!.status = troopEls[k]!.alive ? 'FIT' : 'KIA'
+  }
+}
+
 // precision/blast fires resolve against individual elements by distance, so a
 // direct hit kills the vic you aimed at; sub-lethal splash chips aggregate strength.
 export function precisionBlast(

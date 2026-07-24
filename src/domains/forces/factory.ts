@@ -5,6 +5,7 @@ import { S } from '../../engine/state'
 import type { Side, Unit } from '../../engine/GameState'
 import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
+import { buildRoster } from './composition'
 import { initElements } from './elements'
 
 const FRIEND_CALLS = [
@@ -36,6 +37,8 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
     formSeed: S.rng ? S.rng() * 1000 : Math.random() * 1000,
     _spd: type.speed,
     elements: [],
+    // composition roster (FORCE-MODEL Phase 2): deterministic, rng-free build
+    ...buildRoster(typeKey),
   }
   if (type.indirect) u.ammo = type.indirect.load // basic load, both sides
   initElements(u)

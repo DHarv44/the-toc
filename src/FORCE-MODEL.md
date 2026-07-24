@@ -75,14 +75,29 @@ Unit     ...command fields unchanged... + soldiers: Soldier[], vehicles: Vehicle
       report vs today's hand-tuned numbers. Nothing imports it into the sim yet.
       *Landed 2026-07-24: `domains/forces/composition.ts` + `.tmp-mig/composition-check` —
       see the drift table below.*
-- [ ] **Phase 2 — Roster instantiation (golden re-baseline).** Units spawn with
-      real `Soldier[]`/`Vehicle[]`; strength becomes derived; `syncElements`
-      inverts (casualties → strength); render/wrecks read the real roster.
-- [ ] **Phase 3 — Derived combat + munitions (golden re-baseline; fixes M1).**
-      DPS computed per tick from alive/armed/supplied shooters; ammo decrements;
-      winchester (small arms cannot kill armor); resupply extends the existing
-      LOG/FOB trickle. Re-playtest M1 (play-test_Mission1.md findings must
-      resolve: assault survivable, no clear-the-town deadlock).
+- [x] **Phase 2 — Roster instantiation (REFINED: golden-neutral scaffolding).**
+      *Landed 2026-07-24.* Units spawn with real `Soldier[]`/`UnitVehicle[]`
+      built from the compositions (`buildRoster` — deterministic, rng-free;
+      crews are CREWMAN soldiers assigned to their vic). The strength INVERSION
+      originally planned here moved into Phase 3 (one re-baseline instead of
+      two): for now elements/strength stay authoritative and `rosterSync`
+      (elements.ts, called from attritionSync) mirrors element fates onto the
+      roster — veh element[i] ↔ vehicles[i] (destroyed vic takes its crew),
+      troop elements partition the dismounts (≈fire teams of 4), both
+      directions so reconstitution revives. The golden digest hashes only
+      id/side/type/x/y/strength, so added fields are digest-invisible.
+      **Verified:** golden `289931028` ×2 (unchanged, deterministic) ·
+      `.tmp-mig/roster-check` 8/8 (construction counts, deterministic build,
+      mounted-INF vic+crew losses, dismounted-INF fire-team losses, tank
+      platoon 2 tanks + 8 crew KIA at 45%) · campaign-check 26/26 · browser
+      boot clean, all live units carry rosters. Typecheck clean.
+- [ ] **Phase 3 — Inversion + derived combat + munitions (golden re-baseline;
+      fixes M1).** Casualties happen to individual soldiers/vehicles and
+      strength derives from the roster; DPS computed per tick from alive/armed/
+      supplied shooters; ammo decrements; winchester (small arms cannot kill
+      armor); resupply extends the existing LOG/FOB trickle. Re-playtest M1
+      (play-test_Mission1.md findings must resolve: assault survivable, no
+      clear-the-town deadlock).
 - [ ] **Phase 4 — Roster surfaces.** Names, S1 view, campaign persistence,
       CASEVAC/WIA/KIA/MIA states. The Battalion Roster roadmap item lands here —
       including per-troop BIOS (clickable backstory, WIA/KIA reflected; see

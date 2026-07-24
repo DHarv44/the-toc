@@ -15,6 +15,7 @@ import type { Rng } from './rng'
 import type { ModeId } from './modes'
 import type { WorldMap, Vec2 } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
+import type { TroopKindKey, VehicleKey } from '../domains/forces/composition'
 import type { DroneTypeKey } from '../domains/air/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 import type { DifficultyKey } from '../domains/economy/difficulty'
@@ -39,6 +40,29 @@ export interface UnitElement {
   oy: number
   kind: 'veh' | 'troop'
   alive: boolean
+}
+
+// --- force composition roster (FORCE-MODEL.md, Phase 2) --------------------
+// The unit's actual people and vehicles, built from the composition catalog at
+// spawn. Phase 2 scaffolding: strength/elements remain authoritative and the
+// roster MIRRORS them deterministically (rosterSync); Phase 3 inverts this
+// (casualties happen to individuals, strength/firepower derive) and adds ammo.
+// Phase 4 adds names/bios/WIA/MIA + the S1 view. Ids are unit-local.
+
+export type SoldierStatus = 'FIT' | 'WIA' | 'KIA' | 'MIA' // Phase 2 drives FIT/KIA only
+export type VehicleStatus = 'OK' | 'DESTROYED'
+
+export interface Soldier {
+  id: number
+  kind: TroopKindKey
+  status: SoldierStatus
+  vehId: number | null       // crewed vehicle (unit-local id), null = dismount
+}
+
+export interface UnitVehicle {
+  id: number
+  type: VehicleKey
+  status: VehicleStatus
 }
 
 export interface ConvoyTask {
@@ -92,6 +116,8 @@ export interface Unit {
   formSeed: number
   _spd: number               // last computed real speed (map read-back)
   elements: UnitElement[]
+  soldiers: Soldier[]        // composition roster (mirrors elements in Phase 2)
+  vehicles: UnitVehicle[]
   // added later by AI / tick code
   anchorX?: number           // garrison hold point
   anchorY?: number
