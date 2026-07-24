@@ -66,6 +66,26 @@ function pickMainEffort(): number | null {
   return best ? best.id : null
 }
 
+// economy of force: a secondary objective to FIX with one group while the main
+// body concentrates. The most forward player installation that ISN'T the main
+// effort — a FOB/OP/airfield the player pushed out — and only if it's a genuine
+// second axis (well clear of the main effort), else none.
+function pickSupportingEffort(mainId: number | null): number | null {
+  const base = S.map!.enemyBase
+  const main = mainId != null ? S.structures.find(s => s.id === mainId) : null
+  let best: Structure | null = null, bd = Infinity
+  for (const s of S.structures) {
+    if (s.side !== 'friend' || s.buildT > 0 || s.id === mainId) continue
+    if (!s.sight && s.kind !== 'FOB' && s.kind !== 'HQ') continue // real installations only
+    const d = Math.hypot(s.x - base.x, s.y - base.y) // most forward = nearest home
+    if (d < bd) { bd = d; best = s }
+  }
+  if (!best) return null
+  // not a distinct axis if it sits on top of the main effort
+  if (main && Math.hypot(best.x - main.x, best.y - main.y) < 1800) return null
+  return best.id
+}
+
 function updateOpforCmd(dt: number): void {
   const cmd = S.opforCmd
   // posture: a player force massing on our base (≳2.5 platoons within 2.6 km)
@@ -82,29 +102,44 @@ function updateOpforCmd(dt: number): void {
   } else {
     cmd.posture = 'attack'
   }
-  // main effort: persistent, re-evaluated slowly and whenever the target falls
+  // main + supporting efforts: persistent, re-evaluated slowly and whenever the
+  // main target falls
   cmd.effortT -= dt
   const alive = cmd.effortId != null
     && S.structures.some(s => s.id === cmd.effortId && s.side === 'friend' && s.buildT <= 0)
   if (!alive || cmd.effortT <= 0) {
     cmd.effortT = 45
     cmd.effortId = pickMainEffort()
+    cmd.supportId = pickSupportingEffort(cmd.effortId)
   }
 }
 
 // the objective for a battlegroup, per the operational commander: the hill in
-// KotH, the base in defensive posture (rally home to counterattack), else the
-// commander's shared main effort — falling back to the group's own nearest
-// target only if no main effort is set.
-function groupObjective(mem: Unit[]): Vec2 {
+// KotH, the base in defensive posture (rally home to counterattack), the
+// supporting objective for the designated fixing group, else the shared main
+// effort — falling back to the group's own nearest target only if none is set.
+function groupObjective(grp: Battlegroup, mem: Unit[]): Vec2 {
   if (S.hill) return { x: S.hill.x, y: S.hill.y }
   const cmd = S.opforCmd
   if (cmd.posture === 'defend' && S.map) return { x: S.map.enemyBase.x, y: S.map.enemyBase.y }
+  if (grp.effort === 'support' && cmd.supportId != null) {
+    const sup = S.structures.find(s => s.id === cmd.supportId)
+    if (sup) return { x: sup.x, y: sup.y }
+  }
   if (cmd.effortId != null) {
     const eff = S.structures.find(s => s.id === cmd.effortId)
     if (eff) return { x: eff.x, y: eff.y }
   }
   return enemyObjective(centroidOf(mem.filter(u => u.bgRole === 'main')) || centroidOf(mem)!)
+}
+
+// assign a fresh group its operational role: the single fixing element when a
+// supporting effort exists and none is currently live, otherwise part of the
+// main body. Economy of force — at most one supporting group at a time.
+function assignEffort(grp: Battlegroup): void {
+  const cmd = S.opforCmd
+  const supportLive = S.enemyGroups.some(g => g !== grp && !g.dead && g.effort === 'support')
+  grp.effort = (cmd.supportId != null && !supportLive) ? 'support' : 'main'
 }
 
 // Muster a battlegroup of the given composition at a base. Shared by the
@@ -180,7 +215,11 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
 
   if (grp.phase === 'muster') {
     grp.musterT -= dt
-    if (grp.musterT <= 0) { grp.objective = groupObjective(mem); grp.phase = 'advance' }
+    if (grp.musterT <= 0) {
+      assignEffort(grp)
+      grp.objective = groupObjective(grp, mem)
+      grp.phase = 'advance'
+    }
     return
   }
 
@@ -196,7 +235,7 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
   if (grp.phase === 'advance' && grp.retaskT <= 0) {
     grp.retaskT = 10
     const prev = grp.objective
-    grp.objective = groupObjective(mem)
+    grp.objective = groupObjective(grp, mem)
     // a new objective ends a prepared defense and any maneuver scheme —
     // the idle-redirect below remobilizes everyone against the new aim
     if (prev && grp.objective

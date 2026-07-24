@@ -301,6 +301,7 @@ export interface Battlegroup {
   digging?: boolean          // commander ordered a defense on the current objective
   scheme?: 'flank' | null    // maneuver scheme in progress (fix + flank)
   flankIds?: number[]        // members detached as the flanking element
+  effort?: 'main' | 'support' // operational role: main effort vs. fixing/supporting
   lastDecision?: { t: number; id: string; scores: Record<string, number> } // dev/debug
 }
 
@@ -313,7 +314,8 @@ export interface Battlegroup {
 export interface OpforCmd {
   posture: 'attack' | 'defend'
   effortId: number | null    // structure id of the current main effort (null = per-group fallback)
-  effortT: number            // countdown to re-evaluate the main effort
+  supportId: number | null   // structure id of the supporting/fixing effort (null = none worth it)
+  effortT: number            // countdown to re-evaluate main + supporting efforts
 }
 
 // --- the state ------------------------------------------------------------
@@ -473,7 +475,7 @@ export function createInitialState(): GameState {
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],
-    opforCmd: { posture: 'attack', effortId: null, effortT: 0 },
+    opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
     version: 0,
     counters: { nextId: 1, designators: { friend: 0, hostile: 0 }, groupSeq: 1 },

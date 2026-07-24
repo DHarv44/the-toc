@@ -76,7 +76,7 @@ export function initGame(
   S.nextWave = 60
   S.airCooldown = {}
   S.enemyGroups = []
-  S.opforCmd = { posture: 'attack', effortId: null, effortT: 0 }
+  S.opforCmd = { posture: 'attack', effortId: null, supportId: null, effortT: 0 }
   S.rng = makeRng(seed ^ 0xBEEF)
   S.counters.nextId = 1
   S.counters.designators.friend = 0; S.counters.designators.hostile = 0
