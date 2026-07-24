@@ -1493,6 +1493,12 @@ are called out here *and* stubbed in the active sections above where they matter
   three classes (highway = the MSR trunk / road / dirt path) with per-class
   MOVE_FACTORS; bridges as span objects at every paved water crossing; dirt paths can
   never cross water. Golden re-baselined `60356280`.
+  - **FOB access paths** *(2026-07-24)* — a placed FOB off the network lays a dirt
+    access track to the nearest road of any class (`mapgen.connectStructureToRoads`, the
+    runtime twin of the gen-time road pass: dry-only, Chaikin-smoothed, raster-stamped,
+    pushed to `map.roads`; called from `addStructure` on FOB placement). Convoys/units
+    path along it; BFT draws it; the cached drone-feed texture shows it only after a
+    rebuild (same as pontoon bridges). Golden unchanged (no FOB in the golden run).
 - **M3a — Hamlets + named terrain** — settlements strung along the paved net;
   `WorldMap.features` with military spot-elevation hills (real meters on theaters —
   HILL 1190 on the Golan) and named rivers, rendered as faint BFT reference marks.
@@ -1560,13 +1566,17 @@ are called out here *and* stubbed in the active sections above where they matter
 ### Interface & UX
 - **Total War control scheme** *(2026-07-24)* — LEFT = selection only (click a
   unit/structure to select, empty ground to deselect, drag = marquee, ctrl = toggle);
-  RIGHT = orders (click ground = move, click a hostile = attack, drag = formation line
-  with live preview → release to lay it, shift = append waypoint, right-click a route
-  pip deletes it). Pan by middle-drag / WASD / cursor edge-scroll. The right-click
-  context menu is gone — per-unit orders live on the bottom selection tray (SUPPLY RUN
-  added there for logi units), deploys on the left command panel. Fixes the constant
-  accidental moves from the old left-click-does-both scheme. Verified in browser;
-  UI-only, golden untouched.
+  RIGHT = orders (click ground = move, click a hostile = attack, **click a friendly unit
+  = its context menu**, drag = formation line with live preview → release to lay it,
+  shift = append waypoint, right-click a route pip deletes it). Pan by middle-drag /
+  WASD / cursor edge-scroll; **spacebar pauses/unpauses** (restores the prior speed).
+  Per-unit orders also live on the bottom selection tray (SUPPLY RUN added there for logi
+  units), deploys on the left command panel. Fixes the constant accidental moves from the
+  old left-click-does-both scheme. Follow-up fix: **appending a waypoint collapses the
+  previous terminal fan** (`orders.convergeLastLeg`) so the spread lives only at the final
+  waypoint, not as a mid-route kink. Verified in browser; UI/route-editing only, golden
+  untouched. *(Gotcha for future edits: MapView input handlers are bound in a
+  `useEffect([])`, so HMR runs stale closures — hard-reload after changing them.)*
 - **Persistent left command panel** (installations roster + contextual deploy palette),
   **NET log as a full-height right rail**, **collapsible side panels**, **off-map
   backdrop** matching the splash, **fit-to-screen control** clear of the feed dock,
