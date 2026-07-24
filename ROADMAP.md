@@ -1551,6 +1551,15 @@ are called out here *and* stubbed in the active sections above where they matter
   airframe-types entry (see active section for what remains).
 
 ### Interface & UX
+- **Total War control scheme** *(2026-07-24)* — LEFT = selection only (click a
+  unit/structure to select, empty ground to deselect, drag = marquee, ctrl = toggle);
+  RIGHT = orders (click ground = move, click a hostile = attack, drag = formation line
+  with live preview → release to lay it, shift = append waypoint, right-click a route
+  pip deletes it). Pan by middle-drag / WASD / cursor edge-scroll. The right-click
+  context menu is gone — per-unit orders live on the bottom selection tray (SUPPLY RUN
+  added there for logi units), deploys on the left command panel. Fixes the constant
+  accidental moves from the old left-click-does-both scheme. Verified in browser;
+  UI-only, golden untouched.
 - **Persistent left command panel** (installations roster + contextual deploy palette),
   **NET log as a full-height right rail**, **collapsible side panels**, **off-map
   backdrop** matching the splash, **fit-to-screen control** clear of the feed dock,

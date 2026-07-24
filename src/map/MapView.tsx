@@ -1,6 +1,12 @@
-// The BFT command map: canvas terrain + 2525 symbology + all map-space input
-// (pan/zoom, picking, marquee, formation-spread line, deploy/build/target
-// modes). Ported verbatim from src/map/MapView.jsx; only the imports moved.
+// The BFT command map: canvas terrain + 2525 symbology + all map-space input.
+// Control scheme (Total War style): LEFT = selection only (click a unit/
+// structure to select, click empty ground to deselect, drag = marquee box,
+// ctrl = add/toggle). RIGHT = orders (click ground = move, click a hostile =
+// attack, drag = formation line with a live preview, release to lay the
+// formation; shift = append waypoint; right-click a route pip deletes it).
+// Pan with the middle-mouse drag, WASD, or cursor edge-scroll. There is no
+// right-click context menu — per-unit orders live on the bottom selection
+// tray, deploys on the left command panel.
 import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
@@ -158,25 +164,23 @@ export default function MapView() {
 
     // ---- input ----
     let panDrag = false, dragMoved = false, lastMx = 0, lastMy = 0
-    let leftDown: { x: number; y: number; onUnit: boolean; hadSel: boolean; ctrl: boolean } | null = null
+    let leftDown: { x: number; y: number; ctrl: boolean } | null = null   // select / marquee
+    let rightDown: { x: number; y: number } | null = null                 // order / formation line
     let marquee: { x0: number; y0: number; x1: number; y1: number } | null = null  // screen coords
     let lineDrag: { x0: number; y0: number; x1: number; y1: number } | null = null // formation spread
+    let pointerOver = false   // cursor is over the map canvas (gates edge-scroll)
     const mouse = { x: 0, y: 0 }
 
     function onDown(e: MouseEvent) {
       useUI.getState().closeMenu()
-      if (e.button === 1 || e.button === 2) {
+      if (e.button === 1) {                 // middle = pan
         panDrag = true; dragMoved = false
         lastMx = mX(e); lastMy = mY(e)
-        if (e.button === 1) e.preventDefault()
-      } else if (e.button === 0) {
-        const ui = useUI.getState()
-        leftDown = {
-          x: mX(e), y: mY(e),
-          onUnit: !!pickUnit(s2wX(mX(e)), s2wY(mY(e))),
-          hadSel: ui.selectedIds.length > 0 && ui.mode === 'select',
-          ctrl: e.ctrlKey,
-        }
+        e.preventDefault()
+      } else if (e.button === 0) {          // left = select
+        leftDown = { x: mX(e), y: mY(e), ctrl: e.ctrlKey }
+      } else if (e.button === 2) {          // right = order / formation
+        rightDown = { x: mX(e), y: mY(e) }
       }
     }
     function onMove(e: MouseEvent) {
@@ -189,118 +193,95 @@ export default function MapView() {
           view.cy -= dy / view.ppm
           lastMx = mX(e); lastMy = mY(e)
         }
-      } else if (leftDown && useUI.getState().mode === 'select' && !leftDown.onUnit) {
+        return
+      }
+      const mode = useUI.getState().mode
+      if (leftDown && mode === 'select') {
+        // left-drag over the map: marquee selection box
         const moved = Math.hypot(mX(e) - leftDown.x, mY(e) - leftDown.y)
-        if (leftDown.hadSel && !leftDown.ctrl) {
-          // drag with a selection: spread the units along the drawn line
-          if (lineDrag || moved > 18) {
-            lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
-          }
-        } else if (marquee || moved > 6) {
-          marquee = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
+        if (marquee || moved > 6) marquee = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
+      } else if (rightDown && mode === 'select') {
+        // right-drag with a selection: lay a formation line (preview → release)
+        const hasSel = useUI.getState().selectedIds.length > 0
+        const moved = Math.hypot(mX(e) - rightDown.x, mY(e) - rightDown.y)
+        if (hasSel && (lineDrag || moved > 18)) {
+          lineDrag = { x0: rightDown.x, y0: rightDown.y, x1: mX(e), y1: mY(e) }
         }
       }
     }
     function onUp(e: MouseEvent) {
-      if (e.button === 1 || e.button === 2) {
-        panDrag = false
-        if (e.button === 2 && !dragMoved) {
-          const wx = s2wX(mX(e)), wy = s2wY(mY(e))
-          const ui = useUI.getState()
-          // right-click on a waypoint pip of the current selection deletes that
-          // waypoint (mid-route waypoints re-path the gap) — checked before
-          // anything else so route editing never nukes the selection
-          const pipR = 12 / view.ppm
-          for (const u of selectedFriendlies()) {
-            const i = u.legs.findIndex(l => Math.hypot(l.x - wx, l.y - wy) <= pipR)
-            if (i >= 0) { removeWaypoint(u.id, i); return }
-          }
-          for (const d of selectedDrones()) {
-            const i = (d.route || []).findIndex(p => Math.hypot(p.x - wx, p.y - wy) <= pipR)
-            if (i >= 0) { removeDroneWaypoint(d.id, i); return }
-          }
-          const hit = pickAny(wx, wy)
-          if (hit && hit.kind === 'unit') {
-            ui.setSelected([hit.obj.id])
-            ui.openMenu({ x: mX(e), y: mY(e), unitId: hit.obj.id })
-          } else if (hit && hit.kind === 'drone') {
-            // drone controls now live in the feed window — right-click opens its feed
-            ui.setSelected([hit.obj.id])
-            ui.bindDrone(hit.obj.id)
-          } else {
-            const st = pickStructure(wx, wy)
-            if (st && !selectedFriendlies().length && !selectedDrones().length) {
-              ui.openMenu({ x: mX(e), y: mY(e), structId: st.id })
-            } else {
-              // right-click ground: clear the selection
-              ui.closeMenu()
-              ui.setSelected([])
-            }
-          }
-        }
-        return
-      }
-      if (e.button !== 0) return
-      const wasMarquee = marquee
-      const wasLine = lineDrag
-      marquee = null
-      lineDrag = null
-      leftDown = null
+      if (e.button === 1) { panDrag = false; return }   // middle = pan
       const ui = useUI.getState()
 
-      // formation spread: distribute the selection evenly along the dragged line
-      if (wasLine) {
-        const sel: Array<Unit | Drone> = [...selectedFriendlies(), ...selectedDrones()]
-        if (sel.length) {
-          const wx0 = s2wX(wasLine.x0), wy0 = s2wY(wasLine.y0)
-          const wx1 = s2wX(wasLine.x1), wy1 = s2wY(wasLine.y1)
-          const ldx = wx1 - wx0, ldy = wy1 - wy0
-          // assign slots by projection along the line to minimize crossing
-          const sorted = [...sel].sort((a, b) =>
-            ((a.x - wx0) * ldx + (a.y - wy0) * ldy) - ((b.x - wx0) * ldx + (b.y - wy0) * ldy))
-          const attack = ui.cmdMode === 'attack'
-          // no group id: an ad-hoc selection isn't a formation, so no shared pace cap
-          const gid = null
-          // a fan-out is a formation shape, not a new mission: shift-drag appends it as
-          // the next waypoint so an existing route survives being spread out at the end
-          const app = e.shiftKey
-          // A spread is a formation SHAPE, not a road order. In AUTO the per-slot road
-          // inference made any slot that happened to land within 100 m of a road cling
-          // to the network the whole way and hook back in a U-turn, while neighbours
-          // went direct. Spread slots therefore route cross-country (mild road damping)
-          // unless the player explicitly picked a route mode.
-          const spreadOpts = ui.routeMode === 'auto'
-            ? { crossCountry: true }
-            : { ...(ROUTE_OPTS[ui.routeMode] || {}) }
-          sorted.forEach((o, i) => {
-            const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
-            const px = wx0 + ldx * t, py = wy0 + ldy * t
-            if ((S.drones as Array<Unit | Drone>).includes(o)) orderDroneMove(o.id, px, py, app)
-            else orderMove(o.id, px, py, app, attack, gid, { ...spreadOpts })
-          })
+      // ---- RIGHT BUTTON: orders (move / attack / formation / route edit) ----
+      if (e.button === 2) {
+        const wasLine = lineDrag
+        lineDrag = null; rightDown = null
+        // right-click in a modal placement mode cancels it (like Escape)
+        if (ui.mode !== 'select') { useUI.setState({ mode: 'select' }); return }
+        const wx = s2wX(mX(e)), wy = s2wY(mY(e))
+
+        // formation line: distribute the selection evenly along the dragged line
+        if (wasLine) {
+          const sel: Array<Unit | Drone> = [...selectedFriendlies(), ...selectedDrones()]
+          if (sel.length) {
+            const wx0 = s2wX(wasLine.x0), wy0 = s2wY(wasLine.y0)
+            const wx1 = s2wX(wasLine.x1), wy1 = s2wY(wasLine.y1)
+            const ldx = wx1 - wx0, ldy = wy1 - wy0
+            // assign slots by projection along the line to minimize crossing
+            const sorted = [...sel].sort((a, b) =>
+              ((a.x - wx0) * ldx + (a.y - wy0) * ldy) - ((b.x - wx0) * ldx + (b.y - wy0) * ldy))
+            const attack = ui.cmdMode === 'attack'
+            const gid = null // an ad-hoc selection isn't a formation, so no shared pace cap
+            const app = e.shiftKey // shift-drag appends the fan-out as the next waypoint
+            // A spread is a formation SHAPE, not a road order — spread slots route
+            // cross-country (mild road damping) unless a route mode is explicit.
+            const spreadOpts = ui.routeMode === 'auto'
+              ? { crossCountry: true }
+              : { ...(ROUTE_OPTS[ui.routeMode] || {}) }
+            sorted.forEach((o, i) => {
+              const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
+              const px = wx0 + ldx * t, py = wy0 + ldy * t
+              if ((S.drones as Array<Unit | Drone>).includes(o)) orderDroneMove(o.id, px, py, app)
+              else orderMove(o.id, px, py, app, attack, gid, { ...spreadOpts })
+            })
+          }
+          return
         }
+
+        // right-click a waypoint pip of the selection deletes it (mid-route
+        // waypoints re-path the gap) — checked before issuing a move
+        const pipR = 12 / view.ppm
+        for (const u of selectedFriendlies()) {
+          const i = u.legs.findIndex(l => Math.hypot(l.x - wx, l.y - wy) <= pipR)
+          if (i >= 0) { removeWaypoint(u.id, i); return }
+        }
+        for (const d of selectedDrones()) {
+          const i = (d.route || []).findIndex(p => Math.hypot(p.x - wx, p.y - wy) <= pipR)
+          if (i >= 0) { removeDroneWaypoint(d.id, i); return }
+        }
+
+        // issue orders to the current selection: hostile under the cursor = attack,
+        // otherwise move. Shift appends a waypoint.
+        const sel = selectedFriendlies()
+        const selD = selectedDrones()
+        if (!sel.length && !selD.length) return
+        const enemy = pickEnemy(wx, wy)
+        if (enemy && sel.length) { sel.forEach(u => orderAttack(u.id, enemy.id, null)); return }
+        issueMoves(sel, wx, wy, e.shiftKey, ui.cmdMode === 'attack')
+        selD.forEach((d, k) => {
+          orderDroneMove(d.id, wx + (k % 2) * 300 - 150 * (k > 0 ? 1 : 0), wy + Math.floor(k / 2) * 300, e.shiftKey)
+        })
         return
       }
 
-      // marquee selection
-      if (wasMarquee) {
-        const wx0 = s2wX(Math.min(wasMarquee.x0, wasMarquee.x1))
-        const wx1 = s2wX(Math.max(wasMarquee.x0, wasMarquee.x1))
-        const wy0 = s2wY(Math.min(wasMarquee.y0, wasMarquee.y1))
-        const wy1 = s2wY(Math.max(wasMarquee.y0, wasMarquee.y1))
-        const ids = S.units
-          .filter(u => u.side === 'friend' && u.x >= wx0 && u.x <= wx1 && u.y >= wy0 && u.y <= wy1)
-          .map(u => u.id)
-        const dIds = S.drones
-          .filter(d => d.x >= wx0 && d.x <= wx1 && d.y >= wy0 && d.y <= wy1)
-          .map(d => d.id)
-        ids.push(...dIds)
-        ui.setSelected(e.ctrlKey ? [...new Set([...ui.selectedIds, ...ids])] : ids)
-        return
-      }
-
+      if (e.button !== 0) return
+      // ---- LEFT BUTTON: selection (and modal placement) ----
+      const wasMarquee = marquee
+      marquee = null; leftDown = null
       const wx = s2wX(mX(e)), wy = s2wY(mY(e))
 
+      // modal placement modes place on left-click
       if (ui.mode.startsWith('deploy:')) {
         const what = ui.mode.slice(7)
         if (what.startsWith('DRONE:')) {
@@ -338,37 +319,41 @@ export default function MapView() {
         return
       }
 
-      // left click: select friendlies, or issue orders for the current selection
+      // marquee box selection
+      if (wasMarquee) {
+        const wx0 = s2wX(Math.min(wasMarquee.x0, wasMarquee.x1))
+        const wx1 = s2wX(Math.max(wasMarquee.x0, wasMarquee.x1))
+        const wy0 = s2wY(Math.min(wasMarquee.y0, wasMarquee.y1))
+        const wy1 = s2wY(Math.max(wasMarquee.y0, wasMarquee.y1))
+        const ids = S.units
+          .filter(u => u.side === 'friend' && u.x >= wx0 && u.x <= wx1 && u.y >= wy0 && u.y <= wy1)
+          .map(u => u.id)
+        const dIds = S.drones
+          .filter(d => d.x >= wx0 && d.x <= wx1 && d.y >= wy0 && d.y <= wy1)
+          .map(d => d.id)
+        ids.push(...dIds)
+        ui.setSelected(e.ctrlKey ? [...new Set([...ui.selectedIds, ...ids])] : ids)
+        return
+      }
+
+      // plain left click: select what's under the cursor, else deselect. Never
+      // issues a move — orders are the right button's job.
       const picked = pickAny(wx, wy)
-      const sel = selectedFriendlies()
-      const selD = selectedDrones()
-      if (picked && !(sel.length && e.shiftKey)) {
+      if (picked) {
+        if (picked.kind === 'drone') {
+          // drones are flown from their feed window — selecting one opens its feed
+          if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
+          else { ui.setSelected([picked.obj.id]); ui.bindDrone(picked.obj.id) }
+          return
+        }
         if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
         else ui.setSelected([picked.obj.id])
         return
       }
-      // a plain click on a friendly structure selects it — same semantics as
-      // clicking a unit, even with a selection in hand (before this, clicking your
-      // own HQ with units selected marched them onto the base). Shift-click still
-      // appends a move waypoint onto the structure.
-      if (!picked && !e.shiftKey) {
-        const st = pickStructure(wx, wy)
-        if (st) { ui.setSelected([st.id]); return }
-      }
-      if (sel.length || selD.length) {
-        // attack mode: clicking a visible hostile designates it for the whole selection
-        if (ui.cmdMode === 'attack') {
-          const enemy = pickEnemy(wx, wy)
-          if (enemy) {
-            sel.forEach(u => orderAttack(u.id, enemy.id, null))
-            return
-          }
-        }
-        issueMoves(sel, wx, wy, e.shiftKey, ui.cmdMode === 'attack')
-        selD.forEach((d, k) => {
-          orderDroneMove(d.id, wx + (k % 2) * 300 - 150 * (k > 0 ? 1 : 0), wy + Math.floor(k / 2) * 300, e.shiftKey)
-        })
-      }
+      const st = pickStructure(wx, wy)
+      if (st) { ui.setSelected([st.id]); return }
+      // empty ground: deselect (ctrl-click leaves the current selection alone)
+      if (!e.ctrlKey) ui.setSelected([])
     }
 
     // An ad-hoc marquee selection is not a formation — it's several units given the same
@@ -411,19 +396,33 @@ export default function MapView() {
     }
     function onKeyUp(e: KeyboardEvent) { heldKeys.delete(e.key.toLowerCase()) }
     function onBlur() { heldKeys.clear() }
-    // WASD pan: constant screen-speed regardless of zoom
+    // WASD + cursor edge-scroll pan: constant screen-speed regardless of zoom
+    const onEnter = () => { pointerOver = true }
+    const onLeave = () => { pointerOver = false }
     const panTimer = setInterval(() => {
-      if (!heldKeys.size) return
       const step = 700 * 0.04 / view.ppm // 700 px/s in world meters
-      if (heldKeys.has('w')) view.cy -= step
-      if (heldKeys.has('s')) view.cy += step
-      if (heldKeys.has('a')) view.cx -= step
-      if (heldKeys.has('d')) view.cx += step
-      clampView()
+      let moved = false
+      if (heldKeys.has('w')) { view.cy -= step; moved = true }
+      if (heldKeys.has('s')) { view.cy += step; moved = true }
+      if (heldKeys.has('a')) { view.cx -= step; moved = true }
+      if (heldKeys.has('d')) { view.cx += step; moved = true }
+      // edge-scroll: the cursor resting in the map's border band pans the camera
+      // (suppressed mid-drag so it doesn't fight a marquee/formation/pan)
+      if (pointerOver && !panDrag && !marquee && !lineDrag) {
+        const EDGE = 22
+        const mx = mouse.x, my = mouse.y
+        if (mx < EDGE) { view.cx -= step; moved = true }
+        else if (mx > canvas.width - EDGE) { view.cx += step; moved = true }
+        if (my < EDGE) { view.cy -= step; moved = true }
+        else if (my > canvas.height - EDGE) { view.cy += step; moved = true }
+      }
+      if (moved) clampView()
     }, 40)
     canvas.addEventListener('mousedown', onDown)
     window.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseup', onUp)
+    canvas.addEventListener('mouseenter', onEnter)
+    canvas.addEventListener('mouseleave', onLeave)
     canvas.addEventListener('wheel', onWheel, { passive: false })
     // suppress the native context menu everywhere — right-click is a command input
     const noCtx = (e: Event) => e.preventDefault()

@@ -167,6 +167,8 @@ function SelectionTray() {
   if (!units.length && !selDrones.length) return null
   const anyIndirect = units.some(u => UNIT_TYPES[u.type].indirect)
   const anyBridge = units.some(u => UNIT_TYPES[u.type].canBridge)
+  // supply run is inherently one truck → one FOB, so it shows for a single logi unit
+  const logiUnit = units.length === 1 && UNIT_TYPES[units[0]!.type].logi ? units[0]! : null
   const count = units.length + selDrones.length
 
   // minimized: the footer goes away, leaving a small restore tab flush at the bottom
@@ -279,6 +281,16 @@ function SelectionTray() {
           <button style={btn(ui.mode === 'bridge')}
             onClick={() => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge')}>
             PONTOON BRIDGE
+          </button>
+        )}
+        {logiUnit && (
+          <button style={btn(ui.mode === `convoy:${logiUnit.id}`)}
+            title="Run supply from the HQ to a chosen FOB, then repeat"
+            onClick={() => {
+              if (logiUnit.convoy) orderHold(logiUnit.id)
+              else ui.setMode(`convoy:${logiUnit.id}` as never)
+            }}>
+            {logiUnit.convoy ? 'END SUPPLY RUN' : 'SUPPLY RUN'}
           </button>
         )}
         <button style={btn(false)} onClick={() => ui.setSelected([])}>CLEAR</button>
