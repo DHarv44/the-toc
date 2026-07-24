@@ -379,6 +379,8 @@ export interface CampaignState {
   opforObj: Vec2 | null      // steer campaign OPFOR battlegroups to this point (null = none)
   allow: { field: boolean; support: boolean; drone: boolean } // palette gates for this mission
   ao: { x0: number; y0: number; x1: number; y1: number } | null // camera/pan bound for this mission (null = full theater)
+  tutorial: boolean          // guided tutorial enabled for this campaign
+  tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT

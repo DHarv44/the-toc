@@ -12,7 +12,7 @@ import {
 
 export type StartFn = (
   mode: 'dev' | 'new', size?: MapSizeKey, difficulty?: DifficultyKey,
-  gameMode?: ModeId, theaterId?: string | null,
+  gameMode?: ModeId, theaterId?: string | null, tutorial?: boolean,
 ) => void
 
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
@@ -36,6 +36,7 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 
 export default function Splash({ onStart }: { onStart: StartFn }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
+  const [campaignTut, setCampaignTut] = useState<boolean | null>(null) // guided vs standard
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
   const [size, setSize] = useState<MapSizeKey | null>(null)
   // undefined = not chosen yet · null = procedural · string = theater id
@@ -75,7 +76,7 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>NEW GAME</SectionLabel>
           <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
-            accent="#7ec8ff" onClick={() => setTop('campaign')} />
+            accent="#7ec8ff" onClick={() => { setCampaignTut(null); setTop('campaign') }} />
           <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
             accent="#2a5a8a" onClick={() => setTop('skirmish')} />
 
@@ -84,19 +85,28 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
           <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
             accent="#3a5a3a" onClick={() => onStart('dev')} />
         </div>
+      ) : top === 'campaign' && campaignTut == null ? (
+        <div style={{ position: 'relative', width: 340 }}>
+          <SectionLabel>CAMPAIGN · TRAINING</SectionLabel>
+          <SplashButton label="GUIDED" sub="First time in — on-screen prompts teach each action as it comes up"
+            accent="#3a5a3a" recommended onClick={() => setCampaignTut(true)} />
+          <SplashButton label="STANDARD" sub="No prompts — straight into the fight"
+            accent="#2a5a8a" onClick={() => setCampaignTut(false)} />
+          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
+        </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>CAMPAIGN · DIFFICULTY</SectionLabel>
+          <SectionLabel>CAMPAIGN · DIFFICULTY {campaignTut ? '· GUIDED' : '· STANDARD'}</SectionLabel>
           {DIFFICULTY_ORDER.map((k) => {
             const d = DIFFICULTIES[k]
             return (
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={toughness(d.damageMul)}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon')} />
+                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut ?? false)} />
             )
           })}
-          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
+          <BackButton onClick={() => setCampaignTut(null)}>← TRAINING — CHANGE</BackButton>
         </div>
       ) : gameMode == null ? (
         <div style={{ position: 'relative', width: 340 }}>

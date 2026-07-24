@@ -16,6 +16,12 @@ import type { GameState, CampaignState, Structure } from './GameState'
 // 'campaign'; the per-mission AO crop (below) windows each mission on that map.
 export const CAMPAIGN_THEATER = 'chorwon'
 export const CAMPAIGN_SEED = 1
+
+// Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
+// App.begin) just before initGame; startCampaign reads it. Kept as a module flag
+// because initGame's signature is shared across modes and shouldn't grow a param.
+let _tutorialPending = false
+export function setCampaignTutorial(on: boolean): void { _tutorialPending = on }
 import type { Vec2 } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
@@ -124,6 +130,18 @@ function reinforceFrom(S: GameState, town: Vec2): Vec2 {
   return nearestLand(S.map!, x, y)
 }
 
+// the M1/M2 mission window: the pocket enclosing the HQ and the objective town.
+// Both early missions are fought here, so they share this AO crop.
+function pocketAO(S: GameState, town: Vec2): { x0: number; y0: number; x1: number; y1: number } {
+  const hq = S.map!.fob, pad = 750, W = S.map!.WORLD
+  return {
+    x0: Math.max(0, Math.min(hq.x, town.x) - pad),
+    y0: Math.max(0, Math.min(hq.y, town.y) - pad),
+    x1: Math.min(W, Math.max(hq.x, town.x) + pad),
+    y1: Math.min(W, Math.max(hq.y, town.y) + pad),
+  }
+}
+
 // place a small starting force in a shallow arc facing the map interior
 function placeForce(S: GameState, comp: readonly UnitTypeKey[], around: Vec2, radius: number): void {
   const n = comp.length
@@ -167,13 +185,7 @@ export const MISSIONS: readonly Mission[] = [
       MISSIONS[0]!.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
       // crop the AO to the HQ + town pocket — the intro is a contained fight, not
       // a march across the whole theater (camera/pan clamp to this box)
-      const hq = S.map!.fob, pad = 750, W = S.map!.WORLD
-      c.ao = {
-        x0: Math.max(0, Math.min(hq.x, town.x) - pad),
-        y0: Math.max(0, Math.min(hq.y, town.y) - pad),
-        x1: Math.min(W, Math.max(hq.x, town.x) + pad),
-        y1: Math.min(W, Math.max(hq.y, town.y) + pad),
-      }
+      c.ao = pocketAO(S, town)
     },
     onObjComplete(S, idx) {
       if (idx !== 0) return // town cleared → the enemy counterattacks to retake it
@@ -204,6 +216,7 @@ export const MISSIONS: readonly Mission[] = [
       // carryover: M1 units persist untouched. This phase adds only.
       c.allow = { field: true, support: false, drone: true }
       c.opforObj = null // the counterattack is beaten; no scripted pressure this phase
+      c.ao = pocketAO(S, town) // same mission window as M1 — the FOB fight stays local
       S.resources += 400 // allocation from higher
       // engineers + logistics arrive at the HQ; the player moves them forward
       const eng = nearestLand(S.map!, S.map!.fob.x - 120, S.map!.fob.y + 200)
@@ -254,6 +267,7 @@ export function startCampaign(S: GameState): void {
     mission: 0, objIdx: 0, briefed: false, debrief: false, complete: false,
     status: [], hold: 0, delivered: 0, deliverBase: 0, eventT: null,
     opforObj: null, allow: { field: false, support: false, drone: true }, ao: null,
+    tutorial: _tutorialPending, tutStep: 0,
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
@@ -272,6 +286,7 @@ export function startMission(S: GameState, n: number): void {
   c.debrief = false
   c.briefed = false
   c.ao = null // default: full theater; a mission's setup crops it if it wants
+  c.tutStep = 0 // tutorial restarts its step counter each mission
   c.status = m.objectives.map((_, i) => (i === 0 ? 'active' : 'pending'))
   m.setup(S)
   onObjActivate(S, c) // capture any baseline the first objective needs

@@ -95,6 +95,18 @@ export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone 
   return d
 }
 
+// One-click organic UAS: a carrying unit throws its drone up over its own
+// position — no map placement. One bird per unit (its single organic Raven), so
+// it reads 1/1 once aloft. deployDrone handles cost/control-range and links the
+// drone to the unit (launcherId/followId) so it orbits and recovers to it.
+export function fieldUnitDrone(unitId: number, droneKey: DroneTypeKey): Drone | null {
+  const u = S.units.find(x => x.id === unitId && x.side === 'friend')
+  if (!u) return toast('NO UNIT SELECTED')
+  if (!(UNIT_TYPES[u.type].carries as readonly string[] | undefined)?.includes(droneKey)) return toast('UNIT CANNOT CARRY THIS UAS')
+  if (S.drones.some(d => d.launcherId === u.id)) return toast(`${u.label} ALREADY HAS A UAS UP`)
+  return deployDrone(droneKey, u.x, u.y)
+}
+
 // Raise the aerostat at a selected FOB/HQ — the one-click equivalent for the tethered
 // balloon. It tethers at that site anyway, so there's nothing to place on the map.
 // deployDrone enforces the cost and the one-per-site rule.

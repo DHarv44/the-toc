@@ -108,6 +108,7 @@ export interface PaletteItem {
   key?: string
   field?: boolean
   fieldAero?: boolean
+  fieldDrone?: boolean   // organic UAS: one-click launch over the carrying unit
   label: string
   tag?: string | null
   cost?: number | string | null
@@ -157,6 +158,17 @@ export const droneItem = (dt: DroneType): PaletteItem => {
 export const structItem = (st: StructureType): PaletteItem =>
   ({ mode: 'build:' + st.key, label: st.name, cost: st.cost, icon: <PaletteIcon struct={st} /> })
 
+// Organic (unit-carried) UAS: a one-click ⊕ launch over the carrying unit, capped
+// at the unit's single bird — reads 1/1 once it's up, like the aerostat at a site.
+export const organicDroneItem = (dt: DroneType, unitId: number): PaletteItem => {
+  const active = S.drones.filter(d => d.launcherId === unitId).length
+  return {
+    mode: 'deploy:DRONE:' + dt.key, key: dt.key, fieldDrone: true,
+    label: dt.name, tag: droneTag(dt), cost: dt.cost, icon: <PaletteIcon drone={dt} />,
+    note: `${active}/1`, disabled: active >= 1,
+  }
+}
+
 const groundSections = (): DeploySection[] => CATS.map(cat => ({
   header: cat,
   items: Object.values(UNIT_TYPES).filter(t => t.cat === cat).map(unitItem),
@@ -196,10 +208,11 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
     const sections: DeploySection[] = []
     if (t.key === 'ENG') sections.push({ header: 'INSTALLATIONS', items: Object.values(STRUCTURES).map(structItem) })
     if (t.carries && t.carries.length) {
-      sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(droneItem) })
+      // organic UAS field one-click over the unit — sourceId carries the unit id
+      sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(dt => organicDroneItem(dt, u.id)) })
     }
     if (!sections.length) return null
-    return { title: `${u.label} — ${t.name.toUpperCase()}`, sections }
+    return { title: `${u.label} — ${t.name.toUpperCase()}`, sourceId: u.id, sections }
   }
   return null
 }

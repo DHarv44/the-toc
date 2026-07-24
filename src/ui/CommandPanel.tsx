@@ -4,7 +4,8 @@
 import { Box, Text } from '@mantine/core'
 import { S } from '../engine/state'
 import { fieldUnit } from '../domains/installations/orders'
-import { fieldAerostat } from '../domains/air/orders'
+import { fieldAerostat, fieldUnitDrone } from '../domains/air/orders'
+import type { DroneTypeKey } from '../domains/air/catalog'
 import { forceCount, forceCap } from '../domains/economy/economy'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
 import type { UnitTypeKey } from '../domains/forces/catalog'
@@ -92,13 +93,22 @@ function DeploySection() {
         <Text fz={9.5} c="toc.3" px="xs" pb={2} truncate style={{ letterSpacing: 1 }}>{ctx.title}</Text>
       </RailSection>
       {ctx.sections.map((sec, si) => (
-        <RailSection key={si} label={sec.header}>
+        // tag the organic-UAS section so the campaign tutorial can highlight it
+        <div key={si} data-tut={sec.header === 'ORGANIC UAS' ? 'uas' : undefined}>
+        <RailSection label={sec.header}>
           {sec.items.map(it => {
-            // ground units and the aerostat field immediately from the selected site — no
-            // deploy mode, no map click. Everything else still picks a spot on the map.
-            const oneClick = (it.field || it.fieldAero) && ctx.sourceId != null
+            // ground units, the aerostat, and organic UAS all field immediately from the
+            // selected site/unit — no deploy mode, no map click. Airfield UAS still place
+            // an orbit point on the map.
+            const oneClick = (it.field || it.fieldAero || it.fieldDrone) && ctx.sourceId != null
             const short = oneClick && it.field && ctx.purse != null && ctx.purse < (it.cost as number)
             const fire = () => {
+              if (it.fieldDrone) {
+                // organic UAS: launch it straight over the carrying unit and pop its feed
+                const d = fieldUnitDrone(ctx.sourceId!, it.key as DroneTypeKey)
+                if (d && d.id != null) ui.showDrone(d.id)
+                return
+              }
               if (!it.fieldAero) return void fieldUnit(it.key as UnitTypeKey, ctx.sourceId!)
               // raising the aerostat pops its feed straight up (or takes a slot at max)
               const d = fieldAerostat(ctx.sourceId!)
@@ -113,6 +123,7 @@ function DeploySection() {
             )
           })}
         </RailSection>
+        </div>
       ))}
     </>
   )

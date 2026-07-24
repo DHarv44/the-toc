@@ -130,9 +130,19 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   Real hydrology means the seed's window has a valley river + a road crossing between
   the HQ corner and the objective town — good ground and a natural foreshadow of the
   crossing missions.
-- Per-mission **AO crop**: `CampaignState.ao` bounds the camera/pan; M1 crops to the
-  HQ+town pocket (MapView frames + clamps to it, read dynamically so M2 lifting `ao`
-  widens to the full theater without a remount).
+- Per-mission **AO crop**: `CampaignState.ao` bounds the camera/pan; M1 AND M2 crop to
+  the same HQ+town pocket (`pocketAO` helper; MapView frames + clamps to it, read
+  dynamically so a later mission lifting `ao` widens to the full theater — no remount).
+- **Guided tutorial** (splash GUIDED/STANDARD → `CampaignState.tutorial`/`tutStep`; step
+  DEFINITIONS + rendering live in `ui/tutorial.tsx`, engine stores only the two plain
+  fields). Each step has a sim-observable `done(S)` and an adaptive `hint(S, ui)`; a
+  `<TutorialOverlay>` draws a slow-pulsing ring over the `data-tut` target + a pointer
+  callout, with a SKIP escape. **Gated** steps pause the sim (speed 0) until done, then
+  resume. M1 teaches launching a Raven (adaptive: select a platoon → click the ⊕ on the
+  ORGANIC UAS row). Curriculum is front-loaded to be empty by M4 (M2/M3 steps pending).
+- **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
+  launches over the unit via the ⊕ button (like the aerostat at a site) — no map
+  placement — capped 1 per unit, so the palette row reads 0/1 → 1/1 and disables.
 
 **The two missions (as designed with the user, 2026-07-24):**
 - **M1 — LODGMENT (CLEAR & HOLD):** fixed force (MECH/INF/INF/SCT), no fielding, no

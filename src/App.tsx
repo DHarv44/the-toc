@@ -9,12 +9,13 @@ import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
 import CampaignGate, { CampaignObjectives } from './ui/CampaignHUD'
+import TutorialOverlay from './ui/tutorial'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
 import { loadTheater } from './world/theaters'
-import { CAMPAIGN_THEATER, CAMPAIGN_SEED } from './engine/campaign'
+import { CAMPAIGN_THEATER, CAMPAIGN_SEED, setCampaignTutorial } from './engine/campaign'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
@@ -22,7 +23,7 @@ export default function App() {
 
   // theater elevation loads async (a one-time fetch of our own baked asset,
   // then cached) — the splash stays up for the few ms it takes
-  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId) => {
+  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId, tutorial) => {
     void (async () => {
       if (mode === 'dev') initDevGame()
       else {
@@ -31,6 +32,7 @@ export default function App() {
         const tId = isCampaign ? CAMPAIGN_THEATER : theaterId
         const gridSize = isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large)
         const seed = isCampaign ? CAMPAIGN_SEED : (Date.now() % 100000)
+        if (isCampaign) setCampaignTutorial(!!tutorial) // read by startCampaign
         const theater = tId ? await loadTheater(tId) : undefined
         initGame(seed, gridSize, difficulty, gameMode, theater)
       }
@@ -63,6 +65,8 @@ export default function App() {
       </div>
       {/* campaign briefing / debrief modals — hold the sim until acknowledged */}
       <CampaignGate />
+      {/* campaign guided-tutorial cues (renders null outside a tutorial campaign) */}
+      <TutorialOverlay />
       {/* end-of-match overlay: unmounts with the layout on NEW GAME, so a fresh
           match always gets a fresh (undismissed) gate */}
       <EndScreenGate onNewGame={() => setStarted(false)} />
