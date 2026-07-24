@@ -12,33 +12,27 @@ in *Priority* are the actual plan.
 **Status:** ✅ shipped · 🟡 partial · ⬜ not started
 An unmarked heading is not started. ⬜ is used only where something *looks* built but isn't —
 so nobody plans work off a false lead. Statuses were verified against the source, not
-self-reported. Last audited 2026-07-22.
+self-reported. Last audited 2026-07-23. **Completed items live in the Shipped Archive at
+the bottom of this file** — the sections above it are the open work.
 
 ---
 
 ## Status at a Glance
 
-**✅ Shipped (29)** — TypeScript migration *(full domain-driven rewrite, golden-run
-verified, fully seeded sim)* · AC-130 Spectre gunship · AC-130 muzzle origin *(fixed —
-bottom-centre of the feed)* · Movement & orders playtest hardening *(spread routing,
-waypoint right-click delete, break-contact resume, long-detour advisory, artillery march
-resume, structure select)* · Air asset caps & re-tasking cooldowns ·
-Ground force caps + refit cooldowns · Difficulty presets · One-click fielding + rally ·
-Formation column movement *(built; parked until combat groups)* · Road-aware routing + route
-modes · Economy: upkeep, stepped resupply, difficulty income · Aerostat turret (auto/free,
-follow, one-click) · Weapon-range overlay · In-contact ring · Drones shadow enemy units ·
-Surrender · Airfield placement restricted to HQ · Dev / test map · Off-map backdrop ·
-Persistent left command panel · NET log as full-height right panel · Collapsible side panels ·
-Move UAV resize handle to footer · Per-feed mute · Radio chatter & CIC soundscape · Radio
-chatter audio (squelch + mumble) · Rest & refit at a FOB *(main bullet)* · Sensor-lock transit
-bug *(fixed)* · ROUTE IMPASSABLE toast spam *(fixed)*
+**✅ Shipped (~45)** — full compact records in the **Shipped Archive** at the bottom.
+Recent headliners (all 2026-07-23): real-DEM theaters (M1) · cartography glow-up (M2) ·
+vector road hierarchy with bridges (M2.5) · hamlets + named terrain (M3a) ·
+terrain-anchored radio (M3b) · mode-recipe framework + KotH hill guarantee (M4) ·
+feed ground on painted textures + AO apron · game-mode framework with three playable
+modes and the end-of-match screen · water-discipline movement fixes.
 
-**🟡 Partial (12)** — Attack & Defend *(win/lose yes; no mode selector, no end-of-match
-handling)* · Air asset cost & access · Drone team & organic UAS ·
-Drone airframe types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF
-only)* · Enemy AI / OPFOR · Engineers build roads & bridges *(bridges only)* · Radio chatter
-library & message factory · Seed-generated maps *(seed not surfaced)* · Installation-gated
-unlocks *(no existence gating)* · Bottom panel / selection tray
+**🟡 Partial (13)** — M4 mode recipes *(campaign recipe pending)* · Campaign *(in design,
+scaffolding only)* · Air asset cost & access · Drone team & organic UAS · Drone airframe
+types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF only)* ·
+Enemy AI / OPFOR · Enemy economy *(wave ramping open)* · Radio chatter library & message
+factory · Seed-generated maps *(seed not surfaced)* · Installation-gated unlocks *(no
+existence gating)* · Bottom panel / selection tray · Deployment & fielding *(radius
+gating open)*.
 
 **⬜ Everything else is not started.** Two items are commonly mistaken for started —
 they are not: **Individual unit formations** (the old `formationOffset` dead code was
@@ -50,38 +44,33 @@ contact model).
 
 ## Priority
 
-### Now — finish what's half-built
-1. ~~**AC-130 gun muzzle origin**~~ ✅ — rounds depart from bottom-centre of the feed
-   (straight below the sensor) at every bearing and altitude.
-2. ~~**Deployment & fielding mechanics**~~ ✅ — the ⊕ one-click flow off the installations
-   roster shipped, with refit cooldowns and force-cap gating shown in the palette.
-3. ~~**Game modes & end-of-match handling**~~ ✅ *(framework + three playable modes:
-   A&D, Base Defense, King of the Hill — see Game Modes)*. Zone Capture parked for a
-   design discussion; Campaign in design, paused behind the map overhaul below.
-4. **Maps & Terrain overhaul** ← **CURRENT FOCUS** *(decided 2026-07-23: nail the map
-   system before anything else — see the Maps & Terrain section)*. Campaign development
-   resumes on top of it.
-5. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine theme
-   and the only one that degrades badly with a large selection.
+### Now
+1. **Quality-of-life pass** ← **CURRENT FOCUS** *(2026-07-23, Dave's call)* — playtest
+   irritations and small fixes. First item (CPU units fording rivers) is fixed; more
+   items land here as they're found.
+2. **Campaign restart** — the map track hit its planned gate (M4); the campaign is next
+   per the original plan: one battalion's war on the battalion-TOC model (objective
+   specs, mission arc, briefings, NPC HHQ, allocation).
+3. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine
+   theme and the only one that degrades badly with a large selection.
 
 ### Next — the enablers
-5. ~~**Code quality — TypeScript & componentization**~~ ✅ **DONE** — full strict-TS,
-   domain-driven rewrite, golden-run verified (`src/MIGRATION.md`). The gate on the unit
-   wiki, tray rework, and dashboard is open.
-6. **Save / continue game** — highest player-facing value per unit of work, and the natural
-   first API surface now that there's a server. Easier now: the sim is fully seeded and the
-   state is typed plain data built for a JSON round-trip.
-7. **Enemy AI / OPFOR** — battlegroups exist; what's missing is a commander above them,
+4. **Save / continue game** — highest player-facing value per unit of work; a hard
+   prerequisite for the campaign's long play. Easier now: fully seeded sim, typed plain
+   data built for a JSON round-trip.
+5. **Enemy AI / OPFOR** — battlegroups exist; what's missing is a commander above them,
    a reserve, counterattacks, and any use of the air/ISR layer.
-8. **Symmetric fog & counter-recon** — the AI cheats today. This is the single change that
+6. **Symmetric fog & counter-recon** — the AI cheats today. This is the single change that
    most raises the ceiling on every other combat system.
+7. **M3c oversized world** *(parked by Dave until wanted)* — real generated terrain
+   beyond the AO for the feeds; BFT crops to the AO.
 
 ### Later — depth
 Unit wiki · scenario builder · tutorial map · call for fire · counter-battery · attack
 helicopters · air defence & SEAD · sustainment (ammo/fuel, MEDEVAC, speedballs) ·
 true line-of-sight · smoke triggers · auto break-contact · installations' defences & C-RAM ·
-radio channels/nets · better three.js assets & particles · additional game modes (waves ·
-zone capture · king of the hill · spec ops) · campaign (last — it builds on the others).
+radio channels/nets · better three.js assets & particles · UAV sensor realism · urban
+depth · remaining game modes (zone capture · spec ops · custom scenarios).
 
 ### Someday — architecture
 SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
@@ -137,55 +126,19 @@ system decision is tested against these; cite them by number ("fails law 1").
 
 ---
 
-## Maps & Terrain  🟡 *(CURRENT FOCUS — direction decided 2026-07-23)*
+## Maps & Terrain  🟡 *(overhaul largely shipped 2026-07-23 — M1–M4 records in the Shipped Archive; what's below is what remains)*
 
 Governed by laws 1–3. Theater curation rule from law 2: every theater is *maneuver
 country* — valleys, river plains, ridge-and-farmland, steppe; at most one modest town
 per map, no megacities.
 
 ### The plan
-- **M1 — Real-DEM theaters** ✅ *(v1 shipped 2026-07-23 — 7 theaters baked, terrain
-  step in the splash, golden baseline unchanged; still open: a RANDOM theater button,
-  sea-level water for coastal patches, feeding the theater name into briefings/HHQ
-  flavor)*: real elevation, procedural culture. A curated **theater
-  library** — hand-picked real-world terrain patches (Copernicus/SRTM 30 m, public-domain
-  government data, fetched once and baked into small repo assets — no runtime downloads,
-  no keys, offline). `genMap` swaps only its elevation step; depression fill, flow-accum
-  rivers, terrain classing, forests, towns, roads and bridges all run unchanged on real
-  relief — flow accumulation on a real DEM puts rivers where the real rivers are. Seeds
-  still vary the culture *and* pick a sub-window of the (larger) theater patch, so one
-  theater yields many battlefields. Splash: theater picker (or RANDOM) in the Skirmish
-  flow. Candidate theaters (doctrine-test compliant): wide river plain with bluffs ·
-  glacial valley · karst hills · high-desert mesa country · forested ridge lines
-  (Ardennes-like) · alpine pass · coastal fjord · open steppe with wadis.
-  *Pure-noise procgen stays as a source (and as the golden-run default — baseline
-  unchanged; theater maps are additive).*
-- **M2 — Cartography glow-up** ✅ *(shipped 2026-07-23)*: Lambertian hillshade from the
-  terrain gradient (NW light, vertical exaggeration), elevation-warped farmland mosaic
-  that hugs the contours (fades on slopes), forest-edge treelines, solid river/lake bank
-  lines, stronger contours. Visual only — golden untouched.
-- **M2.5 — Road hierarchy & vector roads** ✅ *(shipped 2026-07-23)*: roads are vector
-  polyline objects (`WorldMap.roads`, Chaikin-smoothed A* routes) stroked per-frame as
-  canvas vectors — crisp at every zoom — with the raster stamped from them for O(1)
-  mobility. Three classes: **highway** (the MST trunk between the bases — the future
-  MSR; fastest for wheels), **road** (the paved MST net), **path** (dirt links the MST
-  skipped; helps wheels over open ground, never crosses water). Every road/highway
-  water crossing gets a bridge span object; dirt paths that can't route dry aren't
-  built. Per-class MOVE_FACTORS; pontoons stamp class 2. Golden re-baselined
-  `60356280` (deliberate — the network itself changed).
-- **M3a — Hamlets + named terrain** ✅ *(shipped 2026-07-23)*: small hamlets strung
-  along the paved network (unnamed texture/cover, spaced off towns and bases);
-  `WorldMap.features` — prominent peaks labelled military-style (real meters on
-  theaters: "HILL 1190" on the Golan; gameplay elevation on procgen) and the biggest
-  drainage components named ("VARDA RIVER"), rendered as faint reference marks on the
-  BFT. Golden baseline unchanged (`60356280`).
-- **M3b — Terrain-anchored radio** ✅ *(shipped 2026-07-23)*: `world/ref.ts locRef` —
-  report-type traffic (spot reports, contact calls, surrender reports) says
-  "VIC CALDER" / "VIC HILL 1190" when within anchor range of named terrain, grid
-  fallback otherwise. Precision traffic (fire missions, waypoints, LKPs, orbits)
-  deliberately keeps raw grids — that's how real nets split it. Drone-feed buildings
-  already existed (instanced boxes in urban cells), so hamlets show up in feeds free.
-- **M3c — Oversized world (feed surround done right)** ⬜ **← NEXT UP** *(decided
+*(M1 theaters, M2 cartography, M2.5 road hierarchy, M3a hamlets/named terrain and
+M3b terrain-anchored radio are ✅ shipped — see the Shipped Archive. Loose ends carried
+forward from them: a RANDOM theater button · sea-level water for coastal patches ·
+theater names feeding briefings/HHQ flavor · LKP hold for lost drone tracks.)*
+- **M3c — Oversized world (feed surround done right)** ⬜ *(PARKED by Dave — build when
+  wanted)* *(decided
   2026-07-23)*: the interim drone-feed apron (a 1.6 km blurred smear of the map)
   doesn't match the real terrain and is too small — sensors can still find the edge.
   The right architecture, per Dave: **generate a larger world than the AO** — mapgen
@@ -306,43 +259,18 @@ and will eventually let the player place enemy units too.
 toast fired and scrolled away, and the sim kept running — orders still worked, the
 OPFOR kept fighting, nothing acknowledged the loss. Shipped since.)
 
-### End of Match — Shared Framework ⬜ *(absorbs the old Victory/Defeat Screen item)*
-The mode declares the outcome; this framework lands it:
-- **Mode-declared outcomes** — each mode registers its win/lose checks and end text
-  (A&D: objective secured / command post lost; Waves: waves survived / base overrun;
-  Zone Capture: line held / line broken). `S.won`/`S.lost` become the A&D mode's
-  implementation detail, not the global rule.
-- **A modal, not a toast** — full-screen overlay in the splash's visual language (radial
-  wash + faint grid), with the outcome stated plainly.
-- **After-action summary** — mission clock, units fielded and lost, enemy destroyed,
-  supply spent, mode/difficulty/map played. Wants a few counters accumulated during the
-  run — units lost and enemy killed aren't recoverable from final state.
-- **The sim actually ends** — freeze (or wind down) the loop on match end; post-defeat
-  today the OPFOR keeps spawning and the palette still half-works. NEW GAME goes straight
-  back to the splash; continue-watching stays as a secondary action for reading the map.
-- Design notes: render from `App` above the rails, reusing the Splash backdrop. A small
-  `ModeSpec` (id, label, init hook, `checkEnd(S) → outcome | null`, end text, stat lines)
-  keeps modes 2 and 3 from re-implementing the screen.
+*(The End-of-Match shared framework, Attack & Defend as mode 1, King of the Hill, Base
+Defense v1 and the Difficulty Presets are ✅ shipped — see the Shipped Archive. Open
+follow-ups from Base Defense v1 live in the stub below.)*
 
-### 1. Attack & Defend 🟡 *(win/lose conditions exist; no mode selector, no end-of-match handling — see the shared framework above)*
-The existing sandbox: take the enemy HQ while defending your own. Formalize it as
-a named mode with explicit win/lose objectives and a mode-select entry point.
-
-### Difficulty Presets ✅
-New games run **map size → difficulty** on the splash. Four presets set three levers at init:
-- **Starting supplies** — Recruit 14,000 · Regular 8,000 · Veteran 4,500 · Elite 2,500.
-- **Starting force** — the units already on the ground: a company at Recruit down to a single
-  platoon at Elite. Slots that land on no-go terrain are nudged to the nearest passable spot,
-  so the force is never silently short a vic.
-- **How long firefights run** — a global damage scale applied to **both sides**, so lower
-  difficulty means units soak more and fights last longer. It buys reaction time rather than
-  making the player invincible.
-- Design notes: presets live in `game/difficulty.js`; `initGame(seed, size, difficulty)` applies
-  them and sets `S.damageMul`, consumed at the two damage sites (direct fire and
-  `precisionBlast`). Damage is scaled rather than max strength on purpose — strength is treated
-  as a 0-100 percentage everywhere (surrender thresholds, reconstitution caps, HUD bars), so
-  raising the ceiling would break all of it. Dev tooling is gated behind `S.devMode`, set only
-  by `initDevGame`, so the FOG/+10K cheats no longer appear in a real game.
+### Base Defense v1 — Follow-Ups ⬜
+The mode is playable end-to-end (archive entry has the record); three deliberate v1 cuts:
+- A manual **"READY" trigger** to call the next wave early (banked intermission time as
+  bonus payout?).
+- **Difficulty scaling** of the wave table — identical on Recruit and Elite today; only
+  the player-side levers differ.
+- **Wave pacing on larger maps** — foot-heavy early waves walk a long way (consider
+  spawn-closer or transport-only comps for waves 1–2).
 
 ### Earned Income — Tie Supply to Ground Held ⬜
 Upkeep now caps how big a force you can sustain, but the *gross* rate is still a flat
@@ -357,21 +285,6 @@ faucet: a fixed lift every few seconds, identical whether you hold one base or h
 - Design notes: `incomePerMin()` already centralises the gross figure — extend it to sum
   friendly structures instead of returning a flat lift, and surface the breakdown in the
   supply tooltip. Pairs with the upkeep model already in place.
-
-### 2. Base Defense (Waves) ✅ *(v1 shipped — playable from the splash; "ready" trigger and difficulty-scaled waves still open)*
-A survival/horde mode built around a supply economy that is spent, not idled:
-- ~~**Supplies do NOT continuously generate**~~ ✅ — passive lifts AND upkeep are off
-  while the mode runs; you bank your starting supply and spend deliberately.
-- ~~**Enemy waves scale up over time**~~ ✅ — a hand-tuned 10-wave escalation from a
-  two-platoon probe to massed armor with guns behind it, launched as scripted
-  battlegroups (no economy/cap gates — the schedule is the difficulty).
-- ~~**Earn a supply payout after clearing each wave**~~ ✅ — 500 + 200×wave on repel,
-  with a NET call and toast; 75 s intermission to spend it, 90 s grace before wave 1.
-- ~~Hold your base across escalating waves~~ ✅ — survive all 10 → POSITION HELD;
-  base network lost → BASE OVERRUN. Cutting the OPFOR's launch base ends the threat.
-- Still open: a manual **"READY" trigger** to call the next wave early; **difficulty
-  scaling** of the wave table (identical on Recruit and Elite today); wave pacing on
-  larger maps (foot-heavy early waves walk a long way).
 
 ### 3. Zone Capture ⬜ *(Hell Let Loose style — NEEDS DESIGN DISCUSSION before build)*
 Contested-line control:
@@ -455,27 +368,6 @@ framework):
   towns. Build after modes 2–3: waves gives the counterattack machinery, zone logic
   gives capture-and-hold.
 
-### 5. King of the Hill ⬜
-One objective, both sides want it, terrain decides who keeps it:
-- **The hill is real** — pick the map's dominant terrain feature (the elevation
-  raster already exists): a hilltop, or the central town on flatter seeds. Mark a
-  control radius on the BFT.
-- **Control by presence** — friendly units inside, no live hostiles → your clock
-  runs. Contested or empty → nobody's does. First side to accumulate N minutes of
-  control wins.
-- **Why it's not a blob fight** — the hill itself pays: holding high ground extends
-  sight (ties into *True Line-of-Sight* later), and the control radius is small
-  enough that arty, smoke and flanks around the shoulder matter more than mass in
-  the open (leans on *Make Maneuver Beat Mass*).
-- **OPFOR posture** — continuous pressure: battlegroups cycle onto the objective
-  instead of marching on your HQ; its economy decides how hard each push is.
-- Design notes: a single capture zone sharing Zone Capture's presence/ownership
-  machinery (build whichever first, the other inherits it); mode-owned clock in
-  `S`; `checkEnd` = first-to-N-minutes; the hill picker reads the elevation raster
-  for the highest defensible cell cluster near map centre. A natural second
-  implementation after A&D — smaller than Waves and it forces the capture-zone
-  plumbing Zone Capture needs anyway.
-
 ### 6. Spec Ops Missions ⬜
 The inverse of the big war: a small fixed force, one discrete objective, and the fog
 doing the heavy lifting. No economy, no fielding, no reinforcements — what you take
@@ -558,16 +450,6 @@ Make the fires fight a cat-and-mouse instead of free artillery:
   counter-battery asset/radar converts recent acquisitions into a return fire mission;
   ties into the SIGINT/emitter and Enemy AI work.
 
-### C-130 Gunship (AC-130) ✅
-An orbiting fire-support platform called in as a timed asset:
-- Circling gunship that provides on-call precision fires (25mm / 40mm / 105mm
-  analog) against ground targets while it's on station.
-- Sensor/feed of its own (thermal gun-camera view), consistent with the drone-feed
-  system, with the player designating targets in the feed.
-- Time-on-station limit and a supply cost to call it in; leaves when winchester or
-  bingo.
-- Fits the existing element model — rounds resolve against individual vics.
-
 ### Attack Helicopters (AH-64 Apache & AH-1Z Viper)
 Rotary-wing close air support — the same feed/target-designation and per-vic damage
 model as the gunship, but a fundamentally different platform:
@@ -622,32 +504,6 @@ Air power is a premium capability, not something you spam:
   drones (Raven 75, Switchblade 150) remain deployable by frontline units, no airfield required.
 - Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
   for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
-
-### Air Asset Caps & Re-Tasking Cooldowns ✅
-Cost alone doesn't gate air power — once the economy is healthy you can simply buy another
-gunship. Scarcity should be structural: a limited number of airframes, and a wait before the
-next sortie.
-- **Per-type concurrent cap** — each airframe gets a max number airborne at once, varying by
-  how strong it is. The AC-130 is the clear outlier (persistent 25/40/105mm area fire over a
-  whole grid square): **cap 1**. Fixed-wing ISR sits mid (Shadow/Sentinel a few each), and the
-  hand-launched field drones (Raven/Switchblade) stay effectively uncapped — they're the
-  attritable ones.
-- **Per-type cooldown after the sortie ends** — when an airframe RTBs, is shot down, or times
-  out on endurance, that type is unavailable for a set period (turnaround/rearm). **AC-130: 15
-  minutes.** Shorter for the smaller platforms, none for field drones.
-- **Surface it in the deploy palette** — the entry shows the cap as used/total, and when on
-  cooldown it's disabled with the remaining time, so the player can plan the next window
-  instead of discovering the block at click time.
-- **Balance pass alongside it** — the gunship's magazine was halved (25mm 500→250, 40mm
-  100→50, 105mm 10→5) so a single sortie is a decisive commitment rather than an endless
-  orbit. Caps + cooldown + a finite magazine are the three levers; tune together.
-- **Shipped as:** `maxActive`/`cooldown` on the `DRONE_TYPES` specs — AC-130 1 airborne with a
-  15-minute turnaround, Shadow 3/2 min, Sentinel 2/4 min, Viper 2/5 min; Raven, Switchblade and
-  the aerostat stay uncapped. `airAvailability(type)` is the single source of truth, used both to
-  gate `deployDrone` (refusal toast naming the limit or the remaining turnaround) and to render
-  the palette row, which shows `used/total` or `⟳ m:ss` and greys out when unavailable.
-  `endSortie()` stamps `S.airCooldown[type]` from every despawn path — recovery, bingo, tether
-  loss, and crash — so a lost airframe costs the same wait as a clean recovery.
 
 ### UAV Sensor Realism — Footprint & ID Degradation ⬜ *(added 2026-07-23 — UAVs are OP)*
 UAVs currently spot everything in a big omnidirectional radius — too easy, too far.
@@ -781,16 +637,6 @@ merged primitive boxes and a handful of sprites. It should look like an actual E
   shape; budget it against the feed's existing frame cost, and remember up to four feeds render
   at once. Pairs with Catastrophic Kills and Individual Unit Formations.
 
-### Drones Shadow Enemy Units ✅ *(no LKP hold / re-acquire when the track is lost)*
-Follow tasking now works against hostiles: click a contact in the UAV feed to designate it, then
-**FOLLOW** to track it. A movable airframe flies its **orbit anchor** after the contact while the
-**sensor stays under operator control** (following moves the aircraft, not the camera). The
-tethered **aerostat** can't move, so it follows with the **sensor only (camera lock)** and drops
-the track once the contact leaves its sensor arc. The track drops automatically when the contact
-is destroyed.
-- Still open: hold the **last-known position** as a broken track when the contact goes dark under
-  fog (currently drops the follow), then re-acquire.
-
 ## Combat & Tactics
 
 ### OPFOR Digs In When Defending ⬜
@@ -873,13 +719,6 @@ Smoke as a maneuver tool, not just an artillery effect:
 - Design notes: reuse the existing smoke system; add a self-smoke trigger on break-contact and
   a player "deploy smoke" order (unit smoke grenades / mortar smoke); smoke reduces LOS/sight
   through its footprint.
-
-### Surrender ✅ *(no POW handling)*
-Broken units don't always fight to the death or cleanly withdraw:
-- A unit at low strength that's in/near contact rolls a small surrender chance (~1–5%) per check
-  and, if it surrenders, is removed from the fight (friendly surrender toasts; enemy surrender
-  reports over the NET). Both sides can surrender.
-- Still open: prisoner handling / POW intel value.
 
 ### Foot Mobiles Seek Cover → Concealment → Prone
 Under fire, dismounted infantry actively better their position instead of standing in the open,
@@ -1085,30 +924,6 @@ instead **originate from the fielding source and move out** to where the player 
   `orderMove` to the rally. A per-installation rally point the player can drag (RTS-style) is the
   natural follow-on.
 
-### Movement & Orders — Playtest Hardening ✅ *(July 2026 full-campaign playtest)*
-A complete Medium/Regular campaign played end-to-end through the real input handlers
-(ended in an honest defeat — see *Make Maneuver Beat Mass* for the balance read) shook out
-seven movement/order defects, all fixed and verified:
-- **Spread-drag road U-turns** — per-slot road inference made any slot landing within
-  100 m of a road cling to the network the whole way and hook back in a J (measured
-  2–5.6× detours) while neighbours went direct. Spreads now route cross-country with mild
-  road damping unless a route mode is explicitly set.
-- **Right-click deletes waypoints** — on any pip, units and drones; removing a middle
-  waypoint re-paths the bridge between its neighbours. Previously a right-click near a
-  pip cleared the whole selection.
-- **Break-contact resumes the mission** — one retry once contact is broken (the playtest
-  supply truck silently dropped four successive move orders); a route that keeps drawing
-  fire is abandoned with UNABLE TO CONTINUE. Convoys exempt — their loop self-heals.
-- **Long-detour advisory** — a move order whose route runs >1.6× the straight line
-  radios TAKING LONG DETOUR with the route length (two engineers died on silent 5 km
-  detours through the fight before this existed).
-- **Artillery keeps its march** — a fire mission ordered mid-move holds the route and
-  resumes it after the reload (ROUNDS COMPLETE — RESUMING MOVEMENT), and the FIRING
-  state relaxes to hold instead of sticking forever.
-- **Structures select like units** — clicking a friendly installation with units in hand
-  selects it (shift-click still appends a move onto it), instead of marching the
-  selection onto the base.
-
 ### Threat-Aware Routing ⬜ *(playtest finding)*
 The detour advisory warns; it doesn't stop the pathfinder routing straight through the
 enemy's axis. Around water the only crossing is often exactly where the fighting is, and
@@ -1254,28 +1069,7 @@ Give losses weight and a recovery path, requested like a call for fire:
   flies to the unit, and evacuated casualties return strength (at a FOB/aid station); wounded vs.
   killed split feeds how much is recoverable.
 
-### Rest & Refit at a FOB ✅ *(ground reconstitution shipped; FOBs are not an air rearm/refuel point — drones despawn on RTB)*
-No dedicated recovery/repair units — instead, worn-down forces **heal by falling back**:
-- A unit that **makes it back to a FOB regenerates strength** over time (reconstitution),
-  turning FOBs into the rest/refit/rearm hubs (no separate FAARP — FOBs are the hubs for air
-  rearm/refuel too).
-- Design notes: extend the existing reconstitution so proximity to a friendly FOB/HQ drives
-  faster regen; FOBs double as the air rearm/refuel point.
-
 ## Audio
-
-### Radio Chatter & CIC Soundscape ✅
-Sound should reinforce the **"you are the commander in the CIC"** fantasy, not drop you into
-the mud:
-- **Radio chatter** — the core of it: spot reports, contact calls, requests, RTB/winchester,
-  net traffic reading out over the radio (the RadioLog made audible). Alert tones for requests
-  and losses.
-- **Not full battlefield audio** — hearing cannons while staring at a UAV feed breaks the CIC
-  frame. Keep weapon/impact sound **diegetic to the feed you're watching** (muted/attenuated on
-  the map) or optional, so the map stays a quiet command view and the feed is where the noise is.
-- Design notes: the sister gunship project's `audio.js` is a starting point; drive radio SFX/TTS
-  off the existing radio events; gate weapon/ambient audio to the active drone feed rather than
-  the map.
 
 ### Radio Chatter Library, Callsigns & Message Factory 🟡 *(callsigns + phrasing wrapper done; no role numbers, no per-event template table, no SALUTE/9-line/SITREP)*
 Generate authentic radio traffic that drives the JBC-P NET readout now and voice later.
@@ -1309,29 +1103,6 @@ Generate authentic radio traffic that drives the JBC-P NET readout now and voice
   string (for the NET) and a structured token list (for voice); a small variant/synonym table per
   message type; replaces ad-hoc radio strings over time.
 
-### Radio Chatter Audio (Squelch + Procedural "Mumble") ✅ *(no player-facing radio volume control)*
-The **net readout stays**; on top of it, play the *sound* of radio traffic. **No computer
-TTS** (browser voices sound like Siri and can't route through our radio filter). Instead:
-- **Radio SFX** — a keyed-mic **click** on the front, a **static/squelch** bed, and a squelch
-  tail ("ksshh") on the back of every net transmission, with a little crunch. This alone reads
-  instantly as a command post and can never sound wrong.
-- **Procedural "mumble" voice** — a synthesized, wordless voice that tracks the *cadence and
-  inflection* of the message (Animal-Crossing "Animalese" / muted-trombone idea, but **military,
-  not cartoon**): low gruff pitch, terse clipped syllable blips driven by the message's word/
-  syllable count, gaps between words, a downward inflection at the end of a statement, run
-  through the narrow radio bandpass so it's muffled comms. You *hear* the traffic and *read* the
-  words — never intelligible speech, so it's always dynamic and never wrong.
-- **Per-speaker variation** — hash the callsign to a base pitch + formant so different elements
-  sound distinct (ties into the callsign system).
-- **Global, not feed-gated** — this is the command net; it plays regardless of which feed is
-  open (unlike weapon audio, which is gated to the feed). **Throttle + priority** so it's traffic
-  not a drone — contact/fires/loss always chirp; routine gets a short blip or is skipped. Its own
-  **radio volume**, silenced by the existing mute.
-- Design notes: build on the existing Web Audio graph; hook the friendly `radio()` net path
-  (sim.js) to a `radioMsg(text, speakerSeed, priority)` that emits click → mumble → squelch
-  through a shared radio bandpass; derive syllable timing from the text; own gain node under
-  master.
-
 ### Radio Channels / Nets
 Real C2 runs multiple nets, not one stream — split the traffic into channels:
 - **Separate nets** — e.g. **Command**, **Fires**, **Air/CAS**, **Admin/Log**, and optionally a
@@ -1345,17 +1116,6 @@ Real C2 runs multiple nets, not one stream — split the traffic into channels:
 - Design notes: add a `channel` field to net messages (routed from `kind`/actor); a channel
   selector on the NET panel; gate both the text feed and the chatter audio per monitored channel.
 
-### Per-Feed Mute (Individual UAV Tabs) ✅
-Audio is currently all-or-nothing on the global mute, but up to four feeds can be open at once —
-each with its own engine ambient, gun reports and impacts.
-- **Mute a single feed** — a small mute toggle per UAV window (and per feed tab), so you can watch
-  a noisy gunship run while keeping a quiet ISR feed up, or silence a feed you're only glancing at.
-- **Independent of the global mute** — the top-bar mute still kills everything; per-feed mute is a
-  finer control layered under it. Muted state rides with the feed (and shows on its tab).
-- Design notes: `audio.js` already keys ambients by `feedId` (`setFeedAmbient`/`clearFeedAmbient`),
-  so add a per-feed gain/mute flag and check it in the feed-audio pass in `DroneView` (gun reports,
-  impacts, ground-unit fire) as well as when starting the ambient loop.
-
 ## Maps & World
 
 ### Seed-Generated Maps 🟡 *(genMap(seed, size) + size presets shipped; the seed is `Date.now() % 100000`, never shown and not enterable)*
@@ -1365,22 +1125,9 @@ each with its own engine ambient, gun reports and impacts.
 - Still open: **surface/expose the seed** in the UI so a specific battlefield is shareable and
   replayable (seed entry + display), not just randomized per game.
 
-### More Detailed Maps & Bigger Towns
-- **Richer terrain and larger, denser towns** — more detail in the world and bigger urban areas
-  to fight over (urban terrain matters more with LOS, cover, and HUMINT in towns).
-- Design notes: increase town size/building density and terrain detail; make sure pathfinding,
-  cover, and LOS scale with the added density.
-
-### Dev / Test Map ✅ *(still rides the procedural small map; no hand-built terrain)*
-A purpose-built sandbox for fast, accurate feature testing, reached from the splash screen's
-**Dev Sandbox** button (`initDevGame`):
-- Uses the **small map** (fixed seed, fog off, full supply, no incoming waves) with **one of every
-  friendly and hostile unit type** staged per side and both sides' installations (HQ + FOB + OP,
-  friendly also an airfield). Friendly lower-left, enemy upper-right; both fit in one screen.
-- Units start **weapons-held** so the scene stays static and reproducible until the dev commits
-  to a fight.
-- Still open: a purpose-built terrain layout that deliberately packs every cover/concealment type,
-  choke points, and water gaps into one screen (currently rides the procedural small map).
+### More Detailed Maps & Bigger Towns *(superseded)*
+Superseded by the **Maps & Terrain** M-track (theaters, culture layer) and the **Urban
+depth** design discussion — fold any remaining wishes into those entries.
 
 ### Tutorial Map
 TOC has a lot of surface area and none of it is currently explained. One small map, launched
@@ -1486,11 +1233,6 @@ A rotary-wing base for the attack helicopters (and future utility/lift helos):
 - Design notes: new `STRUCTURES` entry with `launchesHelos` (parallel to the airfield's
   `launchesDrones`); helo assets spawn from the nearest helipad.
 
-### Airfield Placement Restricted to HQ ✅
-Airfields are a strategic asset, not something you sprinkle anywhere:
-- **Only the HQ can establish an airfield** — `AFLD` placement requires proximity to a friendly
-  HQ specifically (not any base), with a "must be established near the HQ" toast when out of range.
-
 ### Installation-Gated Unlocks 🟡 *(context-sensitive palette shipped; nothing is greyed with a "needs airfield/helipad" hint — the only existence check is a toast at click time)*
 The deploy palette is now **context-sensitive**: it only appears when you select a fielding
 source and lists exactly what that source can field — click an **airfield** for the fixed-wing
@@ -1513,68 +1255,6 @@ the enabling installation (grey out airfield UAS until an airfield is built, etc
 Let the commander spread the fight across tabs, windows, and monitors — a real CIC has
 many screens, not one. Build toward the state being a **single source of truth** that any
 number of lightweight view windows read from and issue commands to.
-
-### Persistent Left Command Panel ✅ *(roster + palette shipped; group/unit sections still to come)*
-The left panel is currently a transient deploy palette — it only exists while a base, airfield,
-engineer or carrier is selected, and vanishes the moment you click elsewhere. It should be a
-**permanent fixture of the console**, always on screen, with the deploy palette as just one of
-several sections.
-- **Always visible** — a fixed left rail that's part of the layout rather than a popup, so the
-  map/HUD reserve space for it instead of it floating over the terrain. Sections are
-  independently collapsible so a player can keep only what they use open.
-- **Installations roster** — a live list of friendly HQs, FOBs, OPs and airfields: click one to
-  select and centre it, and field from it immediately via the **+** flow (see *Deployment &
-  Fielding Mechanics*). This is the fix for the current friction of hunting for a base on the map
-  before you can deploy anything.
-- **Deploy palette, contextual as now** — keeps the existing "what you clicked determines what
-  you can field" behaviour, but rendered inside the persistent panel and driven by whatever is
-  selected in the roster, with an empty/hint state instead of disappearing.
-- **Room to grow** — the panel is the home for the roster-style views that don't belong on the
-  map: combat groups / task organisation, a unit roster with status, supply and build queues.
-  Each is a section, added over time.
-- Design notes: `DeployPanel` becomes a section inside a new persistent `CommandPanel`;
-  `deployContext(selectedIds)` still decides palette contents but now also accepts a structure
-  selected from the roster. Lay the app out so the panel is a flex sibling of the map rather than
-  an absolute overlay. Pairs with the Units / Combat-Group Dashboard (same data, detachable
-  window) and the TS/componentization rewrite — worth doing after the split, since it's a
-  restructure of exactly the code `HUD.jsx` currently owns.
-
-### NET Log as a Full-Height Right Panel ✅ *(channel filtering deferred to Radio Channels)*
-The radio net log is currently a free-floating, hand-resized box pinned near the top-right
-(`top: 44, right: 10`, a stored `netSize`, and a resize grip in its corner). It's the console's
-primary readout and should be a proper panel, not a widget parked on the map.
-- **Full-height right rail** — mirror the persistent left command panel: the net occupies the
-  full height between the top bar and the bottom of the screen, part of the layout rather than
-  floating over the terrain. The manual width/height resize goes away (or becomes a draggable
-  splitter on its inner edge).
-- **Tidy the message list** — the entries are a dense unstyled stack right now. Give them real
-  structure: timestamp / callsign / message columns that line up, clearer per-kind colour and
-  priority weighting, visual grouping by sender or time, and a sensible empty state. Keep
-  click-to-centre.
-- **Filtering, once it's roomy** — filter or mute by net/channel and by message kind, which the
-  current box has no room for. Pairs with *Radio Channels / Nets*.
-- Design notes: `RadioLog` moves from an absolute `top/right` box with `ui.netSize` to a flex
-  sibling in the app layout; drop `netSize`/`setNetSize` and the corner grip in favour of a
-  splitter. Do it alongside the persistent left panel — it's the same layout change (map becomes
-  a flex centre column between two rails).
-
-### Collapsible Side Panels ✅ *(no width animation; state is session-only, not persisted)*
-With both rails permanent, the player needs the screen back on demand.
-- **Minimize each panel to its own edge** — the left command panel collapses left, the NET panel
-  collapses right, each leaving a thin always-visible strip to restore it. Independent of each
-  other, so any combination is possible (both open, one open, full-screen map).
-- **The map reclaims the space** — collapsing genuinely widens the map rather than just hiding an
-  overlay, which is the point of making the panels part of the layout.
-- **Remember the state** — a collapsed rail stays collapsed across the session (and into saves,
-  once Save / Continue lands).
-- Design notes: two booleans in the UI store driving the flex layout; animate the width so the
-  map's `clampView` re-fits smoothly rather than snapping. The existing `showNet` toggle in the
-  top bar becomes the NET rail's collapse control.
-
-### Victory / Defeat Screen → moved to Game Modes
-Folded into **Game Modes → End of Match — Shared Framework**: victory/defeat conditions
-belong to the mode being played, so the screen (modal, after-action summary, and the sim
-actually ending) is specified there and shared by all three modes.
 
 ### HUD Polish — Small Fixes ⬜
 A running list of small, self-contained UI corrections:
@@ -1617,48 +1297,6 @@ An in-game reference so the player can actually learn the order of battle instea
 - Design notes: it's mostly a read-only view over `UNIT_TYPES` / `DRONE_TYPES` / `STRUCTURES`, so
   the data already exists — render it with the shared symbol drawing (`PaletteIcon`) and Mantine;
   pairs with the TS rewrite (typed models make this trivial to generate).
-
-### Off-Map Backdrop — Match the Splash Screen ✅
-The off-map area shown on **fit-to-screen** (the letterbox where the square map doesn't fill the
-viewport) is currently a flat dark fill, which reads as harsh "black edges."
-- **Style it like the splash screen** — the same radial-gradient + faint grid backdrop — so the
-  fit-to-screen view looks intentional and framed rather than clipped.
-- Design notes: reuse the splash's backdrop treatment for the map canvas's off-world fill (behind
-  the world-edge border); keep it theme-aware (day/night).
-
-### Fit-to-Screen Control Overlaps the UAV Window ✅
-> **Fixed** — the bottom-right 50 px strip is reserved for map controls: feeds now default-dock
-> at `bottom: 50` so the ⛶ corner stays clear. Verified: docked feed's bottom edge sits 10 px
-> above the button and the button is the top element at its own centre. (A hand-dragged feed can
-> still be parked over it deliberately — that's the player's choice, not a default collision.)
-
-The bottom-right **fit-to-screen (⛶)** map control sits in the same corner where UAV feeds dock, so
-it overlaps the drone window. (The UAV window is now top-most z-index, so it covers the button, but
-that just hides it rather than fixing the layout.)
-- Give the map controls their own reserved spot clear of the feed dock (e.g., a small control
-  cluster that the feeds avoid, or reflow the button when a feed occupies that corner).
-
-### Move the UAV Resize Handle to the Footer ✅
-The feed window's resize grip is a small triangle in the bottom-right of the sensor view, which
-overlaps the imagery and the footer controls.
-- Move the resize affordance **into the footer bar** (e.g., a grip at the footer's right edge) so it
-  doesn't sit on top of the video, matching the tidy three-part header/view/footer layout.
-
-### Code Quality — TypeScript & Componentization ✅ *(full migration complete — the game runs on a strict-TypeScript, domain-driven `src/`)*
-Done as a formal rewrite-in-place migration (see `src/MIGRATION.md` for the full record):
-- **Strict TypeScript everywhere** — sim state (`GameState`), every entity (units/elements/
-  drones/structures/shells/contacts/battlegroups), catalogs, orders, and all UI props typed;
-  `npm run typecheck` is clean and gates every change.
-- **Monoliths gone** — `sim.js` (~2400 lines) split into domain modules
-  (`engine/ world/ domains/{forces,air,installations,fires,intel,economy,comms,opfor}`) with a
-  frozen tick order composed in `engine/SimLoop`; `HUD.jsx` and friends ported to typed TSX with
-  DroneView split into view/camera/feedAudio.
-- **Behavior-proven** — a golden-run harness (`?golden`, baseline hash `4133144527`) digests a
-  scripted 10-minute battle; the port matched the old sim bit-for-bit before cleanup.
-- **Bonus fixes landed en route** — HMR counter-reset bug (callsign reuse), a latent crash in the
-  feed hamburger's Lock control, dead code removed, the sim is now fully seeded (whole battles
-  replay from their seed — groundwork for save/replay), and sim edits hot-apply without killing
-  the running session.
 
 ### Save / Continue Game
 Persist a session so a game can be resumed later:
@@ -1707,92 +1345,10 @@ machine, same browser*, so it's all client-side:
 
 ## Bugs & Fixes
 
-### OPFOR Units Cross Rivers / Ignore Terrain ✅ *(fixed 2026-07-23 — three leaks, all in SHARED services)*
-CPU units were observed moving across rivers and going wherever they want. The rule
-(architectural, non-negotiable): **the AI layer uses the SAME order functions,
-factories and movement services as the player — it never grows its own movement
-code.** The AI was in fact already compliant — all three leaks were in the shared
-layer, affecting both sides:
-1. `findPath` corner-cut fords: a diagonal step between two diagonally-adjacent water
-   cells slipped "between" them at river elbows. Diagonals now require both orthogonal
-   neighbours passable (bridges/pontoons are water-with-road → still fine).
-2. `findPath`'s impassable-goal shortcut returned the RAW target point: order a unit
-   to a point in the river and the goal *cell* walked to the bank, but the final
-   waypoint stayed in the water — screening recon parked mid-river. Now terminates at
-   the walked-to passable cell.
-3. `spawnEnemy` placed at raw muster/garrison offsets — now snaps through
-   `nearestLand`, the same placement service the player's start force uses.
-Verified headless: 215 random paths sampled at 8 m — zero water contact; 3 full games
-run 10 sim-minutes — zero units on water. Golden re-baselined `1377301839`.
-
-### AC-130 Gun Rounds Originate From the Wrong Point ✅ *(fixed — `gunMuzzle()` spawns rounds 14 m inboard on the port beam, 7 m below the fuselage; the drop rides the airframe so it no longer slides with ALT. Applied to the 25/40 mm cannon path and the 105 shell.)*
-Tracers don't look like they leave the aircraft's guns, and the apparent origin **shifts when
-altitude is changed** — both symptoms of the round's spawn point being the aircraft's own
-camera position rather than a muzzle on the airframe.
-- **Rounds spawn at the aircraft centroid.** `gunshipHowitzerFire` / the cannon path stamp
-  `fromX: d.x, fromY: d.y` with `mAlt = spec.alt * (d.altMul || 1)` — dead centre of the
-  aircraft, at exactly the sensor's own altitude. But the feed camera *is* the aircraft, so
-  rounds appear to emanate from the eye point instead of from a gun off to the side.
-- **Real AC-130 guns fire out the port beam.** The 25/40/105mm all fire to the **left** during
-  a left-hand pylon turn. The muzzle should be offset laterally from the fuselage centreline
-  (and slightly below), rotated by the aircraft's current heading around the orbit — so the
-  tracer visibly departs from off-camera-left rather than from under the lens.
-- **Altitude changes the origin** because `mAlt` scales directly with `altMul` while the camera
-  altitude moves with it too; any mismatch between the two reads as the muzzle sliding.
-  Tie the muzzle to the airframe's frame of reference, not to an independently-computed
-  altitude.
-- Design notes: derive the muzzle from the drone's orbit heading — offset ~10–15 m port and a
-  few metres below the fuselage — and stamp that as `fromX/fromY/mAlt` in `sim.js` (~lines
-  753–756 for the howitzer, 579/676 for the cannon paths). `DroneView`'s tracer pass already
-  draws straight from `r.fromX/fromY/mAlt` to the impact, so fixing the spawn point fixes the
-  render with no change there. Worth checking the muzzle-flash sprite placement at the same time.
-
-### Column Deadlocks Behind a Straggler ✅ *(fixed — column order was static; see below)*
-A formation halts and goes firm when a gap opens past `STRAGGLE_GAP` — but if the trailing
-element **never** closes, the column waits forever. Measured on a cross-map march: the front
-four hold station beautifully (59/32/74 m gaps) while the last element sits ~1.4 km back and
-four units stay in `colWait` indefinitely.
-- **Find out why the straggler stalls** — it isn't simply slow; the group cap is already
-  released for units outside their station so it should be closing at its own speed. Suspects:
-  it's in contact and running a halt/break drill, its join leg put it on the wrong side of an
-  obstacle, or its path is blocked.
-- **Then bound the wait** — cut a straggler loose after it demonstrably fails to close, so the
-  column presses on and the straggler finishes the move independently. An attempt at this was
-  reverted: it fired during initial forming-up (units start scattered around the HQ, so the
-  gap is legitimately large before the column has formed) and dissolved the column within 60 s.
-  The timer needs to start only once the column has actually formed, and reset whenever the
-  gap is shrinking.
-- **Root cause (not combat).** `colIdx` was assigned once when the order was issued — but at
-  that moment every unit is bunched at the start with indistinguishable positions along the
-  route, so the ordering was effectively arbitrary, and it then drifted as faster units pulled
-  ahead. "The vic ahead" ended up pointing at a unit that was actually behind, so the real
-  front ran free while the real rear halted waiting on it. Compounding it, the route owner
-  (the slowest unit, whose path everyone shares) was pinned to `colIdx 0` even when it was
-  physically at the back — route owner and column head are different jobs.
-- **Fix:** column order is recomputed every tick from progress along the shared route (fewest
-  waypoints remaining = furthest along). Column length now holds 38–267 m over a full cross-map
-  march instead of stretching to 1.4 km, and the stall clears itself once formed.
-
-### Sensor Lock Placement During Transit ✅ *(fixed by gating LOCK to on-station; the projection math was never made state-aware, so FOLLOW and in-feed target clicks during transit still assume the on-station aim point)*
-Clicking **LOCK** on a UAV *before* it reaches its orbit (still in transit) drops the lock
-reticle in the wrong spot. The LOCK button and the feed's ray/projection use the **on-station**
-aim point (`drone.tx + gimbal`), but while transiting the camera actually looks **ahead along the
-flight path** — so they disagree and the lock lands off from where the sensor is pointed.
-- Fix: derive the lock point (and `feedRayToGround` / `feedProjectToScreen`) from the drone's
-  *current, state-aware* camera look-at — the same one `DroneCamera` uses (transit looks ahead;
-  on-station/lock look at `tx`/lock point) — so LOCK and the reticle agree in every state. (Or
-  simplest: only allow LOCK once on-station.) **(fixed — LOCK now gated to on-station.)**
-
-### "ROUTE IMPASSABLE" Toast Spam ✅ *(fixed)*
-"ROUTE IMPASSABLE" toasts stacked up and never cleared. Root cause: `orderMove`/`orderAttack`
-called `toast('ROUTE IMPASSABLE')` regardless of side, and the enemy AI re-drives idle units
-every tick — so a hostile unit stuck against an unreachable objective (e.g. an aim point in a
-disconnected water basin) re-fired the toast forever, for movement the player never ordered.
-- **Fix:** the toast is now gated to friendly (player-issued) orders only — hostile pathfinding
-  failures are silent. Verified headless: a hostile unit given an unreachable route pushes no
-  toast; a friendly unit still surfaces the one legitimate notification.
-- Still open (nice-to-have, not causing the spam): give a friendly unit whose route is impassable
-  a fallback (re-plan / try cross-country / abort) instead of just reporting the failure.
+**No open bugs.** Every tracked bug is fixed — records in the Shipped Archive → Fixed
+Bugs. One carried-forward nice-to-have lives with *Threat-Aware Routing*: a friendly
+unit whose route is impassable should get a fallback (re-plan / cross-country / abort)
+instead of only reporting the failure.
 
 ## Later / Deferred
 
@@ -1800,3 +1356,114 @@ disconnected water basin) re-fired the toast forever, for movement the player ne
 Human terrain — neutral civilians, positive-ID, and collateral-damage consequences that give
 precision fires and target designation real moral weight. Deferred for now; the sister gunship
 project already has a civilian model to draw on when we pick this up.
+
+---
+
+## Shipped Archive
+
+Everything below is **done and verified**. Compact records — the full design text lives
+in this file's git history and the feature commits. Open follow-ups from shipped items
+are called out here *and* stubbed in the active sections above where they matter.
+
+### Maps & Terrain (the 2026-07-23 overhaul)
+- **M1 — Real-DEM theaters** — 7 real-world elevation patches (Fulda Gap, NTC Mojave,
+  Tigris Valley, Donbas Steppe, Ardennes, Arghandab Valley, Golan Heights) baked from
+  public-domain DEMs into repo assets (`tools/bake-theaters.mjs`, no runtime fetches);
+  seeded sub-windows so one theater yields many battlefields; splash gained the
+  CAMPAIGN / SKIRMISH / DEV SANDBOX top level + TERRAIN step. Procgen noise stays the
+  default source and the golden baseline. *Open: RANDOM button, coastal sea-level
+  water, theater names in briefings.*
+- **M2 — Cartography glow-up** — Lambertian hillshade, elevation-warped farmland mosaic
+  that hugs the contours, forest-edge treelines, river/lake bank lines, stronger
+  contours. View-only.
+- **M2.5 — Road hierarchy & vector roads** — roads are Chaikin-smoothed vector
+  polylines (`WorldMap.roads`) stroked per-frame, raster-stamped for O(1) mobility;
+  three classes (highway = the MSR trunk / road / dirt path) with per-class
+  MOVE_FACTORS; bridges as span objects at every paved water crossing; dirt paths can
+  never cross water. Golden re-baselined `60356280`.
+- **M3a — Hamlets + named terrain** — settlements strung along the paved net;
+  `WorldMap.features` with military spot-elevation hills (real meters on theaters —
+  HILL 1190 on the Golan) and named rivers, rendered as faint BFT reference marks.
+- **M3b — Terrain-anchored radio** — `locRef`: report traffic says "VIC CALDER" /
+  "VIC HILL 1190"; precision traffic (fires, waypoints, LKPs) keeps raw grids.
+- **M4 — Mode recipe framework + KotH hill guarantee** — `ModeSpec.mapOk` + bounded
+  map-seed reroll; KotH rejects hill-less maps. *(Campaign recipe still open — tracked
+  in the active M4 entry.)*
+- **Feed ground on painted textures + AO apron** — DroneView colors moved off vertices
+  onto 2048² IR/EO canvas textures (smooth shorelines/treelines, vector-true roads, no
+  diagonal river pinch); interim 1.6 km blur apron beyond the AO *(real fix is M3c)*.
+  Towns/hamlets clear forest from their footprints; urban wins render priority.
+
+### Game Modes & End of Match
+- **End-of-Match shared framework** — `ModeSpec` (label/sub/setup/update/checkEnd/end
+  text), `checkMatchEnd` in the frozen tick order, RunStats after-action counters,
+  full-screen end modal + REVIEW pill, sim freezes on match end; splash mode selector.
+- **1. Attack & Defend** — formalized as mode 1 (destroy the enemy CP, keep yours or a
+  FOB fallback); OBJECTIVE SECURED / COMMAND POST LOST.
+- **2. Base Defense (waves) v1** — banked economy (no lifts/upkeep), hand-tuned 10-wave
+  scripted escalation, per-wave payouts, WAVE stat in the top bar; POSITION HELD /
+  BASE OVERRUN. *(Follow-ups stubbed above: READY trigger, difficulty-scaled waves,
+  pacing.)*
+- **5. King of the Hill** — real hill picked from the elevation raster (now guaranteed
+  by the M4 recipe), control-by-presence clocks, holder-tinted zone on the BFT, OPFOR
+  fights for the hill; OBJECTIVE HELD / HILL LOST.
+- **Difficulty presets** — Recruit→Elite set starting supply, starting force and a
+  both-sides damage scale; dev cheats gated to the sandbox.
+
+### Combat, Movement & AI
+- **Movement & orders playtest hardening** *(July 2026 playtest — 7 defects)* —
+  spread-drag U-turns fixed (cross-country spreads), right-click waypoint delete with
+  mid-route re-path, break-contact resumes the mission (one retry), long-detour
+  advisory, artillery holds its march through fire missions, structures select like
+  units.
+- **Water discipline** *(2026-07-23)* — no corner-cut fords through diagonal water
+  cells, `findPath` never terminates on a raw in-water point, `spawnEnemy` snaps
+  through `nearestLand`. All three leaks were in shared services — the AI issues only
+  player-legal orders, by design and in fact. Golden `1377301839`.
+- **Surrender** — low-strength units in contact can surrender, both sides. *(POW
+  handling folded into the active HUMINT entry — EPW debriefs.)*
+- **Enemy economy (bulk)** — the OPFOR buys what it fields, pays upkeep, lives under
+  map-size force caps, needs a live base to muster, difficulty = enemy income.
+  *(Wave ramping still open — tracked in the active entry.)*
+
+### Air & ISR
+- **AC-130 Spectre gunship** — orbiting fire support with its own thermal gun-camera
+  feed, 25/40/105 mm resolved per-vic; muzzle-origin fix (rounds depart the port beam).
+- **Air asset caps & re-tasking cooldowns** — `maxActive`/`cooldown` per airframe
+  (AC-130 1 up / 15 min turnaround), `airAvailability()` gates deploys and drives the
+  palette's used/total + countdown display; halved gunship magazine.
+- **Drones shadow enemy units** — FOLLOW tasking vs hostiles; aerostat follows with
+  sensor only. *(Open: LKP hold / re-acquire on lost track — noted in the M-track
+  loose ends.)*
+- **Aerostat fixed stare + distinct airframe silhouettes** — shipped inside the 🟡
+  airframe-types entry (see active section for what remains).
+
+### Interface & UX
+- **Persistent left command panel** (installations roster + contextual deploy palette),
+  **NET log as a full-height right rail**, **collapsible side panels**, **off-map
+  backdrop** matching the splash, **fit-to-screen control** clear of the feed dock,
+  **UAV resize handle in the footer**, **per-feed mute**, **one-click fielding + rally
+  fan-out**, **airfield placement restricted to the HQ**, **dev/test sandbox map**
+  *(open: purpose-built terrain layout)*.
+- **Victory/defeat screen** — absorbed into the end-of-match framework above.
+
+### Audio
+- **Radio chatter & CIC soundscape** — net traffic audible, weapon audio diegetic to
+  the open feed. **Squelch + procedural "mumble" voice** — keyed-mic click, wordless
+  cadence-tracking voice per callsign through a radio bandpass, priority-throttled.
+
+### Architecture
+- **TypeScript migration** — full strict-TS domain-driven rewrite of the whole game
+  (`src/MIGRATION.md`), golden-run verified, fully seeded sim, sim-edit HMR hot-apply.
+  Golden baseline history: `696495692` → `4133144527` → `1929051837` → `60356280` →
+  **`1377301839`** (current).
+
+### Fixed Bugs
+- **OPFOR units crossing rivers** — see Water discipline above.
+- **AC-130 rounds from the wrong point** — `gunMuzzle()` puts rounds 14 m off the port
+  beam, riding the airframe at every altitude.
+- **Column deadlocks behind a straggler** — column order recomputed per tick from
+  route progress; columns hold 38–267 m instead of stretching to 1.4 km.
+- **Sensor lock during transit** — LOCK gated to on-station.
+- **ROUTE IMPASSABLE toast spam** — toast gated to player-issued orders; hostile
+  pathfinding failures are silent.
