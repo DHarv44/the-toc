@@ -210,6 +210,41 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         return { text: 'ASSAULT — RIGHT-click the highlighted enemy to send your group in.', targetUnit: e?.id }
       },
     },
+    // 7) silent hold: let the assault finish clearing the town's defenders.
+    {
+      id: 'await-clear',
+      done: () => {
+        const t = S.campaign?.strongpoint
+        return !!t && !S.units.some(u => u.side === 'hostile' && u.strength > 0 && Math.hypot(u.x - t.x, u.y - t.y) <= 420)
+      },
+      hint: () => ({ text: '', hidden: true }),
+    },
+    // 8) occupy the town — urban terrain shields the platoons. Non-gated (they walk in).
+    {
+      id: 'occupy-town',
+      done: () => {
+        const t = S.campaign?.strongpoint
+        return !!t && S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0 && Math.hypot(u.x - t.x, u.y - t.y) <= 230)
+      },
+      hint: () => {
+        const t = S.campaign?.strongpoint
+        const targetBox = t ? { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 } : undefined
+        return {
+          text: 'TAKE THE TOWN — move your platoons into the built-up area. Urban terrain gives them cover, so they take far fewer casualties when the enemy counterattacks.',
+          targetBox,
+        }
+      },
+    },
+    // 9) dig in — prepared fighting positions for even more protection. Gated.
+    {
+      id: 'dig-in',
+      gate: true,
+      done: () => S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && u.posture === 'dig'),
+      hint: () => ({
+        text: 'DIG IN — with your platoons in the town selected, click DIG IN. Prepared fighting positions stack with the urban cover for even more protection — hold here and defeat the counterattack.',
+        targetSel: 'dig-in',
+      }),
+    },
   ],
 }
 

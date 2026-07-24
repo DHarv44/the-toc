@@ -322,7 +322,7 @@ function SelectionTray() {
             </button>
           ))}
           {units.some(u => UNIT_TYPES[u.type].def) && (
-            <button
+            <button data-tut="dig-in"
               style={{ ...optBtn(units.every(u => u.posture === 'dig')), marginLeft: 6 }}
               onClick={() => {
                 const allDug = units.every(u => u.posture === 'dig')

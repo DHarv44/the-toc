@@ -148,7 +148,11 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   fires at ½ klick while the platoon keeps walking to the marker; (4) a silent hold until the
   recon SPOTS the enemy; (5) gated GROUP UP — the sim pauses on contact and teaches
   box/Shift-selecting the remaining platoons and moving them in to secure the town (done when
-  ≥2 non-recon units share a move group). Curriculum front-loaded to be empty by M4.
+  ≥2 non-recon units are selected together); (6) gated ATTACK — set ATTACK posture, then
+  right-click the spotted enemy (ringed) to assault; (7) silent hold until the garrison is
+  cleared; (8) OCCUPY THE TOWN — box highlight on the town, teaches moving into urban cover;
+  (9) gated DIG IN — prepared fighting positions before the counterattack. Curriculum
+  front-loaded to be empty by M4.
 - **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
   launches over the unit via the ⊕ button (like the aerostat at a site) — no map
   placement — capped 1 per unit, so the palette row reads 0/1 → 1/1 and disables.
