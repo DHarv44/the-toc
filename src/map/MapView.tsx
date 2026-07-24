@@ -4,9 +4,10 @@
 // ctrl = add/toggle). RIGHT = orders (click ground = move, click a hostile =
 // attack, drag = formation line with a live preview, release to lay the
 // formation; shift = append waypoint; right-click a route pip deletes it).
-// Pan with the middle-mouse drag, WASD, or cursor edge-scroll. There is no
-// right-click context menu — per-unit orders live on the bottom selection
-// tray, deploys on the left command panel.
+// Pan with the middle-mouse drag, WASD, or cursor edge-scroll. Right-clicking
+// directly ON a friendly unit opens its context menu (per-unit orders); those
+// orders also live on the bottom selection tray, and deploys on the left
+// command panel.
 import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
@@ -270,6 +271,16 @@ export default function MapView() {
           if (i >= 0) { removeDroneWaypoint(d.id, i); return }
         }
 
+        // right-click ON a friendly unit opens its context menu (per-unit orders),
+        // as it did before — the unit is a thing you interact with, not an order
+        // target. Ground / hostiles below are the move / attack targets.
+        const fu = pickUnit(wx, wy)
+        if (fu) {
+          ui.setSelected([fu.id])
+          ui.openMenu({ x: mX(e), y: mY(e), unitId: fu.id })
+          return
+        }
+
         // issue orders to the current selection: hostile under the cursor = attack,
         // otherwise move. Shift appends a waypoint.
         const sel = selectedFriendlies()
@@ -401,9 +412,17 @@ export default function MapView() {
       clampView()
     }
     const heldKeys = new Set<string>()
+    let lastSpeed = 1 // restored on unpause
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         useUI.setState({ mode: 'select', selectedIds: [], ctxMenu: null })
+      }
+      if (e.key === ' ') {
+        // spacebar toggles pause/unpause (preventDefault so it doesn't scroll
+        // the page or re-trigger the last focused button)
+        e.preventDefault()
+        if (S.speed > 0) { lastSpeed = S.speed; S.speed = 0 }
+        else S.speed = lastSpeed || 1
       }
       if (e.key === 'Delete') {
         for (const u of selectedFriendlies()) removeLastWaypoint(u.id)
