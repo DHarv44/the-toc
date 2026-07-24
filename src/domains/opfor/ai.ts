@@ -120,6 +120,8 @@ function updateOpforCmd(dt: number): void {
 // effort — falling back to the group's own nearest target only if none is set.
 function groupObjective(grp: Battlegroup, mem: Unit[]): Vec2 {
   if (S.hill) return { x: S.hill.x, y: S.hill.y }
+  // campaign scripts the objective directly (e.g. the reinforcement retaking a town)
+  if (S.campaign?.opforObj) return S.campaign.opforObj
   const cmd = S.opforCmd
   if (cmd.posture === 'defend' && S.map) return { x: S.map.enemyBase.x, y: S.map.enemyBase.y }
   if (grp.effort === 'support' && cmd.supportId != null) {
@@ -241,6 +243,16 @@ export function spawnScriptedBattlegroup(comp: readonly UnitTypeKey[], name: str
   const rng = S.rng!
   const musterT = 5 + rng() * 5
   return raiseGroup(comp, name, base, musterT)
+}
+
+// Campaign spawn: muster a scripted group at a GIVEN point (not the far enemy
+// base) — the campaign places the OPFOR itself, so reinforcements assemble near
+// the fight and advance on S.campaign.opforObj (see groupObjective). Short muster.
+export function spawnCampaignGroup(
+  comp: readonly UnitTypeKey[], name: string, from: { x: number; y: number },
+): number {
+  const musterT = 3 + S.rng!() * 3
+  return raiseGroup(comp, name, from, musterT)
 }
 
 function updateBattlegroup(grp: Battlegroup, dt: number): void {

@@ -7,8 +7,9 @@ import type { WorldMap } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { spawnScriptedBattlegroup } from '../domains/opfor/ai'
 import { radio, toast } from '../domains/comms/radio'
+import { startCampaign, runCampaign } from './campaign'
 
-export type ModeId = 'attack-defend' | 'base-defense' | 'king-of-the-hill'
+export type ModeId = 'attack-defend' | 'base-defense' | 'king-of-the-hill' | 'campaign'
 export type Outcome = 'won' | 'lost'
 
 export interface ModeSpec {
@@ -236,6 +237,40 @@ export const MODES: Record<ModeId, ModeSpec> = {
       lost: {
         title: 'HILL LOST',
         sub: 'The enemy ran out the clock on the high ground.',
+      },
+    },
+  },
+
+  // Campaign: one battalion's operation, a sequence of missions on ONE persistent
+  // world. The mode owns only the endpoints — startCampaign builds the world +
+  // starts mission 1, runCampaign advances objectives/missions each tick (soft
+  // transitions, never through the match-end freeze), and checkEnd fires only for
+  // the WHOLE campaign. All mission content lives in engine/campaign.ts.
+  'campaign': {
+    id: 'campaign',
+    label: 'CAMPAIGN',
+    sub: 'One battalion, one long operation — mission by mission',
+    setup(S) { startCampaign(S) },
+    update(S, dt) { runCampaign(S, dt) },
+    checkEnd(S) {
+      const c = S.campaign
+      if (!c) return null
+      if (c.complete) return 'won'
+      // lose only if the battalion can no longer command or field: HQ gone and
+      // no FOB to fall back on (the shared floor across modes)
+      const hq = S.structures.some(s => s.side === 'friend' && s.kind === 'HQ')
+      const fob = S.structures.some(s => s.side === 'friend' && s.kind === 'FOB')
+      if (!hq && !fob) return 'lost'
+      return null
+    },
+    endText: {
+      won: {
+        title: 'OPERATION COMPLETE',
+        sub: 'Every mission carried — the battalion holds the ground it took.',
+      },
+      lost: {
+        title: 'BATTALION COMBAT-INEFFECTIVE',
+        sub: 'Command and the last fallback are gone. The operation is over.',
       },
     },
   },

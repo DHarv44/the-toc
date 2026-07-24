@@ -2,6 +2,7 @@
 import { S } from '../../engine/state'
 import type { ShellKind } from '../../engine/GameState'
 import { UNIT_TYPES } from '../forces/catalog'
+import { campaignAllows } from '../../engine/campaign'
 import { toast, radio } from '../comms/radio'
 import { grid } from '../../lib/format'
 
@@ -22,6 +23,8 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   // side-agnostic gunnery, side-aware bookkeeping: the OPFOR pays from its own
   // purse and never surfaces player-facing toasts (same rules, its money)
   const friendly = u.side === 'friend'
+  // campaign phases can lock the player's supporting fires (OPFOR is never gated)
+  if (friendly && !campaignAllows('support')) return toast('FIRE SUPPORT NOT AUTHORIZED THIS PHASE')
   if (u.missionCooldown > 0) return friendly ? toast('BATTERY RELOADING') : undefined
   if (Math.hypot(x - u.x, y - u.y) > ind.range) return friendly ? toast('TARGET BEYOND MAX RANGE') : undefined
   // basic load: no rounds, no mission — resupply near a base or a LOG unit

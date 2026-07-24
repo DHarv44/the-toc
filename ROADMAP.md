@@ -26,8 +26,9 @@ terrain-anchored radio (M3b) · mode-recipe framework + KotH hill guarantee (M4)
 feed ground on painted textures + AO apron · game-mode framework with three playable
 modes and the end-of-match screen · water-discipline movement fixes.
 
-**🟡 Partial (13)** — M4 mode recipes *(campaign recipe pending)* · Campaign *(in design,
-scaffolding only)* · Air asset cost & access · Drone team & organic UAS · Drone airframe
+**🟡 Partial (13)** — M4 mode recipes *(campaign recipe pending)* · Campaign *(slice v1
+shipped: M1 LODGMENT + M2 LINES OF SUPPLY playable end-to-end; missions 3+ pending design)*
+· Air asset cost & access · Drone team & organic UAS · Drone airframe
 types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF only)* ·
 Enemy AI / OPFOR · Enemy economy *(wave ramping open)* · Radio chatter library & message
 factory · Seed-generated maps *(seed not surfaced)* · Installation-gated unlocks *(no
@@ -321,7 +322,20 @@ Contested-line control:
   - Campaign was pulled ahead of this in the build order (see 4); its objective-spec
     and capture/hold machinery may settle some of these questions for free.
 
-### 4. Campaign 🟡 *(one large map, one long war — in design; paused 2026-07-23 behind the Maps & Terrain overhaul)*
+### 4. Campaign 🟡 *(one map, one long war — SLICE v1 SHIPPED 2026-07-24: M1+M2 playable end-to-end; missions 3+ pending design)*
+
+> **Build state (2026-07-24):** the objective engine, mission runner, brief/tracker/
+> debrief UI, palette gating, per-mission AO crop, and the first two missions are built
+> and browser-verified — see `src/MODES.md → Mode 4` for the full implementation handoff.
+> The campaign is fought on ONE fixed real-world map: the baked **Chorwon Valley** theater
+> (the Iron Triangle) at Large + a fixed seed — deterministic every playthrough, windowed
+> per mission by the AO crop. Not procedural.
+> Missions were (re)designed with the user this session: **M1 LODGMENT** is now CLEAR &
+> HOLD (the FOB moved to M2); **M2 LINES OF SUPPLY** is BUILD THE FOB + OPEN THE SUPPLY
+> LINE, with the M1 force persisting into it. The user explicitly **dropped the "march to
+> the enemy HQ" end-state framing** — the operation's later shape is open. The 7-mission
+> sketch below predates that and is now a menu of ideas, not a locked arc.
+
 Moved up in the build order ahead of Zone Capture: the campaign doubles as the
 **new-player teaching arc** (each mission introduces one system), and building it may
 surface design changes that feed back into the other modes. Development paused at the

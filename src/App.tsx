@@ -8,11 +8,13 @@ import CommandPanel from './ui/CommandPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
+import CampaignGate, { CampaignObjectives } from './ui/CampaignHUD'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
 import { loadTheater } from './world/theaters'
+import { CAMPAIGN_THEATER, CAMPAIGN_SEED } from './engine/campaign'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
@@ -24,8 +26,13 @@ export default function App() {
     void (async () => {
       if (mode === 'dev') initDevGame()
       else {
-        const theater = theaterId ? await loadTheater(theaterId) : undefined
-        initGame(Date.now() % 100000, MAP_SIZES[size] ?? MAP_SIZES.large, difficulty, gameMode, theater)
+        // the campaign is always the same ground: fixed theater, Large, fixed seed
+        const isCampaign = gameMode === 'campaign'
+        const tId = isCampaign ? CAMPAIGN_THEATER : theaterId
+        const gridSize = isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large)
+        const seed = isCampaign ? CAMPAIGN_SEED : (Date.now() % 100000)
+        const theater = tId ? await loadTheater(tId) : undefined
+        initGame(seed, gridSize, difficulty, gameMode, theater)
       }
       startLoop()
       setStarted(true)
@@ -49,9 +56,13 @@ export default function App() {
         <div style={{ flex: 1, position: 'relative', minWidth: 0, overflow: 'hidden' }}>
           <MapView />
           <HUD />
+          {/* campaign objectives tracker — renders null outside campaign mode */}
+          <CampaignObjectives />
         </div>
         <NetPanel />
       </div>
+      {/* campaign briefing / debrief modals — hold the sim until acknowledged */}
+      <CampaignGate />
       {/* end-of-match overlay: unmounts with the layout on NEW GAME, so a fresh
           match always gets a fresh (undismissed) gate */}
       <EndScreenGate onNewGame={() => setStarted(false)} />

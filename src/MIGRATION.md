@@ -14,7 +14,11 @@ Open `http://localhost:5187/?golden` →
 - `__goldenDiff()` — both, digest equality
 
 **Baseline digest hash: `289931028`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for the OPFOR held reserve: once ≥2 groups are committed
+(The **Campaign slice v1** (M1+M2, the objective engine + runner + palette gating +
+per-mission AO crop — see `MODES.md → Mode 4`) landed **golden-NEUTRAL**: it's a new
+`campaign` mode/tick path and the A&D golden scenario never enters it; the campaign's
+own headless gate is `.tmp-mig/campaign-check.entry.mjs` (25/25). Re-baselined
+2026-07-24 for the OPFOR held reserve: once ≥2 groups are committed
 the next fielded group is held near the base (dug-in backstop) and committed only
 to counterattack a defensive posture, sustain a culminating attack (committed
 force worn below half), or on a 180 s staleness timeout — the golden scenario

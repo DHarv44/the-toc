@@ -13,6 +13,7 @@ import { newUnit } from '../forces/factory'
 import { effStats } from '../forces/elements'
 import { orderMove } from '../forces/orders'
 import { unitAvailability, stampFieldCooldown } from '../economy/economy'
+import { campaignAllows } from '../../engine/campaign'
 import { fmtCooldown } from '../../lib/format'
 import { toast, radio, netRadio } from '../comms/radio'
 
@@ -48,6 +49,8 @@ export function fundingStructure(x: number, y: number): Structure | null {
 }
 
 export function deployUnit(typeKey: UnitTypeKey, x: number, y: number, free = false): Unit | null {
+  // campaign phases can lock fielding; the campaign's own free placements are exempt
+  if (!free && !campaignAllows('field')) return toast('FIELDING NOT AUTHORIZED THIS PHASE')
   const type = UNIT_TYPES[typeKey]
   const mob = type.carrier ? type.carrier.mob : type.mob
   if (!isFinite(S.map!.moveFactor(x, y, mob))) return toast('NO-GO TERRAIN')
@@ -94,6 +97,7 @@ function rallyPoint(st: Structure, mob: Mobility): Vec2 {
 export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   const type = UNIT_TYPES[typeKey]
   if (!type) return null
+  if (!campaignAllows('field')) return toast('FIELDING NOT AUTHORIZED THIS PHASE')
   const st = S.structures.find(s => s.id === structId && s.side === 'friend')
   if (!st) return toast('NO FIELDING SITE SELECTED')
   if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
@@ -129,6 +133,7 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
 }
 
 export function deployStructure(kind: StructureTypeKey, x: number, y: number): Structure | null {
+  if (!campaignAllows('field')) return toast('CONSTRUCTION NOT AUTHORIZED THIS PHASE')
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const spec = STRUCTURES[kind]
   if (!spec) return null

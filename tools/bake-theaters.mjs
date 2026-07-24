@@ -36,6 +36,7 @@ const THEATERS = [
   { id: 'ardennes', name: 'ARDENNES', sub: 'Forested ridge and valley country · the Bulge', lat: 50.0, lon: 5.72 },
   { id: 'arghandab', name: 'ARGHANDAB VALLEY', sub: 'Green-zone river valley walled by desert ridges', lat: 31.7, lon: 65.55 },
   { id: 'golan', name: 'GOLAN HEIGHTS', sub: 'Volcanic tank country · the plateau of the Valley of Tears', lat: 33.05, lon: 35.78 },
+  { id: 'chorwon', name: 'CHORWON VALLEY', sub: 'The Iron Triangle · central-front invasion corridor — paddy plain walled by ridgelines', lat: 38.15, lon: 127.21 },
 ]
 
 // --- web-mercator helpers (global pixel space at ZOOM) ----------------------

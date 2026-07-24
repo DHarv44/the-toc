@@ -354,19 +354,31 @@ export interface WaveState {
   target: number             // waves to survive for the win
 }
 
-// Campaign mode state. null in other modes. One long operation on one map:
-// `mission` / `objIdx` index into the mission table in engine/campaign.ts; the
-// accumulators (hold / delivered) belong to whatever the current objective is
-// and are zeroed on each objective advance. Landmarks picked at setup
-// (strongpoint / crossing / centerTown) anchor later missions' objectives, and
-// the rear target sets are the ids the DEEP OPERATIONS mission must kill.
+// Per-objective UI state, driven by the campaign runner (engine/campaign.ts).
+export type ObjStatus = 'pending' | 'active' | 'done'
+
+// Campaign mode state. null in other modes. One long operation on one map, run as
+// a sequence of missions on ONE persistent world — nothing resets between them.
+// `mission` / `objIdx` index into the mission table in engine/campaign.ts. All
+// fields are plain, serializable data (no closures): objectives are DATA in the
+// mission table, evaluated by pure functions keyed on their kind, so restoring a
+// save only needs these values (Save/Continue is deferred, but built for here).
+// Landmarks picked at setup (strongpoint / crossing / centerTown) anchor missions'
+// objectives; the rear target sets are the ids DEEP OPERATIONS must kill.
 export interface CampaignState {
   mission: number            // 1-based index into MISSIONS
   objIdx: number             // current objective within the mission (sequential)
-  briefed: boolean           // current mission's briefing acknowledged
-  hold: number               // accumulated hold seconds (hold objectives)
+  briefed: boolean           // current mission's briefing acknowledged (false = paused on brief)
+  debrief: boolean           // mission just completed — debrief modal pending (paused)
+  complete: boolean          // whole campaign won (checkEnd reads this)
+  status: ObjStatus[]        // per-objective UI state for the CURRENT mission
+  hold: number               // accumulated hold seconds (hold-for-time objectives)
   delivered: number          // convoy supply delivered since the objective began
+  deliverBase: number        // target-structure stock baseline when a deliver objective began
   eventT: number | null      // sim time a scripted counterattack launches (null = none pending)
+  opforObj: Vec2 | null      // steer campaign OPFOR battlegroups to this point (null = none)
+  allow: { field: boolean; support: boolean; drone: boolean } // palette gates for this mission
+  ao: { x0: number; y0: number; x1: number; y1: number } | null // camera/pan bound for this mission (null = full theater)
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT

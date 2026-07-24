@@ -22,4 +22,5 @@ export const THEATER_INDEX: readonly TheaterMeta[] = [
   { id: 'ardennes', name: 'ARDENNES', sub: "Forested ridge and valley country · the Bulge", lat: 50, lon: 5.72, size: 512, metersPerPx: 50, minElev: 291.9, maxElev: 563.4 },
   { id: 'arghandab', name: 'ARGHANDAB VALLEY', sub: "Green-zone river valley walled by desert ridges", lat: 31.7, lon: 65.55, size: 512, metersPerPx: 50, minElev: 945.6, maxElev: 1640.7 },
   { id: 'golan', name: 'GOLAN HEIGHTS', sub: "Volcanic tank country · the plateau of the Valley of Tears", lat: 33.05, lon: 35.78, size: 512, metersPerPx: 50, minElev: -45.6, maxElev: 1192.6 },
+  { id: 'chorwon', name: 'CHORWON VALLEY', sub: "The Iron Triangle · central-front invasion corridor — paddy plain walled by ridgelines", lat: 38.15, lon: 127.21, size: 512, metersPerPx: 50, minElev: 25.9, maxElev: 925.1 },
 ]

@@ -94,32 +94,70 @@ tick (respect the frozen order — add it explicitly in SimLoop with a comment),
 map-gen or zone-placement logic, and map rendering for zone ownership.
 `checkEnd`: line held/broken per the spec's scoring.
 
-## Mode 4 — Campaign · PAUSED 2026-07-23 (state scaffolding landed; resumes after the Maps & Terrain overhaul)
+## Mode 4 — Campaign · SLICE v1 SHIPPED 2026-07-24 (M1+M2 playable end-to-end; more missions pending design)
 
-Status: `CampaignState` + `S.campaign` exist in `engine/GameState.ts` (reset in
-initGame); nothing else is built. Paused per user direction — the map system gets
-nailed down first (ROADMAP → Maps & Terrain: real-DEM theaters, cartography,
-named features, mode recipes), because the campaign wants a guaranteed map shape
-(river belt + crossings) and named terrain for briefings. Also decided meanwhile:
-main menu becomes **CAMPAIGN / SKIRMISH / DEV SANDBOX** (Skirmish wraps the mode
-chooser = MODE_ORDER + coming-soon entries), and the game's identity was settled:
-the player is a **battalion commander** — the campaign is one battalion's war
-through a division operation, with an NPC higher-HQ character issuing FRAGOs and
-allocations (ROADMAP → Design Laws + C2 & Echelon). Zone Capture is parked
-pending a layout/win-condition design discussion.
+Vertical slice built and browser-verified: the objective engine, the mission
+runner, the brief/tracker/debrief UI, palette gating, and the first two missions —
+all on one persistent world (no reset between missions). Golden UNCHANGED at
+`289931028` (campaign is a new tick path; the A&D golden scenario never touches it).
 
-**One Large map, one long war** — a continuous operation fought as sequential
-missions on the SAME persistent map (nothing resets: front line, units, FOBs,
-bridges, wrecks, contacts). Seven-mission arc designed in ROADMAP.md → Game
-Modes → 4. Campaign: LODGMENT (capture/defend/stronghold) → LINES OF SUPPLY
-(build a FOB + convoy) → EYES FORWARD (ISR the belt) → SEIZE THE CROSSING →
-BREAK THE BELT → DEEP OPERATIONS → THE OBJECTIVE. Framework fit: missions
-generalize `checkEnd` into **objective specs** (hold-for-time / build-X /
-deliver-N / recon-% / seize-area / destroy-set) run sequentially over
-persistent state, with scripted OPFOR posture per phase; failing a mission
-sags the front rather than ending the campaign. Hard prerequisite:
-*Save / Continue*. RunStats becomes the campaign ledger. Greyed entry already
-on the splash.
+**What's built:**
+- `engine/campaign.ts` — the campaign runtime. Objectives are DATA (an
+  `ObjectiveSpec` = `kind` + flat params), evaluated by the pure `evalObjective`
+  switch, so `CampaignState` stays fully serializable for the deferred Save/Continue.
+  Four verbs live so far (of the six-verb vocabulary): `clear-area`, `defeat-group`,
+  `build`, `deliver`. A `Mission` is `{ brief, objectives[], setup(S), onObjComplete? }`;
+  `MISSIONS` holds M1+M2. Runner: `startCampaign` builds the world once + starts M1;
+  `startMission` overlays a mission (allocations, palette gates, OPFOR placement, AO)
+  on the LIVE state; `runCampaign` (mode `update`) advances objectives and does the
+  SOFT mission transition (debrief → next) without ever freezing/resetting; `ackBriefing`
+  / `continueCampaign` are the UI hooks. `campaignAllows(kind)` is the palette gate.
+- `campaign` is a real `ModeId` in `engine/modes.ts` (setup/update/checkEnd only —
+  checkEnd fires for the WHOLE campaign: `complete` → won, HQ+FOB floor → lost).
+- OPFOR steering: `groupObjective` honours `S.campaign.opforObj`; `spawnCampaignGroup`
+  (opfor/ai) musters a scripted group at a given point (near the fight, not the far base).
+- Palette gating wired at the order entry points (deployUnit/fieldUnit/deployStructure
+  under `field`, fireMission under `support` — OPFOR never gated, deployDrone under
+  `drone`). The campaign's own free placements bypass the gate.
+- UI (`ui/CampaignHUD.tsx`, mounted in App): briefing modal (ACKNOWLEDGE, holds the
+  sim at speed 0), persistent objectives tracker (status glyphs + live progress),
+  debrief modal (CONTINUE → next mission). Campaign victory routes through EndScreen.
+- Splash: CAMPAIGN is a live entry → a difficulty pick → launch. The campaign is
+  ALWAYS the same ground: `App.begin` forces the baked **Chorwon Valley** theater
+  (the Iron Triangle — added to `tools/bake-theaters.mjs` + `theaterIndex.ts`, asset
+  `public/theaters/chorwon.bin`), **Large** size, and a **fixed seed** (`CAMPAIGN_SEED`
+  / `CAMPAIGN_THEATER` in campaign.ts) → an identical, hand-vetted map every playthrough.
+  Real hydrology means the seed's window has a valley river + a road crossing between
+  the HQ corner and the objective town — good ground and a natural foreshadow of the
+  crossing missions.
+- Per-mission **AO crop**: `CampaignState.ao` bounds the camera/pan; M1 crops to the
+  HQ+town pocket (MapView frames + clamps to it, read dynamically so M2 lifting `ao`
+  widens to the full theater without a remount).
+
+**The two missions (as designed with the user, 2026-07-24):**
+- **M1 — LODGMENT (CLEAR & HOLD):** fixed force (MECH/INF/INF/SCT), no fielding, no
+  fires, organic drones only; small supply. `clear-area` the town garrison (2× INF) →
+  `defeat-group` the scripted counterattack (spawned on clear, advances on the town).
+- **M2 — LINES OF SUPPLY (SET UP THE FOB):** M1 force PERSISTS in the town; allocation
+  from higher (+supply, +ENG, +LOG, limited fielding unlocked). `build` a FOB in the
+  town → `deliver` 200 supply to it via a supply run.
+
+**Headless harness:** `.tmp-mig/campaign-check.entry.mjs` (esbuild → run in Node) —
+25/25 assertions covering the full chain. Rebuild with the same esbuild pattern as the
+other checks.
+
+**Still open (design first, then build):** missions 3–7 (EYES FORWARD, SEIZE THE
+CROSSING, BREAK THE BELT, DEEP OPERATIONS, and whatever the operation's end-state is —
+the user explicitly dropped the "march to the enemy HQ" framing). Verbs those will
+add: `hold-for-time`, `recon-%`, `seize-area`. Also deferred: Save/Continue (state is
+built serializable for it), the front-sag failure model (slice has no hard per-mission
+fail — you lose only on the HQ+FOB floor), the full FRAGO/allocation UI, and a proper
+campaign map recipe (river belt + crossings) once the crossing missions need it.
+
+**Decided meanwhile (still current):** main menu is **CAMPAIGN / SKIRMISH / DEV
+SANDBOX**; the player is a **battalion commander**; the campaign is one battalion's war
+with an NPC higher-HQ voice (briefings + NET traffic today). Zone Capture stays parked
+pending a layout/win-condition design pass.
 
 ## Mode 5 — King of the Hill · IMPLEMENTED ✓ (2026-07-23)
 

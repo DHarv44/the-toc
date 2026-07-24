@@ -10,12 +10,14 @@ import { airAvailability, endSortie } from './availability'
 import { targetPoint } from './targeting'
 import { gunshipHowitzerFire } from './gunship'
 import { UNIT_TYPES } from '../forces/catalog'
+import { campaignAllows } from '../../engine/campaign'
 import { toast, radio } from '../comms/radio'
 import { grid, fmtCooldown } from '../../lib/format'
 
 export const AEROSTAT_SCAN_RATE = 0.014 // rad/s at 1× — a full turret sweep takes ~7.5 min (MED)
 
 export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone | null {
+  if (!campaignAllows('drone')) return toast('UAS NOT AUTHORIZED THIS PHASE')
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const spec = DRONE_TYPES[typeKey]
   if (!spec) return null

@@ -37,12 +37,17 @@ export default function MapView() {
     const canvas = canvasRef.current!
     const ctx = canvas.getContext('2d')!
     const terrainLayer = renderTerrainLayer(S.map!)
-    // dev sandbox frames both bases in one screen; a normal game opens on the HQ
+    // dev sandbox frames both bases in one screen; a campaign mission with a cropped
+    // AO opens framed on that pocket; a normal game opens on the HQ
     const dv = S.map!.devView
+    const ao0 = S.campaign?.ao
     const vpMin = Math.min(window.innerWidth || 1280, window.innerHeight || 720)
-    const view = viewRef.current = dv
-      ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
-      : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
+    const view = viewRef.current = ao0
+      ? { cx: (ao0.x0 + ao0.x1) / 2, cy: (ao0.y0 + ao0.y1) / 2,
+          ppm: Math.max(0.02, vpMin / Math.max(ao0.x1 - ao0.x0, ao0.y1 - ao0.y0)) }
+      : dv
+        ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
+        : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
     ;(window as unknown as { __view?: View }).__view = view // dev hook
 
     // The canvas is a flex column between the side rails, so it no longer starts at
@@ -77,12 +82,20 @@ export default function MapView() {
         view.cx = S.map!.fob.x; view.cy = S.map!.fob.y - 2000
         view.ppm = Math.max(0.02, Math.min(canvas.width, canvas.height) / 9000)
       }
-      const minPpm = Math.min(canvas.width, canvas.height) / S.map!.WORLD
+      // camera bound: a campaign mission may crop the world to a smaller AO rect.
+      // Read fresh each call so a mission transition (AO lifted) widens the map
+      // without remounting. Absent → the full square world.
+      const ao = S.campaign?.ao
+      const x0 = ao ? ao.x0 : 0, y0 = ao ? ao.y0 : 0
+      const x1 = ao ? ao.x1 : S.map!.WORLD, y1 = ao ? ao.y1 : S.map!.WORLD
+      const spanX = x1 - x0, spanY = y1 - y0
+      // floor = zoomed out just enough to fit the AO (can't scroll past its edge)
+      const minPpm = Math.min(canvas.width / spanX, canvas.height / spanY)
       view.ppm = Math.max(minPpm, Math.min(1.2, view.ppm))
       const hw = canvas.width / 2 / view.ppm
       const hh = canvas.height / 2 / view.ppm
-      view.cx = hw * 2 >= S.map!.WORLD ? S.map!.WORLD / 2 : Math.max(hw, Math.min(S.map!.WORLD - hw, view.cx))
-      view.cy = hh * 2 >= S.map!.WORLD ? S.map!.WORLD / 2 : Math.max(hh, Math.min(S.map!.WORLD - hh, view.cy))
+      view.cx = hw * 2 >= spanX ? (x0 + x1) / 2 : Math.max(x0 + hw, Math.min(x1 - hw, view.cx))
+      view.cy = hh * 2 >= spanY ? (y0 + y1) / 2 : Math.max(y0 + hh, Math.min(y1 - hh, view.cy))
     }
 
     const w2sX = (x: number) => (x - view.cx) * view.ppm + canvas.width / 2

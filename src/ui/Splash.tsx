@@ -35,7 +35,7 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 }
 
 export default function Splash({ onStart }: { onStart: StartFn }) {
-  const [top, setTop] = useState<'skirmish' | null>(null)
+  const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
   const [size, setSize] = useState<MapSizeKey | null>(null)
   // undefined = not chosen yet · null = procedural · string = theater id
@@ -43,6 +43,7 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
 
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
+    : top === 'campaign' ? 'ONE LONG OPERATION — YOUR FORCE AND YOUR LOSSES CARRY MISSION TO MISSION'
     : gameMode == null ? 'THE MODE SETS THE OBJECTIVE — AND WHAT DEFEAT MEANS'
     : size == null ? 'MAP SIZE SETS THE ROOM — AND THE FORCE CAPS THAT COME WITH IT'
     : terrain === undefined ? 'REAL GROUND, SEEDED WAR — EVERY THEATER YIELDS MANY BATTLEFIELDS'
@@ -73,7 +74,8 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
       {top == null ? (
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>NEW GAME</SectionLabel>
-          <ComingSoon label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward" />
+          <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
+            accent="#7ec8ff" onClick={() => setTop('campaign')} />
           <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
             accent="#2a5a8a" onClick={() => setTop('skirmish')} />
 
@@ -81,6 +83,20 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
           <SectionLabel>SANDBOX</SectionLabel>
           <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
             accent="#3a5a3a" onClick={() => onStart('dev')} />
+        </div>
+      ) : top === 'campaign' ? (
+        <div style={{ position: 'relative', width: 340 }}>
+          <SectionLabel>CAMPAIGN · DIFFICULTY</SectionLabel>
+          {DIFFICULTY_ORDER.map((k) => {
+            const d = DIFFICULTIES[k]
+            return (
+              <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
+                stats={toughness(d.damageMul)}
+                recommended={k === DEFAULT_DIFFICULTY}
+                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon')} />
+            )
+          })}
+          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
       ) : gameMode == null ? (
         <div style={{ position: 'relative', width: 340 }}>
