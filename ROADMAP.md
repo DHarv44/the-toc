@@ -1116,6 +1116,16 @@ Terrain should block sight and fire, not just slow movement:
 ## Sustainment
 
 ### The Battalion Roster — People Are the Unit ⬜ *(designed 2026-07-24 with Dave — the personnel layer)*
+
+> **Engine prerequisite in progress (2026-07-24): the Force Composition Model** —
+> `src/FORCE-MODEL.md`. M1 playtesting showed infantry with UNLIMITED anti-armor
+> fire (a symptom of aggregate DPS-blob units); the fix and this roster share one
+> foundation: units composed of typed vehicles + soldiers + weapons + ammo, with
+> individuals as the source of truth and strength/firepower DERIVED. Phase 1
+> (catalog compositions for all 12 unit types, drift-checked against the
+> hand-tuned aggregates) landed golden-neutral; Phases 2–4 (runtime rosters →
+> derived combat + munitions → roster surfaces) are the build order. Composition
+> over inheritance; plain serializable data; no database.
 The inversion that makes the battalion real: **the roster is fixed and made of named
 people; materiel is just supply.** You never get new units — you get your wounded back,
 replacement vehicles for surviving crews, and empty seats where the KIA were.
@@ -1150,6 +1160,12 @@ replacement vehicles for surviving crews, and empty seats where the KIA were.
   tree with name/rank/position/status (DUTY · WIA-EVAC · RTD 20:00 · KIA · MIA/POW)
   plus the casualty log. And the net gets teeth: "CONTACT — SGT MILLER IS HIT,
   REQUESTING CASEVAC." For this audience (law 0), that line changes the game.
+- **A bio for every troop (Dave, 2026-07-24)** — click any soldier and see a short
+  military bio / backstory (hometown, MOS, time in service, a humanizing line or
+  two, generated at roster creation and stable for the campaign). Status is part
+  of the story: WIA shows the wound and evac state, KIA the date/place of loss.
+  The point is weight — losses should read as people, not counters. Rides on the
+  Force Composition Model's Soldier objects (src/FORCE-MODEL.md, Phase 4).
 - Build order: (1) roster data + name/rank generation + S1 readout · (2) WIA/KIA +
   golden hour + ground CASEVAC to the FOB aid station · (3) MEDEVAC bird + the 9-line
   request flow (absorbs *Casualties & MEDEVAC* below) · (4) vehicle replacement
