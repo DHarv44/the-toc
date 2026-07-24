@@ -1101,6 +1101,47 @@ Terrain should block sight and fire, not just slow movement:
 
 ## Sustainment
 
+### The Battalion Roster — People Are the Unit ⬜ *(designed 2026-07-24 with Dave — the personnel layer)*
+The inversion that makes the battalion real: **the roster is fixed and made of named
+people; materiel is just supply.** You never get new units — you get your wounded back,
+replacement vehicles for surviving crews, and empty seats where the KIA were.
+- **Full roster, element-mapped (decided)** — every element the sim tracks is a person:
+  each rendered troop = one named soldier, each vic = a named crew (TC/gunner/driver).
+  ≈150–250 names for the battalion TF with realistic ranks and positions (1LT PLs, SFC
+  PSGs, SSG squad leaders…). Honest to the sim: the people on the roster are exactly
+  the people visible in the feed. Skirmish generates a fresh roster per match; the
+  **campaign carries THE roster** across missions.
+- **WIA / KIA split with a golden hour** — a downed element rolls wounded vs. killed
+  (cover and circumstances weighting it). WIA deteriorate toward KIA on a clock;
+  **CASEVAC'd wounded recover and return to duty**. KIA are permanent. Reconstitution
+  is reinterpreted honestly: returning treated wounded and cross-leveling — never
+  spawning bodies.
+- **Reward CASEVAC; platoons almost never wipe (decided)** — a platoon at low strength
+  breaks contact and calls its own 9-line (unit SOP + the auto-break item under Combat
+  & Tactics); getting people out is the rewarded play.
+  - **The open debate**: if the OPFOR preserves its people symmetrically, do we ever
+    beat it? Direction: victory is *breaking* formations, not exterminating them — a
+    broken enemy platoon that escapes still lost its vehicles (materiel attrition is
+    real attrition) and its formation's cohesion; objectives decide matches. Likely
+    lever: **OPFOR casualty tolerance as a difficulty setting** (Recruit OPFOR breaks
+    early; Elite fights nearly to the death). TO BE PLAYTESTED/DEBATED.
+- **Vehicles are supply — with the catch** — a destroyed vic is replaceable at a
+  FOB/HQ for supply and time, **but only for a surviving crew**. Lose the vic, save
+  the crew → the platoon regenerates. Lose the crew → no amount of supply mans that
+  seat. Protecting dismounted survivor crews becomes real gameplay.
+- **MIA / POW stay on the roster (decided)** — surrendered/captured troops are carried
+  as MIA/POW, not written off. Sets up **recovery missions** (campaign material —
+  raids on holding sites; pairs with the HUMINT/EPW machinery, which cuts both ways).
+- **S1 gets its content** — the Staff-Section S1 view becomes the roster: battalion
+  tree with name/rank/position/status (DUTY · WIA-EVAC · RTD 20:00 · KIA · MIA/POW)
+  plus the casualty log. And the net gets teeth: "CONTACT — SGT MILLER IS HIT,
+  REQUESTING CASEVAC." For this audience (law 0), that line changes the game.
+- Build order: (1) roster data + name/rank generation + S1 readout · (2) WIA/KIA +
+  golden hour + ground CASEVAC to the FOB aid station · (3) MEDEVAC bird + the 9-line
+  request flow (absorbs *Casualties & MEDEVAC* below) · (4) vehicle replacement
+  decoupled from personnel · (5) campaign persistence + POW recovery missions ·
+  (6) OPFOR casualty-tolerance difficulty lever.
+
 ### Ammo & Fuel Consumption + Accompanying Logistics 🟡 *(indirect-fire basic load shipped 2026-07-24: MOR/ARTY carry 48 rounds, both sides — fireMission consumes them, WINCHESTER blocks at zero, trickle resupply within 350 m of an own-side HQ/FOB (0.5 rd/s) or 150 m of an own-side LOG truck (1 rd/s), calm only; rounds shown on the tray card and the fire-mission menu. Fuel, small-arms ammo, and the deeper LOG mechanics below remain open.)*
 Make the LOG chain operationally decisive:
 - Units **consume ammo and fuel**; run dry and they can't fire / can't move until resupplied
@@ -1119,14 +1160,15 @@ Make the LOG chain operationally decisive:
 - Design notes: a helo resupply action that delivers an ammo (later fuel/medical) bundle to a
   friendly unit's position; reuses the helo platform + the unit ammo pools above.
 
-### Casualties & MEDEVAC (9-Line)
+### Casualties & MEDEVAC (9-Line) *(now step 3 of The Battalion Roster — see Sustainment)*
 Give losses weight and a recovery path, requested like a call for fire:
 - Casualties can be **evacuated via a 9-line MEDEVAC request** — same request/approve pattern
   as the artillery/CAS call, dispatching a medevac bird to pick up wounded and recover strength
   rather than writing those losses off.
 - Design notes: mirror the call-for-fire flow with a MEDEVAC 9-line form/toast; a medevac helo
   flies to the unit, and evacuated casualties return strength (at a FOB/aid station); wounded vs.
-  killed split feeds how much is recoverable.
+  killed split feeds how much is recoverable. **The WIA/KIA/golden-hour mechanics now live in
+  *The Battalion Roster* — this entry is its MEDEVAC delivery step.**
 
 ## Audio
 
