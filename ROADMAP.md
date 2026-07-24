@@ -264,13 +264,30 @@ Defense v1 and the Difficulty Presets are ✅ shipped — see the Shipped Archiv
 follow-ups from Base Defense v1 live in the stub below.)*
 
 ### Base Defense v1 — Follow-Ups ⬜
-The mode is playable end-to-end (archive entry has the record); three deliberate v1 cuts:
+The mode is playable end-to-end (archive entry has the record); deliberate v1 cuts plus
+the wave-direction rework (added 2026-07-23):
+- **No enemy HQ** — waves shouldn't muster at a hostile base at all (today they launch
+  from the OPFOR HQ, which also means killing it insta-wins the mode). The threat is
+  *off-map*: waves enter from the map edge.
+- **Waves attack from different directions — smartly, not random 360°** — pick a small
+  set of viable **avenues of approach** at setup (road entries, valley floors, covered
+  ground — terrain the M-track now understands) and vary among them: consecutive waves
+  shift axis, some probe one side then commit another.
+- **Wave tactics, not just columns** — give waves shapes: **direct attack** down the
+  main avenue; **supporting + flanking** (a fixing element on one axis while a flank
+  element swings wide); later waves combining both with fires in support. The scripted
+  comp table grows an axis/scheme per wave.
 - A manual **"READY" trigger** to call the next wave early (banked intermission time as
   bonus payout?).
 - **Difficulty scaling** of the wave table — identical on Recruit and Elite today; only
   the player-side levers differ.
-- **Wave pacing on larger maps** — foot-heavy early waves walk a long way (consider
-  spawn-closer or transport-only comps for waves 1–2).
+- **Wave pacing on larger maps** — foot-heavy early waves walk a long way (edge-entry
+  spawning above largely solves this; tune remaining walk time per map size).
+- Design notes: edge-entry spawn replaces `fieldingBase()` for this mode (spawn just
+  outside the AO on the chosen avenue, or at the edge until M3c's oversized world gives
+  real off-map ground); avenue selection can reuse road entries + the pathfinding cost
+  field; a wave becomes `{comp, axis, scheme}` instead of just a comp list; flanking
+  elements are the same battlegroup machinery with a different aim point.
 
 ### Earned Income — Tie Supply to Ground Held ⬜
 Upkeep now caps how big a force you can sustain, but the *gross* rate is still a flat
@@ -1345,10 +1362,21 @@ machine, same browser*, so it's all client-side:
 
 ## Bugs & Fixes
 
-**No open bugs.** Every tracked bug is fixed — records in the Shipped Archive → Fixed
-Bugs. One carried-forward nice-to-have lives with *Threat-Aware Routing*: a friendly
-unit whose route is impassable should get a fallback (re-plan / cross-country / abort)
-instead of only reporting the failure.
+### Trees Growing on Roads (drone feed) ⬜ *(added 2026-07-23)*
+Roads cut through forest, but the feed's instanced trees spawn on any forest cell —
+including cells a road polyline passes through — so trunks stand in the middle of the
+carriageway.
+- Design notes: the tree placement loop in `DroneView getDetail()` checks
+  `terr === T_FOREST` only. Cheapest fix: also skip cells with `road[ci]` set (cell-
+  granular; may clear slightly wide). Cleaner: distance-to-road test — sample the road
+  raster at the jittered tree position (or a couple of points around it) so trees keep
+  crowding the verge but never stand on the deck. Same check should apply to the
+  buildings loop for urban cells a road crosses.
+
+Everything else tracked is fixed — records in the Shipped Archive → Fixed Bugs. One
+carried-forward nice-to-have lives with *Threat-Aware Routing*: a friendly unit whose
+route is impassable should get a fallback (re-plan / cross-country / abort) instead of
+only reporting the failure.
 
 ## Later / Deferred
 
