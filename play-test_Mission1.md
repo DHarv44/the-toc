@@ -82,3 +82,23 @@ Adjustment options for the discussion:
 2. Give the M1 fixed force an organic MOR section + a prep-fires tutorial beat
    ("suppress the town before the assault") — teaches the real lesson.
 3. Keep 2×INF but make the counterattack the main event (garrison token).
+
+---
+
+## TUNING APPLIED 2026-07-24 — option 1 + recon screens
+
+Decision: **option 1** (mortars/prep-fires deferred to M3's fires introduction), plus:
+because the garrison is hidden until it fires, **the recon platoon now starts on
+BREAK ROE** — a concealed garrison springing on the scouts triggers a break-contact
+drill instead of a stand-and-die. (M1 tutorial instructions will be reworked for
+the recon-screen flow — pending.)
+
+Changes (engine/campaign.ts M1 setup): garrison `['INF','INF']` → `['INF']` with
+`stowage.M_JAVELIN = 0` (second-line troops, AT4s only); friendly SCT `roe='break'`.
+
+**Verified (phase3-check 13/13, campaign-check 27/27, golden unchanged
+`2409198223`):** the WORST case — a lone MECH platoon pushing frontally into the
+town with zero support — now survives at **38%** (2 of 4 Bradleys lost) and clears
+the garrison in ~6 min. The tutorial's 3-platoon group assault is strictly easier;
+losses should be light on Recruit. Counterattack (MECH+INF vs the player's force in
+urban cover) remains the real fight, as intended.

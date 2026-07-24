@@ -116,7 +116,10 @@ export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState):
 // Mission content — M1 (CLEAR & HOLD) and M2 (SET UP THE FOB). More land later.
 // ---------------------------------------------------------------------------
 const M1_FORCE: readonly UnitTypeKey[] = ['MECH', 'INF', 'INF', 'SCT'] // carries drones; enough to clear + hold
-const M1_GARRISON: readonly UnitTypeKey[] = ['INF', 'INF']            // the 1–2 defenders holding the town
+// One second-line rifle platoon holds the town (tuned 2026-07-24 after the
+// Phase 3 playtest: a full-AT urban garrison beats even proper tactics — see
+// play-test_Mission1.md). Its Javelins are stripped in setup (AT4s only).
+const M1_GARRISON: readonly UnitTypeKey[] = ['INF']
 const M1_REINFORCE: readonly UnitTypeKey[] = ['MECH', 'INF']          // the counterattack that tries to retake
 
 // muster point for the counterattack: off the enemy-ward side of the town so it
@@ -172,13 +175,23 @@ export const MISSIONS: readonly Mission[] = [
       const town = c.strongpoint
       // this phase: no fielding, no support; organic drones only
       c.allow = { field: false, support: false, drone: true }
-      // the town garrison — loose defenders that hold where they sit
+      // the town garrison — loose defenders that hold where they sit.
+      // Second-line troops: Javelins stripped (AT4s only), so armor that
+      // respects the close-ambush band can actually break them.
       M1_GARRISON.forEach((k, i) => {
         const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y + 80)
-        spawnEnemy(k, p.x, p.y)
+        const g = spawnEnemy(k, p.x, p.y)
+        g.stowage.M_JAVELIN = 0
       })
       // the fixed force, near the HQ
       placeForce(S, M1_FORCE, S.map!.fob, 260)
+      // scouts screen, they don't slug: the recon platoon starts on BREAK so a
+      // concealed garrison springing on it triggers a break-contact drill, not
+      // a stand-up fight (the tutorial's recon-forward flow depends on this;
+      // mission instructions get reworked for it later)
+      for (const u of S.units) {
+        if (u.side === 'friend' && u.type === 'SCT') u.roe = 'break'
+      }
       // the counterattack (spawned on clear) will advance on the town
       c.opforObj = { x: town.x, y: town.y }
       // fill the objective zones now that the anchor is known

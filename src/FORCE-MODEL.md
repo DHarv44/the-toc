@@ -114,7 +114,7 @@ Unit     ...command fields unchanged... + soldiers: Soldier[], vehicles: Vehicle
       **Strength inversion deferred to Phase 4**: `strength` stays the damage
       ledger (roster mirrors it); flipping to per-soldier damage allocation
       pays off only with WIA/KIA rolls, so it lands with them.
-      **M1 playtest finding (needs Dave decision — mission CONTENT, not model):**
+      **M1 playtest finding (needs a design decision — mission CONTENT, not model):**
       even proper tactics lose to the current M1 garrison. Urban concealment
       means defenders open the fight at their chosen range (~550 m), the halt
       drill stops armor inside the 400 m close-ambush band (×2.2), and the
@@ -122,9 +122,12 @@ Unit     ...command fields unchanged... + soldiers: Soldier[], vehicles: Vehicle
       garrison 89/87%; even a TANK platoon vs a 1×INF garrison → tanks dead
       (garrison 70%), Javelins fully expended. Standoff gunnery vs concealed
       urban infantry doesn't exist by design, and M1 withholds the doctrinal
-      counter (prep fires). Options: shrink the garrison to 1×INF without
-      Javelins (second-line troops), give the M1 force organic mortars + a
-      prep-fires tutorial beat, and/or delay garrison dig-in. See
+      counter (prep fires). **RESOLVED same day (option 1 chosen):** M1 garrison
+      is now 1×INF with Javelins stripped (AT4s only) and the recon platoon
+      starts on BREAK (screens the hidden garrison instead of dying to it);
+      worst-case lone-MECH frontal assault survives at 38% and clears in ~6 min
+      (phase3-check 13/13). Mortars/prep-fires deferred to M3's fires intro;
+      the M1 tutorial gets a recon-screen rework later. See
       play-test_Mission1.md.
 - [ ] **Phase 4 — Roster surfaces.** Names, S1 view, campaign persistence,
       CASEVAC/WIA/KIA/MIA states. The Battalion Roster roadmap item lands here —
