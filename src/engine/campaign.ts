@@ -22,10 +22,10 @@ export const CAMPAIGN_SEED = 1
 // harness): the SE window of the chorwon patch — an open southern valley walled
 // by the HILL 894 ridge east and hill country west, a major river system
 // mid-map, opening north toward the plain. The town chain IS the campaign
-// spine, south → north: ASHFORD (M1 lodgment / M2 FOB) → BREVIK (river
-// crossing) → CALDER (crossroads) → DORAN (valley mouth) → the enemy base on
-// the northern edge; ELMSTED hangs west off the MSR as a flank objective.
-// Roads/hamlets/features still generate procedurally from these nodes.
+// spine, south → north: ASHFORD (the lodgment fight — OBJ KEATON / FOB KEATON)
+// → BREVIK (river crossing) → CALDER (crossroads) → DORAN (valley mouth) → the
+// enemy base on the northern edge; ELMSTED hangs west off the MSR as a flank
+// objective. Roads/hamlets/features still generate procedurally from these nodes.
 import type { MapLayout } from '../world/mapgen'
 export const CAMPAIGN_LAYOUT: MapLayout = {
   window: { ox: 256, oy: 224 },
@@ -94,6 +94,7 @@ export interface ObjectiveSpec {
 export interface CampaignObjective extends ObjectiveSpec {
   frago?: { title: string; text: string }        // tasking card dropped at activation (after the opener)
   onActivate?(S: GameState): void                // scripted setup the moment this objective goes active
+  onComplete?(S: GameState): void                // scripted beat the moment it completes (e.g. naming the FOB)
 }
 
 export interface Operation {
@@ -190,17 +191,17 @@ export const OPERATION: Operation = {
   name: 'LODGMENT',
   brief:
     'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
-    + 'seize the crossroads town to your front — it owns the road net. Intel has '
-    + 'marked a SUSPECTED garrison position on your map, but they are CONCEALED '
-    + 'in the buildings: you will not see them until your '
-    + 'scouts find them or they open fire. Scouts screen forward — they are set to '
-    + 'break contact if engaged. Expect a counterattack once you take the town. '
-    + 'No fielding, no fires to start; your platoons and their organic UAS are '
-    + 'what you have. Follow-on taskings will come by FRAGO. '
-    + 'FIND THEM. CLEAR THE TOWN. HOLD IT.',
+    + 'seize the crossroads town to your front, designated OBJECTIVE KEATON — '
+    + 'it owns the road net. Intel has marked UNKNOWN enemy contacts in the '
+    + 'town, but they are CONCEALED in the buildings: you will not see them '
+    + 'until your scouts find them or they open fire. Scouts screen forward — '
+    + 'they are set to break contact if engaged. Expect a counterattack once '
+    + 'you take the town. No fielding, no fires to start; your platoons and '
+    + 'their organic UAS are what you have. Follow-on taskings will come by '
+    + 'FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.',
   objectives: [
     {
-      id: 'clear', label: 'CLEAR THE TOWN', kind: 'clear-area',
+      id: 'clear', label: 'CLEAR OBJ KEATON', kind: 'clear-area',
       onActivate(S) {
         const c = S.campaign!
         const town = c.strongpoint
@@ -225,6 +226,7 @@ export const OPERATION: Operation = {
           S.contacts.set(g.id, {
             x: p.x + (S.rng!() - 0.5) * 380, y: p.y + (S.rng!() - 0.5) * 380,
             type: k, lastSeen: 0, live: false, strength: 100,
+            unknown: true, // presence assessed, composition unidentified — a "?"
           })
         })
         // the fixed force, near the HQ
@@ -253,15 +255,15 @@ export const OPERATION: Operation = {
       },
     },
     {
-      id: 'fob', label: 'ESTABLISH THE FOB', kind: 'build', structKind: 'FOB',
+      id: 'fob', label: 'ESTABLISH FOB KEATON', kind: 'build', structKind: 'FOB',
       frago: {
         title: 'LINES OF SUPPLY',
         text:
           'GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics '
           + 'platoon are pushing up to you from the rear — bring them forward and '
-          + 'establish a FOB in the town, then run a supply line up to it. You may '
-          + 'field a unit or two off the allocation if you need them. ESTABLISH THE '
-          + 'FOB. OPEN THE SUPPLY LINE.',
+          + 'establish FOB KEATON in the town, then run a supply line up to it. '
+          + 'You may field a unit or two off the allocation if you need them. '
+          + 'ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE.',
       },
       onActivate(S) {
         const c = S.campaign!
@@ -285,6 +287,14 @@ export const OPERATION: Operation = {
         const log = deployUnit('LOG', entry.x + 90, entry.y, true)
         if (log) orderMove(log.id, rvLog.x, rvLog.y)
         OPERATION.objectives[2]!.zone = { x: town.x, y: town.y, r: 520 }
+      },
+      onComplete(S) {
+        // the finished installation takes its name from the order
+        const c = S.campaign!
+        const fob = S.structures.find(st => st.side === 'friend' && st.kind === 'FOB'
+          && Math.hypot(st.x - c.strongpoint.x, st.y - c.strongpoint.y) <= 520)
+        if (fob) fob.label = 'FOB KEATON'
+        radio('NET', 'arrive', 'FOB KEATON IS OPEN FOR BUSINESS', fob?.x, fob?.y)
       },
     },
     { id: 'route', label: 'OPEN THE SUPPLY LINE', kind: 'deliver', amount: 200 },
@@ -401,6 +411,7 @@ export function runCampaign(S: GameState, _dt: number): void {
 
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
+  obj.onComplete?.(S)
   c.objIdx++
 
   if (c.objIdx >= OPERATION.objectives.length) {

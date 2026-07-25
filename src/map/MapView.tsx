@@ -1154,9 +1154,11 @@ export default function MapView() {
         for (const [, c] of S.contacts) {
           const type = UNIT_TYPES[c.type]
           const age = S.t - c.lastSeen
+          // intel-seeded contacts of unidentified composition draw as a "?" —
+          // scouts turn them into typed tracks by actually spotting them
           drawUnitSymbol(ctx, w2sX(c.x), w2sY(c.y), {
-            side: 'hostile', glyph: type.glyph, stale: !c.live,
-            label: c.live ? type.abbr : `LKP ${Math.floor(age / 60)}M`,
+            side: 'hostile', glyph: c.unknown ? 'unk' : type.glyph, stale: !c.live,
+            label: c.unknown ? 'UNK' : c.live ? type.abbr : `LKP ${Math.floor(age / 60)}M`,
             strength: c.strength ?? 100,
           })
         }

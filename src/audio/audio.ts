@@ -12,7 +12,7 @@ let master: GainNode | null = null
 let noiseBuf: AudioBuffer | null = null
 let muted = false // sound on by default; the HUD mute button toggles this
 let radioBus: GainNode | null = null // narrow-band + crunch bus that all net chatter routes through
-let radioIn: BiquadFilterNode | null = null // chatter voices connect here (was radioBus.inNode)
+let radioIn: AudioNode | null = null // chatter voices connect here (was radioBus.inNode)
 let lastRadio = -99 // throttle timestamp so transmissions don't stack
 const RADIO_VOL = 0.7
 
@@ -265,14 +265,33 @@ export function radioMsg(text: string, seed = '', priority = 0): void {
 }
 
 // Long-form briefing voice — the DIV commander on a SECURE VTC. Same syllable
-// engine as the net chatter, but conference-grade: a deep, measured command
-// register, sentence-paced with real breath pauses, minimal channel noise, and
-// no 3 s transmission cap (bounded ~22 s so a long FRAGO trails off instead of
+// engine as the net chatter, but conference-grade: a deep command register,
+// sentence-paced with real breath pauses, minimal channel noise, and no 3 s
+// transmission cap (bounded ~22 s so a long FRAGO trails off instead of
 // droning). The tactical net yields while the CG talks. Returns the scheduled
-// duration in seconds (0 = audio unavailable) so the UI can animate the
-// "speaking" indicator for exactly that long.
+// duration in seconds (0 = audio unavailable / voice muted) so the UI can
+// animate the "speaking" indicator for exactly that long.
+//
+// Cadence is deliberately VARIED (a flat metronome reads robotic even for a
+// general): emphasized words stretch and lift, syllables fall through a word,
+// mid-sentence phrase breaks land every few words, and sentence-final words
+// drop pitch — measured, not repetitive.
+let briefMuted = false
+let briefGain: GainNode | null = null // the CURRENT brief's kill switch
+export function isBriefMuted(): boolean { return briefMuted }
+export function setBriefMuted(m: boolean): void {
+  briefMuted = !!m
+  if (briefMuted) stopBrief()
+}
+export function stopBrief(): void {
+  if (!briefGain || !ctx) return
+  const t = ctx.currentTime
+  briefGain.gain.setValueAtTime(briefGain.gain.value, t)
+  briefGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08)
+  briefGain = null
+}
 export function radioBrief(text: string, seed = 'DIV-CG'): number {
-  if (muted) return 0
+  if (muted || briefMuted) return 0
   ensureAudio()
   if (!audioReady() || !radioBus) return 0
   const v: VoiceProfile = {
@@ -282,6 +301,15 @@ export function radioBrief(text: string, seed = 'DIV-CG'): number {
     staticAmt: 0.015,                              // secure link, not a whip antenna
     growl: true,
   }
+  // route this brief through its own gain so MUTE can cut it mid-sentence —
+  // the schedule-time helpers all connect into `radioIn`, so swap it for the
+  // synchronous scheduling pass and restore after
+  const g = ctx!.createGain()
+  g.connect(radioIn!)
+  const realIn = radioIn
+  radioIn = g
+  briefGain = g
+
   let t = ctx!.currentTime + 0.15
   const t0 = t
   radioClick(t, 0.3); t += 0.12
@@ -291,23 +319,38 @@ export function radioBrief(text: string, seed = 'DIV-CG'): number {
   for (const sent of sentences) {
     const words = sent.replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean)
     let contour = 0.05
-    for (const w of words) {
-      const n = sylCount(w)
+    let sincePause = 0
+    for (let wi = 0; wi < words.length; wi++) {
+      const n = sylCount(words[wi]!)
+      const last = wi === words.length - 1
+      // ~1 in 5 words carries emphasis (ALL-CAPS staff shouting always does)
+      const emph = words[wi]!.length > 3 && (words[wi] === words[wi]!.toUpperCase() || Math.random() < 0.2)
+      if (last) contour -= 0.08                     // statement-final pitch drop
+      if (emph) contour += 0.06
       for (let k = 0; k < n; k++) {
         if (t - t0 > CAP) break outer
-        const pitch = v.pitch * (1 + contour) * (0.98 + Math.random() * 0.04)
-        const dur = 0.15 + Math.random() * 0.08    // slower, measured delivery
+        // syllables FALL through a word: first stressed and longest, tail quicker
+        const posMul = k === 0 ? (emph ? 1.35 : 1.1) : 1 - k * 0.08
+        const pitch = v.pitch * (1 + contour) * (0.98 + Math.random() * 0.04) * (k === 0 && emph ? 1.05 : 1)
+        const dur = (0.13 + Math.random() * 0.1) * posMul
         radioSyllable(t, pitch, v, dur)
-        t += dur + 0.07
-        contour += (Math.random() - 0.5) * 0.04
+        t += dur + 0.05 + Math.random() * 0.04
+        contour += (Math.random() - 0.5) * 0.05
       }
-      t += 0.14
-      contour = contour * 0.85 - 0.015             // settling statement inflection
+      t += 0.09 + Math.random() * 0.14              // uneven word spacing
+      contour = contour * 0.85 - 0.015              // settling statement inflection
+      // phrase break: a beat of air every few words, like reading off notes
+      if (++sincePause >= 3 + (Math.random() * 4 | 0) && !last) {
+        t += 0.22 + Math.random() * 0.18
+        sincePause = 0
+        contour = 0.04
+      }
     }
-    t += 0.5                                        // breath between sentences
+    t += 0.35 + Math.random() * 0.4                 // breath between sentences
   }
   radioStatic(t0 - 0.02, (t - t0) + 0.06, 0.012)
   radioSquelch(t + 0.05)
+  radioIn = realIn // restore the shared net input
   lastRadio = t + 0.05 // the net stays quiet while higher is talking
   return (t - ctx!.currentTime) + 0.2
 }

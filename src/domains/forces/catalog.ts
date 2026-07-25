@@ -11,6 +11,7 @@ export type UnitCategory = 'MANEUVER' | 'RECON' | 'FIRES' | 'SUPPORT'
 export type UnitGlyph =
   | 'inf' | 'mech' | 'arm' | 'at' | 'sct' | 'cav'
   | 'mor' | 'arty' | 'eng' | 'sig' | 'log'
+  | 'unk' // intel contact of unidentified composition — drawn as a "?"
 
 // UAS types a unit hand-launches from the field. Kept as a literal union here
 // (rather than importing the air catalog) so forces stays upstream of air in the

@@ -1,11 +1,15 @@
 // DIV HQ secure video conference — how orders arrive. A FRAGO opens a mock VTC
 // window: the commanding general's "camera" feed (stylized silhouette, speaking
-// bars driven by the procedural briefing voice) beside a staff-officer POWERPOINT
-// slide rendered live from the world state (map crop, axis of advance, objective
-// graphics, FLOT). The opening OPORD is the first VTC (blocking, sim held);
+// bars driven by the procedural briefing voice), the task force's platoon
+// leaders as attendee tiles below, and a staff POWERPOINT deck rendered live
+// from world state. The opening OPORD is the first VTC (blocking, sim held);
 // FRAGOs mid-fight are non-blocking — the world keeps running while higher
 // talks. Every received order lands in CampaignState.fragoLog and can be
 // recalled (replayed) from the objectives tracker at any time.
+//
+// The deck: THREE slides for this operation — CLEAR the town, DEFEND it until
+// the FOB stands, BUILD the FOB — each just what a staff slide would carry: a
+// map inset with operational graphics and a handful of task fragments.
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import { useUI } from './store'
@@ -13,7 +17,7 @@ import { ackBriefing, ackFrago } from '../engine/campaign'
 import { renderTerrainLayer, TERRAIN_PX } from '../map/mapRender'
 import { CELL } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
-import { radioBrief } from '../audio/audio'
+import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/audio'
 
 const AMBER = '#e8b34a'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
@@ -25,124 +29,265 @@ function terrainLayer(): HTMLCanvasElement {
   return _terrain.cv
 }
 
+const townName = (): string => {
+  const t = S.campaign?.strongpoint
+  if (!t || !S.map) return 'THE TOWN'
+  const tw = S.map.towns.find(x => Math.hypot(x.x - t.x, x.y - t.y) < 200)
+  return tw?.name ?? 'THE TOWN'
+}
+
 // ---------------------------------------------------------------------------
-// The slide: one OPORD graphic drawn from live campaign data. Deliberately
-// styled like the real thing — white deck, banner, title block, map inset with
-// operational graphics, task bullets.
+// Slide plumbing: shared deck chrome + a world→slide projection for the map
+// inset, then one body function per slide.
 // ---------------------------------------------------------------------------
-function drawSlide(cv: HTMLCanvasElement, title: string, text: string): void {
+interface Inset {
+  ctx: CanvasRenderingContext2D
+  x: (wx: number) => number
+  y: (wy: number) => number
+  rect: { x: number; y: number; w: number; h: number }
+}
+
+interface Slide {
+  title: () => string
+  // frame: world center + span for the map inset
+  frame: () => { cx: number; cy: number; span: number }
+  body: (i: Inset) => void
+  bullets: () => string[]
+}
+
+function drawFlot(i: Inset): void {
+  const cf = controlField(S)
+  if (!cf) return
+  const { ctx } = i
+  ctx.strokeStyle = 'rgba(170,30,30,0.9)'
+  ctx.lineWidth = 1.6
+  ctx.setLineDash([5, 4])
+  ctx.beginPath()
+  for (const p of cf.paths) {
+    ctx.moveTo(i.x(p[0]!.x), i.y(p[0]!.y))
+    for (let k = 1; k < p.length; k++) ctx.lineTo(i.x(p[k]!.x), i.y(p[k]!.y))
+  }
+  ctx.stroke()
+  ctx.setLineDash([])
+}
+
+function drawObjective(i: Inset, label: string): void {
+  const t = S.campaign!.strongpoint
+  const { ctx } = i
+  ctx.strokeStyle = '#a01414'
+  ctx.lineWidth = 1.8
+  ctx.beginPath(); ctx.ellipse(i.x(t.x), i.y(t.y), 24, 17, 0, 0, Math.PI * 2); ctx.stroke()
+  ctx.fillStyle = '#a01414'
+  ctx.font = 'bold 9px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(label, i.x(t.x), i.y(t.y) - 21)
+}
+
+function drawHq(i: Inset): void {
+  const hq = S.map!.fob
+  const { ctx } = i
+  ctx.fillStyle = '#1e50a0'
+  ctx.fillRect(i.x(hq.x) - 6, i.y(hq.y) - 4, 12, 8)
+  ctx.fillStyle = '#fff'
+  ctx.font = 'bold 6px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('HQ', i.x(hq.x), i.y(hq.y) + 2)
+}
+
+function drawContacts(i: Inset): void {
+  const { ctx } = i
+  for (const ct of S.contacts.values()) {
+    ctx.save(); ctx.translate(i.x(ct.x), i.y(ct.y)); ctx.rotate(Math.PI / 4)
+    ctx.strokeStyle = '#a01414'; ctx.lineWidth = 1.4
+    ctx.strokeRect(-4, -4, 8, 8)
+    ctx.restore()
+    if (ct.unknown) {
+      ctx.fillStyle = '#a01414'
+      ctx.font = 'bold 8px Consolas, monospace'
+      ctx.textAlign = 'center'
+      ctx.fillText('?', i.x(ct.x), i.y(ct.y) + 2.5)
+    }
+  }
+}
+
+// fat military arrow from a to b (slide coords), friendly blue or enemy red
+function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, enemy = false): void {
+  const a = Math.atan2(y1 - y0, x1 - x0)
+  const L = Math.hypot(x1 - x0, y1 - y0)
+  ctx.save()
+  ctx.translate(x0, y0); ctx.rotate(a)
+  ctx.fillStyle = enemy ? 'rgba(160,20,20,0.45)' : 'rgba(30,80,160,0.55)'
+  ctx.strokeStyle = enemy ? 'rgba(130,15,15,0.9)' : 'rgba(20,60,130,0.9)'
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.moveTo(0, -5); ctx.lineTo(L - 16, -5); ctx.lineTo(L - 16, -11)
+  ctx.lineTo(L, 0)
+  ctx.lineTo(L - 16, 11); ctx.lineTo(L - 16, 5); ctx.lineTo(0, 5)
+  ctx.closePath(); ctx.fill(); ctx.stroke()
+  ctx.restore()
+}
+
+const corridorFrame = () => {
+  const hq = S.map!.fob, t = S.campaign!.strongpoint
+  return {
+    cx: (hq.x + t.x) / 2, cy: (hq.y + t.y) / 2,
+    span: Math.max(Math.hypot(t.x - hq.x, t.y - hq.y) * 1.7, 3600),
+  }
+}
+
+const DECK: Slide[] = [
+  // 1 — CLEAR: the approach and the objective
+  {
+    title: () => `CLEAR OBJ KEATON — ${townName()}`,
+    frame: corridorFrame,
+    body(i) {
+      drawFlot(i)
+      const hq = S.map!.fob, t = S.campaign!.strongpoint
+      drawArrow(i.ctx, i.x(hq.x), i.y(hq.y), i.x(t.x), i.y(t.y) + 20)
+      drawObjective(i, 'OBJ KEATON')
+      drawContacts(i)
+      drawHq(i)
+    },
+    bullets: () => [
+      `UNKNOWN enemy contacts reported in ${townName()} — SCT locate and identify.`,
+      `Platoons follow the MSR, FIX and CLEAR the town.`,
+      `No fielding, no fires this phase — organic UAS only.`,
+    ],
+  },
+  // 2 — DEFEND: battle positions facing the enemy, expected counterattack
+  {
+    title: () => 'DEFEND OBJ KEATON',
+    frame: () => {
+      const t = S.campaign!.strongpoint
+      return { cx: t.x, cy: t.y - 200, span: 3000 }
+    },
+    body(i) {
+      drawFlot(i)
+      const t = S.campaign!.strongpoint
+      const { ctx } = i
+      // battle-position arc on the enemy-ward (north) side of the town
+      ctx.strokeStyle = 'rgba(20,60,130,0.95)'
+      ctx.lineWidth = 2.4
+      ctx.beginPath()
+      ctx.arc(i.x(t.x), i.y(t.y) + 8, 34, Math.PI * 1.12, Math.PI * 1.88)
+      ctx.stroke()
+      ctx.fillStyle = '#1e50a0'
+      ctx.font = 'bold 8px Arial, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('BP 1', i.x(t.x), i.y(t.y) - 34)
+      // the expected counterattack: enemy arrow in from the north
+      drawArrow(ctx, i.x(t.x) + 26, i.y(t.y) - 105, i.x(t.x) + 6, i.y(t.y) - 34, true)
+      ctx.fillStyle = '#a01414'
+      ctx.fillText('CATK', i.x(t.x) + 40, i.y(t.y) - 96)
+      drawObjective(i, 'OBJ KEATON')
+    },
+    bullets: () => [
+      `Occupy the town — platoons ON LINE through the buildings.`,
+      `DIG IN. Urban cover + prepared positions.`,
+      `Defeat the expected counterattack from the north.`,
+      `HOLD until FOB KEATON stands.`,
+    ],
+  },
+  // 3 — BUILD FOB: sustainment forward, the supply line
+  {
+    title: () => `ESTABLISH FOB KEATON — ${townName()}`,
+    frame: corridorFrame,
+    body(i) {
+      drawFlot(i)
+      const hq = S.map!.fob, t = S.campaign!.strongpoint
+      const { ctx } = i
+      // the supply route: dashed friendly line HQ → FOB along the corridor
+      ctx.strokeStyle = 'rgba(20,60,130,0.9)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([7, 5])
+      ctx.beginPath()
+      ctx.moveTo(i.x(hq.x), i.y(hq.y))
+      ctx.lineTo(i.x(t.x), i.y(t.y) + 14)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle = '#1e50a0'
+      ctx.font = 'bold 8px Arial, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('MSR', i.x((hq.x + t.x) / 2) + 16, i.y((hq.y + t.y) / 2))
+      // FOB symbol in the town
+      ctx.fillStyle = '#1e50a0'
+      ctx.fillRect(i.x(t.x) - 7, i.y(t.y) - 5, 14, 10)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 6px Arial, sans-serif'
+      ctx.fillText('FOB', i.x(t.x), i.y(t.y) + 2)
+      drawHq(i)
+    },
+    bullets: () => [
+      `ENG establish FOB KEATON inside ${townName()}.`,
+      `LOG open a standing supply run, HQ → KEATON.`,
+      `Deliver 200 supply to stock KEATON.`,
+    ],
+  },
+]
+
+function drawSlide(cv: HTMLCanvasElement, idx: number): void {
   const ctx = cv.getContext('2d')!
-  const W = cv.width, H = cv.height
-  const m = S.map, c = S.campaign
+  // the canvas is 2× its logical size — draw in logical coords, scaled, so the
+  // big window stays crisp
+  ctx.setTransform(2, 0, 0, 2, 0, 0)
+  const W = cv.width / 2, H = cv.height / 2
+  const slide = DECK[idx]!
   ctx.fillStyle = '#f0efe8'
   ctx.fillRect(0, 0, W, H)
 
-  // exercise banners (the fictional classification strip)
+  // classification strip (fictional — it's a game slide, styled like the real deck)
   ctx.fillStyle = '#8c1d1d'
   ctx.fillRect(0, 0, W, 15); ctx.fillRect(0, H - 15, W, 15)
   ctx.fillStyle = '#f0e6d0'
   ctx.font = 'bold 8px Consolas, monospace'
   ctx.textAlign = 'center'
-  ctx.fillText('EXERCISE EXERCISE EXERCISE', W / 2, 11)
-  ctx.fillText('EXERCISE EXERCISE EXERCISE', W / 2, H - 5)
+  ctx.fillText('SECRET//NOFORN', W / 2, 11)
+  ctx.fillText('SECRET//NOFORN', W / 2, H - 5)
 
   // title block
   ctx.fillStyle = '#161616'
   ctx.textAlign = 'left'
-  ctx.font = 'bold 15px Arial, sans-serif'
-  ctx.fillText(title, 14, 34)
+  ctx.font = 'bold 16px Arial, sans-serif'
+  ctx.fillText(slide.title(), 16, 36)
   ctx.font = '9px Consolas, monospace'
   ctx.fillStyle = '#555'
-  const dtg = c ? `${String(Math.floor(S.t / 3600)).padStart(2, '0')}${String(Math.floor(S.t / 60) % 60).padStart(2, '0')}Z` : '0000Z'
-  ctx.fillText(`DIV HQ  ·  DTG ${dtg}  ·  SLIDE 1 OF 1`, 14, 46)
+  const dtg = `${String(Math.floor(S.t / 3600)).padStart(2, '0')}${String(Math.floor(S.t / 60) % 60).padStart(2, '0')}Z`
+  ctx.fillText(`DIV HQ  ·  DTG ${dtg}  ·  SLIDE ${idx + 1} OF ${DECK.length}`, 16, 48)
   ctx.strokeStyle = '#999'
-  ctx.beginPath(); ctx.moveTo(14, 51); ctx.lineTo(W - 14, 51); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(16, 53); ctx.lineTo(W - 16, 53); ctx.stroke()
 
-  if (!m || !c) return
-  const hq = m.fob, town = c.strongpoint
+  if (!S.map || !S.campaign) return
 
-  // map inset: crop framing the HQ → objective corridor
-  const MX = 14, MY = 60, MW = 235, MH = H - 60 - 24
-  const cx = (hq.x + town.x) / 2, cy = (hq.y + town.y) / 2
-  const span = Math.max(Math.hypot(town.x - hq.x, town.y - hq.y) * 1.7, 3600)
-  const sx = cx - span / 2, sy = cy - span * (MH / MW) / 2
-  const k = MW / span // slide px per meter
-  const w2x = (wx: number) => MX + (wx - sx) * k
-  const w2y = (wy: number) => MY + (wy - sy) * k
+  // map inset
+  const MX = 16, MY = 62, MW = 300, MH = H - 62 - 26
+  const f = slide.frame()
+  const sx = f.cx - f.span / 2, sy = f.cy - f.span * (MH / MW) / 2
+  const k = MW / f.span
+  const inset: Inset = {
+    ctx,
+    x: (wx) => MX + (wx - sx) * k,
+    y: (wy) => MY + (wy - sy) * k,
+    rect: { x: MX, y: MY, w: MW, h: MH },
+  }
   ctx.save()
   ctx.beginPath(); ctx.rect(MX, MY, MW, MH); ctx.clip()
-  const tpm = TERRAIN_PX / CELL // terrain-layer px per meter
-  ctx.drawImage(terrainLayer(), sx * tpm, sy * tpm, span * tpm, span * tpm * (MH / MW), MX, MY, MW, MH)
-
-  // FLOT trace over the inset
-  const cf = controlField(S)
-  if (cf) {
-    ctx.strokeStyle = 'rgba(170,30,30,0.9)'
-    ctx.lineWidth = 1.6
-    ctx.setLineDash([5, 4])
-    ctx.beginPath()
-    for (const p of cf.paths) {
-      ctx.moveTo(w2x(p[0]!.x), w2y(p[0]!.y))
-      for (let i = 1; i < p.length; i++) ctx.lineTo(w2x(p[i]!.x), w2y(p[i]!.y))
-    }
-    ctx.stroke()
-    ctx.setLineDash([])
-  }
-
-  // axis of advance: fat friendly arrow HQ → objective
-  {
-    const x0 = w2x(hq.x), y0 = w2y(hq.y), x1 = w2x(town.x), y1 = w2y(town.y)
-    const a = Math.atan2(y1 - y0, x1 - x0)
-    const L = Math.hypot(x1 - x0, y1 - y0) - 22
-    ctx.save()
-    ctx.translate(x0, y0); ctx.rotate(a)
-    ctx.fillStyle = 'rgba(30,80,160,0.55)'
-    ctx.strokeStyle = 'rgba(20,60,130,0.9)'
-    ctx.lineWidth = 1.4
-    ctx.beginPath()
-    ctx.moveTo(0, -5); ctx.lineTo(L - 16, -5); ctx.lineTo(L - 16, -11)
-    ctx.lineTo(L, 0)
-    ctx.lineTo(L - 16, 11); ctx.lineTo(L - 16, 5); ctx.lineTo(0, 5)
-    ctx.closePath(); ctx.fill(); ctx.stroke()
-    ctx.restore()
-  }
-
-  // objective graphic + suspected enemy + own HQ
-  ctx.strokeStyle = '#a01414'
-  ctx.lineWidth = 1.8
-  ctx.beginPath(); ctx.ellipse(w2x(town.x), w2y(town.y), 21, 15, 0, 0, Math.PI * 2); ctx.stroke()
-  ctx.fillStyle = '#a01414'
-  ctx.font = 'bold 9px Arial, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.fillText('OBJ', w2x(town.x), w2y(town.y) - 19)
-  for (const ct of S.contacts.values()) {
-    const x = w2x(ct.x), y = w2y(ct.y)
-    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4)
-    ctx.strokeStyle = '#a01414'; ctx.lineWidth = 1.4
-    ctx.strokeRect(-4, -4, 8, 8)
-    ctx.restore()
-  }
-  ctx.fillStyle = '#1e50a0'
-  ctx.fillRect(w2x(hq.x) - 5, w2y(hq.y) - 4, 10, 8)
-  ctx.fillStyle = '#fff'
-  ctx.font = 'bold 6px Arial, sans-serif'
-  ctx.fillText('HQ', w2x(hq.x), w2y(hq.y) + 2)
+  const tpm = TERRAIN_PX / CELL
+  ctx.drawImage(terrainLayer(), sx * tpm, sy * tpm, f.span * tpm, f.span * tpm * (MH / MW), MX, MY, MW, MH)
+  slide.body(inset)
   ctx.restore()
   ctx.strokeStyle = '#444'
   ctx.lineWidth = 1
   ctx.strokeRect(MX, MY, MW, MH)
 
-  // task bullets: the FRAGO's sentences, staff-fragment style
-  const bx = MX + MW + 12, bw = W - bx - 14
+  // task bullets
+  const bx = MX + MW + 14, bw = W - bx - 16
   ctx.fillStyle = '#161616'
   ctx.font = 'bold 10px Arial, sans-serif'
   ctx.textAlign = 'left'
-  ctx.fillText('TASKINGS', bx, MY + 8)
+  ctx.fillText('TASKS', bx, MY + 8)
   ctx.font = '9.5px Arial, sans-serif'
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5)
-  let y = MY + 24
-  for (const s of sentences) {
-    // wrap each bullet to the column
+  let y = MY + 26
+  for (const s of slide.bullets()) {
     const words = s.trim().split(/\s+/)
     let line = '•'
     for (const w of words) {
@@ -150,29 +295,76 @@ function drawSlide(cv: HTMLCanvasElement, title: string, text: string): void {
         ctx.fillText(line, bx, y); y += 12
         line = '  ' + w
       } else line += ' ' + w
-      if (y > H - 30) break
     }
-    if (y > H - 30) { ctx.fillText('  …', bx, y); break }
-    ctx.fillText(line, bx, y); y += 16
+    ctx.fillText(line, bx, y); y += 17
+    if (y > H - 26) break
   }
+}
+
+// ---------------------------------------------------------------------------
+// Camera tiles
+// ---------------------------------------------------------------------------
+function CamTile({ label, sub, h, speaking, bars }: {
+  label: string; sub?: string; h: number; speaking?: boolean; bars?: boolean
+}) {
+  return (
+    <div style={{
+      position: 'relative', height: h, borderRadius: 3, overflow: 'hidden',
+      background: 'radial-gradient(circle at 50% 42%, #22303c 0%, #101820 70%)',
+      border: '1px solid #24343f',
+    }}>
+      <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="xMidYMax meet">
+        <ellipse cx="50" cy="40" rx="15" ry="18" fill="#060a0e" />
+        <path d="M 18 100 Q 22 64 50 62 Q 78 64 82 100 Z" fill="#060a0e" />
+        <rect x="44" y="68" width="12" height="5" fill="#3a4a34" />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px)',
+      }} />
+      {bars && (
+        <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 2, alignItems: 'flex-end', height: 14 }}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <span key={i} style={{
+              width: 3, background: speaking ? '#7ec87e' : '#33454f', height: 4 + (i % 3) * 4,
+              animation: speaking ? `vtcBar 0.${5 + i}s ease-in-out infinite alternate` : 'none',
+            }} />
+          ))}
+        </div>
+      )}
+      {!bars && (
+        // attendees are on receive: mic-muted glyph
+        <div style={{ position: 'absolute', left: 6, bottom: 4, fontSize: 9, color: '#6a4a4a' }}>🎙̶</div>
+      )}
+      <div style={{
+        position: 'absolute', right: 5, bottom: 4, fontSize: 8, letterSpacing: 1,
+        color: '#9ab8d0', background: 'rgba(6,10,14,0.75)', padding: '1px 5px', borderRadius: 2,
+        whiteSpace: 'nowrap',
+      }}>{label}{sub ? ` · ${sub}` : ''}</div>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
 // The window
 // ---------------------------------------------------------------------------
-export function VtcWindow({ entry, blocking, onClose }: {
+export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
   entry: { title: string; text: string }
   blocking?: boolean
+  startSlide?: number
   onClose: () => void
 }) {
   const [phase, setPhase] = useState<'link' | 'live'>('link')
   const [speaking, setSpeaking] = useState(false)
+  const [slide, setSlide] = useState(startSlide)
+  const [voiceOff, setVoiceOff] = useState(isBriefMuted())
   const slideRef = useRef<HTMLCanvasElement>(null)
 
   // connect beat, then the CG reads the order (speaking bars run for the
-  // exact scheduled duration; 0 = audio unavailable, bars stay still)
+  // exact scheduled duration; 0 = audio unavailable/muted, bars stay still)
   useEffect(() => {
     setPhase('link')
+    setSlide(startSlide)
     const t1 = setTimeout(() => {
       setPhase('live')
       const dur = radioBrief(entry.text)
@@ -182,17 +374,39 @@ export function VtcWindow({ entry, blocking, onClose }: {
         return () => clearTimeout(t2)
       }
     }, 900)
-    return () => clearTimeout(t1)
+    return () => { clearTimeout(t1); stopBrief() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry])
 
+  // the deck auto-advances like a briefing being walked: 10 s a page, wrapping.
+  // Manual ◀ ▶ clicks restart the timer (this effect re-runs on any change).
   useEffect(() => {
-    if (phase === 'live' && slideRef.current) drawSlide(slideRef.current, entry.title, entry.text)
-  }, [phase, entry])
+    if (phase !== 'live') return
+    const t = setTimeout(() => setSlide(s => (s + 1) % DECK.length), 10000)
+    return () => clearTimeout(t)
+  }, [phase, slide])
+
+  useEffect(() => {
+    if (phase === 'live' && slideRef.current) drawSlide(slideRef.current, slide)
+  }, [phase, slide, entry])
+
+  // attendee tiles: the task force's platoon leaders on the call
+  const attendees = S.units
+    .filter(u => u.side === 'friend' && u.strength > 0)
+    .slice(0, 4)
+
+  const navBtn = (dir: -1 | 1, label: string) => (
+    <button onClick={() => setSlide(s => Math.max(0, Math.min(DECK.length - 1, s + dir)))}
+      style={{
+        padding: '2px 10px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+        background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
+        color: '#9ab8d0', fontSize: 10, letterSpacing: 1,
+      }}>{label}</button>
+  )
 
   const win = (
     <div style={{
-      width: 700, maxWidth: '92vw',
+      width: 1760, maxWidth: '96vw',
       background: 'rgba(10,14,19,0.97)', border: '1px solid #2a3a48', borderTop: `3px solid ${AMBER}`,
       borderRadius: 4, fontFamily: 'Consolas, monospace', boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
       userSelect: 'none',
@@ -210,64 +424,60 @@ export function VtcWindow({ entry, blocking, onClose }: {
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
           {phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
         </span>
+        <button onClick={() => {
+          const next = !voiceOff
+          setBriefMuted(next)
+          setVoiceOff(next)
+          if (next) setSpeaking(false)
+        }}
+          title={voiceOff ? 'Unmute the briefing voice' : 'Mute the briefing voice'}
+          style={{
+            padding: '2px 9px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+            background: 'rgba(16,26,36,0.85)', border: `1px solid ${voiceOff ? '#6a4a4a' : '#2a3a48'}`,
+            color: voiceOff ? '#c88a8a' : '#9ab8d0', fontSize: 9, letterSpacing: 1.5,
+          }}>{voiceOff ? 'VOICE OFF' : 'VOICE ON'}</button>
       </div>
 
       {phase === 'link' ? (
         <div style={{
-          height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#54708a', fontSize: 11, letterSpacing: 2,
+          height: 760, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#54708a', fontSize: 14, letterSpacing: 2,
           background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0 1px, transparent 1px 3px)',
         }}>
           ▚▞ CONNECTING ▞▚
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 10, padding: 10 }}>
-          {/* the CG's camera */}
-          <div style={{ width: 210, flexShrink: 0 }}>
-            <div style={{
-              position: 'relative', height: 240, borderRadius: 3, overflow: 'hidden',
-              background: 'radial-gradient(circle at 50% 42%, #22303c 0%, #101820 70%)',
-              border: '1px solid #24343f',
-            }}>
-              {/* silhouette */}
-              <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-                <ellipse cx="50" cy="38" rx="15" ry="18" fill="#060a0e" />
-                <path d="M 18 100 Q 22 62 50 60 Q 78 62 82 100 Z" fill="#060a0e" />
-                {/* collar rank flash */}
-                <rect x="44" y="66" width="12" height="5" fill="#3a4a34" />
-              </svg>
-              {/* scanlines */}
-              <div style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px)',
-              }} />
-              {/* speaking bars */}
-              <div style={{ position: 'absolute', left: 8, bottom: 8, display: 'flex', gap: 2, alignItems: 'flex-end', height: 14 }}>
-                {[0, 1, 2, 3, 4].map(i => (
-                  <span key={i} style={{
-                    width: 3, background: speaking ? '#7ec87e' : '#33454f', height: 4 + (i % 3) * 4,
-                    animation: speaking ? `vtcBar 0.${5 + i}s ease-in-out infinite alternate` : 'none',
-                  }} />
-                ))}
-              </div>
-              <div style={{
-                position: 'absolute', right: 8, bottom: 8, fontSize: 8.5, letterSpacing: 1.5,
-                color: '#9ab8d0', background: 'rgba(6,10,14,0.75)', padding: '2px 6px', borderRadius: 2,
-              }}>CG · DIV</div>
+        <div style={{ display: 'flex', gap: 12, padding: 12 }}>
+          {/* roster column: the CG + attendees */}
+          <div style={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <CamTile label="CG · 1CD" h={390} bars speaking={speaking} />
+            <div style={{ fontSize: 9, letterSpacing: 2, color: '#54708a' }}>
+              {speaking ? '— CG TRANSMITTING —' : 'CG STANDING BY'}
             </div>
-            <div style={{ marginTop: 6, fontSize: 9, lineHeight: 1.5, color: '#54708a', letterSpacing: 1 }}>
-              {speaking ? '— TRANSMITTING —' : 'STANDING BY'}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {attendees.map(u => (
+                <CamTile key={u.id} label={u.label} h={124} />
+              ))}
             </div>
           </div>
-          {/* the slide */}
-          <canvas ref={slideRef} width={460} height={300}
-            style={{ width: 460, height: 300, borderRadius: 2, flexShrink: 0 }} />
+          {/* the deck */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+            <canvas ref={slideRef} width={1180} height={756}
+              style={{ width: '100%', borderRadius: 2 }} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+              {navBtn(-1, '◀')}
+              <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#54708a' }}>
+                SLIDE {slide + 1} / {DECK.length}
+              </span>
+              {navBtn(1, '▶')}
+            </div>
+          </div>
         </div>
       )}
 
       {/* footer */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' }}>
-        <button onClick={() => { onClose(); bump() }}
+        <button onClick={() => { stopBrief(); onClose(); bump() }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = AMBER }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3a48' }}
           style={{
@@ -296,19 +506,21 @@ export function VtcWindow({ entry, blocking, onClose }: {
       background: 'radial-gradient(circle at 50% 30%, rgba(14,26,36,0.95) 0%, rgba(5,8,11,0.97) 70%)',
     }}>{win}</div>
   ) : (
-    <div style={{ position: 'fixed', top: 46, left: '50%', transform: 'translateX(-50%)', zIndex: 104 }}>
+    <div style={{ position: 'fixed', top: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 104 }}>
       {win}
     </div>
   )
 }
 
 // Non-blocking VTC host: mounts whenever a FRAGO is open (new tasking or a
-// recall from the log). The sim keeps running underneath.
+// recall from the log). The sim keeps running underneath. The LINES OF SUPPLY
+// call opens on the FOB slide; everything else starts at slide 1.
 export function VtcFrago() {
   useUI((s) => s.tick)
   const c = S.campaign
   if (!c || c.complete || !c.briefed || c.frago == null) return null
-  return <VtcWindow entry={c.frago} onClose={() => ackFrago(S)} />
+  const start = c.frago.title === 'LINES OF SUPPLY' ? 2 : 0
+  return <VtcWindow entry={c.frago} startSlide={start} onClose={() => ackFrago(S)} />
 }
 
 // Blocking opener: the campaign's first VTC — the OPORD from higher. Holds the

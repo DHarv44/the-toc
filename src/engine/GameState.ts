@@ -289,6 +289,8 @@ export interface Contact {
   lastSeen: number
   live: boolean
   strength: number
+  unknown?: boolean // intel-seeded: presence assessed, composition NOT identified
+                    // (renders as a "?" contact; cleared when actually spotted)
 }
 
 // --- comms ----------------------------------------------------------------

@@ -150,6 +150,13 @@ function drawGlyph(ctx: Ctx2D, glyph: UnitGlyph, color: string, w: number, h: nu
   ctx.lineWidth = 1.4
   const hw = w / 2 - 2, hh = h / 2 - 2
   switch (glyph) {
+    case 'unk':
+      // unidentified composition: a "?" in the frame (intel-seeded contacts)
+      ctx.font = `bold ${Math.round(h * 0.9)}px Consolas, monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', 0, 1)
+      break
     case 'inf':
       ctx.beginPath()
       ctx.moveTo(-hw, -hh); ctx.lineTo(hw, hh)
