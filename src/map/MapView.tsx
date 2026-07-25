@@ -484,13 +484,13 @@ export default function MapView() {
       // Mirrors the splash screen (radial wash + faint grid) so fit-to-screen reads
       // as a framed view rather than a clipped one.
       const bg = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.3, Math.max(W, H) * 0.8)
-      bg.addColorStop(0, night ? '#0e1a24' : '#1a2a36')
-      bg.addColorStop(1, night ? '#05080b' : '#0b1218')
+      bg.addColorStop(0, night ? '#232427' : '#2f3033')
+      bg.addColorStop(1, night ? '#1a1b1d' : '#242528')
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, W, H)
       ctx.save()
       ctx.globalAlpha = night ? 0.12 : 0.09
-      ctx.strokeStyle = '#2a3a48'
+      ctx.strokeStyle = '#4a4d52'
       ctx.lineWidth = 1
       ctx.beginPath()
       for (let gx = 0; gx <= W; gx += 48) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H) }
