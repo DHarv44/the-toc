@@ -68,3 +68,17 @@
       letterhead on the paper (paper tone: dark ink, muted gold motto)
 - [x] DIV HQ VTC deck masthead — VERIFIED on the campaign opener (1CD patch,
       DIV HQ plate, FIRST TEAM, "America's First Team", DIVISION MAIN sub)
+
+## COMMAND rail rework (2026-07-25 late — task #34)
+- [x] Rail renamed COMMAND; garrison by warfighting function (MANEUVER/RECON/
+      FIRES/SUPPORT); rows are REAL elements ("1st PLT · A CO", "SCT PLT ·
+      HHC"); only 2-8 CAV + ATT shown — VERIFIED live incl. fieldSlot ⊕
+      (row → ✓ FIELDED, ECHO-5 in Battle Groups with true lineage)
+- [ ] EYES ONLY: Battle Groups ＋ ADD UNIT — attach an independent to a formed
+      group; CANCEL row; group membership updates
+- [ ] EYES ONLY: DIVISION — REQUESTS section at the CP (all asset kinds,
+      one-stop) — request flow unchanged from palette rows elsewhere
+- [ ] NOTE behavior change: FOBs no longer field ground units (no garrison
+      there — the CP is the motor pool); confirm this feels right in play
+- [ ] Cold-start tutorial full run: select CP → field SCT PLT → BREAK SOP →
+      field 3+ → screen/Raven/contact → battle group → attack → occupy → dig in

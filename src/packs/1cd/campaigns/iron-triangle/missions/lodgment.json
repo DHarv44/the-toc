@@ -73,7 +73,7 @@
             "action": "LEFT-CLICK CP GARRYOWEN.",
             "anchor": { "kind": "struct", "struct": "HQ" } },
           { "text": "SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest — it goes first, before anything else rolls.",
-            "action": "CLICK the ⊕ on the Scout Section row in the COMMAND rail.",
+            "action": "CLICK the ⊕ on the SCT PLT row, under RECON in the COMMAND rail.",
             "anchor": { "kind": "ui", "sel": "field-SCT" } }
         ],
         "done": { "kind": "fielded", "type": "SCT", "min": 1 }
@@ -101,7 +101,7 @@
             "action": "LEFT-CLICK CP GARRYOWEN to open the COMMAND rail.",
             "anchor": { "kind": "struct", "struct": "HQ" } },
           { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements. The mix is your call as commander: two Bradley platoons and the mortars is a solid start for clearing a town.",
-            "action": "CLICK ⊕ on the rows you want (three or more).",
+            "action": "CLICK ⊕ on the platoons you want (three or more) — MANEUVER and FIRES.",
             "anchor": { "kind": "ui", "sel": "field-MECH" } }
         ],
         "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }

@@ -1,10 +1,12 @@
-// The left side (P5): TWO independent flyout rails side by side, JBC-P style —
-// INSTALLATIONS (bases, the deploy palette, each base's FACILITIES) and
-// BATTLE GROUPS (the fielded force — formed groups first, then independents).
-// Each collapses to its own strip; both, one or neither can be open.
+// The left side (P5, reworked task #34): TWO independent flyout rails side by
+// side, JBC-P style — COMMAND (bases, the GARRISON by echelon — fielding calls
+// up real org elements — plus each base's facilities/ISR/QRF) and BATTLE
+// GROUPS (the fielded force — formed groups first, then independents, with
+// ADD UNIT task-organization). Each collapses to its own strip.
+import { useState } from 'react'
 import { Box, Text } from '@mantine/core'
 import { S } from '../engine/state'
-import { fieldUnit, installFacility } from '../domains/installations/orders'
+import { fieldSlot, fieldUnit, installFacility } from '../domains/installations/orders'
 import { fieldAerostat, fieldUnitDrone } from '../domains/air/orders'
 import { requestAsset } from '../domains/assets/service'
 import { toggleQrf } from '../domains/defense/qrf'
@@ -23,7 +25,7 @@ const ROSTER_KINDS: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
 export default function CommandPanel() {
   const ui = useUI()
   return (
-    <Rail side="left" title="INSTALLATIONS" width={RAIL_W.left} open={ui.leftOpen} onToggle={ui.toggleLeft}
+    <Rail side="left" title="COMMAND" width={RAIL_W.left} open={ui.leftOpen} onToggle={ui.toggleLeft}
       footer={
         <>
           <Text fz={9} c={forceCount() >= forceCap() ? 'orange.5' : 'dark.2'} lh={1.5}>
@@ -89,8 +91,12 @@ function InstallationsRoster() {
 
 // The fielded force, as the S3 sees it: formed battle groups first (units
 // sharing a groupId), then the independents. Click = select + centre.
+// ADD UNIT (task #34): task-organize a fielded INDEPENDENT into an existing
+// group — attach in the field, never field from here (forces are generated
+// at a base, organized out here).
 function BattleGroups() {
   const ui = useUI()
+  const [adding, setAdding] = useState<number | null>(null)
   const units = S.units.filter(u => u.side === 'friend' && u.strength > 0)
   const groups = new Map<number, typeof units>()
   const solo: typeof units = []
@@ -122,6 +128,27 @@ function BattleGroups() {
       {[...groups.entries()].map(([gid, list]) => (
         <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
           {list.map(row)}
+          {solo.length > 0 && adding !== gid && (
+            <PaletteRow label="＋ ADD UNIT" tag="ATTACH AN INDEPENDENT" cost=""
+              onClick={() => setAdding(gid)} />
+          )}
+          {adding === gid && (
+            <>
+              <Text fz={9} c="dark.3" px="xs" pt={4} style={{ letterSpacing: 1 }}>
+                ATTACH TO THIS GROUP:
+              </Text>
+              {solo.map(u => {
+                const t = UNIT_TYPES[u.type]
+                return (
+                  <PaletteRow key={u.id}
+                    icon={<PaletteIcon unit={t} w={34} h={24} scale={0.9} />}
+                    label={`${u.label} · ${t.abbr}`} tag={u.lineage ?? null} cost=""
+                    onClick={() => { u.groupId = gid; setAdding(null) }} />
+                )
+              })}
+              <PaletteRow label="CANCEL" cost="" onClick={() => setAdding(null)} />
+            </>
+          )}
         </RailSection>
       ))}
       <RailSection label={`Independent (${solo.length})`}>
@@ -160,8 +187,9 @@ function DeploySection() {
             // ground units, the aerostat, organic UAS and facility build-outs all
             // act immediately from the selected site/unit — no deploy mode, no
             // map click. Airfield UAS still place an orbit point on the map.
-            const oneClick = (it.field || it.fieldAero || it.fieldDrone || it.installFac || it.reqAsset || it.qrfToggle) && ctx.sourceId != null
+            const oneClick = (it.field || it.fieldSlot || it.fieldAero || it.fieldDrone || it.installFac || it.reqAsset || it.qrfToggle) && ctx.sourceId != null
             const fire = () => {
+              if (it.fieldSlot) return void fieldSlot(it.key!, ctx.sourceId!)
               if (it.qrfToggle) return void toggleQrf(Number(it.key))
               if (it.reqAsset) return void requestAsset(it.key!, ctx.sourceId)
               if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
@@ -183,12 +211,13 @@ function DeploySection() {
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fire() : pick(it.mode))} />
             )
-            // tag rows the campaign tutorial highlights: every FIELD row gets a
-            // generic `field-<TYPE>` anchor (published tutorial vocabulary),
-            // plus the Raven launch and FOB build rows
-            const tutTag = it.key === 'RAVEN' ? 'uas-raven'
-              : it.mode === 'build:FOB' ? 'build-fob'
-              : it.field && it.key ? `field-${it.key}` : null
+            // tag rows the campaign tutorial highlights: garrison rows carry
+            // their own `field-<TYPE>` anchor (tutSel), plus the Raven launch
+            // and FOB build rows
+            const tutTag = it.tutSel
+              ?? (it.key === 'RAVEN' ? 'uas-raven'
+                : it.mode === 'build:FOB' ? 'build-fob'
+                : it.field && it.key ? `field-${it.key}` : null)
             return tutTag
               ? <div key={it.mode} data-tut={tutTag}>{row}</div>
               : row

@@ -136,6 +136,39 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   return u
 }
 
+// Echelon-real fielding (the COMMAND rail): call up a SPECIFIC org element —
+// "A CO 1st PLT", not "a rifle platoon". The slot's people ARE the unit's
+// people; the platoon stages out of the base it is garrisoned at. Type-level
+// caps and refit turnarounds still apply (the motorpool doesn't care which
+// company the hulls belong to).
+export function fieldSlot(slotId: string, structId: number): Unit | null {
+  const sl = S.org?.slots.find(s => s.id === slotId)
+  if (!sl || !sl.type) return null
+  const type = UNIT_TYPES[sl.type]
+  if (!campaignAllows('field')) return toast('FIELDING NOT AUTHORIZED THIS PHASE')
+  if (sl.unitId != null) return toast(`${sl.lin.toUpperCase()} ALREADY FIELDED`)
+  if (!sl.soldiers.some(s => s.status === 'FIT')) return toast(`${sl.lin.toUpperCase()} — NO PERSONNEL FIT FOR DUTY`)
+  const st = S.structures.find(s => s.id === structId && s.side === 'friend')
+  if (!st) return toast('NO FIELDING SITE SELECTED')
+  if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
+  if (st.kind !== 'HQ') return toast(`${st.label} HAS NO GARRISON TO FIELD`)
+
+  const av = unitAvailability(sl.type, 'friend')
+  if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
+  if (av.cooldown > 0) return toast(`${type.abbr} REFITTING — ${fmtCooldown(av.cooldown)}`)
+
+  const mob = type.carrier ? type.carrier.mob : type.mob
+  const spawn = nearestLand(S.map!, st.x, st.y, mob)
+  const u = newUnit(sl.type, 'friend', spawn.x, spawn.y, { slot: sl })
+  S.units.push(u)
+  stampFieldCooldown(sl.type, 'friend')
+
+  const r = rallyPoint(st, mob)
+  netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
+  orderMove(u.id, r.x, r.y)
+  return u
+}
+
 export function deployStructure(kind: StructureTypeKey, x: number, y: number): Structure | null {
   if (!campaignAllows('field')) return toast('CONSTRUCTION NOT AUTHORIZED THIS PHASE')
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)

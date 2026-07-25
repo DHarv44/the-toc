@@ -2,7 +2,7 @@
 // the id/designator counters read from S.counters (the flagged GameState
 // deviation) instead of module-level variables.
 import { S } from '../../engine/state'
-import type { Side, Unit } from '../../engine/GameState'
+import type { OrgSlot, Side, Unit } from '../../engine/GameState'
 import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
@@ -20,8 +20,10 @@ const FRIEND_CALLS = [
 export function newUnit(
   typeKey: UnitTypeKey, side: Side, x: number, y: number,
   // noSlot: a unit that is NOT task-force troops (division asset delivery
-  // convoys) — never draws an org slot, never burns pack lineage
-  opts?: { noSlot?: boolean },
+  // convoys) — never draws an org slot, never burns pack lineage.
+  // slot: field THIS org element (echelon-real fielding — the COMMAND rail
+  // names the platoon; no first-free-of-type draw)
+  opts?: { noSlot?: boolean; slot?: OrgSlot },
 ): Unit {
   const type = UNIT_TYPES[typeKey]
   S.counters.designators[side]++
@@ -34,7 +36,8 @@ export function newUnit(
   // Slot-exhausted overflow (dev sandbox spamming) falls back to the old
   // counter lineage with a fresh provisional roster.
   let lineage: string | undefined, attFrom: string | undefined
-  const slot = side === 'friend' && S.org && !opts?.noSlot ? drawSlot(S.org, typeKey) : null
+  const slot = opts?.slot
+    ?? (side === 'friend' && S.org && !opts?.noSlot ? drawSlot(S.org, typeKey) : null)
   if (slot) {
     lineage = slot.lin
     attFrom = slot.from

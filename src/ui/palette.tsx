@@ -4,6 +4,7 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
+import type { OrgSlot } from '../engine/GameState'
 import { unitAvailability, airAvailability } from '../domains/economy/economy'
 import {
   availableCount, poolOf, tfInstance, orbitAuthority, windowOpen, assetDef,
@@ -112,6 +113,7 @@ export interface PaletteItem {
   mode: string
   key?: string
   field?: boolean
+  fieldSlot?: boolean    // echelon-real fielding: call up THIS org element (key = slot id)
   fieldAero?: boolean
   fieldDrone?: boolean   // organic UAS: one-click launch over the carrying unit
   installFac?: boolean   // FOB facility build-out: one-click install at the site
@@ -123,6 +125,7 @@ export interface PaletteItem {
   icon?: ReactNode
   note?: string | null
   disabled?: boolean
+  tutSel?: string        // published tutorial anchor id this row answers to (data-tut)
 }
 
 export interface DeploySection {
@@ -184,10 +187,59 @@ export const organicDroneItem = (dt: DroneType, unitId: number): PaletteItem => 
   }
 }
 
-const groundSections = (): DeploySection[] => CATS.map(cat => ({
-  header: cat,
-  items: Object.values(UNIT_TYPES).filter(t => t.cat === cat).map(unitItem),
-}))
+// THE GARRISON (echelon-real fielding, task #34): the deployable org elements
+// by company — the player calls up "1st PLT, A CO", not "a rifle platoon".
+// Only the CP fields the garrison; a FOB is a forward base, not a motor pool.
+// Slot state rides on the row: fielded, fit strength, type refit turnaround.
+const slotItem = (sl: OrgSlot): PaletteItem => {
+  const t = UNIT_TYPES[sl.type as UnitTypeKey]
+  const a = unitAvailability(sl.type as UnitTypeKey)
+  const fit = sl.soldiers.filter(s => s.status === 'FIT').length
+  const fielded = sl.unitId != null
+  const noneFit = fit === 0
+  return {
+    mode: 'slot:' + sl.id, key: sl.id, fieldSlot: true,
+    // the element's real lineage leads ("1st PLT · A CO"); the platform type
+    // is the tag — sections group by warfighting function, not company
+    label: `${sl.name} · ${sl.co}`,
+    tag: sl.from ? `${t.name} · ATT ${sl.from}` : t.name,
+    cost: null, icon: <PaletteIcon unit={t} />,
+    note: fielded ? '✓ FIELDED'
+      : noneFit ? 'NO FIT PAX'
+      : a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}`
+      : a.capped ? `${a.used}/${a.max}`
+      : `${fit} PAX`,
+    disabled: fielded || noneFit || !a.ready,
+    // the tutorial's published anchor family: field-<TYPE> rings the first
+    // callable row of that type
+    tutSel: !fielded ? `field-${sl.type}` : undefined,
+  }
+}
+const garrisonSections = (): DeploySection[] => {
+  // COMMAND means command: only what the player commander OWNS — their
+  // battalion and attachments. Sister formations' elements are not theirs to
+  // field; more forces come by REQUEST to division (like assets).
+  const playerBn = playerPack().formation?.playerBn
+  const slots = (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
+    && (sl.bn === playerBn || sl.bde === 'ATT'))
+  // sections by WARFIGHTING FUNCTION (maneuver/recon/fires/support — the
+  // catalog's realistic categories); rows inside keep org order
+  return CATS.map(cat => ({
+    header: cat,
+    items: slots.filter(sl => UNIT_TYPES[sl.type as UnitTypeKey].cat === cat).map(slotItem),
+  })).filter(sec => sec.items.length > 0)
+}
+
+// One-stop asks to higher, at the CP: every requestable division/corps/USAF
+// asset in one section (context rows at the airfield/FOB stay — they carry
+// site-specific state). Unit/attachment requests from sister formations are
+// the NEXT system (the asset pipeline's sibling — see HANDOFF).
+const divisionSections = (): DeploySection[] => {
+  const items = Object.keys(playerPack().assets ?? {})
+    .map(k => requestItem(k))
+    .filter((r): r is PaletteItem => !!r)
+  return items.length ? [{ header: 'DIVISION — REQUESTS', items }] : []
+}
 
 // --- division asset request rows (ASSET-REQUESTS.md) ------------------------
 // One line of truth about where the ask stands: pool availability, a pending
@@ -299,7 +351,8 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
-        sections: [...groundSections(), aerostat,
+        sections: [...(st.kind === 'HQ' ? garrisonSections() : []), aerostat,
+          ...(st.kind === 'HQ' ? divisionSections() : []),
           { header: 'FACILITIES', items: facItems },
           ...(qrfItems.length ? [{ header: 'QUICK REACTION FORCE', items: qrfItems }] : [])],
       }
