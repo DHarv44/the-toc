@@ -139,6 +139,9 @@ export interface Pack {
   names?: NamePools       // personnel name generation inputs
   people?: PeoplePins     // explicit roster pins (override generation)
   assets?: Record<string, PackAsset> // requestable division/corps/USAF assets
+  // pack-declared audio ASSETS (engine synthesizes everything else from spec
+  // params): a different faction's base has a different Big Voice
+  audio?: { incomingAlarm?: string }
   patch?: string          // shoulder-sleeve insignia id — rendered by ui/insignia (keeps pack data JSON-able)
   rankStyle?: string      // rank-insignia style id ('us' chevrons/bars; other armies bring their own)
   // every unit type the game offers is either organic to the formation or an

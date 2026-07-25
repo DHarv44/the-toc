@@ -41,6 +41,7 @@ export const PACK_1CD: Pack = {
     drones: US_DRONES, facilities: US_FACILITIES,
   },
   names: { first: FIRST, last: LAST },
+  audio: { incomingAlarm: '/audio/incoming.mp3' }, // the base's Big Voice
   // Requestable division/corps/USAF assets (ASSET-REQUESTS.md): what the TOC
   // can ask higher for. Pooled counts are the DIVISION's holdings — campaign
   // scripting pre-allocates pieces to sister brigades so scarcity is real.

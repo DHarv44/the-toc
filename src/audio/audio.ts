@@ -6,6 +6,7 @@
 // calls into audio directly) — see the subscription at the bottom.
 import { bus } from '../engine/state'
 import { hashStr } from '../lib/math'
+import { activePack } from '../packs/install'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -446,13 +447,17 @@ export function clearFeedAmbient(feedId: string | number): void {
 // after the last one — one alarm per attack, never one per round.
 const ALARM_TAIL_MS = 10000
 let alarmEl: HTMLAudioElement | null = null
+let alarmSrc = ''
 let alarmLastPing = 0
 let alarmTimer: ReturnType<typeof setInterval> | null = null
 export function incomingAlarm(): void {
   if (muted) return
   alarmLastPing = performance.now()
   if (alarmTimer) return // already sounding — the ping just extends it
-  if (!alarmEl) { alarmEl = new Audio('/audio/incoming.mp3'); alarmEl.volume = 0.55 }
+  // the siren is PACK content — a different faction's base, a different Big Voice
+  const src = activePack('friend')?.audio?.incomingAlarm
+  if (!src) return
+  if (!alarmEl || alarmSrc !== src) { alarmEl = new Audio(src); alarmEl.volume = 0.55; alarmSrc = src }
   alarmEl.loop = true
   alarmEl.currentTime = 0
   void alarmEl.play().catch(() => {}) // pre-gesture autoplay block: alarm just misses once
