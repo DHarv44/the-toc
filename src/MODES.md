@@ -462,3 +462,9 @@ old counter lineage. S1 is now a DIVISION tree — every slot shows FIELDED
 later opens battalion selection from this same data. CAVEAT for Save/Continue:
 unit↔slot rosters are shared references — serialization must re-link (or
 serialize slots as the single source). New insignia: SGM/CSM/WO1/CW2/CW3/BG/MG.
+
+**S1 tabs (2026-07-25):** the console has three views — DIVISION (the full 1CD
+tree), TASK FORCE (how TF COBALT is task-organized: the player battalion
+complete, incl. its staff/TOC slots, plus each enabler's attached slice and the
+donor attachments), and the player-battalion tab (the entire 2-8 CAV roster).
+Expansion keys are shared across tabs; switching a tab pre-expands its tree.
