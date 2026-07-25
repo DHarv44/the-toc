@@ -318,9 +318,11 @@ export default function TutorialOverlay() {
   const hint = steps[c.tutStep]!.hint(S, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route to its waypoint)
 
-  // resolve the ring target: a DOM element, a map unit/point, or nothing
+  // resolve the ring target: a DOM element, a map unit/point, or nothing.
+  // `lift` bottom-anchors the callout (translateY(-100%)) so a box pointing
+  // down at a bottom-tray control stacks ABOVE it, never clipped off-screen.
   let ring: { left: number; top: number; width: number; height: number } | null = null
-  let callout: { left: number; top: number; width: number; pointer?: 'left' | 'right' | 'up' | 'down' } | null = null
+  let callout: { left: number; top: number; width: number; pointer?: 'left' | 'right' | 'up' | 'down'; lift?: boolean } | null = null
 
   // a ring + right-side callout anchored to a world point on the map
   const mapAnchor = (wx: number, wy: number, R: number) => {
@@ -341,7 +343,21 @@ export default function TutorialOverlay() {
     if (el) {
       const r = el.getBoundingClientRect()
       ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
-      callout = { left: r.right + 14, top: Math.max(8, r.top + r.height / 2 - 34), width: 300, pointer: 'left' }
+      const w = 300
+      const vw = window.innerWidth, vh = window.innerHeight
+      if (r.bottom + 140 > vh) {
+        // control sits near the bottom (the selection tray): stack the callout
+        // ABOVE it, bottom-anchored, pointing down — on top of the toolbar,
+        // never clipped by the screen edge
+        const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8)
+        callout = { left, top: r.top - 12, width: w, pointer: 'down', lift: true }
+      } else {
+        // beside the control, flipping left if the right side would clip
+        const fitsRight = r.right + 14 + w <= vw - 8
+        callout = fitsRight
+          ? { left: r.right + 14, top: Math.max(8, r.top + r.height / 2 - 34), width: w, pointer: 'left' }
+          : { left: Math.max(8, r.left - 14 - w), top: Math.max(8, r.top + r.height / 2 - 34), width: w, pointer: 'right' }
+      }
     }
   } else if (hint.targetUnit != null) {
     const u = S.units.find(x => x.id === hint.targetUnit)
@@ -386,10 +402,12 @@ export default function TutorialOverlay() {
         }} />
       )}
 
-      {/* the callout: beside/under the ring, or centered at the map bottom */}
+      {/* the callout: beside/above the ring, or centered at the map bottom.
+          `lift` bottom-anchors it above a tray control (on top of the toolbar). */}
       <div style={bottom
         ? { position: 'fixed', zIndex: 109, left: '50%', bottom: 96, transform: 'translateX(-50%)', width: callout.width, maxWidth: '80vw' }
-        : { position: 'fixed', zIndex: 109, left: callout.left, top: callout.top, width: callout.width }
+        : { position: 'fixed', zIndex: 109, left: callout.left, top: callout.top, width: callout.width,
+            ...(callout.lift ? { transform: 'translateY(-100%)' } : {}) }
       }>
         <div style={{
           position: 'relative',
