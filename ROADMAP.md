@@ -1566,6 +1566,27 @@ only reporting the failure.
 
 ## Later / Deferred
 
+### Pack-driven UI theme ⬜ *(proposed by the user 2026-07-25)*
+The UI theme could OPTIONALLY come from the pack: accent palette (the blues,
+the gold, alert reds), header typography weights, maybe console chrome — so a
+total conversion (Starship Troopers MI, a DPRK OPFOR perspective pack) doesn't
+wear 1CD's colors. Same doctrine as everything else: engine ships the theme
+SLOTS (semantic tokens — accent, alert, paper, motto-gold…), pack optionally
+fills them; no pack CSS/code, just token values in pack.json. Default stays
+the current TOC look when a pack ships no theme.
+
+### Starship Troopers pack ⬜ *(proposed by the user 2026-07-25 — the fun one)*
+Once packs are fully working (campaign-down content: catalogs + campaigns +
+maps + missions all in pack JSON), build a total-conversion **Starship
+Troopers** pack pair as the proof that one pack can change the entire game:
+BLUFOR = Mobile Infantry (marines — their own platforms, ranks, names, radio
+flavor, staff shops, campaign), OPFOR = the Bugs (swarm compositions, no
+vehicles, burrow-spawn "garrisons", warrior/hopper/plasma variants via the
+catalog + composition vocabulary). Would exercise every pack seam at once:
+non-human OPFOR composition, alien "weapons" as ammo/weapon specs, a campaign
+on its own map, and faction-specific audio. Fun first, but also the honest
+stress test of the engine-verbs/pack-nouns doctrine.
+
 ### Civilians & ROE  *(later)*
 Human terrain — neutral civilians, positive-ID, and collateral-damage consequences that give
 precision fires and target designation real moral weight. Deferred for now; the sister gunship

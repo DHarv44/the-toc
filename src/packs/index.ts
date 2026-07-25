@@ -11,7 +11,7 @@
 // - JSON types are wide (string, number[]); the single `as` cast per pack at
 //   the bottom of buildPack is the documented boundary — the P4 runtime
 //   validator replaces it with real checks + readable errors for mod packs.
-import type { Pack, PackCatalogs, NamePools } from './types'
+import type { Pack, PackCatalogs, NamePools, CampaignSpec } from './types'
 import type { DroneType } from '../domains/air/catalog'
 import { installPacks } from './install'
 import usPlatforms from './lib/us-platforms.json'
@@ -19,6 +19,13 @@ import cdManifest from './1cd/pack.json'
 import cdNames from './1cd/names.json'
 import opforManifest from './opfor/pack.json'
 import opforNames from './opfor/names.json'
+// campaign-down content (PACK-MISSIONS.md): each campaign folder ships its
+// manifest + map + mission files. Static imports per folder until the P4
+// runtime loader serves pack folders directly.
+import itManifest from './1cd/campaigns/iron-triangle/campaign.json'
+import itMap from './1cd/campaigns/iron-triangle/map.json'
+import itLodgment from './1cd/campaigns/iron-triangle/missions/lodgment.json'
+import itFobKeaton from './1cd/campaigns/iron-triangle/missions/fob-keaton.json'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
@@ -132,7 +139,16 @@ function buildPack(
   } as Pack
 }
 
+// assemble a campaign folder's files into a CampaignSpec (missions keyed by id;
+// the same documented JSON->typed boundary cast as buildPack)
+function buildCampaign(manifest: unknown, map: unknown, missions: unknown[]): CampaignSpec {
+  const byId: Record<string, unknown> = {}
+  for (const m of missions) byId[(m as { id: string }).id] = m
+  return { manifest, map, missions: byId } as CampaignSpec
+}
+
 export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
+PACK_1CD.campaigns = [buildCampaign(itManifest, itMap, [itLodgment, itFobKeaton])]
 export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
 
 export const PACKS: Record<string, Pack> = {

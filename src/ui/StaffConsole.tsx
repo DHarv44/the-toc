@@ -7,7 +7,7 @@ import { Box, Button, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
 import type { StaffShop } from '../engine/GameState'
-import { OPERATION, openReport, queueReport, recallFrago, unreadReports } from '../engine/campaign'
+import { operation, openReport, queueReport, recallFrago, unreadReports } from '../engine/campaign'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { orbitAuthority, windowOpen } from '../domains/assets/service'
 import { playerPack } from '../packs'
@@ -116,8 +116,8 @@ function S3Console() {
   return (
     <ShopFrame shop="s3">
       {c && (
-        <Section title={`OPERATION ${OPERATION.name}`}>
-          {OPERATION.objectives.map((o, i) => (
+        <Section title={`OPERATION ${operation().name}`}>
+          {operation().objectives.map((o, i) => (
             <Group key={o.id} gap={8} mt={4}>
               <Text span fz={11} fw={700}
                 c={c.status[i] === 'done' ? '#7ec87e' : c.status[i] === 'active' ? '#e8c547' : 'dark.3'}>

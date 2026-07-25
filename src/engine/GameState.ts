@@ -583,6 +583,9 @@ export interface CampaignState {
     pending: Array<{ shop: StaffShop; readyT: number; auto?: boolean }>
     log: Array<{ id: number; shop: StaffShop; title: string; t: number; text: string; read: boolean }>
   }
+  // campaign ANCHORS: named points the manifest declares, resolved once at
+  // start — mission place refs resolve against these by name (PACK-MISSIONS.md)
+  anchors: Record<string, Vec2>
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT

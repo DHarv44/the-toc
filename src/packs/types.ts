@@ -17,6 +17,8 @@ import type {
 } from '../domains/forces/composition'
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
+import type { MapLayout } from '../world/mapgen'
+import type { StructureTypeKey } from '../domains/installations/catalog'
 
 // how a unit type's parent element is designated inside its battalion:
 //  - 'plt'  — numbered platoon in a lettered company ("1st PLT, A CO, 2-8 CAV")
@@ -146,6 +148,114 @@ export interface StaffSection {
   detail: string          // fleshed-out description (console sub-header/help)
 }
 
+// --- campaigns (campaign-down content: see src/PACK-MISSIONS.md) ------------
+// A pack ships CAMPAIGNS; a campaign owns its MAP and its MISSIONS. Missions
+// compose engine verbs (objective kinds, trigger conditions, effects, place
+// refs) in JSON — the engine never knows a place name or a story beat.
+
+// A world point, by reference: a gazetteer name / campaign anchor (string), or
+// an object with modifiers. Builtin anchors: 'player-hq', 'enemy-base'.
+// `toward` + `range` = directional standoff from `place` toward another place.
+export type PlaceRef = string | {
+  place: string
+  offsetX?: number        // meters
+  offsetY?: number        // meters (+south)
+  toward?: string         // stand off from `place` toward this place…
+  range?: number          // …by this many meters
+}
+
+// campaign anchors: named points resolved ONCE at campaign start (stored on
+// CampaignState). Stage-1 query vocabulary: town-nearest.
+export interface AnchorQuery { query: 'town-nearest'; to: string }
+
+export type MissionObjectiveKind = 'clear-area' | 'defeat-group' | 'build' | 'deliver'
+export interface MissionObjective {
+  id: string
+  label: string
+  kind: MissionObjectiveKind
+  zone?: { place: PlaceRef; r: number }  // clear-area / build locus (resolved at activation)
+  groupTag?: string                      // defeat-group: the scripted group's tag
+  structKind?: StructureTypeKey          // build: what to stand up
+  amount?: number                        // deliver: supply to land at the target
+}
+
+// trigger conditions — stage-1 executor fires on objective moments; the wider
+// vocabulary (timers, casualties, favor…) lands with side missions (S4)
+export type MissionCondition =
+  | { kind: 'objective-active'; objective: string }
+  | { kind: 'objective-complete'; objective: string }
+  | { kind: 'structure-exists'; struct: StructureTypeKey }
+  | { kind: 'mainline-at-least'; index: number }
+  | { kind: 'all'; of: MissionCondition[] }
+  | { kind: 'any'; of: MissionCondition[] }
+
+export interface MissionRadio {
+  from: string; cat?: string; text: string
+  at?: 'ctx'              // tag the net entry to the point the previous effect produced
+}
+
+// effects — executed in declaration order; every implementation is engine code
+// (engine/missions/effects.ts). Deterministic: all randomness through S.rng.
+export type MissionEffect =
+  | { kind: 'set-allow'; field: boolean; support: boolean; drone: boolean }
+  | { kind: 'front-line'; place: PlaceRef; offsetY?: number }
+  | { kind: 'spawn-garrison'; at: PlaceRef; units: UnitTypeKey[]; spreadX?: number
+      strip?: string[]                    // stowage keys zeroed (e.g. M_JAVELIN)
+      contact?: { scatter: number; unknown?: boolean } }  // seed a stale COP contact
+  | { kind: 'place-force'; at: PlaceRef; units: UnitTypeKey[]; radius: number }
+  | { kind: 'set-roe'; type: UnitTypeKey; roe: string }
+  | { kind: 'opfor-objective'; place: PlaceRef | null }
+  | { kind: 'spawn-group'; tag: string; units: UnitTypeKey[]; at: PlaceRef }
+  | { kind: 'deploy-column'; units: UnitTypeKey[]; edge: 'south'; margin: number
+      spacing: number; moveTo: { anchor: string; offsets: [number, number][] } }
+  | { kind: 'name-structure'; struct: StructureTypeKey; near: PlaceRef; r: number; label: string }
+  | { kind: 'release-asset'; asset: string; formation: string; radio?: MissionRadio }
+  | { kind: 'radio'; radio: MissionRadio }
+  | { kind: 'toast'; text: string }
+
+export interface MissionTrigger {
+  id: string
+  when: MissionCondition
+  do: MissionEffect[]
+}
+
+export interface MissionSpec {
+  id: string
+  name: string
+  brief?: string          // opener OPORD (campaign's first mission)
+  frago?: { title: string; text: string } // tasking card dropped when the mission activates
+  objectives: MissionObjective[]
+  triggers: MissionTrigger[]
+  // tutorial curriculum rides with the mission (S3 of PACK-MISSIONS.md)
+  tutorial?: unknown
+}
+
+export interface CampaignMapSpec {
+  theater: string         // engine theater id (baked DEM patch) — pack-shipped DEMs are a later stage
+  seed: number
+  layout: MapLayout       // towns/MSR/features — the campaign's GAZETTEER
+}
+
+export interface CampaignManifest {
+  id: string
+  name: string            // campaign display name
+  operation: string       // the operation the mainline constitutes ('LODGMENT')
+  hqLabel: string         // the battalion CP's name
+  airfieldLabel: string   // the CP airstrip's name
+  divHq: { atFrac: { x: number; y: number } } // DIVISION MAIN position (fraction of world)
+  anchors: Record<string, AnchorQuery>
+  preAllocations: Array<{ asset: string; formation: string }>
+  mainline: string[]      // mission ids, in order
+  sideMissions?: Array<{ mission: string; weight: number; cooldownS: number; when: MissionCondition }>
+}
+
+// a fully-loaded campaign: manifest + map + its mission files
+export interface CampaignSpec {
+  manifest: CampaignManifest
+  map: CampaignMapSpec
+  missions: Record<string, MissionSpec>
+}
+
 export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
@@ -174,6 +284,8 @@ export interface Pack {
   mottos?: Record<string, string>
   // battalion nicknames (battalion-specific, unlike regimental mottos)
   nicks?: Record<string, string>
+  // the pack's campaigns (identity content — never falls back), first = default
+  campaigns?: CampaignSpec[]
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const

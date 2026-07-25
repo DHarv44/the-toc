@@ -1,0 +1,19 @@
+{
+  "_doc": "Campaign manifest: identity, the map, campaign anchors (resolved once at start), division pre-allocations (scarcity at H-hour; mission triggers release them), and the mainline mission order. Side-mission pool lands with stage S4 (see src/PACK-MISSIONS.md).",
+  "id": "iron-triangle",
+  "name": "IRON TRIANGLE",
+  "operation": "LODGMENT",
+  "hqLabel": "CP GARRYOWEN",
+  "airfieldLabel": "GARRYOWEN STRIP",
+  "divHq": { "atFrac": { "x": 0.08, "y": 0.94 } },
+  "anchors": {
+    "strongpoint": { "query": "town-nearest", "to": "player-hq" }
+  },
+  "preAllocations": [
+    { "asset": "CRAM", "formation": "2ABCT" },
+    { "asset": "CRAM", "formation": "3ABCT" },
+    { "asset": "SHADOW", "formation": "1ACB" },
+    { "asset": "SENTINEL", "formation": "CORPS MAIN" }
+  ],
+  "mainline": ["lodgment", "fob-keaton"]
+}

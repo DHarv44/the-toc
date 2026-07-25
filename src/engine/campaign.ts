@@ -11,62 +11,19 @@
 import { S } from './state'
 import type { GameState, CampaignState, Soldier, StaffShop, Structure } from './GameState'
 
-// The campaign is always fought on the SAME ground: one baked real-world theater
-// (Chorwon Valley — the Iron Triangle), Large size, one fixed seed → an identical,
-// hand-vetted map every playthrough. App.begin forces these when gameMode is
-// 'campaign'; the per-mission AO crop (below) windows each mission on that map.
-export const CAMPAIGN_THEATER = 'chorwon'
-export const CAMPAIGN_SEED = 1
+// The campaign is CONTENT, and content lives in the PACK (packs/README.md,
+// src/PACK-MISSIONS.md): the active pack's campaign folder ships the map
+// (theater + seed + authored layout = the gazetteer), the missions (objectives,
+// triggers, briefs), and every word of the story. This file keeps the VERBS:
+// objective evaluation, the trigger/effect moments, the runner, the reports.
+import type { CampaignSpec, MissionSpec, MissionCondition, PlaceRef } from '../packs/types'
 
-// The authored campaign geography (designed 2026-07-24 with the layout-preview
-// harness): the SE window of the chorwon patch — an open southern valley walled
-// by the HILL 894 ridge east and hill country west, a major river system
-// mid-map, opening north toward the plain. The town chain IS the campaign
-// spine, south → north: ASHFORD (the lodgment fight — OBJ KEATON / FOB KEATON)
-// → BREVIK (river crossing) → CALDER (crossroads) → DORAN (valley mouth) → the
-// enemy base on the northern edge; ELMSTED hangs west off the MSR as a flank
-// objective. Roads/hamlets/features still generate procedurally from these nodes.
-import type { MapLayout } from '../world/mapgen'
-export const CAMPAIGN_LAYOUT: MapLayout = {
-  window: { ox: 256, oy: 224 },
-  fob: { gx: 128, gy: 232 },
-  enemyBase: { gx: 148, gy: 18 },
-  // spacing math (2026-07-24): ASHFORD sits 3.1 km up the MSR — ~4× the
-  // garrison's 800 m sight/weapon bubble, ~12-16 min of game time for the whole
-  // M1 arc — NORTH of the southern river branch, with the MSR bridge 1.35 km
-  // short of town (the approach march crosses unobserved). Later bounds run
-  // 1.8-2.7 km each up the spine.
-  // spine towns first (order = road-node indices), then the wider world:
-  // VALEMONT is the big city in the enemy's northwest — a later-campaign prize;
-  // FALKE and GARWICK flesh out the west and the northern approaches.
-  towns: [
-    { gx: 130, gy: 170, name: 'ASHFORD', size: 7 },
-    { gx: 104, gy: 143, name: 'BREVIK', size: 6 },
-    { gx: 130, gy: 104, name: 'CALDER', size: 7 },
-    { gx: 158, gy: 60, name: 'DORAN', size: 6 },
-    { gx: 62, gy: 132, name: 'ELMSTED', size: 5 },
-    { gx: 52, gy: 44, name: 'VALEMONT', size: 11 },
-    { gx: 38, gy: 92, name: 'FALKE', size: 5 },
-    { gx: 96, gy: 26, name: 'GARWICK', size: 6 },
-  ],
-  // the MSR is AUTHORED: HQ → ASHFORD → BREVIK → CALDER → DORAN → enemy base.
-  // (Node ids: 0 = fob, 1.. = towns in order, last = enemy base.) Without this
-  // the MST would reroute the trunk through the western towns.
-  msr: [0, 1, 2, 3, 4, 9],
-  // NON-DEPLOYABLE infrastructure in the emptier parts of the theater — named
-  // places that later missions anchor on (and where unknown threats wait):
-  // the dam on the western river, VALEMONT's power plant, the northern rail
-  // yard, a depot in the far NE, the comm site on the east ridge, a ford on
-  // the southern branch east of ASHFORD, a refugee camp south of FALKE.
-  features: [
-    { gx: 44, gy: 118, kind: 'dam', name: 'HANGYE DAM' },
-    { gx: 63, gy: 52, kind: 'power', name: 'VALEMONT POWER' },
-    { gx: 108, gy: 14, kind: 'rail', name: 'NORTH RAILHEAD' },
-    { gx: 214, gy: 44, kind: 'depot', name: 'DEPOT 9' },
-    { gx: 224, gy: 132, kind: 'comm', name: 'RELAY SITE ECHO' },
-    { gx: 168, gy: 186, kind: 'ford', name: 'HORSESHOE FORD' },
-    { gx: 34, gy: 110, kind: 'camp', name: 'CAMP HOPE' },
-  ],
+// the campaign being played: the player pack's first campaign (a campaign
+// PICKER lands when a pack ships more than one)
+export function activeCampaign(): CampaignSpec {
+  const list = playerPack().campaigns
+  if (!list?.length) throw new Error(`pack '${playerPack().id}' ships no campaigns`)
+  return list[0]!
 }
 
 // Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
@@ -83,21 +40,18 @@ export function setCampaignCommander(name: string): void {
   _commanderPending = name.trim().toUpperCase() || 'HARMON'
 }
 import type { Vec2 } from '../world/WorldMap'
-import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
-import { deployUnit } from '../domains/installations/orders'
-import { orderMove } from '../domains/forces/orders'
-import { spawnEnemy } from '../domains/forces/factory'
-import { spawnCampaignGroup } from '../domains/opfor/ai'
-import { nearestLand, clampWorld } from '../world/place'
+import { nearestLand } from '../world/place'
 import { radio, toast } from '../domains/comms/radio'
 import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
-import { preAllocate, releaseFromFormation } from '../domains/assets/registry'
+import { preAllocate } from '../domains/assets/registry'
+import { resolveAnchor, resolvePlace } from './missions/places'
+import { runEffects } from './missions/effects'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -119,26 +73,72 @@ export interface ObjectiveSpec {
   id: string
   label: string
   kind: ObjKind
-  zone?: { x: number; y: number; r: number }   // clear-area / build locus
+  zone?: { x: number; y: number; r: number }   // clear-area / build locus (resolved at activation)
   groupTag?: string                             // defeat-group: the scripted group's name
   structKind?: StructureTypeKey                 // build: what to stand up
   amount?: number                               // deliver: supply to land at the target
 }
 
-// An operation objective: the six-verb spec plus the scripted moment it goes
-// ACTIVE. There are no mission containers — activation is where allocations
-// arrive, palette gates open, OPFOR gets placed, the phase line moves, and (for
-// follow-on taskings) the FRAGO card drops. The world never stops for any of it.
-export interface CampaignObjective extends ObjectiveSpec {
-  frago?: { title: string; text: string }        // tasking card dropped at activation (after the opener)
-  onActivate?(S: GameState): void                // scripted setup the moment this objective goes active
-  onComplete?(S: GameState): void                // scripted beat the moment it completes (e.g. naming the FOB)
+// The runtime operation view: the campaign's MAINLINE missions flattened into
+// one objective stream (today's model; concurrent mission INSTANCES — the
+// side-mission enabler — are stage S4 of PACK-MISSIONS.md). Each runtime
+// objective remembers its mission, so activation/completion fire that
+// mission's triggers, and its zone SPEC, resolved to world coords when it
+// goes active.
+export interface RuntimeObjective extends ObjectiveSpec {
+  missionId: string
+  zoneSpec?: { place: PlaceRef; r: number }
+  // a FRAGO-bearing mission's first objective — the tracker reveals the
+  // stream only up to the next one of these (taskings pop up, no spoilers)
+  revealPoint?: boolean
 }
 
 export interface Operation {
   name: string
   brief: string                                  // the opening OPORD (the one modal, campaign start)
-  objectives: CampaignObjective[]
+  objectives: RuntimeObjective[]
+}
+
+let _op: Operation | null = null
+export function operation(): Operation {
+  if (!_op) buildOperation()
+  return _op!
+}
+function buildOperation(): void {
+  const spec = activeCampaign()
+  const objectives: RuntimeObjective[] = []
+  for (const mid of spec.manifest.mainline) {
+    const m = spec.missions[mid]
+    if (!m) throw new Error(`campaign '${spec.manifest.id}': mainline mission '${mid}' not found`)
+    m.objectives.forEach((o, i) => {
+      objectives.push({
+        id: o.id, label: o.label, kind: o.kind, groupTag: o.groupTag,
+        structKind: o.structKind, amount: o.amount,
+        missionId: mid, zoneSpec: o.zone,
+        revealPoint: i === 0 && !!m.frago,
+      })
+    })
+  }
+  _op = {
+    name: spec.manifest.operation,
+    brief: spec.missions[spec.manifest.mainline[0]!]?.brief ?? '',
+    objectives,
+  }
+}
+
+// Fire a mission's triggers for an objective MOMENT (activation/completion).
+// Effects run in declaration order (engine/missions/effects.ts). The wider
+// per-tick condition vocabulary (timers, structure-exists…) lands with the
+// side-mission pool (S4).
+function momentMatches(when: MissionCondition, kind: 'objective-active' | 'objective-complete', objective: string): boolean {
+  if (when.kind === 'all') return when.of.every(w => momentMatches(w, kind, objective))
+  if (when.kind === 'any') return when.of.some(w => momentMatches(w, kind, objective))
+  return when.kind === kind && when.objective === objective
+}
+function fireTriggers(S: GameState, mission: MissionSpec, kind: 'objective-active' | 'objective-complete', objective: string): void {
+  for (const t of mission.triggers) {
+    if (momentMatches(t.when, kind, objective)) runEffects(S, t.do)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -190,209 +190,21 @@ export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState):
   }
 }
 
-// ---------------------------------------------------------------------------
-// Mission content — M1 (CLEAR & HOLD) and M2 (SET UP THE FOB). More land later.
-// ---------------------------------------------------------------------------
-// 2-8 CAV organic slice, nothing borrowed (re-scoped 2026-07-25): the scouts
-// screen, two Bradley platoons clear, the mortars support the hold. Fielding
-// is OPEN from H-hour — the commander may call up any TF asset at any time.
-const M1_FORCE: readonly UnitTypeKey[] = ['SCT', 'MECH', 'MECH', 'MOR']
-// One second-line rifle platoon holds the town (tuned 2026-07-24 after the
-// Phase 3 playtest: a full-AT urban garrison beats even proper tactics — see
-// play-test_Mission1.md). Its Javelins are stripped in setup (AT4s only).
-const M1_GARRISON: readonly UnitTypeKey[] = ['INF']
-const M1_REINFORCE: readonly UnitTypeKey[] = ['MECH', 'INF']          // the counterattack that tries to retake
-
-// muster point for the counterattack: off the enemy-ward side of the town so it
-// advances IN, not a march from the far map edge
-function reinforceFrom(S: GameState, town: Vec2): Vec2 {
-  const eb = S.map!.enemyBase
-  const dx = eb.x - town.x, dy = eb.y - town.y
-  const L = Math.hypot(dx, dy) || 1
-  const x = clampWorld(S.map, town.x + (dx / L) * 1300)
-  const y = clampWorld(S.map, town.y + (dy / L) * 1300)
-  return nearestLand(S.map!, x, y)
-}
-
-// place a small starting force in a shallow arc facing the map interior
-function placeForce(S: GameState, comp: readonly UnitTypeKey[], around: Vec2, radius: number): void {
-  const n = comp.length
-  const toward = Math.atan2(S.map!.WORLD / 2 - around.y, S.map!.WORLD / 2 - around.x)
-  comp.forEach((k, i) => {
-    const a = toward + (n > 1 ? (i / (n - 1) - 0.5) * 1.4 : 0)
-    const p = nearestLand(S.map!, around.x + Math.cos(a) * radius, around.y + Math.sin(a) * radius)
-    deployUnit(k, p.x, p.y, true)
-  })
-}
-
-// The operation: one continuous fight, four objectives that pop up in turn.
-// Follow-on taskings (the FOB and the supply line) drop as FRAGOs mid-battle —
-// they are not a separate mission, just the next thing higher wants done.
-export const OPERATION: Operation = {
-  name: 'LODGMENT',
-  brief:
-    'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
-    + 'seize the crossroads town to your front, designated OBJECTIVE KEATON — '
-    + 'it owns the road net. Intel has marked UNKNOWN enemy contacts in the '
-    + 'town, but they are CONCEALED in the buildings: you will not see them '
-    + 'until your scouts find them or they open fire. Scouts screen forward — '
-    + 'they are set to break contact if engaged. Expect a counterattack once '
-    + 'you take the town. Your lead elements are 2-8 CAV: scouts, two Bradley '
-    + 'platoons and the mortars. The rest of the task force is yours to call '
-    + 'up from garrison as you see fit — no fires support yet. Follow-on '
-    + 'taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.',
-  objectives: [
-    {
-      id: 'clear', label: 'CLEAR OBJ KEATON', kind: 'clear-area',
-      onActivate(S) {
-        const c = S.campaign!
-        const town = c.strongpoint
-        // opening posture: fielding OPEN (the TF is yours to commit), no fires
-        // support yet; organic drones fly free
-        c.allow = { field: true, support: false, drone: true }
-        // COP baseline at H-hour: the objective town itself is assessed enemy —
-        // the line runs just south of it, everything north shades red
-        c.frontY = town.y + 500
-        // the town garrison — loose defenders that hold where they sit.
-        // Second-line troops: Javelins stripped (AT4s only), so armor that
-        // respects the close-ambush band can actually break them. North side
-        // of town (enemy-ward, away from the MSR bridge south of it — the
-        // approach march must stay outside their 800 m sight/MG envelope).
-        M1_GARRISON.forEach((k, i) => {
-          const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y - 80)
-          const g = spawnEnemy(k, p.x, p.y)
-          g.stowage.M_JAVELIN = 0
-          // pre-battle intel: the COP starts with what a battalion would know —
-          // the garrison is a SUSPECTED position (stale contact, templated with
-          // a couple hundred meters of error), not a live track. Scouts still
-          // have to FIND them; contact goes live only when actually spotted.
-          S.contacts.set(g.id, {
-            x: p.x + (S.rng!() - 0.5) * 380, y: p.y + (S.rng!() - 0.5) * 380,
-            type: k, lastSeen: 0, live: false, strength: 100,
-            unknown: true, // presence assessed, composition unidentified — a "?"
-          })
-        })
-        // the fixed force, near the HQ
-        placeForce(S, M1_FORCE, S.map!.fob, 260)
-        // scouts screen, they don't slug: the recon platoon starts on BREAK so
-        // a concealed garrison springing on it triggers a break-contact drill,
-        // not a stand-up fight (the tutorial's recon-forward flow depends on it)
-        for (const u of S.units) {
-          if (u.side === 'friend' && u.type === 'SCT') u.roe = 'break'
-        }
-        // scripted OPFOR (the counterattack, later) will advance on the town
-        c.opforObj = { x: town.x, y: town.y }
-        OPERATION.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
-        // the wider theater is NOT empty: garrisons sit on the infrastructure
-        // out there, known to intel only as UNKNOWN contacts — reasons to go,
-        // threats when you do. Far outside the M1 fight; they hold their ground.
-        for (const site of [
-          { x: 108 * 50, y: 14 * 50, comp: ['MECH', 'INF'] as const },   // NORTH RAILHEAD
-          { x: 214 * 50, y: 44 * 50, comp: ['INF'] as const },           // DEPOT 9
-          { x: 44 * 50, y: 118 * 50, comp: ['INF'] as const },           // HANGYE DAM
-        ]) {
-          site.comp.forEach((k, i) => {
-            const p = nearestLand(S.map!, site.x + i * 140 - 70, site.y + 90)
-            const g = spawnEnemy(k, p.x, p.y)
-            S.contacts.set(g.id, {
-              x: p.x + (S.rng!() - 0.5) * 500, y: p.y + (S.rng!() - 0.5) * 500,
-              type: k, lastSeen: 0, live: false, strength: 100, unknown: true,
-            })
-          })
-        }
-      },
-    },
-    {
-      id: 'hold', label: 'DEFEAT THE COUNTERATTACK', kind: 'defeat-group', groupTag: 'REINFORCEMENT',
-      onActivate(S) {
-        // town cleared → the enemy counterattacks to retake it
-        const c = S.campaign!
-        const from = reinforceFrom(S, c.strongpoint)
-        spawnCampaignGroup(M1_REINFORCE, 'REINFORCEMENT', from)
-        c.eventT = S.t // mark the group live so defeat-group can latch
-        radio('NET', 'contact', 'COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE TOWN', from.x, from.y)
-        toast('COUNTERATTACK INBOUND')
-      },
-      onComplete(S) {
-        // the fight moving forward frees division ISR for the task force
-        if (releaseFromFormation(S.assets, 'SHADOW', '1ACB')) {
-          radio('DIV G3', 'arrive', '1ACB RELEASES A SHADOW ORBIT — ASSET AVAILABLE FOR TASKING', undefined, undefined)
-        }
-      },
-    },
-    {
-      id: 'fob', label: 'ESTABLISH FOB KEATON', kind: 'build', structKind: 'FOB',
-      frago: {
-        title: 'LINES OF SUPPLY',
-        text:
-          'GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics '
-          + 'platoon are pushing up to you from the rear — bring them forward and '
-          + 'establish FOB KEATON in the town, then run a supply line up to it. '
-          + 'Field whatever the task force can give you if you need it. '
-          + 'ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE.',
-      },
-      onActivate(S) {
-        const c = S.campaign!
-        const town = c.strongpoint
-        // the town is held: fielding opens up, and the assessed line rolls
-        // north, halfway to the next bound
-        c.allow = { field: true, support: false, drone: true }
-        c.opforObj = null // the counterattack is beaten; no scripted pressure now
-        c.frontY = town.y - 1400
-        // engineers + logistics push up from the rear IN-WORLD: they enter at
-        // the south map edge below the HQ and drive themselves to it —
-        // reinforcements are something you watch arrive, not something that
-        // materializes
-        const W = S.map!.WORLD
-        const entry = nearestLand(S.map!, S.map!.fob.x, W - 120)
-        const rvEng = nearestLand(S.map!, S.map!.fob.x - 140, S.map!.fob.y + 220)
-        const rvLog = nearestLand(S.map!, S.map!.fob.x + 140, S.map!.fob.y + 220)
-        const eng = deployUnit('ENG', entry.x - 90, entry.y, true)
-        if (eng) orderMove(eng.id, rvEng.x, rvEng.y)
-        const log = deployUnit('LOG', entry.x + 90, entry.y, true)
-        if (log) orderMove(log.id, rvLog.x, rvLog.y)
-        OPERATION.objectives[2]!.zone = { x: town.x, y: town.y, r: 520 }
-      },
-      onComplete(S) {
-        // the finished installation takes its name from the order
-        const c = S.campaign!
-        const fob = S.structures.find(st => st.side === 'friend' && st.kind === 'FOB'
-          && Math.hypot(st.x - c.strongpoint.x, st.y - c.strongpoint.y) <= 520)
-        if (fob) fob.label = 'FOB KEATON'
-        radio('NET', 'arrive', 'FOB KEATON IS OPEN FOR BUSINESS', fob?.x, fob?.y)
-        // a base worth defending exists — 2ABCT gives its C-RAM section back
-        if (releaseFromFormation(S.assets, 'CRAM', '2ABCT')) {
-          radio('DIV G3', 'arrive', '2ABCT RELEASES A C-RAM SECTION TO THE DIVISION POOL', undefined, undefined)
-        }
-      },
-    },
-    { id: 'route', label: 'OPEN THE SUPPLY LINE', kind: 'deliver', amount: 200 },
-  ],
-}
+// (Mission content — briefs, force lists, garrisons, triggers — lives in the
+// pack: src/packs/<id>/campaigns/<campaign>/missions/*.json. The old OPERATION
+// table's scripted bodies became mission triggers executed by
+// engine/missions/effects.ts.)
 
 // ---------------------------------------------------------------------------
 // Runner — called from the campaign ModeSpec (setup / update / checkEnd).
 // ---------------------------------------------------------------------------
 
-// pick the campaign's anchor town: the one nearest the player's corner
-function pickAnchorTown(S: GameState): Vec2 {
-  const fob = S.map!.fob
-  let best: Vec2 | null = null, bd = Infinity
-  for (const t of S.map!.towns) {
-    const d = Math.hypot(t.x - fob.x, t.y - fob.y)
-    if (d < bd) { bd = d; best = { x: t.x, y: t.y } }
-  }
-  // fallback: a point a third of the way toward the enemy base
-  if (!best) {
-    const eb = S.map!.enemyBase
-    best = nearestLand(S.map!, fob.x + (eb.x - fob.x) * 0.33, fob.y + (eb.y - fob.y) * 0.33)
-  }
-  return best
-}
-
 // Build the campaign world ONCE and start mission 1. Called from the mode's
 // setup (which runs after initGame staged the default map + friendly HQ).
 export function startCampaign(S: GameState): void {
+  const spec = activeCampaign()
+  _op = null // rebuild the runtime operation view for this campaign
+  buildOperation()
   // strip the default A&D staging down to the campaign's clean slate: the
   // friendly command post AND its airstrip — the lodgment's airfield is
   // division-echelon infrastructure that exists at H-hour (a battalion doesn't
@@ -405,10 +217,10 @@ export function startCampaign(S: GameState): void {
     || (s.side === 'hostile' && s.kind === 'HQ'))
   for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
   // the battalion CP gets a NAME, like every real position does — and the
-  // strip carries the same one (it's the CP's airfield)
+  // strip carries the same one (it's the CP's airfield). Names are CAMPAIGN data.
   for (const st of S.structures) {
-    if (st.side === 'friend' && st.kind === 'HQ') st.label = 'CP GARRYOWEN'
-    if (st.side === 'friend' && st.kind === 'AFLD') st.label = 'GARRYOWEN STRIP'
+    if (st.side === 'friend' && st.kind === 'HQ') st.label = spec.manifest.hqLabel
+    if (st.side === 'friend' && st.kind === 'AFLD') st.label = spec.manifest.airfieldLabel
   }
   S.units = []
   S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh
@@ -423,53 +235,63 @@ export function startCampaign(S: GameState): void {
   S.opforCmd.posture = 'attack'
   // scarcity is real from mission one: sister formations hold most of the
   // division's assets at H-hour; the operation's progress frees them
-  // (objective onComplete hooks release with net traffic)
-  preAllocate(S.assets, 'CRAM', '2ABCT')
-  preAllocate(S.assets, 'CRAM', '3ABCT')
-  preAllocate(S.assets, 'SHADOW', '1ACB')
-  preAllocate(S.assets, 'SENTINEL', 'CORPS MAIN')
+  // (mission triggers release with net traffic). The list is CAMPAIGN data.
+  for (const pa of spec.manifest.preAllocations) preAllocate(S.assets, pa.asset, pa.formation)
 
-  const town = pickAnchorTown(S)
+  // campaign anchors: named points resolved once against the built map and
+  // stored — mission place refs resolve against them by name
+  const anchors: Record<string, Vec2> = {}
+  for (const [name, q] of Object.entries(spec.manifest.anchors)) anchors[name] = resolveAnchor(S, q)
+  const town = anchors.strongpoint ?? resolveAnchor(S, { query: 'town-nearest', to: 'player-hq' })
+  const op = operation()
   S.campaign = {
     objIdx: 0, briefed: false, frago: null, complete: false,
     // the opening OPORD is the first entry in the recallable orders log
-    fragoLog: [{ title: OPERATION.name, text: OPERATION.brief, t: 0 }],
-    status: OPERATION.objectives.map(() => 'pending'),
+    fragoLog: [{ title: op.name, text: op.brief, t: 0 }],
+    status: op.objectives.map(() => 'pending'),
     hold: 0, delivered: 0, deliverBase: 0, eventT: null,
     opforObj: null, allow: { field: true, support: false, drone: true },
     frontY: town.y + 500, // provisional; objective activations re-anchor it
     commander: _commanderPending,
-    // DIVISION MAIN sits in the deep rear, bottom-left — higher headquarters
-    // as a place on the map (inert: it does nothing, it is simply THERE)
-    divHq: nearestLand(S.map!, S.map!.WORLD * 0.08, S.map!.WORLD * 0.94),
+    // DIVISION MAIN sits in the deep rear — higher headquarters as a place on
+    // the map (inert: it does nothing, it is simply THERE). Position is
+    // CAMPAIGN data (fraction of the world).
+    divHq: nearestLand(S.map!,
+      S.map!.WORLD * spec.manifest.divHq.atFrac.x, S.map!.WORLD * spec.manifest.divHq.atFrac.y),
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false, dustwunSeen: [],
     reports: { pending: [], log: [] },
-    strongpoint: town, crossing: null, centerTown: null,
+    anchors, strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
   activateObjective(S, S.campaign) // objective 1 stages the opening fight
   S.speed = 0                      // hold for the opening briefing; ackBriefing resumes
 }
 
-// Make the objective at c.objIdx ACTIVE: run its scripted setup, capture any
-// measurement baseline, and (after the opener) drop its FRAGO card. The sim is
-// never paused here — new taskings pop up while the world runs.
+// Make the objective at c.objIdx ACTIVE: resolve its zone, fire its mission's
+// activation triggers, capture any measurement baseline, and (after the
+// opener) drop the mission's FRAGO card when its FIRST objective goes active.
+// The sim is never paused here — new taskings pop up while the world runs.
 function activateObjective(S: GameState, c: CampaignState): void {
-  const obj = OPERATION.objectives[c.objIdx]
+  const obj = operation().objectives[c.objIdx]
   if (!obj) return
+  const mission = activeCampaign().missions[obj.missionId]!
   c.status[c.objIdx] = 'active'
   c.hold = 0
   c.delivered = 0
-  obj.onActivate?.(S)
+  if (obj.zoneSpec) {
+    const p = resolvePlace(S, obj.zoneSpec.place)
+    obj.zone = { x: p.x, y: p.y, r: obj.zoneSpec.r }
+  }
+  fireTriggers(S, mission, 'objective-active', obj.id)
   if (obj.kind === 'deliver') {
     const fob = friendlyFob(S)
     c.deliverBase = fob ? (fob.stock || 0) : 0
   }
-  if (obj.frago && c.briefed) {
-    c.frago = obj.frago
-    c.fragoLog.push({ ...obj.frago, t: S.t })
-    radio('NET', 'arrive', `FRAGO — ${obj.frago.title}. DIV HQ ON THE VTC.`, undefined, undefined)
-    toast(`FRAGO — ${obj.frago.title}`)
+  if (mission.frago && mission.objectives[0]!.id === obj.id && c.briefed) {
+    c.frago = { title: mission.frago.title, text: mission.frago.text }
+    c.fragoLog.push({ ...mission.frago, t: S.t })
+    radio('NET', 'arrive', `FRAGO — ${mission.frago.title}. DIV HQ ON THE VTC.`, undefined, undefined)
+    toast(`FRAGO — ${mission.frago.title}`)
   }
 }
 
@@ -637,14 +459,14 @@ function composeIntsum(S: GameState): string {
 
 // The OPSUM: the fight as it stands — objectives, posture, forces committed.
 function composeOpsum(S: GameState, c: CampaignState): string {
-  const obj = OPERATION.objectives[c.objIdx]
+  const obj = operation().objectives[c.objIdx]
   const done = c.status.filter(s => s === 'done').length
   const inContact = S.units.filter(u => u.side === 'friend' && S.t - u.lastCombatT < 60).length
   const fielded = S.units.filter(u => u.side === 'friend' && !u.respFrom).length
   const dustwun = S.downed.filter(d => d.side === 'friend' && !d.resolved).length
   return (
     `OPSUM AS OF ${dtgOf(S.t)}.\n\n`
-    + `1. OPERATION ${OPERATION.name}. ${done}/${OPERATION.objectives.length} objectives complete. `
+    + `1. OPERATION ${operation().name}. ${done}/${operation().objectives.length} objectives complete. `
     + `Current: ${obj ? obj.label : 'OPERATION COMPLETE'}.\n\n`
     + `2. FORCES. ${fielded} elements fielded, ${inContact} in contact this hour.\n\n`
     + `3. INCIDENTS. ${dustwun ? `${dustwun} personnel recovery site${dustwun === 1 ? '' : 's'} OPEN.` : 'No open recovery tasks.'}\n\n`
@@ -748,19 +570,19 @@ export function runCampaign(S: GameState, _dt: number): void {
   // staff reports: a pending PERSTAT lands after its prep delay
   deliverReports(S, c)
 
-  const obj = OPERATION.objectives[c.objIdx]
+  const obj = operation().objectives[c.objIdx]
   if (!obj) return
   const { done } = evalObjective(obj, S, c)
   if (!done) return
 
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
-  obj.onComplete?.(S)
+  fireTriggers(S, activeCampaign().missions[obj.missionId]!, 'objective-complete', obj.id)
   // the WHOLE staff drafts post-mission figures unprompted — in parallel
   for (const shop of ['s1', 's2', 's3', 's4'] as const) queueReport(S, true, shop)
   c.objIdx++
 
-  if (c.objIdx >= OPERATION.objectives.length) {
+  if (c.objIdx >= operation().objectives.length) {
     c.complete = true // operation complete: checkEnd lands the win
     return
   }

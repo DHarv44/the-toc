@@ -4,7 +4,7 @@
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  OPERATION, evalObjective, openReport, recallFrago, type ObjectiveSpec,
+  operation, evalObjective, openReport, recallFrago, type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
@@ -15,10 +15,11 @@ const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
 // a REVEAL POINT — everything from it onward stays off the board until the
 // stream reaches it. (Index of the first unreached frago objective.)
 function revealedEnd(objIdx: number): number {
-  for (let i = objIdx + 1; i < OPERATION.objectives.length; i++) {
-    if (OPERATION.objectives[i]!.frago) return i
+  const objectives = operation().objectives
+  for (let i = objIdx + 1; i < objectives.length; i++) {
+    if (objectives[i]!.revealPoint) return i
   }
-  return OPERATION.objectives.length
+  return objectives.length
 }
 
 // progress suffix for the objective row, by verb
@@ -51,10 +52,10 @@ export function CampaignObjectives() {
         OPERATION
       </div>
       <div style={{ fontSize: 13, letterSpacing: 2, color: '#dceeff', fontWeight: 'bold', marginTop: 2 }}>
-        {OPERATION.name}
+        {operation().name}
       </div>
       <div style={{ height: 1, background: '#24343f', margin: '7px 0' }} />
-      {OPERATION.objectives.slice(0, revealedEnd(c.objIdx)).map((o, i) => {
+      {operation().objectives.slice(0, revealedEnd(c.objIdx)).map((o, i) => {
         const st = c.status[i] || 'pending'
         const glyph = st === 'done' ? '✓' : st === 'active' ? '▶' : '○'
         const col = st === 'done' ? '#7ec87e' : st === 'active' ? ACCENT : '#5a7085'

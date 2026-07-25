@@ -23,7 +23,7 @@ import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
 import { loadTheater } from './world/theaters'
-import { CAMPAIGN_THEATER, CAMPAIGN_SEED, setCampaignTutorial } from './engine/campaign'
+import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
@@ -39,11 +39,12 @@ export default function App() {
     void (async () => {
       if (mode === 'dev') initDevGame()
       else {
-        // the campaign is always the same ground: fixed theater, Large, fixed seed
+        // the campaign is always the same ground: the PACK's campaign ships
+        // its theater + fixed seed + authored layout (PACK-MISSIONS.md)
         const isCampaign = gameMode === 'campaign'
-        const tId = isCampaign ? CAMPAIGN_THEATER : theaterId
+        const tId = isCampaign ? activeCampaign().map.theater : theaterId
         const gridSize = isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large)
-        const seed = isCampaign ? CAMPAIGN_SEED : (Date.now() % 100000)
+        const seed = isCampaign ? activeCampaign().map.seed : (Date.now() % 100000)
         if (isCampaign) setCampaignTutorial(!!tutorial) // read by startCampaign
         const theater = tId ? await loadTheater(tId) : undefined
         initGame(seed, gridSize, difficulty, gameMode, theater)

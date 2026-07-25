@@ -5,7 +5,7 @@
 import { Box, Group, Text } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
-import { OPERATION, unreadReports } from '../engine/campaign'
+import { operation, unreadReports } from '../engine/campaign'
 import { forceCount, forceCap } from '../domains/economy/economy'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { playerPack } from '../packs'
@@ -84,8 +84,8 @@ export default function CommandDashboard() {
       <Group gap="md" mt="md" align="stretch" wrap="wrap">
         {c && (
           <Tile label="OPERATION" accent="#7ec8ff">
-            <Big v={OPERATION.name} />
-            <Sub v={`OBJECTIVE ${Math.min(c.objIdx + 1, OPERATION.objectives.length)}/${OPERATION.objectives.length} — ${OPERATION.objectives[c.objIdx]?.label ?? 'COMPLETE'}`} />
+            <Big v={operation().name} />
+            <Sub v={`OBJECTIVE ${Math.min(c.objIdx + 1, operation().objectives.length)}/${operation().objectives.length} — ${operation().objectives[c.objIdx]?.label ?? 'COMPLETE'}`} />
           </Tile>
         )}
         <Tile label="COMBAT POWER" accent="#7ec87e">

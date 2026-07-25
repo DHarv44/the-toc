@@ -66,5 +66,5 @@
       desc in gold, detail paragraph) — VERIFIED S2
 - [ ] EYES ONLY: open a PERSTAT/INTSUM document — the producing shop's
       letterhead on the paper (paper tone: dark ink, muted gold motto)
-- [ ] EYES ONLY: any DIV HQ VTC deck (FRAGO/opener) — DIV HQ masthead above
-      the slides: 1CD patch, "DIV HQ" plate, FIRST TEAM, "America's First Team"
+- [x] DIV HQ VTC deck masthead — VERIFIED on the campaign opener (1CD patch,
+      DIV HQ plate, FIRST TEAM, "America's First Team", DIVISION MAIN sub)

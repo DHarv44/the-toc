@@ -1,0 +1,59 @@
+{
+  "_doc": "M1 — the lodgment fight: clear OBJ KEATON (the strongpoint town), defeat the counterattack. Trigger effects execute in declaration order (determinism law). Force re-scoped 2026-07-25: 2-8 CAV organic slice, nothing borrowed — scouts screen, two Bradley platoons clear, the mortars support the hold; fielding OPEN from H-hour. Town garrison is second-line troops with Javelins stripped (AT4s only, tuned after the Phase 3 playtest). The wider theater is NOT empty: garrisons sit on the infrastructure, known to intel only as UNKNOWN contacts.",
+  "id": "lodgment",
+  "name": "LODGMENT",
+  "brief": "TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and seize the crossroads town to your front, designated OBJECTIVE KEATON — it owns the road net. Intel has marked UNKNOWN enemy contacts in the town, but they are CONCEALED in the buildings: you will not see them until your scouts find them or they open fire. Scouts screen forward — they are set to break contact if engaged. Expect a counterattack once you take the town. Your lead elements are 2-8 CAV: scouts, two Bradley platoons and the mortars. The rest of the task force is yours to call up from garrison as you see fit — no fires support yet. Follow-on taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.",
+  "objectives": [
+    {
+      "id": "clear", "label": "CLEAR OBJ KEATON", "kind": "clear-area",
+      "zone": { "place": "strongpoint", "r": 420 }
+    },
+    {
+      "id": "hold", "label": "DEFEAT THE COUNTERATTACK", "kind": "defeat-group",
+      "groupTag": "REINFORCEMENT"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "h-hour",
+      "when": { "kind": "objective-active", "objective": "clear" },
+      "do": [
+        { "kind": "set-allow", "field": true, "support": false, "drone": true },
+        { "kind": "front-line", "place": "strongpoint", "offsetY": 500 },
+        { "kind": "spawn-garrison", "at": { "place": "strongpoint", "offsetY": -80 },
+          "units": ["INF"], "spreadX": 160, "strip": ["M_JAVELIN"],
+          "contact": { "scatter": 380, "unknown": true } },
+        { "kind": "place-force", "at": "player-hq", "radius": 260,
+          "units": ["SCT", "MECH", "MECH", "MOR"] },
+        { "kind": "set-roe", "type": "SCT", "roe": "break" },
+        { "kind": "opfor-objective", "place": "strongpoint" },
+        { "kind": "spawn-garrison", "at": { "place": "NORTH RAILHEAD", "offsetY": 90 },
+          "units": ["MECH", "INF"], "spreadX": 140, "contact": { "scatter": 500, "unknown": true } },
+        { "kind": "spawn-garrison", "at": { "place": "DEPOT 9", "offsetY": 90 },
+          "units": ["INF"], "spreadX": 140, "contact": { "scatter": 500, "unknown": true } },
+        { "kind": "spawn-garrison", "at": { "place": "HANGYE DAM", "offsetY": 90 },
+          "units": ["INF"], "spreadX": 140, "contact": { "scatter": 500, "unknown": true } }
+      ]
+    },
+    {
+      "id": "counterattack",
+      "when": { "kind": "objective-active", "objective": "hold" },
+      "do": [
+        { "kind": "spawn-group", "tag": "REINFORCEMENT", "units": ["MECH", "INF"],
+          "at": { "place": "strongpoint", "toward": "enemy-base", "range": 1300 } },
+        { "kind": "radio", "radio": { "from": "NET", "cat": "contact",
+          "text": "COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE TOWN", "at": "ctx" } },
+        { "kind": "toast", "text": "COUNTERATTACK INBOUND" }
+      ]
+    },
+    {
+      "id": "shadow-release",
+      "when": { "kind": "objective-complete", "objective": "hold" },
+      "do": [
+        { "kind": "release-asset", "asset": "SHADOW", "formation": "1ACB",
+          "radio": { "from": "DIV G3",
+            "text": "1ACB RELEASES A SHADOW ORBIT — ASSET AVAILABLE FOR TASKING" } }
+      ]
+    }
+  ]
+}

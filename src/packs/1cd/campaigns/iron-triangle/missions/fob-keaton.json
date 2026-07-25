@@ -1,0 +1,43 @@
+{
+  "_doc": "M2 — make it stick: engineers + logistics push up from the rear IN-WORLD (reinforcements are something you watch arrive), establish FOB KEATON in the town, open the standing supply line. The FRAGO card drops when the mission activates. Completing the FOB frees a C-RAM section back to the division pool.",
+  "id": "fob-keaton",
+  "name": "LINES OF SUPPLY",
+  "frago": {
+    "title": "LINES OF SUPPLY",
+    "text": "GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics platoon are pushing up to you from the rear — bring them forward and establish FOB KEATON in the town, then run a supply line up to it. Field whatever the task force can give you if you need it. ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE."
+  },
+  "objectives": [
+    {
+      "id": "fob", "label": "ESTABLISH FOB KEATON", "kind": "build", "structKind": "FOB",
+      "zone": { "place": "strongpoint", "r": 520 }
+    },
+    { "id": "route", "label": "OPEN THE SUPPLY LINE", "kind": "deliver", "amount": 200 }
+  ],
+  "triggers": [
+    {
+      "id": "consolidate",
+      "when": { "kind": "objective-active", "objective": "fob" },
+      "do": [
+        { "kind": "set-allow", "field": true, "support": false, "drone": true },
+        { "kind": "opfor-objective", "place": null },
+        { "kind": "front-line", "place": "strongpoint", "offsetY": -1400 },
+        { "kind": "deploy-column", "units": ["ENG", "LOG"], "edge": "south", "margin": 120,
+          "spacing": 90,
+          "moveTo": { "anchor": "player-hq", "offsets": [[-140, 220], [140, 220]] } }
+      ]
+    },
+    {
+      "id": "fob-open",
+      "when": { "kind": "objective-complete", "objective": "fob" },
+      "do": [
+        { "kind": "name-structure", "struct": "FOB", "near": "strongpoint", "r": 520,
+          "label": "FOB KEATON" },
+        { "kind": "radio", "radio": { "from": "NET", "cat": "arrive",
+          "text": "FOB KEATON IS OPEN FOR BUSINESS", "at": "ctx" } },
+        { "kind": "release-asset", "asset": "CRAM", "formation": "2ABCT",
+          "radio": { "from": "DIV G3",
+            "text": "2ABCT RELEASES A C-RAM SECTION TO THE DIVISION POOL" } }
+      ]
+    }
+  ]
+}

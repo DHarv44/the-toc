@@ -9,6 +9,7 @@
   "patch": "1cd",
   "rankStyle": "us",
   "catalogs": { "extends": "us-platforms" },
+  "campaigns": ["iron-triangle"],
   "audio": { "incomingAlarm": "/audio/incoming.mp3" },
   "staff": {
     "s1": {
