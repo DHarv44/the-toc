@@ -15,6 +15,12 @@ export function constructionUpdate(dt: number): void {
 
   for (const s of S.structures) {
     if (s.buildT > 0 || (s.kind !== 'FOB' && s.kind !== 'HQ')) continue
+    // FACILITIES gate what the base can actually do for a resting unit (P5):
+    // the AID STATION drives casualty recovery, the MOTORPOOL puts destroyed
+    // vehicles back in the fight. A bare FOB only manages slow self-care.
+    // (Enemy bases keep the full implicit set — their economy is the lever.)
+    const fac = s.side === 'friend' ? (s.facilities ?? []) : ['MOTORPOOL', 'AID']
+    const hasAid = fac.includes('AID'), hasMotor = fac.includes('MOTORPOOL')
     let garrisoned = false
     for (const u of S.units) {
       if (u.side !== s.side) continue
@@ -22,7 +28,7 @@ export function constructionUpdate(dt: number): void {
       garrisoned = true
       if (u.strength > 0 && u.strength < 100 && !u.targetId && S.t - u.lastCombatT > 15) {
         const before = u.strength
-        healUnit(u, 0.8 * dt, 100, true) // reconstitution brings replacements — revive lost vics
+        healUnit(u, (hasAid ? 0.8 : 0.25) * dt, 100, hasMotor)
         u.strMark = Math.max(u.strMark, u.strength)
         if (before < 100 && u.strength >= 100 && u.side === 'friend') {
           radio(u.label, 'arrive', 'RECONSTITUTED — FULL STRENGTH', u.x, u.y)

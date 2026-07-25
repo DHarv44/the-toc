@@ -165,6 +165,10 @@ export interface Structure {
   rallySeq?: number          // fan-out counter for fielded units' rally points
   strMark?: number           // integrity high-water mark (friendly damage reports)
   lastSpotT?: number         // spot-report throttle when acting as a sensor
+  // facilities (P5): FUNCTIONAL services a base runs — motorpool repairs
+  // vehicles, the aid station returns casualties to duty, for units resting
+  // in radius. HQs have the full set by default; FOBs build them out.
+  facilities?: string[]
 }
 
 // --- air ------------------------------------------------------------------

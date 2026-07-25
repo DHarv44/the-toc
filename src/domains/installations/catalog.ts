@@ -38,6 +38,35 @@ const STRUCTURES_LITERAL = {
 } as const satisfies Record<string, StructureType>
 
 export type StructureTypeKey = keyof typeof STRUCTURES_LITERAL
+
+// --- facilities (P5) --------------------------------------------------------
+// FUNCTIONAL base services, not decorations: each works on friendly units
+// RESTING in radius (out of contact). The motorpool puts destroyed vehicles
+// back in the fight; the aid station returns casualties to duty — both revive
+// the unit's ELEMENTS, so derived firepower genuinely comes back. HQs carry
+// the full set by default; FOBs buy them as build-outs (structures and
+// facilities still cost supply — units don't).
+export interface FacilityType {
+  key: string
+  name: string
+  cost: number       // FOB build-out price (HQ has it organically)
+  radius: number     // service radius around the installation (m)
+  desc: string
+}
+
+const FACILITIES_LITERAL = {
+  MOTORPOOL: {
+    key: 'MOTORPOOL', name: 'Motorpool', cost: 400, radius: 450,
+    desc: 'Repairs destroyed vehicles for units resting in radius',
+  },
+  AID: {
+    key: 'AID', name: 'Aid Station', cost: 300, radius: 450,
+    desc: 'Returns casualties to duty for units resting in radius',
+  },
+} as const satisfies Record<string, FacilityType>
+
+export type FacilityKey = keyof typeof FACILITIES_LITERAL
+export const FACILITIES: Readonly<Record<FacilityKey, FacilityType>> = FACILITIES_LITERAL
 // the table viewed through the interface: sim code accesses specs by a generic
 // key (STRUCTURES[s.kind]), which needs the optional fields visible on every member
 export const STRUCTURES: Readonly<Record<StructureTypeKey, StructureType>> = STRUCTURES_LITERAL

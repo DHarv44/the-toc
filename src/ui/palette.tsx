@@ -8,7 +8,7 @@ import { unitAvailability, airAvailability } from '../domains/economy/economy'
 import { fmtCooldown } from '../lib/format'
 import { UNIT_TYPES, type UnitType, type UnitTypeKey } from '../domains/forces/catalog'
 import { playerPack } from '../packs'
-import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
+import { STRUCTURES, FACILITIES, type StructureType, type StructureTypeKey, type FacilityKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols'
 
@@ -110,6 +110,7 @@ export interface PaletteItem {
   field?: boolean
   fieldAero?: boolean
   fieldDrone?: boolean   // organic UAS: one-click launch over the carrying unit
+  installFac?: boolean   // FOB facility build-out: one-click install at the site
   label: string
   tag?: string | null
   cost?: number | string | null
@@ -201,10 +202,23 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
         items: [{ ...droneItem(DRONE_TYPES.AEROSTAT), key: 'AEROSTAT', fieldAero: true,
           disabled: taken, note: taken ? '1/1' : null }],
       }
+      // facilities: what the base RUNS. The HQ's organic set reads as
+      // operational; a FOB shows what it has and what it can still build out.
+      const facItems: PaletteItem[] = (Object.keys(FACILITIES) as FacilityKey[]).map(k => {
+        const spec = FACILITIES[k]
+        const owned = st.facilities?.includes(k)
+        return {
+          mode: 'fac:' + k, key: k, installFac: !owned && st.kind === 'FOB',
+          label: spec.name, tag: spec.desc,
+          cost: owned || st.kind === 'HQ' ? null : spec.cost,
+          note: owned ? '✓ OPERATIONAL' : st.kind === 'HQ' ? '—' : null,
+          disabled: !!owned || st.kind === 'HQ',
+        }
+      })
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
-        sections: [...groundSections(), aerostat],
+        sections: [...groundSections(), aerostat, { header: 'FACILITIES', items: facItems }],
       }
     }
     return null // OP fields nothing

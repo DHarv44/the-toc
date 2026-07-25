@@ -7,7 +7,7 @@ import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
 import { connectStructureToRoads } from '../../world/mapgen'
-import { STRUCTURES, type StructureTypeKey } from './catalog'
+import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { effStats } from '../forces/elements'
@@ -30,11 +30,31 @@ export function addStructure(
     sight: spec.sight, deployZone: spec.deployZone,
     income: spec.income, launchesDrones: !!spec.launchesDrones,
     stock: spec.stock0 || 0,
+    // an HQ has the full facility set organically — motorpool, aid station,
+    // the works; FOBs start bare and BUY their build-outs
+    facilities: side === 'friend' && kind === 'HQ' ? ['MOTORPOOL', 'AID'] : [],
   }
   S.structures.push(s)
   // a forward base off the network gets a dirt access track to the nearest road
   if (kind === 'FOB' && S.map) connectStructureToRoads(S.map, x, y)
   return s
+}
+
+// FOB build-out: buy a facility for an established forward base. Structures
+// and facilities still cost supply — it's UNITS that stopped being purchases.
+export function installFacility(structId: number, key: FacilityKey): void {
+  const st = S.structures.find(s => s.id === structId && s.side === 'friend')
+  if (!st) return
+  if (st.buildT > 0) { toast(`${st.label} STILL UNDER CONSTRUCTION`); return }
+  if (st.kind !== 'FOB') { toast('BUILD-OUTS ARE FOR FORWARD BASES'); return }
+  if (st.facilities?.includes(key)) { toast(`${st.label} ALREADY HAS A ${FACILITIES[key].name.toUpperCase()}`); return }
+  const spec = FACILITIES[key]
+  if (S.resources < spec.cost) { toast('INSUFFICIENT SUPPLY'); return }
+  S.resources -= spec.cost
+  S.stats.supplySpent += spec.cost
+  st.facilities = [...(st.facilities ?? []), key]
+  toast(`${spec.name.toUpperCase()} ESTABLISHED AT ${st.label}`)
+  radio('NET', 'arrive', `${st.label} — ${spec.name.toUpperCase()} IS OPERATIONAL`, st.x, st.y)
 }
 
 // the structure whose deploy zone covers this point (nearest if several)

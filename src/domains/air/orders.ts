@@ -62,9 +62,14 @@ export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone 
     ox = launcher.x; oy = launcher.y
     launcherId = launcher.id
   }
-  if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
-  S.resources -= spec.cost
-  S.stats.supplySpent += spec.cost
+  // unit-carried UAS fly FREE (P5) — the airframe is the unit's organic kit,
+  // capped and turnaround-limited, not a purchase. Site/airfield birds still
+  // draw on supply.
+  if (spec.src !== 'field') {
+    if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
+    S.resources -= spec.cost
+    S.stats.supplySpent += spec.cost
+  }
   const id = S.counters.nextId++
   const d: Drone = {
     id, type: typeKey, x: ox, y: oy, ox, oy,

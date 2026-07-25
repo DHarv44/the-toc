@@ -59,8 +59,7 @@ export default function HUD() {
   // laid out by App as real siblings of the map
   return (
     <>
-      {/* selection tray */}
-      <SelectionTray />
+      {/* the selection tray is a layout row BELOW the map — App mounts it */}
 
       {/* fire mission options */}
       {ui.mode === 'target' && <FireMissionPanel />}
@@ -98,8 +97,7 @@ export default function HUD() {
         ))}
       </div>
 
-      {/* drone feed windows */}
-      {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} />)}
+      {/* drone feeds live in the FEEDS rail now (P5) — see ui/FeedsPanel */}
     </>
   )
 }
@@ -159,7 +157,10 @@ function RouteSelect() {
   )
 }
 
-function SelectionTray() {
+// The selection tray is a LAYOUT ROW below the map (P5), not a map overlay —
+// App mounts it as a sibling under the map wrapper.
+export function SelectionTray() {
+  useUI((s) => s.tick)
   const ui = useUI()
   const [min, setMin] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter((u): u is Unit => !!u)
@@ -171,14 +172,14 @@ function SelectionTray() {
   const logiUnit = units.length === 1 && UNIT_TYPES[units[0]!.type].logi ? units[0]! : null
   const count = units.length + selDrones.length
 
-  // minimized: the footer goes away, leaving a small restore tab flush at the bottom
+  // minimized: the body goes away, leaving a slim restore row under the map
   if (min) {
     return (
       <button onClick={() => setMin(false)} title="Show selection"
         style={{
-          position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 14,
-          background: 'rgba(10,14,18,0.94)', color: '#9ab8d0', border: '1px solid #2a3a48', borderBottom: 'none',
-          borderRadius: '3px 3px 0 0', padding: '2px 14px', fontSize: 10, letterSpacing: 1,
+          flex: '0 0 auto', width: '100%',
+          background: 'rgba(10,14,18,0.94)', color: '#9ab8d0', border: 'none', borderTop: '1px solid #2a3a48',
+          padding: '2px 14px', fontSize: 10, letterSpacing: 1,
           cursor: 'pointer', fontFamily: 'inherit',
         }}>▲ {count} SELECTED</button>
     )
@@ -186,7 +187,7 @@ function SelectionTray() {
 
   return (
     <div style={{
-      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 14,
+      flex: '0 0 auto',
       background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
       padding: '6px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
     }}>
@@ -743,7 +744,7 @@ function HeaderMenu({ feed, drone, camMode, lookPoint }: {
   )
 }
 
-function FeedWindow({ feed, index }: { feed: Feed; index: number }) {
+export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number; docked?: boolean }) {
   const ui = useUI()
   const boxRef = useRef<HTMLDivElement>(null)
   const drag = useRef<
@@ -869,7 +870,7 @@ function FeedWindow({ feed, index }: { feed: Feed; index: number }) {
     : { left: feed.x, top: feed.y! }
 
   function startDrag(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.button !== 0) return
+    if (e.button !== 0 || docked) return // docked feeds don't float — they stack
     const rect = boxRef.current!.getBoundingClientRect()
     drag.current = { mode: 'move', dx: e.clientX - rect.left, dy: e.clientY - rect.top }
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -891,10 +892,14 @@ function FeedWindow({ feed, index }: { feed: Feed; index: number }) {
     const hx = host ? host.left : 0
     const hy = host ? host.top : 0
     if (d.mode === 'move') {
+      if (docked) return
       ui.setFeed(feed.id, {
         x: Math.max(0, Math.min(hw - 120, e.clientX - d.dx - hx)),
         y: Math.max(0, Math.min(hh - 40, e.clientY - d.dy - hy)),
       })
+    } else if (docked) {
+      // stacked in the feeds rail: the panel owns the width — only height resizes
+      ui.setFeed(feed.id, { h: Math.max(180, Math.min(hh, d.h + (e.clientY - d.sy))) })
     } else {
       const rect = boxRef.current!.getBoundingClientRect()
       // resizing an undocked-by-right window: pin its current left/top first
@@ -907,14 +912,22 @@ function FeedWindow({ feed, index }: { feed: Feed; index: number }) {
   }
   function endDrag() { drag.current = null }
 
-  // window mode: 'win' (draggable/resizable) | 'max' (fill screen) | 'min' (title only)
+  // window mode: 'win' (draggable/resizable) | 'max' (fill screen) | 'min' (title only).
+  // DOCKED (in the feeds rail) every mode is PANEL-relative: min = a title bar
+  // in the stack, max = fills the panel, win = a stacked block at feed.h.
   const winMode = feed.winMode || 'win'
-  const boxStyle: CSSProperties = winMode === 'max'
-    // edge-to-edge below the top bar — no margin, footer flush to the screen bottom
-    ? { position: 'fixed', left: 0, top: 34, right: 0, bottom: 0 }
-    : winMode === 'min'
-      ? { position: 'absolute', ...style, width: feed.w }        // height auto = header only
-      : { position: 'absolute', ...style, width: feed.w, height: feed.h }
+  const boxStyle: CSSProperties = docked
+    ? winMode === 'max'
+      ? { position: 'absolute', inset: 0, zIndex: 45 }
+      : winMode === 'min'
+        ? { position: 'relative', width: '100%' }
+        : { position: 'relative', width: '100%', height: feed.h, flex: '0 0 auto' }
+    : winMode === 'max'
+      // edge-to-edge below the top bar — no margin, footer flush to the screen bottom
+      ? { position: 'fixed', left: 0, top: 34, right: 0, bottom: 0 }
+      : winMode === 'min'
+        ? { position: 'absolute', ...style, width: feed.w }        // height auto = header only
+        : { position: 'absolute', ...style, width: feed.w, height: feed.h }
 
   const armed = drone && (DRONE_TYPES[drone.type].weapons || DRONE_TYPES[drone.type].kamikaze)
   const hasTargets = !!(drone && drone.targets && drone.targets.length > 0)

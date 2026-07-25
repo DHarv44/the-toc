@@ -2,9 +2,10 @@
 // net rail). Ported verbatim from src/App.jsx.
 import { useState } from 'react'
 import MapView from './map/MapView'
-import HUD from './ui/HUD'
+import HUD, { SelectionTray } from './ui/HUD'
 import TopBar from './ui/TopBar'
-import CommandPanel from './ui/CommandPanel'
+import CommandPanel, { BattleGroupsPanel } from './ui/CommandPanel'
+import FeedsPanel from './ui/FeedsPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
@@ -49,9 +50,10 @@ export default function App() {
 
   if (!started) return <Splash onStart={begin} />
 
-  // top bar over a three-column body: command rail | map | net rail. The rails are
-  // real layout siblings, so collapsing one genuinely widens the map rather than
-  // just uncovering it (MapView sizes its canvas from clientWidth/Height).
+  // top bar over the rail row (P5): [INSTALLATIONS|BATTLE GROUPS] map [FEEDS|NET].
+  // Every rail is a real layout sibling — collapsing one genuinely widens the
+  // map. The map column is itself a flex COLUMN: the map area (with its
+  // overlays) on top, the selection tray as a real row below it.
   return (
     <div style={{
       width: '100vw', height: '100vh', overflow: 'hidden',
@@ -60,16 +62,21 @@ export default function App() {
       <TopBar />
       <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
         <CommandPanel />
-        {/* map column — HUD overlays (tray, toasts, feeds, menus) anchor to this box */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0, overflow: 'hidden' }}>
-          <MapView />
-          <HUD />
-          {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
-          <CampaignObjectives />
-          <VtcFrago />
-          {/* staff-shop console replaces the map column while open */}
-          <S1Console />
+        <BattleGroupsPanel />
+        {/* map column: map area above, selection tray below */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
+            <MapView />
+            <HUD />
+            {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
+            <CampaignObjectives />
+            <VtcFrago />
+            {/* staff-shop console replaces the map column while open */}
+            <S1Console />
+          </div>
+          <SelectionTray />
         </div>
+        <FeedsPanel />
         <NetPanel />
       </div>
       {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}

@@ -76,7 +76,13 @@ export interface UIState {
   showRanges: boolean       // global weapon-range overlay for all friendly units
   rangeUnits: Record<number, true> // per-unit range ring, independent of the global
   leftOpen: boolean         // side rails: collapse to their own edge, independently
+  bgOpen: boolean           // BATTLE GROUPS rail (left, beside installations)
   netOpen: boolean
+  feedsOpen: boolean        // FEEDS rail (right, inboard of the net) — feeds stack here
+  feedsW: number            // feeds rail width (drag-resizable)
+  toggleBg: () => void
+  toggleFeeds: () => void
+  setFeedsW: (w: number) => void
   muted: boolean
   setMuted: (m: boolean) => void
   fireOpts: FireOpts
@@ -120,7 +126,13 @@ export const useUI = create<UIState>()((set, get) => ({
   showRanges: false,
   rangeUnits: {},
   leftOpen: true,
+  bgOpen: false,
   netOpen: true,
+  feedsOpen: false,
+  feedsW: 400,
+  toggleBg: () => set((s) => ({ bgOpen: !s.bgOpen })),
+  toggleFeeds: () => set((s) => ({ feedsOpen: !s.feedsOpen })),
+  setFeedsW: (w) => set({ feedsW: Math.max(300, Math.min(680, w)) }),
   muted: false,
   setMuted: (m) => set({ muted: m }),
   fireOpts: { shell: 'HE', rounds: 0, sheaf: 'STD' },
@@ -157,7 +169,7 @@ export const useUI = create<UIState>()((set, get) => ({
   addFeed: (droneId = null) => {
     const { feeds } = get()
     if (feeds.length >= 4) return
-    set({ feeds: [...feeds, newFeed(droneId)] })
+    set({ feeds: [...feeds, newFeed(droneId)], feedsOpen: true })
   },
   closeFeed: (id) => set((s) => ({ feeds: s.feeds.filter(f => f.id !== id) })),
   setFeed: (id, patch) => set((s) => ({
@@ -176,11 +188,11 @@ export const useUI = create<UIState>()((set, get) => ({
   // fill it; room for another → pop a NEW window; at max with all bound → take over the
   // first feed. So deploying always lands you looking at it.
   showDrone: (droneId) => set((s) => {
-    if (s.feeds.some(f => f.droneId === droneId)) return {}
+    if (s.feeds.some(f => f.droneId === droneId)) return { feedsOpen: true }
     const empty = s.feeds.find(f => f.droneId == null)
-    if (empty) return { feeds: s.feeds.map(f => (f.id === empty.id ? { ...f, droneId } : f)) }
-    if (s.feeds.length < 4) return { feeds: [...s.feeds, newFeed(droneId)] }
-    return { feeds: s.feeds.map((f, i) => (i === 0 ? { ...f, droneId } : f)) }
+    if (empty) return { feeds: s.feeds.map(f => (f.id === empty.id ? { ...f, droneId } : f)), feedsOpen: true }
+    if (s.feeds.length < 4) return { feeds: [...s.feeds, newFeed(droneId)], feedsOpen: true }
+    return { feeds: s.feeds.map((f, i) => (i === 0 ? { ...f, droneId } : f)), feedsOpen: true }
   }),
 }))
 

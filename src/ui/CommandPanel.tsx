@@ -1,14 +1,16 @@
-// Persistent left rail. Always present (collapsible to the left edge), with the
-// installations roster and the contextual deploy palette as sections.
-// Ported verbatim from src/ui/CommandPanel.jsx.
+// The left side (P5): TWO independent flyout rails side by side, JBC-P style —
+// INSTALLATIONS (bases, the deploy palette, each base's FACILITIES) and
+// BATTLE GROUPS (the fielded force — formed groups first, then independents).
+// Each collapses to its own strip; both, one or neither can be open.
 import { Box, Text } from '@mantine/core'
 import { S } from '../engine/state'
-import { fieldUnit } from '../domains/installations/orders'
+import { fieldUnit, installFacility } from '../domains/installations/orders'
 import { fieldAerostat, fieldUnitDrone } from '../domains/air/orders'
 import type { DroneTypeKey } from '../domains/air/catalog'
+import type { FacilityKey } from '../domains/installations/catalog'
 import { forceCount, forceCap } from '../domains/economy/economy'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
-import type { UnitTypeKey } from '../domains/forces/catalog'
+import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { useUI, type UiMode } from './store'
 import { RAIL_W } from './styles'
 import Rail, { RailSection } from './Rail'
@@ -19,7 +21,7 @@ const ROSTER_KINDS: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
 export default function CommandPanel() {
   const ui = useUI()
   return (
-    <Rail side="left" title="COMMAND" width={RAIL_W.left} open={ui.leftOpen} onToggle={ui.toggleLeft}
+    <Rail side="left" title="INSTALLATIONS" width={RAIL_W.left} open={ui.leftOpen} onToggle={ui.toggleLeft}
       footer={
         <>
           <Text fz={9} c={forceCount() >= forceCap() ? 'orange.5' : 'dark.2'} lh={1.5}>
@@ -30,6 +32,18 @@ export default function CommandPanel() {
       }>
       <InstallationsRoster />
       <DeploySection />
+      <Box h={8} />
+    </Rail>
+  )
+}
+
+// The second left rail: the fielded force. Sits beside INSTALLATIONS — both,
+// one or neither open, JBC-P style.
+export function BattleGroupsPanel() {
+  const ui = useUI()
+  return (
+    <Rail side="left" title="BATTLE GROUPS" width={240} open={ui.bgOpen} onToggle={ui.toggleBg}>
+      <BattleGroups />
       <Box h={8} />
     </Rail>
   )
@@ -51,13 +65,14 @@ function InstallationsRoster() {
       {sites.map(st => {
         const spec = STRUCTURES[st.kind]
         const active = ui.selectedIds.length === 1 && ui.selectedIds[0] === st.id
+        const facs = (st.facilities ?? []).length
         return (
           <PaletteRow key={st.id} active={active}
             icon={<PaletteIcon struct={spec} w={34} h={24} scale={0.82} />}
             label={st.label}
-            // no static abbreviation sub-label — the symbol and name cover it. Only the
-            // build countdown earns the second line, because it changes.
-            tag={st.buildT > 0 ? `BUILDING ${Math.ceil(st.buildT)}s` : null}
+            // build countdown or the facility count — the changing facts
+            tag={st.buildT > 0 ? `BUILDING ${Math.ceil(st.buildT)}s`
+              : facs > 0 ? `${facs} ${facs === 1 ? 'FACILITY' : 'FACILITIES'}` : null}
             cost=""
             onClick={() => {
               ui.select(st.id)
@@ -67,6 +82,51 @@ function InstallationsRoster() {
         )
       })}
     </RailSection>
+  )
+}
+
+// The fielded force, as the S3 sees it: formed battle groups first (units
+// sharing a groupId), then the independents. Click = select + centre.
+function BattleGroups() {
+  const ui = useUI()
+  const units = S.units.filter(u => u.side === 'friend' && u.strength > 0)
+  const groups = new Map<number, typeof units>()
+  const solo: typeof units = []
+  for (const u of units) {
+    if (u.groupId != null) {
+      if (!groups.has(u.groupId)) groups.set(u.groupId, [])
+      groups.get(u.groupId)!.push(u)
+    } else solo.push(u)
+  }
+  const row = (u: (typeof units)[number]) => {
+    const type = UNIT_TYPES[u.type]
+    const active = ui.selectedIds.includes(u.id)
+    return (
+      <PaletteRow key={u.id} active={active}
+        icon={<PaletteIcon unit={type} w={34} h={24} scale={0.82} />}
+        label={`${u.label} · ${type.abbr}`}
+        tag={`${u.lineage ?? ''}${u.attFrom ? ` · ATT ${u.attFrom}` : ''}`}
+        note={`${Math.max(0, Math.round(u.strength))}%`}
+        cost=""
+        onClick={() => {
+          ui.select(u.id)
+          const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
+          if (v) { v.cx = u.x; v.cy = u.y }
+        }} />
+    )
+  }
+  return (
+    <>
+      {[...groups.entries()].map(([gid, list]) => (
+        <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
+          {list.map(row)}
+        </RailSection>
+      ))}
+      <RailSection label={`Independent (${solo.length})`}>
+        {solo.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE FIELDED</Text>}
+        {solo.map(row)}
+      </RailSection>
+    </>
   )
 }
 
@@ -95,12 +155,13 @@ function DeploySection() {
       {ctx.sections.map((sec, si) => (
         <RailSection key={si} label={sec.header}>
           {sec.items.map(it => {
-            // ground units, the aerostat, and organic UAS all field immediately from the
-            // selected site/unit — no deploy mode, no map click. Airfield UAS still place
-            // an orbit point on the map.
-            const oneClick = (it.field || it.fieldAero || it.fieldDrone) && ctx.sourceId != null
-            const short = oneClick && it.field && ctx.purse != null && ctx.purse < (it.cost as number)
+            // ground units, the aerostat, organic UAS and facility build-outs all
+            // act immediately from the selected site/unit — no deploy mode, no
+            // map click. Airfield UAS still place an orbit point on the map.
+            const oneClick = (it.field || it.fieldAero || it.fieldDrone || it.installFac) && ctx.sourceId != null
+            const short = oneClick && it.installFac && it.cost != null && S.resources < (it.cost as number)
             const fire = () => {
+              if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
               if (it.fieldDrone) {
                 // organic UAS: launch it straight over the carrying unit and pop its feed
                 const d = fieldUnitDrone(ctx.sourceId!, it.key as DroneTypeKey)
