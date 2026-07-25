@@ -144,7 +144,7 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         return !!r && ui.selectedIds.length === 1 && ui.selectedIds[0] === r.id
       },
       hint: () => ({
-        text: 'SCOUTS LEAD — the garrison in the town is CONCEALED: nobody sees them until they are found, or they fire. Your recon platoon sees farthest, and it is set to BREAK contact automatically if engaged.',
+        text: 'SCOUTS LEAD — intel marked the garrison\'s SUSPECTED position in the town, but they are CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest, and it is set to BREAK contact automatically if engaged.',
         action: 'LEFT-CLICK your recon platoon.',
         targetUnit: recon()?.id,
       }),

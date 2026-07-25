@@ -116,6 +116,10 @@ stream (`CAMPAIGN_STEPS`), no per-mission reset. `defeat-group` counts a group
 in `phase === 'withdraw'` as BEATEN — a broken survivor running home no longer
 stalls the objective. Reactive BREAK tip (one-shot, `tutBreakShown`): any line
 platoon under 50% strength pauses and teaches select→BREAK, any time in the op.
+Pre-battle INTEL: the COP opens with what a battalion would know — the enemy HQ
+stays on the board as a KNOWN installation (structContacts), and the garrison is
+seeded as a SUSPECTED stale contact with ~200 m templating error; scouts still
+have to make it a live track.
 
 **Continuous-campaign rework (2026-07-24, same day as slice v1):**
 - **Authored map layout** — `MapLayout` in `world/mapgen.ts` (campaign passes

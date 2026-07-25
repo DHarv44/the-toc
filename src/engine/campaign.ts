@@ -190,8 +190,9 @@ export const OPERATION: Operation = {
   name: 'LODGMENT',
   brief:
     'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
-    + 'seize the crossroads town to your front — it owns the road net. A light '
-    + 'garrison is CONCEALED in the buildings: you will not see them until your '
+    + 'seize the crossroads town to your front — it owns the road net. Intel has '
+    + 'marked a SUSPECTED garrison position on your map, but they are CONCEALED '
+    + 'in the buildings: you will not see them until your '
     + 'scouts find them or they open fire. Scouts screen forward — they are set to '
     + 'break contact if engaged. Expect a counterattack once you take the town. '
     + 'No fielding, no fires to start; your platoons and their organic UAS are '
@@ -217,6 +218,14 @@ export const OPERATION: Operation = {
           const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y - 80)
           const g = spawnEnemy(k, p.x, p.y)
           g.stowage.M_JAVELIN = 0
+          // pre-battle intel: the COP starts with what a battalion would know —
+          // the garrison is a SUSPECTED position (stale contact, templated with
+          // a couple hundred meters of error), not a live track. Scouts still
+          // have to FIND them; contact goes live only when actually spotted.
+          S.contacts.set(g.id, {
+            x: p.x + (S.rng!() - 0.5) * 380, y: p.y + (S.rng!() - 0.5) * 380,
+            type: k, lastSeen: 0, live: false, strength: 100,
+          })
         })
         // the fixed force, near the HQ
         placeForce(S, M1_FORCE, S.map!.fob, 260)
@@ -305,9 +314,13 @@ function pickAnchorTown(S: GameState): Vec2 {
 // Build the campaign world ONCE and start mission 1. Called from the mode's
 // setup (which runs after initGame staged the default map + friendly HQ).
 export function startCampaign(S: GameState): void {
-  // strip the default A&D staging down to the campaign's clean slate: keep only
-  // the friendly command post; the campaign places every hostile itself.
-  S.structures = S.structures.filter(s => s.side === 'friend' && s.kind === 'HQ')
+  // strip the default A&D staging down to the campaign's clean slate: the
+  // friendly command post, plus the ENEMY HQ far north — which stays on the
+  // board as KNOWN intel (a battalion knows where the enemy's main base is;
+  // it's why the operation exists). The campaign places every hostile unit.
+  S.structures = S.structures.filter(s =>
+    (s.side === 'friend' && s.kind === 'HQ') || (s.side === 'hostile' && s.kind === 'HQ'))
+  for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
   S.units = []
   S.enemyGroups = []
   S.nextWave = Infinity        // no economy-driven waves — missions script the OPFOR
