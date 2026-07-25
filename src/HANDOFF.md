@@ -4,25 +4,14 @@
 > This doc is the jump start: exact state, unverified work, and fleshed-out
 > designs for the next builds. Read PLAYTEST.md alongside it.
 
-## ⚠ UNVERIFIED WORK — run this FIRST, before building anything
+## ✅ VERIFIED (task #29, 2026-07-25 late session)
 
-The **JSON pack conversion** (last commits) is code-complete but the
-verification battery was NOT run after the final edits (1CD-fallback logic,
-name pools, mute fix). First actions next session:
-
-1. `npx tsc --noEmit` (last full pass was clean, but 1CD-fallback + mute edits
-   came after).
-2. Rebuild + run golden ×2 — expected **3077619369 UNCHANGED** (names are
-   digest-invisible; platform data byte-identical through JSON).
-3. Battery: campaign-check 37 · casualty 22 · asset-check 32 · pipeline 12 ·
-   roster 8 · phase3 14 (esbuild each `.tmp-mig/*.entry.mjs`; phase3 needs
-   `--platform=node`).
-4. Full browser reload → sandbox boots, S1 shows the NEW names (uppercased in
-   code from author-cased pools, ~12% female), pack viewer NAMES tab, OPFOR
-   names still Korean-flavored.
-5. Known risk spots: loader `table()` fallback chain; identity-merge (both
-   packs must share library object references — normalizeDrones mutates the
-   lib IN PLACE for this); `resolveJsonModule` newly enabled in tsconfig.
+The JSON pack conversion checked out completely: tsc clean · golden
+**3077619369 unchanged ×2** · battery green (campaign 37 · casualty 22 ·
+asset 32 · pipeline 12 · roster 8 · phase3 14) · browser boot clean — 234 org
+slots (229 + 5 asset crews), blue roster on Dave's dump (uppercased in code),
+OPFOR on its own pools. Remaining eyes-only checks live in PLAYTEST.md
+(female-name portraits, mute-mid-alarm by ear, pack viewer NAMES tab).
 
 ## What landed this session (all committed/pushed through `654f353` + the
 final commit carrying this doc)
