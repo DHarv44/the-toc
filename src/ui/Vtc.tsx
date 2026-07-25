@@ -334,6 +334,29 @@ function drawSlide(cv: HTMLCanvasElement, idx: number): void {
 }
 
 // ---------------------------------------------------------------------------
+// Slide thumbnails — the deck's preview rail (think slide sorter): every page
+// rendered small, click to jump. Same live drawSlide as the main canvas.
+// ---------------------------------------------------------------------------
+function SlideThumb({ idx, active, onClick }: { idx: number; active: boolean; onClick: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => { if (ref.current) drawSlide(ref.current, idx) }, [idx, active])
+  return (
+    <div onClick={onClick} style={{
+      position: 'relative', cursor: 'pointer', borderRadius: 2, overflow: 'hidden',
+      border: active ? '2px solid #e8b34a' : '1px solid #2a3a48',
+      opacity: active ? 1 : 0.75,
+    }}>
+      <canvas ref={ref} width={1180} height={756} style={{ width: '100%', display: 'block' }} />
+      <span style={{
+        position: 'absolute', left: 4, top: 3, fontSize: 9, fontWeight: 700,
+        color: active ? '#e8b34a' : '#9ab8d0', background: 'rgba(6,10,14,0.8)',
+        padding: '0 4px', borderRadius: 2,
+      }}>{idx + 1}</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Camera tiles
 // ---------------------------------------------------------------------------
 function CamTile({ label, sub, h, speaking, bars, seed }: {
@@ -577,6 +600,10 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
             </div>
           </div>
           )}
+          {/* vertical divider: the people on the call | the product */}
+          {!review && (
+            <div style={{ width: 1, flex: '0 0 auto', alignSelf: 'stretch', background: '#24343f' }} />
+          )}
           {/* the visual: the operation deck, or the report DOCUMENT itself */}
           {entry.docOnly ? (
             <div style={{
@@ -606,23 +633,41 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               </div>
             </div>
           ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
-            <canvas ref={slideRef} width={1180} height={756}
-              style={{ width: '100%', borderRadius: 2 }} />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
-              {navBtn(-1, '◀')}
-              <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#54708a' }}>
-                SLIDE {slide + 1} / {DECK.length}
-              </span>
-              {navBtn(1, '▶')}
+          <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
+            {/* the deck's preview rail — every page, click to jump */}
+            <div style={{
+              width: 128, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6,
+              overflowY: 'auto', paddingRight: 2,
+            }}>
+              {DECK.map((_, i) => (
+                <SlideThumb key={i} idx={i} active={i === slide} onClick={() => setSlide(i)} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+              <canvas ref={slideRef} width={1180} height={756}
+                style={{ width: '100%', borderRadius: 2 }} />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+                {navBtn(-1, '◀')}
+                <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#54708a' }}>
+                  SLIDE {slide + 1} / {DECK.length}
+                </span>
+                {navBtn(1, '▶')}
+              </div>
             </div>
           </div>
           )}
         </div>
       )}
 
-      {/* footer */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' }}>
+      {/* footer bar: mirrors the header — the call's one committing action
+          lives here (ACKNOWLEDGE / END CALL / CLOSE) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+        padding: '7px 12px', borderTop: '1px solid #24343f', background: 'rgba(8,12,17,0.9)',
+      }}>
+        <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginRight: 'auto' }}>
+          {review ? 'REVIEW — NO ACKNOWLEDGEMENT REQUIRED' : 'ACKNOWLEDGE TO RELEASE THE NET'}
+        </span>
         <button onClick={() => { stopBrief(); onClose(); bump() }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = AMBER }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3a48' }}
