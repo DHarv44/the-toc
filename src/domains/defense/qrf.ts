@@ -34,6 +34,21 @@ export function qrfHomeBase(sl: OrgSlot): Structure | null {
     ?? null
 }
 
+// The duty roster at one base: who is STANDING the QRF there, and who is in
+// that garrison and could. The Command rail shows the first list flat and puts
+// the second behind a drill — a base runs one or two elements on reaction duty,
+// and listing the whole garrison as "candidates" buries that fact.
+export function qrfRoster(structId: number): { standing: OrgSlot[]; candidates: OrgSlot[] } {
+  const standing: OrgSlot[] = [], candidates: OrgSlot[] = []
+  for (const sl of S.org?.slots ?? []) {
+    if (!sl.tf || !sl.type || sl.unitId != null) continue
+    if (qrfHomeBase(sl)?.id !== structId) continue
+    if (!sl.soldiers.some(x => x.status === 'FIT')) continue
+    ;(sl.qrf ? standing : candidates).push(sl)
+  }
+  return { standing, candidates }
+}
+
 // assignment order (palette toggle): a GARRISONED slot takes/leaves the duty
 export function toggleQrf(slotId: string): void {
   const sl = S.org?.slots.find(s => s.id === slotId)
@@ -114,7 +129,7 @@ export function qrfUpdate(_dt: number): void {
       const p = nearestLand(S.map!, threat.x, threat.y)
       // launch the standing duty: the garrison FIELDS ITSELF and rolls
       for (const sl of standing) {
-        const u = fieldSlot(sl.id, st.id)
+        const u = fieldSlot(sl.id, st.id, { qrfLaunch: true })
         if (!u) continue // cap/refit/phase lock — the duty holds, try next eval
         u.qrfHome = st.id
         u.qrfOutT = S.t

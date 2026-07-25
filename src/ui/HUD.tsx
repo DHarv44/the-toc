@@ -26,8 +26,8 @@ import { UNIT_TYPES, COVER_DEF } from '../domains/forces/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
 import { DRONE_TYPES } from '../domains/air/catalog'
 import { setFeedAmbient, clearFeedAmbient } from '../audio/audio'
-import { useUI, ROUTE_MODES, type Feed } from './store'
-import { PaletteIcon } from './palette'
+import { useUI, ROUTE_MODES, type Feed, type UiMode } from './store'
+import { PaletteIcon, buildItems } from './palette'
 import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
 
@@ -313,6 +313,26 @@ export function SelectionTray() {
             PONTOON BRIDGE
           </button>
         )}
+        {/* ENGINEER WORK: what this platoon can BUILD. Same reasoning as the
+            UAS below — building is something the element DOES, so it lives
+            with its other actions instead of in a rail about bases. Picking one
+            arms the placement mode; the footer says where it can go. */}
+        {(() => {
+          const eng = units.find(u => buildItems(u).length > 0)
+          if (!eng) return null
+          return buildItems(eng).map(it => {
+            const mode = it.mode as UiMode
+            return (
+              <button key={it.mode}
+                data-tut={it.mode === 'build:FOB' ? 'build-fob' : undefined}
+                style={btn(ui.mode === mode)}
+                title={`${eng.label} builds a ${it.label} — click the map to site it`}
+                onClick={() => ui.setMode(ui.mode === mode ? 'select' : mode)}>
+                ⛏ {it.label.toUpperCase()}
+              </button>
+            )
+          })
+        })()}
         {/* UNIT ASSETS: organic UAS the selected unit carries — launching is a
             unit action, so it lives here with the rest of them (the Raven goes
             up right over the platoon and pops its feed) */}

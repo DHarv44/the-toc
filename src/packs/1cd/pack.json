@@ -83,6 +83,7 @@
   },
   "formation": {
     "playerBn": "2-8 CAV",
+    "qrf": ["C CO:1st PLT"],
     "bdes": [
       {
         "desig": "1ABCT", "nick": "IRONHORSE",

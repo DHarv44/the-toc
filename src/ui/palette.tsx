@@ -4,7 +4,7 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
-import type { OrgSlot } from '../engine/GameState'
+import type { OrgSlot, Unit } from '../engine/GameState'
 import { unitAvailability, airAvailability } from '../domains/economy/economy'
 import {
   availableCount, poolOf, tfInstance, orbitAuthority, windowOpen, assetDef,
@@ -371,14 +371,18 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
         (S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend')
           ? sl.garrisonAt : hqIdForQrf) === st.id
       const qrfItems: PaletteItem[] = [
-        ...garrisonSlots(true).filter(homedHere).map(sl => {
+        // the DUTY ROSTER, not the garrison: only elements actually standing
+        // QRF here. Everything else in the garrison is a candidate, and
+        // candidates live behind the DEDICATE drill — a base has one or two
+        // elements on reaction duty, not forty.
+        ...garrisonSlots(true).filter(sl => sl.qrf && homedHere(sl)).map(sl => {
           const t = UNIT_TYPES[sl.type as UnitTypeKey]
           return {
             mode: 'qrf:' + sl.id, key: sl.id, qrfToggle: true,
             label: `${sl.name} · ${sl.co}`,
-            tag: sl.qrf ? 'DEDICATED QRF — STANDING BY IN GARRISON' : 'DEDICATE AS QRF',
+            tag: 'STANDING BY IN GARRISON — CLICK TO RELEASE',
             cost: null, icon: <PaletteIcon unit={t} />,
-            note: sl.qrf ? '✓ QRF' : null,
+            note: '✓ QRF',
           }
         }),
         // responders already out the gate — visibility, not a toggle
@@ -396,30 +400,33 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
         // Command = BASE management: facilities, tethered ISR, division
         // requests, QRF. The garrison lives in the FORCES rail (S1 = deep dive).
+        // QRF always shows, even empty: a base with NO reaction force is a
+        // fact the commander needs to see, not a section that quietly vanishes
         sections: [aerostat,
           ...(st.kind === 'HQ' ? divisionSections() : []),
           { header: 'FACILITIES', items: facItems },
-          ...(qrfItems.length ? [{ header: 'QUICK REACTION FORCE', items: qrfItems }] : [])],
+          // 'QRF' spelled out doesn't fit a rail rung, and every TOC says QRF
+          { header: 'QRF', items: qrfItems }],
       }
     }
     return null // OP fields nothing
   }
-  const u = S.units.find(x => x.id === id && x.side === 'friend')
-  if (u) {
-    const t = UNIT_TYPES[u.type]
-    const sections: DeploySection[] = []
-    // campaign: no AFLD row — the lodgment's strip exists at H-hour, and
-    // another airfield would be a division tasking, not an engineer buy
-    if (t.key === 'ENG') {
-      sections.push({ header: 'INSTALLATIONS',
-        items: Object.values(STRUCTURES).filter(st => !(S.campaign && st.key === 'AFLD')).map(structItem) })
-    }
-    // (organic UAS moved to the bottom tray — a unit ASSET launches with the
-    // unit's ACTIONS, not from the Command rail)
-    if (!sections.length) return null
-    return { title: `${u.label} — ${t.name.toUpperCase()}`, sourceId: u.id, sections }
-  }
+  // A UNIT answers on the SELECTION TRAY, not in this rail. Building is
+  // something the engineer platoon DOES — same as mounting, digging in or
+  // launching its Raven — so it belongs with the unit's other actions, under
+  // the unit, where the commander is already looking. The Command rail is
+  // for BASES. (See HUD's tray: buildItems() feeds it.)
   return null
+}
+
+// What the selected unit can BUILD, for the tray. Campaign ships no AFLD row —
+// the lodgment's strip exists at H-hour, and another airfield would be a
+// division tasking, not an engineer's call.
+export function buildItems(u: Unit): PaletteItem[] {
+  if (UNIT_TYPES[u.type]?.key !== 'ENG') return []
+  return Object.values(STRUCTURES)
+    .filter(st => !(S.campaign && st.key === 'AFLD'))
+    .map(structItem)
 }
 
 export function deployHint(mode: string): string {

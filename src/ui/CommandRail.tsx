@@ -1,22 +1,31 @@
-// COMMAND rail (component): BASE management — the installations roster and
-// the selected base's palette (facilities, tethered ISR, division requests,
-// QRF). The FORCE lives in ForcesRail; the deep dive is S1. Collapses to its
-// own strip, JBC-P style (ForcesRail sits beside it).
+// COMMAND rail (component): BASE management — every friendly installation and
+// what it can put up: tethered ISR, division requests, facilities, and the
+// Quick Reaction Force standing at its wire. The FORCE lives in ForcesRail;
+// the deep dive is S1. Collapses to its own strip, JBC-P style.
+//
+// Same TREE grammar as CALL UP (ui/tree.tsx): the commander picks the PLACE
+// first, then the capability, then the thing. A base is a place with several
+// answers hanging off it — listing all of them flat was a wall of rows.
 import { Box, Text } from '@mantine/core'
 import { S } from '../engine/state'
 import { fieldSlot, fieldUnit, installFacility } from '../domains/installations/orders'
 import { fieldAerostat, fieldUnitDrone } from '../domains/air/orders'
 import { requestAsset } from '../domains/assets/service'
-import { toggleQrf } from '../domains/defense/qrf'
+import { toggleQrf, qrfRoster } from '../domains/defense/qrf'
 import type { DroneTypeKey } from '../domains/air/catalog'
 import type { FacilityKey } from '../domains/installations/catalog'
 import { forceCount, forceCap } from '../domains/economy/economy'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
-import { type UnitTypeKey } from '../domains/forces/catalog'
+import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { useUI, type UiMode } from './store'
 import { RAIL_W } from './styles'
 import Rail, { RailSection } from './Rail'
-import { PaletteIcon, PaletteRow, deployContext, deployHint } from './palette'
+import { DrillRow, TreeLeaf } from './tree'
+import {
+  deployContext, deployHint, unitCats, slotItem,
+  type PaletteItem, type DeployContext,
+} from './palette'
+import { slotStrength } from '../packs/org'
 import { centerView } from '../map/view'
 
 const ROSTER_KINDS: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
@@ -33,16 +42,16 @@ export default function CommandRail() {
           <Text fz={9} c="dark.2" lh={1.5}>{deployHint(ui.mode)}</Text>
         </>
       }>
-      <InstallationsRoster />
-      <DeploySection />
+      <InstallationsTree />
       <Box h={8} />
     </Rail>
   )
 }
 
-// Live list of friendly installations: click to select and centre, which also drives
-// what the deploy palette below offers.
-function InstallationsRoster() {
+// Every friendly installation, as a drill: the base is the rung, its capability
+// groups hang under it. Opening a base also SELECTS and centres it — looking at
+// what a base can do and looking AT the base are the same intent.
+function InstallationsTree() {
   const ui = useUI()
   const sites = S.structures
     .filter(s => s.side === 'friend')
@@ -50,96 +59,130 @@ function InstallationsRoster() {
 
   return (
     <RailSection label={`Installations (${sites.length})`}>
-      {sites.length === 0 && (
-        <Text fz={10} c="dark.3" px="xs">NONE ESTABLISHED</Text>
-      )}
+      {sites.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE ESTABLISHED</Text>}
       {sites.map(st => {
-        const spec = STRUCTURES[st.kind]
-        const active = ui.selectedIds.length === 1 && ui.selectedIds[0] === st.id
-        const facs = (st.facilities ?? []).length
+        const key = `base:${st.id}`
+        const open = ui.cmdOpen.includes(key)
+        const ctx = open ? deployContext([st.id]) : null
         return (
-          <PaletteRow key={st.id} active={active}
-            icon={<PaletteIcon struct={spec} w={34} h={24} scale={0.82} />}
-            label={st.label}
-            // build countdown or the facility count — the changing facts
-            tag={st.buildT > 0 ? `BUILDING ${Math.ceil(st.buildT)}s`
-              : facs > 0 ? `${facs} ${facs === 1 ? 'FACILITY' : 'FACILITIES'}` : null}
-            cost=""
-            onClick={() => {
-              ui.select(st.id)
-              centerView(st)
-            }} />
+          <div key={st.id}>
+            <DrillRow label={st.label} open={open}
+              note={st.buildT > 0 ? `BUILDING ${Math.ceil(st.buildT)}s`
+                : STRUCTURES[st.kind].name.toUpperCase()}
+              onClick={() => {
+                ui.toggleCmd(key)
+                ui.select(st.id)
+                centerView(st)
+              }} />
+            {open && !ctx && (
+              <Text fz={10} c="dark.3" pl={20} py={4}>
+                {st.buildT > 0 ? 'UNDER CONSTRUCTION' : 'NOTHING TO FIELD FROM HERE'}
+              </Text>
+            )}
+            {open && ctx && ctx.sections.map(sec => {
+              const gk = `${key}|${sec.header}`
+              const gOpen = ui.cmdOpen.includes(gk)
+              const isQrf = sec.header === 'QRF'
+              return (
+                <div key={sec.header}>
+                  <DrillRow depth={1} label={sec.header} open={gOpen}
+                    note={isQrf
+                      ? (sec.items.length ? `${sec.items.length} ON DUTY` : 'NONE ASSIGNED')
+                      : `${sec.items.length}`}
+                    onClick={() => ui.toggleCmd(gk)} />
+                  {gOpen && sec.items.map(it => (
+                    <PaletteLeaf key={it.mode} it={it} ctx={ctx} />
+                  ))}
+                  {gOpen && isQrf && <QrfDedicate structId={st.id} />}
+                  {gOpen && !sec.items.length && !isQrf && (
+                    <Text fz={10} c="dark.3" pl={32} py={4}>NONE</Text>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )
       })}
     </RailSection>
   )
 }
 
-// The contextual palette: what the current selection is allowed to field. Keeps an
-// empty state now that the rail is permanent, instead of the whole panel vanishing.
-function DeploySection() {
+// A palette item as a tree leaf. The action is the SAME set the flat palette
+// ran — one-click for anything the site does on its own (field, install,
+// request, QRF toggle), deploy MODE for anything that needs a map click.
+function PaletteLeaf({ it, ctx }: { it: PaletteItem; ctx: DeployContext }) {
   const ui = useUI()
-  const ctx = deployContext(ui.selectedIds)
-  const pick = (mode: string) => ui.setMode((ui.mode === mode ? 'select' : mode) as UiMode)
+  const oneClick = (it.field || it.fieldSlot || it.fieldAero || it.fieldDrone
+    || it.installFac || it.reqAsset || it.qrfToggle) && ctx.sourceId != null
+  const fire = () => {
+    if (it.fieldSlot) return void fieldSlot(it.key!, ctx.sourceId!)
+    if (it.qrfToggle) return void toggleQrf(it.key!)
+    if (it.reqAsset) return void requestAsset(it.key!, ctx.sourceId)
+    if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
+    if (it.fieldDrone) {
+      const d = fieldUnitDrone(ctx.sourceId!, it.key as DroneTypeKey)
+      if (d && d.id != null) ui.showDrone(d.id)
+      return
+    }
+    if (!it.fieldAero) return void fieldUnit(it.key as UnitTypeKey, ctx.sourceId!)
+    const d = fieldAerostat(ctx.sourceId!)
+    if (d && d.id != null) ui.showDrone(d.id)
+  }
+  const pick = () => ui.setMode((ui.mode === it.mode ? 'select' : it.mode) as UiMode)
+  // tutorial anchors the flat palette published — keep them on the leaf
+  const tut = it.tutSel
+    ?? (it.key === 'RAVEN' ? 'uas-raven'
+      : it.mode === 'build:FOB' ? 'build-fob'
+        : it.field && it.key ? `field-${it.key}` : undefined)
+  return (
+    <TreeLeaf depth={2} tut={tut} icon={it.icon} label={it.label} tag={it.tag}
+      note={it.note} disabled={it.disabled}
+      active={!oneClick && ui.mode === it.mode}
+      onClick={() => (oneClick ? fire() : pick())} />
+  )
+}
 
-  if (!ctx) {
-    return (
-      <RailSection label="Deploy">
-        <Text fz={10} c="dark.3" lh={1.5} px="xs">
-          SELECT AN HQ, FOB OR AIRFIELD ABOVE — OR AN ENGINEER / DRONE CARRIER ON THE MAP — TO FIELD FROM IT.
-        </Text>
-      </RailSection>
+// ＋ DEDICATE: the candidates drill, in the same grammar as CALL UP — the
+// capability first, then the company that owns the platoon. Nothing shows until
+// the commander asks for it, so the duty roster above stays the short list it
+// is meant to be.
+function QrfDedicate({ structId }: { structId: number }) {
+  const ui = useUI()
+  const key = `qrf-add:${structId}`
+  const open = ui.cmdOpen.includes(key)
+  const { standing, candidates } = qrfRoster(structId)
+  if (!candidates.length) {
+    return standing.length ? null : (
+      <Text fz={10} c="dark.3" pl={32} py={4}>NO GARRISON HERE TO STAND QRF</Text>
     )
   }
-
+  const catOf = (sl: typeof candidates[number]) => UNIT_TYPES[sl.type as UnitTypeKey].cat
   return (
     <>
-      <RailSection label="Deploy">
-        <Text fz={9.5} c="toc.3" px="xs" pb={2} truncate style={{ letterSpacing: 1 }}>{ctx.title}</Text>
-      </RailSection>
-      {ctx.sections.map((sec, si) => (
-        <RailSection key={si} label={sec.header}>
-          {sec.items.map(it => {
-            // the aerostat, organic UAS and facility build-outs all act
-            // immediately from the selected site/unit — no deploy mode, no
-            // map click. Airfield UAS still place an orbit point on the map.
-            const oneClick = (it.field || it.fieldSlot || it.fieldAero || it.fieldDrone || it.installFac || it.reqAsset || it.qrfToggle) && ctx.sourceId != null
-            const fire = () => {
-              if (it.fieldSlot) return void fieldSlot(it.key!, ctx.sourceId!)
-              if (it.qrfToggle) return void toggleQrf(it.key!)
-              if (it.reqAsset) return void requestAsset(it.key!, ctx.sourceId)
-              if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
-              if (it.fieldDrone) {
-                // organic UAS: launch it straight over the carrying unit and pop its feed
-                const d = fieldUnitDrone(ctx.sourceId!, it.key as DroneTypeKey)
-                if (d && d.id != null) ui.showDrone(d.id)
-                return
-              }
-              if (!it.fieldAero) return void fieldUnit(it.key as UnitTypeKey, ctx.sourceId!)
-              // raising the aerostat pops its feed straight up (or takes a slot at max)
-              const d = fieldAerostat(ctx.sourceId!)
-              if (d && d.id != null) ui.showDrone(d.id)
-            }
-            const row = (
-              <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
-                note={it.note} disabled={it.disabled}
-                onPlus={oneClick ? fire : undefined}
-                active={!oneClick && ui.mode === it.mode}
-                onClick={() => (oneClick ? fire() : pick(it.mode))} />
-            )
-            // tag rows the campaign tutorial highlights (published anchors):
-            // the Raven launch and FOB build rows, plus any row carrying its
-            // own tutSel
-            const tutTag = it.tutSel
-              ?? (it.key === 'RAVEN' ? 'uas-raven'
-                : it.mode === 'build:FOB' ? 'build-fob'
-                : it.field && it.key ? `field-${it.key}` : null)
-            return tutTag
-              ? <div key={it.mode} data-tut={tutTag}>{row}</div>
-              : row
-          })}
-        </RailSection>
-      ))}
+      <TreeLeaf depth={2} label={open ? '✕ CANCEL' : '＋ DEDICATE AN ELEMENT'}
+        tag={open ? null : 'PICK FROM THIS GARRISON'}
+        onClick={() => ui.toggleCmd(key)} />
+      {open && unitCats().map(c => {
+        const list = candidates.filter(sl => catOf(sl) === c)
+        if (!list.length) return null
+        const ck = `qrf-cat:${structId}|${c}`
+        const cOpen = ui.cmdOpen.includes(ck)
+        return (
+          <div key={c}>
+            <DrillRow depth={2} label={c} n={list.length} str={slotStrength(list)}
+              open={cOpen} onClick={() => ui.toggleCmd(ck)} />
+            {cOpen && list.map(sl => {
+              const it = slotItem(sl, true)
+              return (
+                <TreeLeaf key={sl.id} depth={3} icon={it.icon}
+                  label={`${sl.name} · ${sl.co}`} tag={it.tag} note={it.note}
+                  onClick={() => { toggleQrf(sl.id); ui.toggleCmd(key) }} />
+              )
+            })}
+          </div>
+        )
+      })}
     </>
   )
 }
+

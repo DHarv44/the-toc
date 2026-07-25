@@ -62,6 +62,12 @@ export interface BdePlan {
 export interface Formation {
   playerBn: string        // the battalion the player commands ('2-8 CAV')
   bdes: BdePlan[]
+  // Standing QRF at H-hour: the elements the battalion has ALREADY put on
+  // reaction duty at the command post, as `CO:PLT` inside the player battalion
+  // ('C CO:1st PLT'). A real TOC never opens a war with nobody on QRF, and it
+  // never has the whole battalion on it either — this is one or two platoons.
+  // The commander re-assigns from the COMMAND rail.
+  qrf?: string[]
 }
 
 // Everything the pack's formations are made of. Tables usually reference the

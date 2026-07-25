@@ -312,6 +312,16 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
     }
   }
 
+  // STANDING QRF at H-hour (pack content): the battalion does not open a war
+  // with nobody on reaction duty — nor with the whole garrison on it. Named as
+  // `CO:PLT` inside the player battalion; unknown names are ignored rather than
+  // thrown, so a pack can rename a company without breaking the org build.
+  for (const ref of f.qrf ?? []) {
+    const [co, name] = ref.split(':')
+    const sl = slots.find(s => s.bn === f.playerBn && s.co === co && s.name === name && s.type)
+    if (sl) sl.qrf = true
+  }
+
   return { slots }
 }
 

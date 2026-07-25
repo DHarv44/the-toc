@@ -139,7 +139,14 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
 // people; the platoon stages out of the base it is GARRISONED at (its
 // garrisonAt, or the CP). Type-level caps and refit turnarounds still apply
 // (the motorpool doesn't care which company the hulls belong to).
-export function fieldSlot(slotId: string, structId?: number): Unit | null {
+// `qrfLaunch` — this fielding IS the reaction force answering its own base.
+// That is the ONE case where the duty survives leaving the wire: the element
+// rolls, fights, and the duty resumes when it comes back through the gate.
+// Every other way out of garrison RELEASES it — a QRF is what the commander
+// explicitly put on QRF and is still standing there, nothing else.
+export function fieldSlot(
+  slotId: string, structId?: number, opts?: { qrfLaunch?: boolean },
+): Unit | null {
   const sl = S.org?.slots.find(s => s.id === slotId)
   if (!sl || !sl.type) return null
   const type = UNIT_TYPES[sl.type]
@@ -160,6 +167,11 @@ export function fieldSlot(slotId: string, structId?: number): Unit | null {
   const spawn = nearestLand(S.map!, st.x, st.y, mob)
   const u = newUnit(sl.type, 'friend', spawn.x, spawn.y, { slot: sl })
   S.units.push(u)
+  // out the gate = off the duty roster (unless this IS the reaction)
+  if (sl.qrf && !opts?.qrfLaunch) {
+    sl.qrf = false
+    toast(`${sl.name.toUpperCase()} RELEASED FROM QRF — DEPLOYED`)
+  }
 
   const r = rallyPoint(st, mob)
   netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)

@@ -12,8 +12,8 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { useUI } from './store'
 import Rail, { RailSection } from './Rail'
 import { unitCats, PaletteIcon, PaletteRow, garrisonSections, garrisonSlots, slotItem } from './palette'
-import type { PaletteItem } from './palette'
-import { slotStrength, type SlotStr } from '../packs/org'
+import { DrillRow, TreeLeaf } from './tree'
+import { slotStrength } from '../packs/org'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -187,98 +187,6 @@ function BattleGroups() {
   )
 }
 
-// STR as the S1 briefs it — fit over assigned, colored by how much of the
-// element is actually there. The same number at every level of the drill, so a
-// company and a platoon can be compared without doing arithmetic.
-function Str({ s }: { s: SlotStr }) {
-  const pct = Math.round(s.pct)
-  const c = pct >= 95 ? '#7ec87e' : pct >= 85 ? '#e8c547' : '#e8524a'
-  return (
-    <Text span fz={11} fw={600} c={c} style={{ flex: '0 0 auto', letterSpacing: 0.5 }}>
-      STR {pct}%
-    </Text>
-  )
-}
-
-// The CALL UP tree reads like the S1's org tree — same grammar, narrower rail:
-// depth is INDENT, the toggle sits in a fixed cell so labels line up, hairline
-// rules separate rows, and nothing is filled. `TREE_PAD` is S1's 10 + depth*24
-// scaled to the flyout's width.
-const TREE_PAD = (depth: number) => 8 + depth * 12
-
-// One rung of the drill. Everything starts SHUT — the commander picks the
-// GARRISON (0), then the capability (1), then the company (2) that owns it.
-// Sized to be READ ACROSS THE ROOM: this is a call the commander makes under
-// contact, not a spreadsheet to lean into.
-const RUNG = [
-  { fz: 14, ls: 1.4, c: '#9fd0f5' },  // 0 GARRISON — a place, S1's section accent
-  { fz: 14, ls: 0.8, c: '#dceeff' },  // 1 CAPABILITY
-  { fz: 13, ls: 0.6, c: '#9ab8d0' },  // 2 COMPANY
-] as const
-function DrillRow({ label, n, str, open, depth = 0, onClick, tut }: {
-  label: string
-  n: number
-  str: SlotStr
-  open: boolean
-  depth?: 0 | 1 | 2
-  onClick: () => void
-  tut?: string
-}) {
-  const r = RUNG[depth]!
-  return (
-    <Box data-tut={tut} onClick={onClick} pr="xs" py={4} pl={TREE_PAD(depth)}
-      style={{
-        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-        borderTop: '1px solid #141e28',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.background = '#101a24' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-      <Text span fz={11} c="dark.3" style={{ flex: '0 0 auto', width: 12 }}>
-        {open ? '▾' : '▸'}
-      </Text>
-      <Text fz={r.fz} fw={600} c={r.c} truncate
-        style={{ flex: 1, minWidth: 0, letterSpacing: r.ls }}>{label}</Text>
-      <Text span fz={10} c="dark.3" style={{ flex: '0 0 auto' }}>{n} ELM</Text>
-      <Str s={str} />
-    </Box>
-  )
-}
-
-// The LEAF of the tree — the element itself, and the only rung that fields
-// anything. Symbol and name ride one line with readiness on the right; the
-// platform sits on its own line beneath, right-aligned under the readiness it
-// qualifies, so the rail never squeezes two facts onto one line. The row IS
-// the button — no ⊕, nothing to aim at but the row.
-function CallUpLeaf({ it, tag, onCall }: {
-  it: PaletteItem
-  tag?: string | null
-  onCall: () => void
-}) {
-  const off = it.disabled
-  return (
-    <Box data-tut={it.tutSel} onClick={off ? undefined : onCall}
-      pl={TREE_PAD(3)} pr="xs" py={4}
-      style={{
-        borderTop: '1px solid #141e28', opacity: off ? 0.45 : 1,
-        cursor: off ? 'not-allowed' : 'pointer',
-      }}
-      onMouseEnter={e => { if (!off) e.currentTarget.style.background = '#101a24' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-      <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {it.icon}
-        <Text fz={14} lh={1.2} c="dark.0" truncate style={{ flex: 1, minWidth: 0 }}>{it.label}</Text>
-        {it.note && (
-          <Text span fz={10} c={off ? 'orange.5' : 'dark.2'}
-            style={{ flex: '0 0 auto', letterSpacing: 0.5 }}>{it.note}</Text>
-        )}
-      </Box>
-      {tag && (
-        <Text fz={10} c="dark.3" truncate ta="right" style={{ letterSpacing: 0.5 }}>{tag}</Text>
-      )}
-    </Box>
-  )
-}
-
 // The CALL UP picker: a FLYOUT PANEL to the right of the FORCES rail (the
 // rail's body belongs to active units). It drills the way the question is
 // actually asked — WHERE (which garrison holds troops), then WHAT (the
@@ -385,7 +293,9 @@ function CallUpFlyout() {
                               if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending)
                             }
                             return (
-                              <CallUpLeaf key={it.key} it={it} onCall={call}
+                              <TreeLeaf key={it.key} tut={it.tutSel} icon={it.icon}
+                                label={it.label} note={it.note} disabled={it.disabled}
+                                onClick={call}
                                 tag={sl.qrf ? `✓ QRF · ${it.tag ?? ''}` : it.tag} />
                             )
                           })}

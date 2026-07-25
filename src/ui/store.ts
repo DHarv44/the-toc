@@ -95,6 +95,12 @@ export interface UIState {
   callupBase: number | null
   callupCat: string | null
   callupCos: string[]
+  // COMMAND rail tree: which rungs are open, as an open-set of keys
+  // (`base:12`, `base:12|FACILITIES`, `qrf-add:12`, `qrf-cat:12|INFANTRY`…).
+  // One list rather than a field per rung — the tree is content-shaped, so a
+  // new section must not need a new store field.
+  cmdOpen: string[]
+  toggleCmd: (key: string) => void
   // has the player paged the VTC deck THEMSELVES this call? The deck walks
   // itself on a timer, so only a manual page proves the habit was learned.
   vtcPaged: boolean
@@ -161,6 +167,10 @@ export const useUI = create<UIState>()((set, get) => ({
   callupBase: null,
   callupCat: null,
   callupCos: [],
+  cmdOpen: [],
+  toggleCmd: (key) => set((s) => ({
+    cmdOpen: s.cmdOpen.includes(key) ? s.cmdOpen.filter(k => k !== key) : [...s.cmdOpen, key],
+  })),
   vtcPaged: false,
   qrfWarnOff: false,
   netOpen: false,
