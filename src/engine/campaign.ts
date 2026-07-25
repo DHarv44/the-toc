@@ -384,15 +384,21 @@ function pickAnchorTown(S: GameState): Vec2 {
 // setup (which runs after initGame staged the default map + friendly HQ).
 export function startCampaign(S: GameState): void {
   // strip the default A&D staging down to the campaign's clean slate: the
-  // friendly command post, plus the ENEMY HQ far north — which stays on the
-  // board as KNOWN intel (a battalion knows where the enemy's main base is;
-  // it's why the operation exists). The campaign places every hostile unit.
+  // friendly command post AND its airstrip — the lodgment's airfield is
+  // division-echelon infrastructure that exists at H-hour (a battalion doesn't
+  // build one; that would be its own tasking) — plus the ENEMY HQ far north,
+  // which stays on the board as KNOWN intel (a battalion knows where the
+  // enemy's main base is; it's why the operation exists). The campaign places
+  // every hostile unit.
   S.structures = S.structures.filter(s =>
-    (s.side === 'friend' && s.kind === 'HQ') || (s.side === 'hostile' && s.kind === 'HQ'))
+    (s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'AFLD'))
+    || (s.side === 'hostile' && s.kind === 'HQ'))
   for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
-  // the battalion CP gets a NAME, like every real position does
+  // the battalion CP gets a NAME, like every real position does — and the
+  // strip carries the same one (it's the CP's airfield)
   for (const st of S.structures) {
     if (st.side === 'friend' && st.kind === 'HQ') st.label = 'CP GARRYOWEN'
+    if (st.side === 'friend' && st.kind === 'AFLD') st.label = 'GARRYOWEN STRIP'
   }
   S.units = []
   S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh

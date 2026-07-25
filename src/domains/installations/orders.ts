@@ -143,6 +143,9 @@ export function deployStructure(kind: StructureTypeKey, x: number, y: number): S
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const spec = STRUCTURES[kind]
   if (!spec) return null
+  // an airfield is division-echelon infrastructure: the campaign's exists at
+  // H-hour, and standing up another would be its own tasking, not a purchase
+  if (kind === 'AFLD' && S.campaign) return toast('AIRFIELD CONSTRUCTION IS A DIVISION TASKING')
   if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
   if (S.map!.terrAt(x, y) === T_WATER) return toast('CANNOT BUILD ON WATER')
   if (kind === 'HQ' && S.structures.some(s => s.side === 'friend' && s.kind === 'HQ')) {

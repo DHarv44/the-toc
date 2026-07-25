@@ -229,7 +229,12 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
   if (u) {
     const t = UNIT_TYPES[u.type]
     const sections: DeploySection[] = []
-    if (t.key === 'ENG') sections.push({ header: 'INSTALLATIONS', items: Object.values(STRUCTURES).map(structItem) })
+    // campaign: no AFLD row — the lodgment's strip exists at H-hour, and
+    // another airfield would be a division tasking, not an engineer buy
+    if (t.key === 'ENG') {
+      sections.push({ header: 'INSTALLATIONS',
+        items: Object.values(STRUCTURES).filter(st => !(S.campaign && st.key === 'AFLD')).map(structItem) })
+    }
     if (t.carries && t.carries.length) {
       // organic UAS field one-click over the unit — sourceId carries the unit id
       sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(dt => organicDroneItem(dt, u.id)) })
