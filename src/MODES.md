@@ -97,9 +97,47 @@ map-gen or zone-placement logic, and map rendering for zone ownership.
 ## Mode 4 — Campaign · SLICE v1 SHIPPED 2026-07-24 (M1+M2 playable end-to-end; more missions pending design)
 
 Vertical slice built and browser-verified: the objective engine, the mission
-runner, the brief/tracker/debrief UI, palette gating, and the first two missions —
+runner, the brief/tracker/FRAGO UI, palette gating, and the first two missions —
 all on one persistent world (no reset between missions). Golden UNCHANGED at
-`289931028` (campaign is a new tick path; the A&D golden scenario never touches it).
+`2409198223` (campaign is a new tick path; the A&D golden scenario never touches it).
+
+**Continuous-campaign rework (2026-07-24, same day as slice v1):**
+- **Authored map layout** — `MapLayout` in `world/mapgen.ts` (campaign passes
+  `CAMPAIGN_LAYOUT`, skirmish passes nothing and stays byte-identical): pins the
+  chorwon theater window `{ox:256, oy:224}` (SE quadrant — southern valley, the
+  HILL 894 ridge east, major river system mid-map, opening north to the plain)
+  plus designed towns/bases. The town chain IS the campaign spine, south→north:
+  HQ → **ASHFORD** (M1/M2) → **BREVIK** (river junction) → **CALDER** → **DORAN**
+  → enemy base; **ELMSTED** hangs west as a flank objective. Roads (MST + trunk
+  MSR), hamlets and named features still generate procedurally from those nodes.
+  `snapSite` clamps+snaps authored cells to buildable ground (a layout authored
+  for Large also can't emit out-of-bounds cells on a smaller grid).
+- **Spacing math** (see the CAMPAIGN_LAYOUT comment): ASHFORD is 3.1 km up the
+  MSR — ~4× the garrison's 800 m sight/weapon envelope, and the MSR bridge sits
+  1.35 km short of town so the approach column crosses UNOBSERVED. Garrison
+  spawns on the town's NORTH side (away from the bridge). Later bounds run
+  1.8–2.7 km. Mounted speeds make each bound a 2–3 min move at 1×; the whole M1
+  arc lands in the target 5–10 real minutes.
+- **No more mission windows or breaks**: AO crops deleted (`CampaignState.ao`
+  gone, MapView clamps to the full world; camera opens on the HQ). Mission
+  transitions never pause — `startMission(n>1)` drops a **FRAGO** (radio + toast
+  + non-blocking amber card beside the tracker, `ackFrago` dismisses). The only
+  modal left is the campaign-opening briefing; the only pauses left are tutorial
+  gates (which now restore the player's chosen speed instead of stomping to 1×).
+- **Reinforcements arrive in-world**: M2's ENG+LOG spawn at the south map edge
+  and drive themselves to an HQ rendezvous (`orderMove` at setup).
+- **FLOT + territory overlay** (`engine/frontline.ts`): 64² influence field —
+  friendly = real units/structures, enemy = KNOWN intel (contacts incl. stale,
+  spotted structures) + the authored phase line `CampaignState.frontY` (each
+  mission's optional `frontY(S)` rolls it forward; M1 = town assessed enemy,
+  M2 = line north of the town). Marching-squares zero contour = dashed red FLOT;
+  negative cells = red wash (drawn in MapView above roads, below grids).
+  Recomputes every 4 sim-seconds, cached per map.
+- **Drone-feed hillshade**: NW-light shade baked into the feed ground texture
+  (EO full strength, IR at 60%) so relief reads from the air.
+- **Edge-pan fix**: edge-scroll requires the cursor to have actually been seen
+  inside the canvas (`mouse` starts at (-1,-1); window-level mousemove means a
+  cursor parked over the rails used to read as "in the edge band" and pan away).
 
 **What's built:**
 - `engine/campaign.ts` — the campaign runtime. Objectives are DATA (an
@@ -108,10 +146,10 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   Four verbs live so far (of the six-verb vocabulary): `clear-area`, `defeat-group`,
   `build`, `deliver`. A `Mission` is `{ brief, objectives[], setup(S), onObjComplete? }`;
   `MISSIONS` holds M1+M2. Runner: `startCampaign` builds the world once + starts M1;
-  `startMission` overlays a mission (allocations, palette gates, OPFOR placement, AO)
-  on the LIVE state; `runCampaign` (mode `update`) advances objectives and does the
-  SOFT mission transition (debrief → next) without ever freezing/resetting; `ackBriefing`
-  / `continueCampaign` are the UI hooks. `campaignAllows(kind)` is the palette gate.
+  `startMission` overlays a mission (allocations, palette gates, OPFOR placement)
+  on the LIVE state; `runCampaign` (mode `update`) advances objectives and rolls
+  straight into the next mission's FRAGO without ever freezing/resetting;
+  `ackBriefing` / `ackFrago` are the UI hooks. `campaignAllows(kind)` is the palette gate.
 - `campaign` is a real `ModeId` in `engine/modes.ts` (setup/update/checkEnd only —
   checkEnd fires for the WHOLE campaign: `complete` → won, HQ+FOB floor → lost).
 - OPFOR steering: `groupObjective` honours `S.campaign.opforObj`; `spawnCampaignGroup`
@@ -119,20 +157,21 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
 - Palette gating wired at the order entry points (deployUnit/fieldUnit/deployStructure
   under `field`, fireMission under `support` — OPFOR never gated, deployDrone under
   `drone`). The campaign's own free placements bypass the gate.
-- UI (`ui/CampaignHUD.tsx`, mounted in App): briefing modal (ACKNOWLEDGE, holds the
-  sim at speed 0), persistent objectives tracker (status glyphs + live progress),
-  debrief modal (CONTINUE → next mission). Campaign victory routes through EndScreen.
+- UI (`ui/CampaignHUD.tsx`, mounted in App): opening-briefing modal (ACKNOWLEDGE,
+  holds the sim at speed 0 — mission 1 only), persistent objectives tracker (status
+  glyphs + live progress), and the non-blocking amber `FragoCard` for every later
+  mission. Campaign victory routes through EndScreen.
 - Splash: CAMPAIGN is a live entry → a difficulty pick → launch. The campaign is
   ALWAYS the same ground: `App.begin` forces the baked **Chorwon Valley** theater
   (the Iron Triangle — added to `tools/bake-theaters.mjs` + `theaterIndex.ts`, asset
   `public/theaters/chorwon.bin`), **Large** size, and a **fixed seed** (`CAMPAIGN_SEED`
-  / `CAMPAIGN_THEATER` in campaign.ts) → an identical, hand-vetted map every playthrough.
-  Real hydrology means the seed's window has a valley river + a road crossing between
-  the HQ corner and the objective town — good ground and a natural foreshadow of the
-  crossing missions.
-- Per-mission **AO crop**: `CampaignState.ao` bounds the camera/pan; M1 AND M2 crop to
-  the same HQ+town pocket (`pocketAO` helper; MapView frames + clamps to it, read
-  dynamically so a later mission lifting `ao` widens to the full theater — no remount).
+  / `CAMPAIGN_THEATER` in campaign.ts) plus the authored `CAMPAIGN_LAYOUT`
+  (window/towns/bases — see the continuous-campaign rework above) → an identical,
+  hand-DESIGNED map every playthrough, with the real hydrology and relief of the
+  Chorwon SE quadrant under it.
+- ~~Per-mission AO crop~~ REMOVED in the continuous-campaign rework (see above):
+  the whole theater is the playfield from minute one; the FLOT overlay carries the
+  "where is the war" signal the crops used to.
 - **Guided tutorial** (splash CAMPAIGN screen has a GUIDED TUTORIAL checkbox, default on →
   `CampaignState.tutorial`/`tutStep`; step DEFINITIONS + rendering live in `ui/tutorial.tsx`,
   engine stores only the two plain fields). Each step has a sim-observable `done(S)` and an

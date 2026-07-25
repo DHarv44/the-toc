@@ -407,14 +407,17 @@ export default function TutorialOverlay() {
   // advance / pause: runs each 10 Hz tick. Sim-observable done() only; the sim
   // stays paused while a gated step is unfinished, then resumes.
   useEffect(() => {
-    if (!c || !c.tutorial || c.complete || !c.briefed || c.debrief) return
+    if (!c || !c.tutorial || c.complete || !c.briefed) return
     const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
     if (c.tutStep >= steps.length) return
     const step = steps[c.tutStep]!
     if (step.done(S, ui)) {
       c.tutStep++
       const next = steps[c.tutStep]
-      S.speed = next?.gate ? 0 : 1 // resume, or hold for the next gated step
+      // hold for the next gated step; on resume, only lift a pause — never
+      // stomp the player's chosen speed (they may be running 4×)
+      if (next?.gate) S.speed = 0
+      else if (S.speed === 0) S.speed = 1
     } else if (step.gate && S.speed !== 0) {
       S.speed = 0
     }
@@ -434,7 +437,7 @@ export default function TutorialOverlay() {
     document.head.appendChild(st)
   }, [])
 
-  if (!c || !c.tutorial || c.complete || !c.briefed || c.debrief) return null
+  if (!c || !c.tutorial || c.complete || !c.briefed) return null
   const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
   if (c.tutStep >= steps.length) return null
   const hint = steps[c.tutStep]!.hint(S, ui)

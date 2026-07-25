@@ -97,6 +97,17 @@ function getDetail(): Detail {
           else if (t === T_URBAN) { r = (0.38 + dry * 0.1) * 255; g = (0.37 + dry * 0.1) * 255; b = (0.35 + dry * 0.09) * 255 }
           else { r = (0.32 + dry * 0.14) * 255; g = (0.32 + dry * 0.08) * 255; b = (0.16 + dry * 0.05) * 255 }
         }
+        // hillshade (NW light) baked into the ground tint so relief reads from
+        // the air — the mesh displacement alone is too subtle at orbit altitude.
+        // Central difference over neighbours; softened on IR (thermal contrast
+        // comes from emissivity, not sun, but a readable feed beats purity).
+        if (t !== T_WATER) {
+          const eL = elev[gy * GRID + Math.max(0, gx - 1)]!, eR = elev[gy * GRID + Math.min(GRID - 1, gx + 1)]!
+          const eU = elev[Math.max(0, gy - 1) * GRID + gx]!, eD = elev[Math.min(GRID - 1, gy + 1) * GRID + gx]!
+          const sh = Math.max(0.55, Math.min(1.3, 1 - (eR - eL) * 0.045 - (eD - eU) * 0.045))
+          const k = palette === 'IR' ? 1 + (sh - 1) * 0.6 : sh
+          r = Math.min(255, r * k); g = Math.min(255, g * k); b = Math.min(255, b * k)
+        }
         const o = ci * 4
         img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255
       }

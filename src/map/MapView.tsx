@@ -22,6 +22,7 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender'
+import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
 import { CELL } from '../world/WorldMap'
@@ -37,17 +38,13 @@ export default function MapView() {
     const canvas = canvasRef.current!
     const ctx = canvas.getContext('2d')!
     const terrainLayer = renderTerrainLayer(S.map!)
-    // dev sandbox frames both bases in one screen; a campaign mission with a cropped
-    // AO opens framed on that pocket; a normal game opens on the HQ
+    // dev sandbox frames both bases in one screen; everything else opens on the
+    // HQ (campaign included — the whole theater is the playfield, no AO crops)
     const dv = S.map!.devView
-    const ao0 = S.campaign?.ao
     const vpMin = Math.min(window.innerWidth || 1280, window.innerHeight || 720)
-    const view = viewRef.current = ao0
-      ? { cx: (ao0.x0 + ao0.x1) / 2, cy: (ao0.y0 + ao0.y1) / 2,
-          ppm: Math.max(0.02, vpMin / Math.max(ao0.x1 - ao0.x0, ao0.y1 - ao0.y0)) }
-      : dv
-        ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
-        : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
+    const view = viewRef.current = dv
+      ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
+      : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
     ;(window as unknown as { __view?: View }).__view = view // dev hook
 
     // The canvas is a flex column between the side rails, so it no longer starts at
@@ -82,12 +79,8 @@ export default function MapView() {
         view.cx = S.map!.fob.x; view.cy = S.map!.fob.y - 2000
         view.ppm = Math.max(0.02, Math.min(canvas.width, canvas.height) / 9000)
       }
-      // camera bound: a campaign mission may crop the world to a smaller AO rect.
-      // Read fresh each call so a mission transition (AO lifted) widens the map
-      // without remounting. Absent → the full square world.
-      const ao = S.campaign?.ao
-      const x0 = ao ? ao.x0 : 0, y0 = ao ? ao.y0 : 0
-      const x1 = ao ? ao.x1 : S.map!.WORLD, y1 = ao ? ao.y1 : S.map!.WORLD
+      const x0 = 0, y0 = 0
+      const x1 = S.map!.WORLD, y1 = S.map!.WORLD
       const spanX = x1 - x0, spanY = y1 - y0
       // floor = zoomed out just enough to fit the AO (can't scroll past its edge)
       const minPpm = Math.min(canvas.width / spanX, canvas.height / spanY)
@@ -184,7 +177,9 @@ export default function MapView() {
     let marquee: { x0: number; y0: number; x1: number; y1: number } | null = null  // screen coords
     let lineDrag: { x0: number; y0: number; x1: number; y1: number } | null = null // formation spread
     let pointerOver = false   // cursor is over the map canvas (gates edge-scroll)
-    const mouse = { x: 0, y: 0 }
+    // starts OFF-canvas: (0,0) would sit inside the edge-scroll band and pan
+    // the camera before any real cursor movement has ever been seen
+    const mouse = { x: -1, y: -1 }
 
     function onDown(e: MouseEvent) {
       useUI.getState().closeMenu()
@@ -459,14 +454,21 @@ export default function MapView() {
       if (heldKeys.has('a')) { view.cx -= step; moved = true }
       if (heldKeys.has('d')) { view.cx += step; moved = true }
       // edge-scroll: the cursor resting in the map's border band pans the camera
-      // (suppressed mid-drag so it doesn't fight a marquee/formation/pan)
+      // (suppressed mid-drag so it doesn't fight a marquee/formation/pan).
+      // The cursor must actually be INSIDE the canvas: mousemove is a window
+      // listener, so a cursor parked over the rails/top bar (or off the frame)
+      // leaves a stale out-of-bounds position that would otherwise read as
+      // "in the edge band" and pan the map away forever.
       if (pointerOver && !panDrag && !marquee && !lineDrag) {
         const EDGE = 22
         const mx = mouse.x, my = mouse.y
-        if (mx < EDGE) { view.cx -= step; moved = true }
-        else if (mx > canvas.width - EDGE) { view.cx += step; moved = true }
-        if (my < EDGE) { view.cy -= step; moved = true }
-        else if (my > canvas.height - EDGE) { view.cy += step; moved = true }
+        const inFrame = mx >= 0 && my >= 0 && mx <= canvas.width && my <= canvas.height
+        if (inFrame) {
+          if (mx < EDGE) { view.cx -= step; moved = true }
+          else if (mx > canvas.width - EDGE) { view.cx += step; moved = true }
+          if (my < EDGE) { view.cy -= step; moved = true }
+          else if (my > canvas.height - EDGE) { view.cy += step; moved = true }
+        }
       }
       if (moved) clampView()
     }, 40)
@@ -571,6 +573,32 @@ export default function MapView() {
           ctx.fillRect(-L / 2, -w / 2 - Math.max(1, 2.4 * ppm), L, w + Math.max(2, 4.8 * ppm))
           ctx.fillStyle = night ? '#6a5f48' : '#b8a67e'
           ctx.fillRect(-L / 2, -w / 2, L, w)
+          ctx.restore()
+        }
+      }
+
+      // campaign COP: enemy-controlled territory wash + the FLOT trace. The
+      // control field recomputes on its own slow cadence; drawing it is just a
+      // scaled image blit (soft edges via smoothing) and a dashed contour.
+      {
+        const cf = controlField(S)
+        if (cf) {
+          ctx.save()
+          ctx.imageSmoothingEnabled = true
+          ctx.globalAlpha = night ? 0.85 : 0.7
+          ctx.drawImage(cf.tint, w2sX(0), w2sY(0), S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
+          ctx.restore()
+          ctx.save()
+          ctx.strokeStyle = night ? 'rgba(255,96,96,0.85)' : 'rgba(190,34,34,0.8)'
+          ctx.lineWidth = Math.max(1.6, 2.6 * Math.min(1, view.ppm * 12))
+          ctx.setLineDash([9, 6])
+          ctx.beginPath()
+          for (const sg of cf.segs) {
+            ctx.moveTo(w2sX(sg.x0), w2sY(sg.y0))
+            ctx.lineTo(w2sX(sg.x1), w2sY(sg.y1))
+          }
+          ctx.stroke()
+          ctx.setLineDash([])
           ctx.restore()
         }
       }

@@ -17,6 +17,33 @@ import type { GameState, CampaignState, Structure } from './GameState'
 export const CAMPAIGN_THEATER = 'chorwon'
 export const CAMPAIGN_SEED = 1
 
+// The authored campaign geography (designed 2026-07-24 with the layout-preview
+// harness): the SE window of the chorwon patch — an open southern valley walled
+// by the HILL 894 ridge east and hill country west, a major river system
+// mid-map, opening north toward the plain. The town chain IS the campaign
+// spine, south → north: ASHFORD (M1 lodgment / M2 FOB) → BREVIK (river
+// crossing) → CALDER (crossroads) → DORAN (valley mouth) → the enemy base on
+// the northern edge; ELMSTED hangs west off the MSR as a flank objective.
+// Roads/hamlets/features still generate procedurally from these nodes.
+import type { MapLayout } from '../world/mapgen'
+export const CAMPAIGN_LAYOUT: MapLayout = {
+  window: { ox: 256, oy: 224 },
+  fob: { gx: 128, gy: 232 },
+  enemyBase: { gx: 148, gy: 18 },
+  // spacing math (2026-07-24): ASHFORD sits 3.1 km up the MSR — ~4× the
+  // garrison's 800 m sight/weapon bubble, ~12-16 min of game time for the whole
+  // M1 arc — NORTH of the southern river branch, with the MSR bridge 1.35 km
+  // short of town (the approach march crosses unobserved). Later bounds run
+  // 1.8-2.7 km each up the spine.
+  towns: [
+    { gx: 130, gy: 170, name: 'ASHFORD' },
+    { gx: 104, gy: 143, name: 'BREVIK' },
+    { gx: 130, gy: 104, name: 'CALDER' },
+    { gx: 158, gy: 60, name: 'DORAN' },
+    { gx: 62, gy: 132, name: 'ELMSTED' },
+  ],
+}
+
 // Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
 // App.begin) just before initGame; startCampaign reads it. Kept as a module flag
 // because initGame's signature is shared across modes and shouldn't grow a param.
@@ -27,6 +54,7 @@ import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
 import { deployUnit } from '../domains/installations/orders'
+import { orderMove } from '../domains/forces/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import { spawnCampaignGroup } from '../domains/opfor/ai'
 import { nearestLand, clampWorld } from '../world/place'
@@ -61,10 +89,11 @@ export interface ObjectiveSpec {
 export interface Mission {
   id: string
   name: string
-  brief: string                                 // situation + task from higher (briefing modal)
+  brief: string                                 // situation + task from higher (briefing/FRAGO)
   objectives: ObjectiveSpec[]
   setup(S: GameState): void                      // allocations, palette gates, OPFOR placement
   onObjComplete?(S: GameState, idx: number): void // scripted triggers (e.g. spawn the counterattack)
+  frontY?(S: GameState): number                  // authored COP phase line for this mission (omit = keep)
 }
 
 // ---------------------------------------------------------------------------
@@ -133,18 +162,6 @@ function reinforceFrom(S: GameState, town: Vec2): Vec2 {
   return nearestLand(S.map!, x, y)
 }
 
-// the M1/M2 mission window: the pocket enclosing the HQ and the objective town.
-// Both early missions are fought here, so they share this AO crop.
-function pocketAO(S: GameState, town: Vec2): { x0: number; y0: number; x1: number; y1: number } {
-  const hq = S.map!.fob, pad = 750, W = S.map!.WORLD
-  return {
-    x0: Math.max(0, Math.min(hq.x, town.x) - pad),
-    y0: Math.max(0, Math.min(hq.y, town.y) - pad),
-    x1: Math.min(W, Math.max(hq.x, town.x) + pad),
-    y1: Math.min(W, Math.max(hq.y, town.y) + pad),
-  }
-}
-
 // place a small starting force in a shallow arc facing the map interior
 function placeForce(S: GameState, comp: readonly UnitTypeKey[], around: Vec2, radius: number): void {
   const n = comp.length
@@ -180,8 +197,10 @@ export const MISSIONS: readonly Mission[] = [
       // the town garrison — loose defenders that hold where they sit.
       // Second-line troops: Javelins stripped (AT4s only), so armor that
       // respects the close-ambush band can actually break them.
+      // north side of town (enemy-ward, away from the MSR bridge south of it —
+      // the approach march must stay outside their 800 m sight/MG envelope)
       M1_GARRISON.forEach((k, i) => {
-        const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y + 80)
+        const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y - 80)
         const g = spawnEnemy(k, p.x, p.y)
         g.stowage.M_JAVELIN = 0
       })
@@ -198,10 +217,10 @@ export const MISSIONS: readonly Mission[] = [
       c.opforObj = { x: town.x, y: town.y }
       // fill the objective zones now that the anchor is known
       MISSIONS[0]!.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
-      // crop the AO to the HQ + town pocket — the intro is a contained fight, not
-      // a march across the whole theater (camera/pan clamp to this box)
-      c.ao = pocketAO(S, town)
     },
+    // COP baseline at H-hour: the objective town itself is assessed enemy —
+    // the line runs just south of it, everything north shades red
+    frontY: (S) => S.campaign!.strongpoint.y + 500,
     onObjComplete(S, idx) {
       if (idx !== 0) return // town cleared → the enemy counterattacks to retake it
       const c = S.campaign!
@@ -231,16 +250,23 @@ export const MISSIONS: readonly Mission[] = [
       // carryover: M1 units persist untouched. This phase adds only.
       c.allow = { field: true, support: false, drone: true }
       c.opforObj = null // the counterattack is beaten; no scripted pressure this phase
-      c.ao = pocketAO(S, town) // same mission window as M1 — the FOB fight stays local
       S.resources += 400 // allocation from higher
-      // engineers + logistics arrive at the HQ; the player moves them forward
-      const eng = nearestLand(S.map!, S.map!.fob.x - 120, S.map!.fob.y + 200)
-      deployUnit('ENG', eng.x, eng.y, true)
-      const log = nearestLand(S.map!, S.map!.fob.x + 120, S.map!.fob.y + 200)
-      deployUnit('LOG', log.x, log.y, true)
+      // engineers + logistics push up from the rear IN-WORLD: they enter at the
+      // south map edge below the HQ and drive themselves to it — reinforcements
+      // are something you watch arrive, not something that materializes
+      const W = S.map!.WORLD
+      const entry = nearestLand(S.map!, S.map!.fob.x, W - 120)
+      const rvEng = nearestLand(S.map!, S.map!.fob.x - 140, S.map!.fob.y + 220)
+      const rvLog = nearestLand(S.map!, S.map!.fob.x + 140, S.map!.fob.y + 220)
+      const eng = deployUnit('ENG', entry.x - 90, entry.y, true)
+      if (eng) orderMove(eng.id, rvEng.x, rvEng.y)
+      const log = deployUnit('LOG', entry.x + 90, entry.y, true)
+      if (log) orderMove(log.id, rvLog.x, rvLog.y)
       // scope the FOB objective to the town
       MISSIONS[1]!.objectives[0]!.zone = { x: town.x, y: town.y, r: 520 }
     },
+    // the town is ours — the assessed line rolls north, halfway to the next bound
+    frontY: (S) => S.campaign!.strongpoint.y - 1400,
   },
 ]
 
@@ -279,9 +305,10 @@ export function startCampaign(S: GameState): void {
 
   const town = pickAnchorTown(S)
   S.campaign = {
-    mission: 0, objIdx: 0, briefed: false, debrief: false, complete: false,
+    mission: 0, objIdx: 0, briefed: false, frago: null, complete: false,
     status: [], hold: 0, delivered: 0, deliverBase: 0, eventT: null,
-    opforObj: null, allow: { field: false, support: false, drone: true }, ao: null,
+    opforObj: null, allow: { field: false, support: false, drone: true },
+    frontY: town.y + 500, // provisional; each mission's frontY() re-anchors it
     tutorial: _tutorialPending, tutStep: 0,
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
@@ -289,8 +316,10 @@ export function startCampaign(S: GameState): void {
   startMission(S, 1)
 }
 
-// Begin mission n (1-based): reset per-mission trackers, run its setup overlay,
-// and raise its briefing (which pauses the sim until acknowledged).
+// Begin mission n (1-based): reset per-mission trackers and run its setup
+// overlay. Mission 1 raises the campaign-opening briefing (modal, sim held);
+// every later mission arrives as a FRAGO — new orders drop into the tracker
+// and a non-blocking card, and the world never stops (continuous campaign).
 export function startMission(S: GameState, n: number): void {
   const c = S.campaign!
   const m = MISSIONS[n - 1]!
@@ -298,17 +327,22 @@ export function startMission(S: GameState, n: number): void {
   c.objIdx = 0
   c.eventT = null
   c.deliverBase = 0
-  c.debrief = false
-  c.briefed = false
-  c.ao = null // default: full theater; a mission's setup crops it if it wants
   c.tutStep = 0 // tutorial restarts its step counter each mission
   c.status = m.objectives.map((_, i) => (i === 0 ? 'active' : 'pending'))
   m.setup(S)
+  if (m.frontY) c.frontY = m.frontY(S) // advance the COP phase line
   onObjActivate(S, c) // capture any baseline the first objective needs
-  S.speed = 0         // hold for the briefing modal; ackBriefing resumes
+  if (n === 1) {
+    c.briefed = false
+    S.speed = 0       // hold for the opening briefing; ackBriefing resumes
+  } else {
+    c.frago = n
+    radio('NET', 'arrive', `FRAGO — MISSION ${n}: ${m.name}. NEW TASKING ON THE BOARD.`, undefined, undefined)
+    toast(`FRAGO — ${m.name}`)
+  }
 }
 
-// Acknowledge the current briefing (UI ACKNOWLEDGE) and resume the sim.
+// Acknowledge the opening briefing (UI ACKNOWLEDGE) and resume the sim.
 export function ackBriefing(S: GameState): void {
   const c = S.campaign
   if (!c) return
@@ -316,11 +350,10 @@ export function ackBriefing(S: GameState): void {
   if (S.speed === 0) S.speed = 1
 }
 
-// Continue past a mission debrief (UI CONTINUE) into the next mission.
-export function continueCampaign(S: GameState): void {
+// Dismiss the current FRAGO card (read-only — the sim never stopped).
+export function ackFrago(S: GameState): void {
   const c = S.campaign
-  if (!c || !c.debrief) return
-  startMission(S, c.mission + 1)
+  if (c) c.frago = null
 }
 
 // capture whatever baseline the now-active objective needs to measure progress
@@ -336,8 +369,8 @@ function onObjActivate(S: GameState, c: CampaignState): void {
 // campaign never freezes/resets between missions (that's the whole point).
 export function runCampaign(S: GameState, _dt: number): void {
   const c = S.campaign
-  if (!c || c.complete || c.debrief) return
-  if (!c.briefed) return                    // waiting on the briefing modal
+  if (!c || c.complete) return
+  if (!c.briefed) return                    // waiting on the opening briefing
   const m = MISSIONS[c.mission - 1]!
   const obj = m.objectives[c.objIdx]
   if (!obj) return
@@ -350,13 +383,13 @@ export function runCampaign(S: GameState, _dt: number): void {
   c.objIdx++
 
   if (c.objIdx >= m.objectives.length) {
-    // mission complete: last mission wins the campaign, otherwise debrief → next
+    // mission complete: last mission wins the campaign; otherwise the next
+    // mission's FRAGO drops immediately — the world never stops
     if (c.mission >= MISSIONS.length) {
       c.complete = true // checkEnd lands the win
     } else {
-      c.debrief = true
-      S.speed = 0
       toast(`${m.name} COMPLETE`)
+      startMission(S, c.mission + 1)
     }
     return
   }

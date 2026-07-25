@@ -1,10 +1,11 @@
-// Campaign UI: the briefing / debrief modals and the persistent objectives
-// tracker. All of it reads S.campaign and the campaign runner (engine/campaign);
-// it renders nothing outside campaign mode. Visual language matches EndScreen.
+// Campaign UI: the opening-briefing modal, the non-blocking FRAGO card, and the
+// persistent objectives tracker. All of it reads S.campaign and the campaign
+// runner (engine/campaign); it renders nothing outside campaign mode. Visual
+// language matches EndScreen.
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  MISSIONS, evalObjective, ackBriefing, continueCampaign, type ObjectiveSpec,
+  MISSIONS, evalObjective, ackBriefing, ackFrago, type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
@@ -118,26 +119,7 @@ export default function CampaignGate() {
   const c = S.campaign
   if (!c || c.complete) return null // campaign victory routes through EndScreen
 
-  // debrief takes precedence: a mission just completed
-  if (c.debrief) {
-    const done = MISSIONS[c.mission - 1]
-    const next = MISSIONS[c.mission] // the one continueCampaign will start
-    return (
-      <ModalShell tag={`MISSION ${c.mission} — COMPLETE`} title={done?.name || 'MISSION COMPLETE'}
-        actionLabel={next ? 'CONTINUE' : 'FINISH'} onAction={() => { continueCampaign(S); bump() }}>
-        <div style={{ fontSize: 13, lineHeight: 1.6, color: '#a8c0d4' }}>
-          All objectives met. The battalion holds the ground it took — nothing stands down.
-        </div>
-        {next && (
-          <div style={{ marginTop: 16, fontSize: 11, letterSpacing: 1, color: '#7f97ab' }}>
-            NEXT: <span style={{ color: ACCENT }}>MISSION {c.mission + 1} — {next.name}</span>
-          </div>
-        )}
-      </ModalShell>
-    )
-  }
-
-  // otherwise, an un-acknowledged briefing
+  // the campaign-opening briefing (mission 1 only) — the one modal left
   if (!c.briefed) {
     const m = MISSIONS[c.mission - 1]
     if (!m) return null
@@ -157,4 +139,44 @@ export default function CampaignGate() {
     )
   }
   return null
+}
+
+// ---------------------------------------------------------------------------
+// FRAGO card — new orders from higher, dropped in while the sim RUNS. Sits
+// under the objectives tracker; reading it is optional, dismissing it is the
+// only interaction. The continuous campaign's replacement for mission modals.
+// ---------------------------------------------------------------------------
+export function FragoCard() {
+  useUI((s) => s.tick)
+  const c = S.campaign
+  if (!c || c.complete || c.frago == null) return null
+  const m = MISSIONS[c.frago - 1]
+  if (!m) return null
+
+  return (
+    <div style={{
+      position: 'absolute', top: 10, left: 278, zIndex: 30, width: 300,
+      background: 'rgba(19,15,7,0.93)', border: '1px solid #4a3c1e', borderLeft: '3px solid #e8b34a',
+      borderRadius: 3, padding: '10px 13px', fontFamily: 'Consolas, monospace', userSelect: 'none',
+    }}>
+      <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#a8863e' }}>
+        FRAGO — MISSION {c.frago}
+      </div>
+      <div style={{ fontSize: 13.5, letterSpacing: 2, color: '#f2ddb0', fontWeight: 'bold', marginTop: 2 }}>
+        {m.name}
+      </div>
+      <div style={{ height: 1, background: '#4a3c1e', margin: '7px 0' }} />
+      <div style={{ fontSize: 10.5, lineHeight: 1.55, color: '#d8c493' }}>{m.brief}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 9 }}>
+        <button onClick={() => { ackFrago(S); bump() }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#e8b34a' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#4a3c1e' }}
+          style={{
+            padding: '5px 14px', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit',
+            background: 'rgba(30,24,12,0.9)', border: '1px solid #4a3c1e',
+            color: '#f2ddb0', fontSize: 10, letterSpacing: 2, fontWeight: 'bold',
+          }}>ACKNOWLEDGE</button>
+      </div>
+    </div>
+  )
 }

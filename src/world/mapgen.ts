@@ -18,7 +18,23 @@ const D8: ReadonlyArray<readonly [number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
 ]
 
-export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: TheaterData): WorldMap {
+// Authored map layout (campaign): pins what procgen would otherwise roll — the
+// theater sub-window and the culture nodes (towns, base sites). Everything
+// downstream (roads via MST, the highway trunk, hamlets, named features) still
+// derives procedurally from these nodes, so the map reads organic while the
+// campaign geography is designed. All cells are grid coords at the target size.
+// Skirmish passes no layout and remains byte-identical per seed (golden-gated).
+export interface MapLayout {
+  window?: { ox: number; oy: number }                       // theater patch offset (theater maps only)
+  towns?: ReadonlyArray<{ gx: number; gy: number; name: string }>
+  fob?: { gx: number; gy: number }                          // friendly base site
+  enemyBase?: { gx: number; gy: number }
+  // extra road edges between layout nodes (0 = fob, 1..n = towns in order,
+  // n+1 = enemy base) laid on top of the MST; replaces the default town link
+  extraEdges?: ReadonlyArray<readonly [number, number]>
+}
+
+export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: TheaterData, layout?: MapLayout): WorldMap {
   const GRID = gridSize
   const WORLD = GRID * CELL
   const rng = makeRng(seed)
@@ -48,8 +64,8 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   let elevLabel = (e: number) => e
   if (theater) {
     const P = theater.meta.size
-    const ox = Math.floor(rng() * (P - GRID + 1))
-    const oy = Math.floor(rng() * (P - GRID + 1))
+    const ox = layout?.window ? Math.max(0, Math.min(P - GRID, layout.window.ox)) : Math.floor(rng() * (P - GRID + 1))
+    const oy = layout?.window ? Math.max(0, Math.min(P - GRID, layout.window.oy)) : Math.floor(rng() * (P - GRID + 1))
     let lo = Infinity, hi = -Infinity
     for (let gy = 0; gy < GRID; gy++) {
       for (let gx = 0; gx < GRID; gx++) {
@@ -235,13 +251,41 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     }
     return best!   // bands always contain at least one non-water cell in practice
   }
-  const fobCell = siteInBand(GRID - 26, GRID - 10)
-  const baseCell = siteInBand(10, 26)
+  // authored sites snap to the best buildable cell in a small box around the
+  // authored point — same scoring as siteInBand, no rng, tolerant of a layout
+  // point landing a cell or two into water/steep ground
+  function snapSite(c: { gx: number; gy: number }): { gx: number; gy: number } {
+    // clamp first: a layout authored for a bigger grid must still yield a cell
+    // inside THIS grid (never an out-of-bounds site — road A* would spin)
+    const cgx = Math.max(2, Math.min(GRID - 3, c.gx))
+    const cgy = Math.max(2, Math.min(GRID - 3, c.gy))
+    let best: { gx: number; gy: number } | null = null, bs = -Infinity
+    for (let dy = -8; dy <= 8; dy++) {
+      for (let dx = -8; dx <= 8; dx++) {
+        const gx = cgx + dx, gy = cgy + dy
+        if (gx < 2 || gy < 2 || gx >= GRID - 2 || gy >= GRID - 2) continue
+        const i = idx(gx, gy)
+        if (terr[i] === T_WATER) continue
+        const s = -slope[i]! * 1.2 - (Math.abs(dx) + Math.abs(dy)) * 0.15
+        if (s > bs) { bs = s; best = { gx, gy } }
+      }
+    }
+    return best ?? { gx: cgx, gy: cgy }
+  }
+  const fobCell = layout?.fob ? snapSite(layout.fob) : siteInBand(GRID - 26, GRID - 10)
+  const baseCell = layout?.enemyBase ? snapSite(layout.enemyBase) : siteInBand(10, 26)
 
   // --- 9. towns: flat, near (not in) water, spread out ---
   const towns: Town[] = []
   const NAMES = ['ASHFORD', 'BREVIK', 'CALDER', 'DORAN', 'ELMSTED', 'FALKE', 'GARWICK', 'HOLT']
-  {
+  if (layout?.towns) {
+    // authored towns: designed positions (snapped to buildable ground), in
+    // order — order matters, it defines the road-node indices extraEdges uses
+    for (const t of layout.towns) {
+      const c = snapSite(t)
+      towns.push({ gx: c.gx, gy: c.gy, x: c.gx * CELL, y: c.gy * CELL, name: t.name })
+    }
+  } else {
     const cands: Array<{ gx: number; gy: number; s: number }> = []
     for (let k = 0; k < 600; k++) {
       const gx = 16 + Math.floor(rng() * (GRID - 32))
@@ -300,7 +344,11 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     { gx: baseCell.gx, gy: baseCell.gy },
   ]
   const edges = mstEdges(nodes)
-  if (towns.length >= 2) edges.push([1, 2])
+  if (layout?.extraEdges) {
+    for (const [a, b] of layout.extraEdges) {
+      if (a >= 0 && b >= 0 && a < nodes.length && b < nodes.length && a !== b) edges.push([a, b])
+    }
+  } else if (towns.length >= 2) edges.push([1, 2])
 
   // trunk: the edge chain from node 0 (friendly base) to the enemy base
   const trunk = new Set<number>()

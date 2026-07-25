@@ -10,6 +10,7 @@ import { makeRng } from './rng'
 import { DEFAULT_MODE, MODES, type ModeId } from './modes'
 import { genMap } from '../world/mapgen'
 import type { TheaterData } from '../world/theaters'
+import { CAMPAIGN_LAYOUT } from './campaign'
 import { MAP_SIZES } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
 import {
@@ -30,10 +31,13 @@ export function initGame(
   // mode's objective (e.g. KotH needs a real hill). S.rng keeps the original
   // seed either way, and modes without a recipe generate exactly once — the
   // default A&D path is byte-identical to before (golden-gated).
+  // the campaign plays on its authored layout (fixed window + designed towns/
+  // bases over the real-DEM theater); every other mode rolls procgen culture
+  const layout = mode === 'campaign' ? CAMPAIGN_LAYOUT : undefined
   const mapOk = MODES[mode].mapOk
-  let m = genMap(seed, gridSize, theater)
+  let m = genMap(seed, gridSize, theater, layout)
   if (mapOk) {
-    for (let a = 1; a <= 24 && !mapOk(m); a++) m = genMap((seed + a * 7919) >>> 0, gridSize, theater)
+    for (let a = 1; a <= 24 && !mapOk(m); a++) m = genMap((seed + a * 7919) >>> 0, gridSize, theater, layout)
   }
   S.map = m
   S.t = 0

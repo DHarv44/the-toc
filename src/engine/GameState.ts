@@ -396,8 +396,8 @@ export type ObjStatus = 'pending' | 'active' | 'done'
 export interface CampaignState {
   mission: number            // 1-based index into MISSIONS
   objIdx: number             // current objective within the mission (sequential)
-  briefed: boolean           // current mission's briefing acknowledged (false = paused on brief)
-  debrief: boolean           // mission just completed — debrief modal pending (paused)
+  briefed: boolean           // opening briefing acknowledged (false = paused on brief; M1 only)
+  frago: number | null       // mission # with an unread FRAGO card (non-blocking, sim runs on)
   complete: boolean          // whole campaign won (checkEnd reads this)
   status: ObjStatus[]        // per-objective UI state for the CURRENT mission
   hold: number               // accumulated hold seconds (hold-for-time objectives)
@@ -406,7 +406,7 @@ export interface CampaignState {
   eventT: number | null      // sim time a scripted counterattack launches (null = none pending)
   opforObj: Vec2 | null      // steer campaign OPFOR battlegroups to this point (null = none)
   allow: { field: boolean; support: boolean; drone: boolean } // palette gates for this mission
-  ao: { x0: number; y0: number; x1: number; y1: number } | null // camera/pan bound for this mission (null = full theater)
+  frontY: number             // authored phase line (world y) — COP baseline: enemy-assessed north of it
   tutorial: boolean          // guided tutorial enabled for this campaign
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor

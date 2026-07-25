@@ -8,7 +8,7 @@ import CommandPanel from './ui/CommandPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
-import CampaignGate, { CampaignObjectives } from './ui/CampaignHUD'
+import CampaignGate, { CampaignObjectives, FragoCard } from './ui/CampaignHUD'
 import TutorialOverlay from './ui/tutorial'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
@@ -58,12 +58,13 @@ export default function App() {
         <div style={{ flex: 1, position: 'relative', minWidth: 0, overflow: 'hidden' }}>
           <MapView />
           <HUD />
-          {/* campaign objectives tracker — renders null outside campaign mode */}
+          {/* campaign objectives tracker + FRAGO card — null outside campaign mode */}
           <CampaignObjectives />
+          <FragoCard />
         </div>
         <NetPanel />
       </div>
-      {/* campaign briefing / debrief modals — hold the sim until acknowledged */}
+      {/* campaign opening briefing — holds the sim until acknowledged (M1 only) */}
       <CampaignGate />
       {/* campaign guided-tutorial cues (renders null outside a tutorial campaign) */}
       <TutorialOverlay />
