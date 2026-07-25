@@ -136,22 +136,24 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   return u
 }
 
-// Echelon-real fielding (the COMMAND rail): call up a SPECIFIC org element —
+// Echelon-real fielding (the FORCES rail): call up a SPECIFIC org element —
 // "A CO 1st PLT", not "a rifle platoon". The slot's people ARE the unit's
-// people; the platoon stages out of the base it is garrisoned at. Type-level
-// caps and refit turnarounds still apply (the motorpool doesn't care which
-// company the hulls belong to).
-export function fieldSlot(slotId: string, structId: number): Unit | null {
+// people; the platoon stages out of the base it is GARRISONED at (its
+// garrisonAt, or the CP). Type-level caps and refit turnarounds still apply
+// (the motorpool doesn't care which company the hulls belong to).
+export function fieldSlot(slotId: string, structId?: number): Unit | null {
   const sl = S.org?.slots.find(s => s.id === slotId)
   if (!sl || !sl.type) return null
   const type = UNIT_TYPES[sl.type]
   if (!campaignAllows('field')) return toast('FIELDING NOT AUTHORIZED THIS PHASE')
   if (sl.unitId != null) return toast(`${sl.lin.toUpperCase()} ALREADY FIELDED`)
   if (!sl.soldiers.some(s => s.status === 'FIT')) return toast(`${sl.lin.toUpperCase()} — NO PERSONNEL FIT FOR DUTY`)
-  const st = S.structures.find(s => s.id === structId && s.side === 'friend')
-  if (!st) return toast('NO FIELDING SITE SELECTED')
+  const st = S.structures.find(s => structId != null
+    ? s.id === structId && s.side === 'friend'
+    : s.id === sl.garrisonAt && s.side === 'friend' && s.buildT <= 0)
+    ?? S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')
+  if (!st) return toast('NO FIELDING SITE')
   if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
-  if (st.kind !== 'HQ') return toast(`${st.label} HAS NO GARRISON TO FIELD`)
 
   const av = unitAvailability(sl.type, 'friend')
   if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
@@ -167,6 +169,29 @@ export function fieldSlot(slotId: string, structId: number): Unit | null {
   netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
   orderMove(u.id, r.x, r.y)
   return u
+}
+
+// RETURN TO GARRISON: send a fielded element back to a base to stand down —
+// off the map, back into its org slot, garrisoned AT that base (this is how a
+// FOB gets a garrison). Every element carries a garrison ASSIGNMENT even while
+// deployed (slot.garrisonAt, CP by default): RTB with no target goes HOME;
+// passing a structId REASSIGNS the garrison (arrival stamps the new home).
+// The de-field happens on ARRIVAL (installations update).
+export function orderReturnToGarrison(unitId: number, structId?: number): void {
+  const u = S.units.find(x => x.id === unitId && x.side === 'friend')
+  if (!u) return
+  // no slot = not task-force troops (asset convoys etc.) — nothing to return to
+  const sl = S.org?.slots.find(x => x.unitId === u.id)
+  if (!sl) return void toast(`${u.label} HAS NO GARRISON BILLET`)
+  const st = (structId != null
+    ? S.structures.find(s => s.id === structId && s.side === 'friend')
+    : S.structures.find(s => s.id === sl.garrisonAt && s.side === 'friend' && s.buildT <= 0))
+    ?? S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')
+  if (!st) return void toast('NO FRIENDLY BASE TO GARRISON AT')
+  u.qrfHome = undefined // stand down from any QRF tasking
+  netRadio(u, 'move', `RETURNING TO GARRISON AT ${st.label}`, u.x, u.y)
+  orderMove(u.id, st.x, st.y)
+  u.rtgBase = st.id // AFTER the move order (orderMove clears the flag)
 }
 
 export function deployStructure(kind: StructureTypeKey, x: number, y: number): Structure | null {

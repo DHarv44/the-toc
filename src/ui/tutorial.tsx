@@ -18,6 +18,7 @@ import { resolvePlace } from '../engine/missions/places'
 import type { TutAnchor, TutCondition, TutHint, TutReactive, TutStep } from '../packs/types'
 import type { Unit } from '../engine/GameState'
 import { useUI, type UIState } from './store'
+import { centerView, zoomFor } from '../map/view'
 
 // the resolved on-screen cue for one frame
 interface TutorialHint {
@@ -40,11 +41,13 @@ let _reactive: TutReactive[] = []
 let _moveTarget: { x: number; y: number } | null = null
 let _exposeMarker: { x: number; y: number } | null = null
 let _m2Road: { x: number; y: number } | null = null
+let _centeredKey = ''   // one auto-center per step/cue (the player can pan after)
 
 function refresh(): void {
   if (_campStamp === (S.campaign as object | null)) return
   _campStamp = S.campaign
   _moveTarget = _exposeMarker = _m2Road = null
+  _centeredKey = ''
   _steps = []
   _reactive = []
   if (!S.campaign) return
@@ -386,6 +389,20 @@ export default function TutorialOverlay() {
   if (!tip && c.tutStep >= _steps.length) return null
   const hint = tip ?? hintFor(_steps[c.tutStep]!, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route)
+
+  // Map-anchored instruction → bring the player's eyes THERE first: center
+  // (and zoom in if the view is wide) on the target, once per step/cue — the
+  // player can still pan freely afterwards.
+  const mapTarget = hint.targetPoint
+    ?? (hint.targetUnit != null ? (() => { const u = S.units.find(x => x.id === hint.targetUnit); return u ? { x: u.x, y: u.y } : undefined })() : undefined)
+    ?? (hint.targetBox ? { x: (hint.targetBox.x0 + hint.targetBox.x1) / 2, y: (hint.targetBox.y0 + hint.targetBox.y1) / 2 } : undefined)
+  const centerKey = tip ? 'tip' : `${c.tutStep}:${hint.targetPoint ? 'p' : hint.targetBox ? 'b' : hint.targetUnit != null ? 'u' : '-'}`
+  if (mapTarget && centerKey !== _centeredKey) {
+    _centeredKey = centerKey
+    centerView(mapTarget, { minZoom: zoomFor(4200) })
+  } else if (!mapTarget && centerKey !== _centeredKey) {
+    _centeredKey = centerKey // UI-anchored cue: no camera move, just remember the step
+  }
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.
   // `lift` bottom-anchors the callout (translateY(-100%)) so a box pointing

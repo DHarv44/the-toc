@@ -197,12 +197,14 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
   const fit = sl.soldiers.filter(s => s.status === 'FIT').length
   const fielded = sl.unitId != null
   const noneFit = fit === 0
+  const base = S.structures.find(s => s.id === sl.garrisonAt && s.side === 'friend')
+    ?? S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')
   return {
     mode: 'slot:' + sl.id, key: sl.id, fieldSlot: true,
-    // the element's real lineage leads ("1st PLT · A CO"); the platform type
-    // is the tag — sections group by warfighting function, not company
+    // the element's real lineage leads ("1st PLT · A CO"); tag carries the
+    // platform + WHERE it is garrisoned (its assigned home base)
     label: `${sl.name} · ${sl.co}`,
-    tag: sl.from ? `${t.name} · ATT ${sl.from}` : t.name,
+    tag: [t.name, base?.label, sl.from ? `ATT ${sl.from}` : null].filter(Boolean).join(' · '),
     cost: null, icon: <PaletteIcon unit={t} />,
     note: fielded ? '✓ FIELDED'
       : noneFit ? 'NO FIT PAX'
@@ -215,15 +217,16 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
     tutSel: !fielded ? `field-${sl.type}` : undefined,
   }
 }
-const garrisonSections = (): DeploySection[] => {
-  // COMMAND means command: only what the player commander OWNS — their
-  // battalion and attachments. Sister formations' elements are not theirs to
-  // field; more forces come by REQUEST to division (like assets).
+// The GARRISON (echelon-real fielding): rendered in the FORCES rail, not
+// Command — Command manages BASES, Forces manages the FORCE (deep dive = S1).
+// Only what the player commander OWNS — their battalion and attachments;
+// sister formations' elements come by REQUEST to division. Sections by
+// WARFIGHTING FUNCTION (the catalog's realistic categories), org order inside.
+export const garrisonSections = (hideFielded = false): DeploySection[] => {
   const playerBn = playerPack().formation?.playerBn
   const slots = (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
-    && (sl.bn === playerBn || sl.bde === 'ATT'))
-  // sections by WARFIGHTING FUNCTION (maneuver/recon/fires/support — the
-  // catalog's realistic categories); rows inside keep org order
+    && (sl.bn === playerBn || sl.bde === 'ATT')
+    && (!hideFielded || sl.unitId == null))
   return CATS.map(cat => ({
     header: cat,
     items: slots.filter(sl => UNIT_TYPES[sl.type as UnitTypeKey].cat === cat).map(slotItem),
@@ -351,7 +354,9 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
-        sections: [...(st.kind === 'HQ' ? garrisonSections() : []), aerostat,
+        // Command = BASE management: facilities, tethered ISR, division
+        // requests, QRF. The garrison lives in the FORCES rail (S1 = deep dive).
+        sections: [aerostat,
           ...(st.kind === 'HQ' ? divisionSections() : []),
           { header: 'FACILITIES', items: facItems },
           ...(qrfItems.length ? [{ header: 'QUICK REACTION FORCE', items: qrfItems }] : [])],

@@ -82,3 +82,20 @@
       there — the CP is the motor pool); confirm this feels right in play
 - [ ] Cold-start tutorial full run: select CP → field SCT PLT → BREAK SOP →
       field 3+ → screen/Raven/contact → battle group → attack → occupy → dig in
+
+## Garrison states + FORCES rail (2026-07-25 latest)
+- [x] FORCES rail (renamed): INDEPENDENT + GARRISON by function w/ base tags,
+      ⊕ fields from home base; fielded slots leave the garrison list; tutorial
+      ring + auto-center/zoom on map cues — VERIFIED live
+- [x] Command = base management only (no garrison tree; S1 = deep dive)
+- [ ] EYES ONLY: RTB button — unit drives to ITS assigned garrison, stands
+      down on arrival (radio "IN GARRISON — STANDING DOWN"), slot returns to
+      FORCES garrison list with the base tag
+- [ ] EYES ONLY: GARRISON → mode — click a FOB: unit reassigns home, stands
+      down there; FOB gains a garrison; fielding it later stages from the FOB
+- [ ] EYES ONLY: ADD UNIT picker now offers FROM GARRISON rows (fields +
+      joins the group in one click)
+- [ ] EDGE: garrison a unit with its Raven still aloft (drone ownership)
+- [ ] QRF interplay: QRF assignment uses FIELDED units near a base; a
+      de-fielded garrison can't be QRF'd yet — decide if QRF should draw
+      from the garrison state (realistic) in a follow-up

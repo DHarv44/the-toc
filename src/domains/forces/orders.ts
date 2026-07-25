@@ -164,6 +164,7 @@ export function orderMove(
   u.convoy = null
   u.attackId = null
   u.attackMove = attack
+  u.rtgBase = null // a fresh order supersedes a return-to-garrison in progress
   // a unit given its own order drops out of any column it was marching in
   if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null }
   if (append && u.path.length) {
@@ -203,6 +204,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   u.bridging = null; u.heldRoute = null; u.breaking = false
   u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined
   u.convoy = null // autoDismounted survives (see autoRemount / the remount drill)
+  u.rtgBase = null
   u.groupId = groupId
   u.attackId = enemyId
   u.attackMove = true

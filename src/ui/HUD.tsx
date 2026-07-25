@@ -13,7 +13,7 @@ import type { Vec2 } from '../world/WorldMap'
 import {
   orderHold, orderMount, orderRoe, orderDefend, orderWeapons,
 } from '../domains/forces/orders'
-import { convertToHq } from '../domains/installations/orders'
+import { convertToHq, orderReturnToGarrison } from '../domains/installations/orders'
 import {
   droneFollow, droneLock, droneSensorMode, droneFire, droneToggleTarget,
   droneClearTargets, droneSet, droneRTB,
@@ -312,6 +312,25 @@ export function SelectionTray() {
             onClick={() => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge')}>
             PONTOON BRIDGE
           </button>
+        )}
+        {/* Garrison flows: RTB = return to the element's ASSIGNED garrison
+            (every element carries one, even deployed — CP by default);
+            GARRISON → = reassign: click a friendly base, they drive there,
+            stand down, and it becomes their new home. FOBs gain garrisons
+            this way. */}
+        {units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id)) && (
+          <>
+            <button data-tut="rtb" style={btn(false)}
+              title="Return to this element's assigned garrison — stand down, refit, absorb replacements"
+              onClick={() => units.forEach(u => orderReturnToGarrison(u.id))}>
+              RTB
+            </button>
+            <button data-tut="garrison" style={btn(ui.mode === 'garrison')}
+              title="Reassign garrison: click a friendly base — they stand down there and it becomes home"
+              onClick={() => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison')}>
+              GARRISON →
+            </button>
+          </>
         )}
         {logiUnit && (
           <button data-tut="supply-run" style={btn(ui.mode === `convoy:${logiUnit.id}`)}

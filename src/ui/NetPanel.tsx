@@ -6,6 +6,7 @@ import type { NetEntry } from '../engine/GameState'
 import { useUI } from './store'
 import { fmtClock, NET_COLORS, RAIL_W } from './styles'
 import Rail from './Rail'
+import { centerView } from '../map/view'
 
 export default function NetPanel() {
   const ui = useUI()
@@ -34,8 +35,7 @@ function NetRow({ entry }: { entry: NetEntry }) {
     <UnstyledButton
       component="div"
       onClick={() => {
-        const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
-        if (v && locatable) { v.cx = entry.x!; v.cy = entry.y! }
+        if (locatable) centerView({ x: entry.x!, y: entry.y! })
       }}
       title={locatable ? 'Center the map on this transmission' : undefined}
       style={{

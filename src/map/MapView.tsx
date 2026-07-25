@@ -16,7 +16,7 @@ import {
   orderMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
   convergeLastLeg,
 } from '../domains/forces/orders'
-import { deployUnit, deployStructure } from '../domains/installations/orders'
+import { deployUnit, deployStructure, orderReturnToGarrison } from '../domains/installations/orders'
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
 import { fireMission } from '../domains/fires/orders'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
@@ -326,6 +326,16 @@ export default function MapView() {
       if (ui.mode.startsWith('convoy:')) {
         const fob = pickStructure(wx, wy)
         if (fob && fob.kind === 'FOB') orderConvoy(Number(ui.mode.slice(7)), fob.id)
+        useUI.setState({ mode: 'select' })
+        return
+      }
+      if (ui.mode === 'garrison') {
+        // reassign garrison: click a friendly base — the selected elements
+        // drive there, stand down, and it becomes their HOME (RTB target)
+        const st = pickStructure(wx, wy)
+        if (st && st.side === 'friend' && (st.kind === 'HQ' || st.kind === 'FOB') && st.buildT <= 0) {
+          for (const u of selectedFriendlies()) orderReturnToGarrison(u.id, st.id)
+        }
         useUI.setState({ mode: 'select' })
         return
       }

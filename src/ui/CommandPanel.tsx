@@ -18,7 +18,8 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { useUI, type UiMode } from './store'
 import { RAIL_W } from './styles'
 import Rail, { RailSection } from './Rail'
-import { PaletteIcon, PaletteRow, deployContext, deployHint } from './palette'
+import { PaletteIcon, PaletteRow, deployContext, deployHint, garrisonSections } from './palette'
+import { centerView } from '../map/view'
 
 const ROSTER_KINDS: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
 
@@ -41,15 +42,42 @@ export default function CommandPanel() {
   )
 }
 
-// The second left rail: the fielded force. Sits beside INSTALLATIONS — both,
-// one or neither open, JBC-P style.
+// The second left rail: THE FORCE, by state — battle groups, independents,
+// and the GARRISON (callable elements with ⊕, grouped by warfighting
+// function). Command manages bases; this rail manages the force; S1 is the
+// deep dive. Sits beside COMMAND — both, one or neither open, JBC-P style.
 export function BattleGroupsPanel() {
   const ui = useUI()
   return (
-    <Rail side="left" title="BATTLE GROUPS" width={240} open={ui.bgOpen} onToggle={ui.toggleBg}>
+    <Rail side="left" title="FORCES" width={240} open={ui.bgOpen} onToggle={ui.toggleBg}>
       <BattleGroups />
+      <GarrisonRoster />
       <Box h={8} />
     </Rail>
+  )
+}
+
+// The garrison: every callable element, one click from the fight — ⊕ fields
+// it from ITS home base (slot.garrisonAt; the CP by default). Quick answer to
+// "find me a Bradley platoon": function-grouped, state on the row.
+function GarrisonRoster() {
+  useUI()
+  return (
+    <>
+      {garrisonSections(true).map(sec => (
+        <RailSection key={sec.header} label={`GARRISON — ${sec.header}`}>
+          {sec.items.map(it => {
+            const row = (
+              <PaletteRow key={it.key} icon={it.icon} label={it.label} tag={it.tag}
+                note={it.note} cost="" disabled={it.disabled}
+                onPlus={it.disabled ? undefined : () => fieldSlot(it.key!)}
+                onClick={() => { if (!it.disabled) fieldSlot(it.key!) }} />
+            )
+            return it.tutSel ? <div key={it.key} data-tut={it.tutSel}>{row}</div> : row
+          })}
+        </RailSection>
+      ))}
+    </>
   )
 }
 
@@ -80,8 +108,7 @@ function InstallationsRoster() {
             cost=""
             onClick={() => {
               ui.select(st.id)
-              const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
-              if (v) { v.cx = st.x; v.cy = st.y }
+              centerView(st)
             }} />
         )
       })}
@@ -118,8 +145,7 @@ function BattleGroups() {
         cost=""
         onClick={() => {
           ui.select(u.id)
-          const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
-          if (v) { v.cx = u.x; v.cy = u.y }
+          centerView(u)
         }} />
     )
   }
@@ -128,8 +154,8 @@ function BattleGroups() {
       {[...groups.entries()].map(([gid, list]) => (
         <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
           {list.map(row)}
-          {solo.length > 0 && adding !== gid && (
-            <PaletteRow label="＋ ADD UNIT" tag="ATTACH AN INDEPENDENT" cost=""
+          {adding !== gid && (
+            <PaletteRow label="＋ ADD UNIT" tag="ATTACH AN INDEPENDENT OR CALL UP FROM GARRISON" cost=""
               onClick={() => setAdding(gid)} />
           )}
           {adding === gid && (
@@ -146,6 +172,17 @@ function BattleGroups() {
                     onClick={() => { u.groupId = gid; setAdding(null) }} />
                 )
               })}
+              {/* garrisoned elements can join too: fielding + tasking in one
+                  click — they stage from their base and rally to the group */}
+              {garrisonSections(true).flatMap(sec => sec.items).filter(it => !it.disabled).map(it => (
+                <PaletteRow key={it.key} icon={it.icon} label={it.label}
+                  tag={`FROM GARRISON · ${it.tag ?? ''}`} cost=""
+                  onClick={() => {
+                    const u = fieldSlot(it.key!)
+                    if (u) u.groupId = gid
+                    setAdding(null)
+                  }} />
+              ))}
               <PaletteRow label="CANCEL" cost="" onClick={() => setAdding(null)} />
             </>
           )}

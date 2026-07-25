@@ -28,6 +28,24 @@ export function constructionUpdate(dt: number): void {
     if (s.buildT > 0) s.buildT = Math.max(0, s.buildT - dt)
   }
 
+  // RETURN TO GARRISON arrivals: a unit that reached its base stands down —
+  // off the map, back into its org slot, garrisoned AT that base (roster is
+  // shared by reference, so nothing is lost). This is how FOBs gain garrisons.
+  for (let i = S.units.length - 1; i >= 0; i--) {
+    const u = S.units[i]!
+    if (u.rtgBase == null || u.side !== 'friend' || u.strength <= 0) continue
+    const st = S.structures.find(s => s.id === u.rtgBase && s.side === 'friend')
+    if (!st) { u.rtgBase = null; continue } // base lost while driving — carry on fielded
+    if (Math.hypot(u.x - st.x, u.y - st.y) > 300 || u.path.length) continue
+    const sl = S.org?.slots.find(x => x.unitId === u.id)
+    if (sl) {
+      sl.unitId = null
+      sl.garrisonAt = st.id
+      radio(u.label, 'arrive', `IN GARRISON AT ${st.label} — STANDING DOWN`, st.x, st.y)
+    }
+    S.units.splice(i, 1)
+  }
+
   for (const s of S.structures) {
     if (s.buildT > 0 || (s.kind !== 'FOB' && s.kind !== 'HQ')) continue
     // the engine runs the VERBS; the parameters come from the installed

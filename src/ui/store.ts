@@ -6,7 +6,7 @@ import type { ShellKind } from '../engine/GameState'
 import type { Sheaf } from '../domains/fires/orders'
 
 // mode: 'select' | 'deploy:<TYPE>' | 'deploy:DRONE' | 'build:<KIND>' | 'target' | 'bridge'
-export type UiMode = 'select' | 'target' | 'bridge' | `deploy:${string}` | `build:${string}`
+export type UiMode = 'select' | 'target' | 'bridge' | 'garrison' | `deploy:${string}` | `build:${string}`
 export type CmdMode = 'move' | 'attack'
 export type RouteModeKey = 'auto' | 'roads' | 'noroads' | 'fastest'
 

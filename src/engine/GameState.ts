@@ -102,6 +102,9 @@ export interface OrgSlot {
   from?: string              // donor formation for attachments ('2ID')
   tf: boolean                // allocated to the player's task force (in theater, drawable)
   unitId: number | null      // live fielded unit, if drawn
+  // WHERE this element is garrisoned (structure id) — set when a unit returns
+  // to garrison at a base; unset/dead-base = the CP. Fielding stages from here.
+  garrisonAt?: number | null
   soldiers: Soldier[]
   vehicles: UnitVehicle[]
 }
@@ -258,6 +261,7 @@ export interface Unit {
   colWait?: boolean          // halted for column stragglers
   surrenderRolled?: boolean  // one-shot surrender roll consumed
   resumeDest?: Vec2          // mission objective saved by the break drill (resume once clear)
+  rtgBase?: number | null    // RETURN TO GARRISON: driving to this base to stand down
   breakRetried?: boolean     // the one break-resume retry has been spent
   coverSought?: boolean      // this contact's cover scan is spent (unit SOP)
   lastBreakT?: number        // when the last break-contact completed (break fatigue)
