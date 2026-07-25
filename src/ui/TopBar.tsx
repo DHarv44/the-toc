@@ -73,6 +73,17 @@ export default function TopBar() {
       )}
 
       <Group gap={6} wrap="nowrap" ml="auto">
+        {/* map view: icon button, lit when a staff console is covering the map */}
+        <Tooltip label="Map — common operational picture" withArrow>
+          <Button variant={ui.console === null ? 'filled' : 'default'} px={8}
+            onClick={() => ui.setConsole(null)} aria-label="Map">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+              <path d="M 1 3 L 5 1.5 L 9 3 L 13 1.5 V 11 L 9 12.5 L 5 11 L 1 12.5 Z" />
+              <path d="M 5 1.5 V 11 M 9 3 V 12.5" />
+            </svg>
+          </Button>
+        </Tooltip>
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         {/* staff shops: each opens its section's console over the map column.
             S2-S4 stand up as their data gets moving parts. */}
         <Button.Group>
