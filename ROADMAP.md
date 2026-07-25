@@ -1666,3 +1666,11 @@ are called out here *and* stubbed in the active sections above where they matter
   correct function glyphs (branch modifiers, echelon marks, mobility indicators),
   HQ staff offsets, and the new org echelons (DIV MAIN, BDE) — as close to the
   standard as the canvas renderer allows.
+
+## After Action Reviews
+- AAR screen when a campaign objective/operation completes: everything we can
+  show — friendly casualties by name (KIA/WIA/RTD/evac/MIA), enemy casualties
+  and vehicles destroyed, vehicles lost vs repaired, munitions expended,
+  supplies consumed, timeline of key events (contacts, FRAGOs, objectives),
+  awards earned (Purple Hearts now, valor awards later). The P2.5 roster model
+  already records most of this — the AAR is largely a presentation layer.
