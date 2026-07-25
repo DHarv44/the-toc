@@ -230,6 +230,7 @@ export type TutCondition =
   | { kind: 'selected-only'; type: UnitTypeKey }     // exactly one unit selected, of type
   | { kind: 'selected-struct'; struct: StructureTypeKey }
   | { kind: 'selected-carrier' }                     // selected unit carries a drone
+  | { kind: 'callup-open' }                          // the FORCES rail's CALL UP picker is open
   | { kind: 'group-selected'; min: number; exclude?: UnitTypeKey[] }
   | { kind: 'roe-set'; type: UnitTypeKey; roe: string }
   | { kind: 'mode-is'; mode: string }                // ui command mode (prefix match)

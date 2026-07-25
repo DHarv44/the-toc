@@ -12,7 +12,7 @@ import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { effStats } from '../forces/elements'
 import { orderMove } from '../forces/orders'
-import { unitAvailability, stampFieldCooldown } from '../economy/economy'
+import { unitAvailability } from '../economy/economy'
 import { campaignAllows } from '../../engine/campaign'
 import { facilityAssetKind } from '../assets/service'
 import { fmtCooldown } from '../../lib/format'
@@ -117,18 +117,16 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   if (st.buildT > 0) return toast(`${st.label} STILL UNDER CONSTRUCTION`)
   if (st.kind !== 'HQ' && st.kind !== 'FOB') return toast(`${st.label} CANNOT FIELD GROUND UNITS`)
 
-  // force cap and per-type turnaround, same shape as the airframe limits
+  // force cap only — unit cooldowns are dead (the org roster is the limiter)
   const av = unitAvailability(typeKey, 'friend')
   if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
-  if (av.cooldown > 0) return toast(`${type.abbr} REFITTING — ${fmtCooldown(av.cooldown)}`)
 
-  // units are NOT bought with supply (P5): caps + cooldowns limit the force;
-  // supply sustains it (upkeep, munitions, structures) rather than buying it
+  // units are NOT bought with supply (P5): the cap and the finite org limit
+  // the force; supply sustains it (upkeep, munitions, structures)
   const mob = type.carrier ? type.carrier.mob : type.mob
   const spawn = nearestLand(S.map!, st.x, st.y, mob)
   const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)
   S.units.push(u)
-  stampFieldCooldown(typeKey, 'friend')
 
   const r = rallyPoint(st, mob)
   netRadio(u, 'move', `FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
@@ -157,13 +155,11 @@ export function fieldSlot(slotId: string, structId?: number): Unit | null {
 
   const av = unitAvailability(sl.type, 'friend')
   if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
-  if (av.cooldown > 0) return toast(`${type.abbr} REFITTING — ${fmtCooldown(av.cooldown)}`)
 
   const mob = type.carrier ? type.carrier.mob : type.mob
   const spawn = nearestLand(S.map!, st.x, st.y, mob)
   const u = newUnit(sl.type, 'friend', spawn.x, spawn.y, { slot: sl })
   S.units.push(u)
-  stampFieldCooldown(sl.type, 'friend')
 
   const r = rallyPoint(st, mob)
   netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)

@@ -208,7 +208,6 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
     cost: null, icon: <PaletteIcon unit={t} />,
     note: fielded ? '✓ FIELDED'
       : noneFit ? 'NO FIT PAX'
-      : a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}`
       : a.capped ? `${a.used}/${a.max}`
       : `${fit} PAX`,
     disabled: fielded || noneFit || !a.ready,
@@ -217,16 +216,19 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
     tutSel: !fielded ? `field-${sl.type}` : undefined,
   }
 }
-// The GARRISON (echelon-real fielding): rendered in the FORCES rail, not
-// Command — Command manages BASES, Forces manages the FORCE (deep dive = S1).
-// Only what the player commander OWNS — their battalion and attachments;
-// sister formations' elements come by REQUEST to division. Sections by
-// WARFIGHTING FUNCTION (the catalog's realistic categories), org order inside.
-export const garrisonSections = (hideFielded = false): DeploySection[] => {
+// The GARRISON (echelon-real fielding): surfaced by the FORCES rail's CALL UP
+// picker, not Command — Command manages BASES, Forces manages the FORCE
+// (deep dive = S1). Only what the player commander OWNS — their battalion and
+// attachments; sister formations' elements come by REQUEST to division.
+export const garrisonSlots = (hideFielded = false): OrgSlot[] => {
   const playerBn = playerPack().formation?.playerBn
-  const slots = (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
+  return (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
     && (sl.bn === playerBn || sl.bde === 'ATT')
     && (!hideFielded || sl.unitId == null))
+}
+export { slotItem }
+export const garrisonSections = (hideFielded = false): DeploySection[] => {
+  const slots = garrisonSlots(hideFielded)
   return CATS.map(cat => ({
     header: cat,
     items: slots.filter(sl => UNIT_TYPES[sl.type as UnitTypeKey].cat === cat).map(slotItem),
@@ -336,21 +338,35 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
           disabled: !!owned || hqOrganic || k === 'CRAM',
         }
       })
-      // QRF (task #30): garrisoned units toggle onto the base's reaction
-      // force — launches ITSELF when the base takes IDF or direct attack
-      const qrfItems: PaletteItem[] = S.units
-        .filter(u => u.side === 'friend' && u.strength > 0 && !u.respFrom
-          && Math.hypot(u.x - st.x, u.y - st.y) <= 450)
-        .map(u => {
+      // QRF (task #30, garrison states): a DEDICATED duty on GARRISONED
+      // elements homed at this base — they launch THEMSELVES when the base
+      // takes IDF or direct attack. Multiple QRFs allowed; deploying one
+      // manually releases the duty (the FORCES rail warns).
+      const hqIdForQrf = S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')?.id
+      const homedHere = (sl: OrgSlot) =>
+        (S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend')
+          ? sl.garrisonAt : hqIdForQrf) === st.id
+      const qrfItems: PaletteItem[] = [
+        ...garrisonSlots(true).filter(homedHere).map(sl => {
+          const t = UNIT_TYPES[sl.type as UnitTypeKey]
+          return {
+            mode: 'qrf:' + sl.id, key: sl.id, qrfToggle: true,
+            label: `${sl.name} · ${sl.co}`,
+            tag: sl.qrf ? 'DEDICATED QRF — STANDING BY IN GARRISON' : 'DEDICATE AS QRF',
+            cost: null, icon: <PaletteIcon unit={t} />,
+            note: sl.qrf ? '✓ QRF' : null,
+          }
+        }),
+        // responders already out the gate — visibility, not a toggle
+        ...S.units.filter(u => u.qrfHome === st.id && u.strength > 0).map(u => {
           const t = UNIT_TYPES[u.type]
           return {
-            mode: 'qrf:' + u.id, key: String(u.id), qrfToggle: true,
-            label: `${u.label} · ${t?.abbr ?? u.type}`,
-            tag: u.qrfHome === st.id ? (u.qrfOutT != null ? 'QRF — RESPONDING' : 'QRF — STANDING BY') : 'ASSIGN TO QRF',
-            cost: null, icon: t ? <PaletteIcon unit={t} /> : undefined,
-            note: u.qrfHome === st.id ? '✓ QRF' : null,
+            mode: 'qrfout:' + u.id, label: `${u.label} · ${t?.abbr ?? u.type}`,
+            tag: 'QRF — RESPONDING', cost: null,
+            icon: t ? <PaletteIcon unit={t} /> : undefined, note: '⚡', disabled: true,
           }
-        })
+        }),
+      ]
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,

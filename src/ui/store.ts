@@ -82,7 +82,14 @@ export interface UIState {
   cycleOverlayAlpha: () => void
   rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
   leftOpen: boolean         // side rails: collapse to their own edge, independently
-  bgOpen: boolean           // BATTLE GROUPS rail (left, beside installations)
+  bgOpen: boolean           // FORCES rail (left, beside Command)
+  // CALL UP picker state (FORCES rail): lives in the store so the tutorial's
+  // UI conditions can see it. base = garrison filter (null = all bases),
+  // type = unit-type filter (null = all types)
+  callupOpen: boolean
+  callupBase: number | null
+  callupType: string | null
+  qrfWarnOff: boolean       // "don't warn me again" for deploying a dedicated QRF
   netOpen: boolean
   feedsOpen: boolean        // FEEDS rail (right, inboard of the net) — feeds stack here
   feedsW: number            // feeds rail width (drag-resizable)
@@ -139,6 +146,10 @@ export const useUI = create<UIState>()((set, get) => ({
   // default rail state: everything tucked away except the fielded force
   leftOpen: false,
   bgOpen: true,
+  callupOpen: false,
+  callupBase: null,
+  callupType: null,
+  qrfWarnOff: false,
   netOpen: false,
   feedsOpen: false,
   feedsW: 400,

@@ -59,8 +59,12 @@
         "id": "field-scouts",
         "gate": true,
         "hints": [
-          { "text": "YOUR BATTALION IS IN GARRISON — nothing is fielded yet. Your force lives in the FORCES rail on the left edge: battle groups, independents, and the GARRISON, ready to call up. SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest — it goes first.",
-            "action": "OPEN the FORCES rail (left edge), then CLICK ⊕ on the SCT PLT row under GARRISON — RECON.",
+          { "when": { "kind": "not", "of": { "kind": "callup-open" } },
+            "text": "YOUR BATTALION IS IN GARRISON — nothing is fielded yet. Your force lives in the FORCES rail on the left edge; CALL UP opens the garrison.",
+            "action": "CLICK ＋ CALL UP in the FORCES rail (open the rail from the left edge if it's tucked away).",
+            "anchor": { "kind": "ui", "sel": "call-up" } },
+          { "text": "SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest — it goes first, before anything else rolls.",
+            "action": "CLICK the ⊕ on the SCT PLT row (filter by type with the icon tabs).",
             "anchor": { "kind": "ui", "sel": "field-SCT" } }
         ],
         "done": { "kind": "fielded", "type": "SCT", "min": 1 }
@@ -83,8 +87,12 @@
         "id": "field-force",
         "gate": true,
         "hints": [
-          { "text": "BUILD YOUR ASSAULT FORCE — the rest of your battalion is still in garrison. Call up at least THREE more elements from the FORCES rail. The mix is your call as commander: two Bradley platoons and the mortars is a solid start for clearing a town.",
-            "action": "CLICK ⊕ on the platoons you want (three or more) — GARRISON, MANEUVER and FIRES.",
+          { "when": { "kind": "not", "of": { "kind": "callup-open" } },
+            "text": "BUILD YOUR ASSAULT FORCE — the rest of your battalion is still in garrison. Call up at least THREE more elements: the mix is your call as commander.",
+            "action": "CLICK ＋ CALL UP in the FORCES rail.",
+            "anchor": { "kind": "ui", "sel": "call-up" } },
+          { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements. The mix is your call: two Bradley platoons and the mortars is a solid start for clearing a town.",
+            "action": "CLICK ⊕ on the platoons you want (three or more).",
             "anchor": { "kind": "ui", "sel": "field-MECH" } }
         ],
         "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }

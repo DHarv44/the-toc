@@ -105,6 +105,9 @@ export interface OrgSlot {
   // WHERE this element is garrisoned (structure id) — set when a unit returns
   // to garrison at a base; unset/dead-base = the CP. Fielding stages from here.
   garrisonAt?: number | null
+  // DEDICATED QRF duty at its garrison base: launches itself on base attack;
+  // manual deployment releases the duty (UI warns). Multiple QRFs allowed.
+  qrf?: boolean
   soldiers: Soldier[]
   vehicles: UnitVehicle[]
 }

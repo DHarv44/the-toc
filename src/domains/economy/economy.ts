@@ -58,18 +58,14 @@ export interface UnitAvailability {
   ready: boolean
 }
 
-// Availability of a ground unit type: force headroom plus its per-type cooldown. Mirrors
-// airAvailability, so the palette can grey a row before it's clicked either way.
-export function unitAvailability(typeKey: UnitTypeKey, side: Side = 'friend'): UnitAvailability {
-  const cd = (S.fieldCooldown[side] || {})[typeKey] || 0
-  const cooldown = Math.max(0, cd - S.t)
+// Availability of a ground unit type: force headroom only. UNIT COOLDOWNS ARE
+// DEAD (2026-07-25, with the purchase economy): elements exist ONCE in the org
+// — garrisoned, fielded, or shot up — so the roster is the limiter, not a
+// restock timer. Turnarounds that are physically real (sorties, airframes,
+// asset refit clocks) live in airAvailability and the asset pipeline.
+export function unitAvailability(_typeKey: UnitTypeKey, side: Side = 'friend'): UnitAvailability {
   const used = forceCount(side), max = forceCap(side)
-  return { used, max, cooldown, capped: used >= max, ready: used < max && cooldown <= 0 }
-}
-
-export function stampFieldCooldown(typeKey: UnitTypeKey, side: Side): void {
-  const perSide = S.fieldCooldown[side] || (S.fieldCooldown[side] = {})
-  perSide[typeKey] = S.t + fieldCooldownFor(UNIT_TYPES[typeKey]?.cost || 0)
+  return { used, max, cooldown: 0, capped: used >= max, ready: used < max }
 }
 
 // gross supply per minute before upkeep

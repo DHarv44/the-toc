@@ -1566,6 +1566,14 @@ only reporting the failure.
 
 ## Later / Deferred
 
+### Force management from the shop pages ⬜ *(user 2026-07-25)*
+The S-shop consoles should be able to MANAGE, not just display: battle groups
+(form/attach/detach from S3's task-force board), garrisons (reassign homes,
+RTB, call up from the S1/S3 views), and QRF (dedicate/release from the base
+rows). Same services the rails use (fieldSlot / orderReturnToGarrison /
+toggleQrf / group assignment) — the shop pages just get the buttons. Keeps the
+"two surfaces, one truth" pattern: rails = quick actions, shops = staff depth.
+
 ### VTC shows real troop avatars ⬜ *(user 2026-07-25)*
 The VTC cam tiles show stylized silhouettes — they should show the ACTUAL
 soldier's avatar (the Portrait factory already renders deterministic faces for

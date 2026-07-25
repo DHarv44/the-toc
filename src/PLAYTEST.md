@@ -99,3 +99,17 @@
 - [ ] QRF interplay: QRF assignment uses FIELDED units near a base; a
       de-fielded garrison can't be QRF'd yet — decide if QRF should draw
       from the garrison state (realistic) in a follow-up
+
+## CALL UP picker + dedicated QRF + no unit cooldowns (2026-07-25 latest)
+- [x] FORCES rail: garrison hidden until ＋ CALL UP; in-rail picker (base
+      chips when >1 garrison, type icon tabs w/ counts, DONE); tutorial
+      follows the flow (call-up ring → SCT PLT ring) — VERIFIED live
+- [ ] EYES ONLY: QRF section in Command now lists GARRISONED slots homed at
+      the base (DEDICATE AS QRF / ✓ QRF), multiple allowed, responders show
+      as ⚡ RESPONDING; QRF launch now FIELDS the garrison slot itself and
+      returns to garrison (keeping the duty) on stand-down
+- [ ] EYES ONLY: deploying a ✓ QRF slot from CALL UP / ADD UNIT raises the
+      in-rail amber warning (DEPLOY ANYWAY releases the duty; DON'T WARN ME
+      AGAIN checkbox holds for the session)
+- [x] Unit cooldowns REMOVED (org roster is the limiter; force cap stays;
+      C-130/drone/asset turnarounds untouched on the air side)

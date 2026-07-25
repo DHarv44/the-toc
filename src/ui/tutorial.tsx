@@ -176,6 +176,8 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
     }
     case 'mode-is':
       return ui.cmdMode === cond.mode || String(ui.mode).startsWith(cond.mode)
+    case 'callup-open':
+      return ui.callupOpen
     case 'drone-aloft':
       return S.drones.length > 0
     case 'unit-beyond': {

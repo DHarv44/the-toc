@@ -5,7 +5,8 @@ import BaseUnderFire, { IncomingBanner } from './ui/BaseUnderFire'
 import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
 import TopBar from './ui/TopBar'
-import CommandPanel, { BattleGroupsPanel } from './ui/CommandPanel'
+import CommandRail from './ui/CommandRail'
+import ForcesRail from './ui/ForcesRail'
 import FeedsPanel from './ui/FeedsPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
@@ -69,8 +70,8 @@ export default function App() {
       <BaseUnderFire shakeRef={shakeRef} />
       <TopBar />
       <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
-        <CommandPanel />
-        <BattleGroupsPanel />
+        <CommandRail />
+        <ForcesRail />
         {/* map column: map area above, selection tray below */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>

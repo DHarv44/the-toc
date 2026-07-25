@@ -1,7 +1,11 @@
-// QRF (task #30): the commander assigns GARRISONED units at an HQ/FOB as the
-// base's Quick Reaction Force. When the base takes IDF or comes under direct
-// attack, the QRF launches ITSELF (SOP — design law 4: automation adds a
-// seat, the commander still owns assignment and can re-task mid-response).
+// QRF (task #30, reworked to garrison states): QRF is a DEDICATED duty on a
+// GARRISONED element — the commander marks garrison slots at an HQ/FOB as
+// that base's Quick Reaction Force (multiple allowed). The element sits in
+// garrison flagged QRF; when the base takes IDF or comes under direct attack
+// it FIELDS ITSELF and responds (SOP — design law 4: automation adds a seat,
+// the commander still owns assignment and can re-task mid-response). When the
+// fight goes quiet the responder returns to garrison and resumes the duty.
+// Deploying a QRF element MANUALLY releases it from QRF (the UI warns).
 //
 // KNOWLEDGE HONESTY: the QRF responds to what the TOC actually knows.
 // - A LIVE contact near the base (aerostat/drone/friendly eyes): move on it.
@@ -10,41 +14,48 @@
 //   distance along that azimuth and hunts with its own sensors from there.
 // Deterministic: no rng, no hash rolls — pure geometry and state.
 import { S } from '../../engine/state'
-import type { Structure, Unit } from '../../engine/GameState'
+import type { OrgSlot, Structure } from '../../engine/GameState'
 import { clampWorld, nearestLand } from '../../world/place'
 import { orderMove } from '../forces/orders'
+import { fieldSlot, orderReturnToGarrison } from '../installations/orders'
 import { radio, toast } from '../comms/radio'
 import { grid } from '../../lib/format'
 
-const GARRISON_R = 450       // must be resting this close to the base to assign
 const ALERT_R = 900          // IDF impact / hostile presence inside this = base attack
 const TRACK_R = 2500         // live contacts inside this count as "the threat"
 const BEARING_MOVE = 1200    // no track: bounded advance along the back-azimuth
 const STAND_DOWN_S = 120     // quiet this long -> QRF returns to garrison
 const REEVAL_S = 20          // per-base launch re-evaluation throttle
 
-function baseOf(u: Unit): Structure | null {
-  if (u.qrfHome == null) return null
-  return S.structures.find(s => s.id === u.qrfHome && s.side === 'friend') ?? null
+// the base a garrisoned slot is homed at (garrisonAt, defaulting to the CP)
+export function qrfHomeBase(sl: OrgSlot): Structure | null {
+  return S.structures.find(s => s.id === sl.garrisonAt && s.side === 'friend' && s.buildT <= 0)
+    ?? S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')
+    ?? null
 }
 
-// assignment order (palette toggle): only a unit GARRISONED at an HQ/FOB
-export function toggleQrf(unitId: number): void {
-  const u = S.units.find(x => x.id === unitId && x.side === 'friend')
-  if (!u) return
-  if (u.qrfHome != null) {
-    const st = baseOf(u)
-    delete u.qrfHome
-    delete u.qrfOutT
-    toast(`${u.label} RELEASED FROM QRF${st ? ` — ${st.label}` : ''}`)
+// assignment order (palette toggle): a GARRISONED slot takes/leaves the duty
+export function toggleQrf(slotId: string): void {
+  const sl = S.org?.slots.find(s => s.id === slotId)
+  if (!sl || !sl.type) return
+  if (sl.unitId != null) return void toast('QRF IS A GARRISON DUTY — THE ELEMENT IS FIELDED')
+  const st = qrfHomeBase(sl)
+  if (!st) return void toast('NO FRIENDLY BASE TO STAND QRF AT')
+  if (sl.qrf) {
+    sl.qrf = false
+    toast(`${sl.name.toUpperCase()} RELEASED FROM QRF — ${st.label}`)
     return
   }
-  const st = S.structures.find(s => s.side === 'friend' && s.buildT <= 0
-    && (s.kind === 'HQ' || s.kind === 'FOB') && Math.hypot(s.x - u.x, s.y - u.y) <= GARRISON_R)
-  if (!st) return void toast('QRF ASSIGNMENT REQUIRES A UNIT GARRISONED AT AN HQ/FOB')
-  u.qrfHome = st.id
-  toast(`${u.label} ASSIGNED TO QRF — ${st.label}`)
-  radio(u.label, 'move', `QRF ASSIGNED AT ${st.label} — STANDING BY`, u.x, u.y)
+  sl.qrf = true
+  toast(`${sl.name.toUpperCase()} DEDICATED AS QRF — ${st.label}`)
+  radio(sl.name.toUpperCase(), 'move', `QRF DUTY AT ${st.label} — STANDING BY IN GARRISON`, st.x, st.y)
+}
+
+// manual deployment of a QRF element releases the duty (callers warn first)
+export function releaseQrf(sl: OrgSlot): void {
+  if (!sl.qrf) return
+  sl.qrf = false
+  toast(`${sl.name.toUpperCase()} RELEASED FROM QRF — DEPLOYED`)
 }
 
 // the threat picture for one base: where should a launching QRF go?
@@ -78,29 +89,44 @@ function threatFor(st: Structure): { x: number; y: number; tracked: boolean } | 
 }
 
 export function qrfUpdate(_dt: number): void {
-  // cheap gate: no QRF assignments anywhere -> nothing to do (golden-neutral)
+  // cheap gate: no QRF duty anywhere and nobody responding -> nothing to do
+  // (golden-neutral: skirmish never assigns QRF)
   let any = false
-  for (const u of S.units) if (u.qrfHome != null) { any = true; break }
+  for (const sl of S.org?.slots ?? []) if (sl.qrf) { any = true; break }
+  if (!any) for (const u of S.units) if (u.qrfOutT != null) { any = true; break }
   if (!any) return
 
   for (const st of S.structures) {
     if (st.side !== 'friend' || st.buildT > 0) continue
-    const qrf = S.units.filter(u => u.qrfHome === st.id && u.strength > 0)
-    if (!qrf.length) continue
+    // the duty roster: garrisoned QRF slots homed at this base…
+    const standing = (S.org?.slots ?? []).filter(sl =>
+      sl.qrf && sl.unitId == null && qrfHomeBase(sl)?.id === st.id
+      && sl.soldiers.some(x => x.status === 'FIT'))
+    // …and the responders already out its gate
+    const active = S.units.filter(u => u.qrfHome === st.id && u.strength > 0)
+    if (!standing.length && !active.length) continue
     if (S.t - (st.qrfT ?? -999) < REEVAL_S) continue
     const threat = threatFor(st)
 
     if (threat) {
       st.qrfT = S.t
       let launched = 0
-      for (const u of qrf) {
-        if (u.qrfOutT != null) continue // already responding
+      const p = nearestLand(S.map!, threat.x, threat.y)
+      // launch the standing duty: the garrison FIELDS ITSELF and rolls
+      for (const sl of standing) {
+        const u = fieldSlot(sl.id, st.id)
+        if (!u) continue // cap/refit/phase lock — the duty holds, try next eval
+        u.qrfHome = st.id
         u.qrfOutT = S.t
         u.weapons = 'free'
         u.roe = 'halt'
-        const p = nearestLand(S.map!, threat.x, threat.y)
         orderMove(u.id, p.x, p.y)
         launched++
+      }
+      // re-vector responders that have gone idle onto the fresh threat
+      for (const u of active) {
+        if (u.qrfOutT == null) continue
+        if (!u.path.length && !u.attackMove) orderMove(u.id, p.x, p.y)
       }
       if (launched) {
         radio('NET', 'contact',
@@ -111,14 +137,15 @@ export function qrfUpdate(_dt: number): void {
         toast(`QRF LAUNCHING — ${st.label}`)
       }
     } else {
-      // stand-down: responders quiet long enough walk back to the wire
-      for (const u of qrf) {
+      // stand-down: responders quiet long enough return to GARRISON — the
+      // slot keeps its QRF flag, so the duty resumes at the wire
+      for (const u of active) {
         if (u.qrfOutT == null) continue
         if (S.t - u.lastCombatT < STAND_DOWN_S || S.t - u.qrfOutT < STAND_DOWN_S) continue
         delete u.qrfOutT
-        const p = nearestLand(S.map!, st.x + 180, st.y + 180)
-        orderMove(u.id, p.x, p.y)
-        radio(u.label, 'move', `QRF STANDING DOWN — RETURNING TO ${st.label}`, u.x, u.y)
+        delete u.qrfHome
+        radio(u.label, 'move', `QRF STANDING DOWN — RETURNING TO GARRISON AT ${st.label}`, u.x, u.y)
+        orderReturnToGarrison(u.id, st.id)
       }
     }
   }
