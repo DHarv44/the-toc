@@ -40,7 +40,7 @@ export function forceCount(side: Side = 'friend'): number {
   for (const u of S.units) {
     if (u.side !== side || u.strength <= 0) continue
     if (side === 'hostile' && u.bgGroup == null) continue
-    if (u.divAsset) continue // division delivery convoys are not TF force
+    if (u.respFrom) continue // higher-echelon units in the AO are not TF force
     n++
   }
   return n

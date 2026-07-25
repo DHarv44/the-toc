@@ -13,6 +13,8 @@ import { radio, toast } from '../comms/radio'
 import { nearestLand } from '../../world/place'
 import { newUnit } from '../forces/factory'
 import { orderMove } from '../forces/orders'
+import { deriveElements, deriveStrength } from '../forces/casualties'
+import { assetCrewSlot } from '../../packs/org'
 
 // FALLBACKS only — the real numbers are pack data (PackAsset.setupTime /
 // windowLen / atoLead / refitTime); the engine never dictates them
@@ -124,10 +126,12 @@ export function requestAsset(kind: string, structId?: number): void {
   if (!def) return
   if (requestOpen(kind)) return void toast(`${def.name.toUpperCase()} REQUEST ALREADY WITH ${assetDesk(kind)}`)
   if (tfInstance(kind)) return void toast(`${def.name.toUpperCase()} ALREADY ALLOCATED TO THE TASK FORCE`)
-  // staff processing: 15-25 s before the answer comes back. Point-defense
-  // asks are fast-tracked when the base has actually been taking fire —
-  // keyed off the delivered facility's INTERCEPT effect, never a name.
+  // staff processing: 15-25 s before the answer comes back — shortened by
+  // FAVOR (division remembers who helped with division problems). Point-
+  // defense asks are fast-tracked when the base has actually been taking
+  // fire — keyed off the delivered facility's INTERCEPT effect, never a name.
   let delay = 15 + (Math.abs(hashStr(`asset:${kind}:${S.t.toFixed(1)}`)) % 100) / 10
+  delay = Math.max(6, delay / (1 + 0.15 * S.assets.favor))
   const fac = def.delivers.facility ? FACILITIES[def.delivers.facility] : null
   if (fac?.effects.intercept) {
     const st = S.structures.find(s => s.id === structId)
@@ -141,18 +145,27 @@ export function requestAsset(kind: string, structId?: number): void {
 // --- decision + delivery (called from update.ts) ----------------------------
 
 // spawn the delivery convoy at DIVISION MAIN (deep rear) or the friendly map
-// edge, and point it at the requesting base. It is not TF force.
+// edge, and point it at the requesting base. It is NOT task-organized to the
+// battalion (respFrom = the owning formation) — and the asset's REAL crew
+// rides the trucks (shared roster records with their org slot), so a convoy
+// that dies puts those people into the DUSTWUN machinery like anyone else.
 function spawnDeliveryConvoy(inst: AssetInstance, def: PackAsset, st: Structure): void {
   const W = S.map!.WORLD
   const from = S.campaign?.divHq
     ?? nearestLand(S.map!, S.map!.fob.x, Math.min(W - 120, S.map!.fob.y + W * 0.2))
   const p = nearestLand(S.map!, from.x, from.y)
   const u = newUnit('LOG', 'friend', p.x, p.y, { noSlot: true })
-  u.divAsset = true
+  u.respFrom = def.from
   u.lineage = `${def.name}, ${def.from}`
   u.attFrom = def.from
   u.roe = 'break'          // delivery trucks run, they don't fight
   u.weapons = 'hold'
+  const crew = assetCrewSlot(S.org, inst.id)
+  if (crew) {
+    // passengers, by reference: casualties on the road hit the SLOT's records
+    u.soldiers = [...u.soldiers, ...crew.soldiers]
+    deriveElements(u); deriveStrength(u)
+  }
   S.units.push(u)
   inst.state = 'enroute'
   inst.holder = 'TF'
@@ -160,6 +173,44 @@ function spawnDeliveryConvoy(inst: AssetInstance, def: PackAsset, st: Structure)
   inst.convoyId = u.id
   orderMove(u.id, st.x, st.y)
   radio(u.label, 'move', `${def.name.toUpperCase()} MOVING FROM DIVISION — CONVOY ON THE MSR TO ${st.label}`, u.x, u.y)
+}
+
+// --- division favor + the optional assist (ASSET-REQUESTS.md) ---------------
+// Securing a downed HIGHER-ECHELON convoy site is not the battalion's duty —
+// doing it anyway earns FAVOR (faster staff decisions) and rolls a REAL
+// chance the transported iron is recovered instead of written off (degraded
+// if the enemy ever held the site; never guaranteed).
+export function assetSiteSecured(site: { id: number; respFrom?: string }): void {
+  S.assets.favor++
+  radio('DIV G3', 'arrive',
+    `${site.respFrom ?? 'DIVISION'} CONVOY SITE SECURED BY TASK FORCE — DIVISION NOTES THE ASSIST`, undefined, undefined)
+  const inst = S.assets.pool.find(a => a.siteId === site.id)
+  if (!inst) return
+  delete inst.siteId
+  const def = assetDef(inst.kind)
+  const enemyHeld = 'capturedT' in site && (site as { capturedT?: number }).capturedT != null
+  const odds = enemyHeld ? 0.2 : 0.45
+  const roll = (Math.abs(hashStr(`salvage:${inst.id}:${site.id}`)) % 1000) / 1000
+  if (roll < odds) {
+    inst.state = 'available'
+    delete inst.holder; delete inst.structId; delete inst.refitT; delete inst.hullReady
+    radio('DIV G3', 'arrive',
+      `${def?.name.toUpperCase() ?? inst.kind} RECOVERED FROM THE SITE — BACK IN THE DIVISION POOL AFTER INSPECTION`, undefined, undefined)
+    toast(`${def?.name.toUpperCase() ?? inst.kind} RECOVERED`)
+  } else {
+    radio('DIV G3', 'request',
+      `${def?.name.toUpperCase() ?? inst.kind} UNSALVAGEABLE — REPLACEMENT STAYS ON THE CL VII CLOCK`, undefined, undefined)
+  }
+}
+
+// crew readiness gate: division is only "whole" again when the PEOPLE are —
+// an instance needs its crew slot ≥60% FIT (contractor or mil) to stand up
+export function crewReady(inst: AssetInstance): boolean {
+  const slot = assetCrewSlot(S.org, inst.id)
+  if (!slot || !slot.soldiers.length) return true // uncrewed asset kinds
+  const fit = slot.soldiers.filter(s => s.status === 'FIT' && !s.replaced).length
+  const authorized = slot.soldiers.filter(s => !s.replaced).length
+  return fit >= Math.ceil(authorized * 0.6)
 }
 
 export function approve(kind: string, structId: number | undefined, fromQueue: boolean): void {

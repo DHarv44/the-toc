@@ -276,7 +276,41 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
     }
   }
 
+  // requestable-asset crews (ASSET-REQUESTS.md): ONE real slot per pooled
+  // instance — named mil billets + CIV contractors. Division owns them
+  // (tf: false, no type — never fieldable); they ride the delivery convoy
+  // when their asset is approved and attach when it emplaces. Division being
+  // "out a unit" is these people being casualties, nothing more abstract.
+  for (const [kind, def] of Object.entries(pack.assets ?? {})) {
+    if (!def.crew) continue
+    for (let i = 1; i <= (def.count ?? 0); i++) {
+      const id = `ASSET:${kind}-${i}`
+      const soldiers: Soldier[] = []
+      let sid = 1
+      for (const [rank, pos] of def.crew.billets) {
+        const s: Soldier = { id: sid++, kind: 'STAFF', status: 'FIT', vehId: null, pos, rank }
+        nameSoldier(s, id, pack.side)
+        soldiers.push(s)
+      }
+      for (let c = 0; c < (def.crew.civ ?? 0); c++) {
+        const s: Soldier = { id: sid++, kind: 'CIV', status: 'FIT', vehId: null, pos: 'Field Service Rep', rank: 'CIV' }
+        nameSoldier(s, id, pack.side)
+        soldiers.push(s)
+      }
+      slots.push({
+        id, bde: 'ATT', bn: def.from, co: def.name.toUpperCase(), name: `SEC ${i}`,
+        lin: `${def.name} ${i}, ${def.from}`, from: def.from,
+        tf: false, unitId: null, soldiers, vehicles: [],
+      })
+    }
+  }
+
   return { slots }
+}
+
+// the crew slot backing a pooled asset instance ('CRAM-2' → 'ASSET:CRAM-2')
+export function assetCrewSlot(org: DivOrg | null, instId: string): OrgSlot | null {
+  return org?.slots.find(sl => sl.id === `ASSET:${instId}`) ?? null
 }
 
 // first free TF slot of a type — the fielding draw

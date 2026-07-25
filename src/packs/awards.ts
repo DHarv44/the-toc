@@ -17,6 +17,12 @@ const AWARDS_LITERAL = {
     key: 'PURPLE_HEART', name: 'Purple Heart', abbr: 'PH',
     ribbon: ['#ffffff', '#5b2c83', '#5b2c83', '#5b2c83', '#ffffff'],
   },
+  // the contractor's equivalent (real rule): civilians wounded in the line of
+  // duty receive the Defense of Freedom Medal, NOT the Purple Heart
+  DEFENSE_OF_FREEDOM: {
+    key: 'DEFENSE_OF_FREEDOM', name: 'Defense of Freedom Medal', abbr: 'DoF',
+    ribbon: ['#a6252f', '#ffffff', '#1e3a6e', '#ffffff', '#a6252f'],
+  },
   // deliberate-criteria valor awards come later; keys reserved so saves stay stable
   ARCOM_V: {
     key: 'ARCOM_V', name: 'Army Commendation Medal w/ Valor', abbr: 'ARCOM-V',

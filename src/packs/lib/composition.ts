@@ -71,6 +71,9 @@ export const US_TROOPS = {
   PILOT: { key: 'PILOT', name: 'Aviator', weapons: ['M4'] },
   CREW_CHIEF: { key: 'CREW_CHIEF', name: 'Crew Chief', weapons: ['M4'] },
   MECHANIC: { key: 'MECHANIC', name: 'Mechanic', weapons: ['M4'] },
+  // civilian contractors (FSRs on attached systems): noncombatants — no
+  // weapon, no replacement pipeline, Defense of Freedom Medal when wounded
+  CIV: { key: 'CIV', name: 'Contractor (FSR)', weapons: [] },
 } as const satisfies Record<string, TroopKind>
 
 // --- vehicle types ---------------------------------------------------------

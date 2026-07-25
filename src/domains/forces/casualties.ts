@@ -42,12 +42,18 @@ function woundSoldier(u: Unit, s: Soldier, kindHint?: string): void {
     kind: kindHint ?? WOUND_KINDS[Math.abs(hashStr(`${u.id}:${s.id}:wk:${S.t.toFixed(1)}`)) % WOUND_KINDS.length]!,
   }
   if (sev !== 'LIGHT') s.evac = true
-  grantAward(s, 'PURPLE_HEART')
+  casualtyAward(s)
+}
+
+// the casualty decoration by WHO the casualty is: soldiers get the Purple
+// Heart; CIVILIAN contractors get the Defense of Freedom Medal (real rule)
+function casualtyAward(s: Soldier): void {
+  grantAward(s, s.kind === 'CIV' ? 'DEFENSE_OF_FREEDOM' : 'PURPLE_HEART')
 }
 
 function killSoldier(u: Unit, s: Soldier): void {
   s.status = 'KIA'
-  grantAward(s, 'PURPLE_HEART') // posthumous
+  casualtyAward(s) // posthumous
 }
 
 // --- element ↔ roster mapping -----------------------------------------------
@@ -270,6 +276,9 @@ export function downUnit(u: Unit): void {
     id: (S.counters.nextId++), unitId: u.id, side: u.side, type: u.type,
     label: u.label, lineage: u.lineage, x: u.x, y: u.y, t: S.t,
     soldiers: u.soldiers, vehicles: u.vehicles, secureT: 0,
+    // a higher-echelon unit down in the AO keeps its owner's name — the site
+    // gets the "assist if able" framing, not the battalion-recovery one
+    respFrom: u.respFrom,
   })
 }
 
@@ -291,7 +300,7 @@ export function resolveDownedSite(
     if (s.status === 'KIA' || s.status === 'MIA' || s.evac) continue
     if (opts.writeOff) {
       // never secured: unaccounted — MIA-heavy, some confirmed KIA later
-      if (r('wo', s.id) < 0.35) { s.status = 'KIA'; grantAward(s, 'PURPLE_HEART'); out.kia++ }
+      if (r('wo', s.id) < 0.35) { s.status = 'KIA'; casualtyAward(s); out.kia++ }
       else { s.status = 'MIA'; out.mia++ }
       continue
     }

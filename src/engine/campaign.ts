@@ -613,6 +613,21 @@ export function runCampaign(S: GameState, _dt: number): void {
   for (const site of S.downed) {
     if (site.side !== 'friend' || c.dustwunSeen.includes(site.id)) continue
     c.dustwunSeen.push(site.id)
+    if (site.respFrom) {
+      // a HIGHER-echelon convoy down in the AO: their people, your ground.
+      // Helping is a CHOICE — favor with division and a salvage chance if
+      // you do, no mark against you if you don't.
+      const text =
+        `TASK FORCE, THIS IS HIGHER. A ${site.respFrom} convoy is down in your AO — `
+        + `last known ${locRef(S.map!, site.x, site.y)}, personnel status UNKNOWN. `
+        + 'This is DIVISION\'S problem, not your tasking — but you are the closest force. '
+        + 'If you can put an element on that grid, division will remember it, and there '
+        + 'may be equipment worth recovering. Your call, commander. NO TASKING FOLLOWS.'
+      c.fragoLog.push({ title: `DIVISION CONVOY DOWN — ${site.label}`, text, t: S.t })
+      if (!c.frago) c.frago = { title: `DIVISION CONVOY DOWN — ${site.label}`, text }
+      radio('NET', 'request', `${site.respFrom} CONVOY DOWN IN AO — ASSIST OPTIONAL, ${site.label} LKP`, site.x, site.y)
+      continue
+    }
     const text =
       `TASK FORCE, THIS IS HIGHER. We show ${site.label} — ${site.lineage ?? 'UNKNOWN ELEMENT'} — `
       + `off the net, last known ${locRef(S.map!, site.x, site.y)}. Status of personnel UNKNOWN. `

@@ -5,7 +5,7 @@ import { S } from '../../engine/state'
 import { radio, toast } from '../comms/radio'
 import { deployDrone } from '../air/orders'
 import {
-  assetDef, assetDesk, relevance, approve, availableCount,
+  assetDef, assetDesk, relevance, approve, availableCount, crewReady,
   DEFAULT_SETUP, REFIT_TIME,
 } from './service'
 
@@ -47,15 +47,18 @@ export function assetsUpdate(_dt: number): void {
       const convoy = S.units.find(u => u.id === inst.convoyId)
       const st = S.structures.find(s => s.id === inst.structId && s.side === 'friend')
       if (!convoy || convoy.strength <= 0) {
-        // the convoy died on the road: the asset is GONE — long CL VII clock
-        // (the pack's number for this asset, engine fallback otherwise)
+        // the convoy died on the road: the HULL goes on the CL VII clock and
+        // the PEOPLE (crew rode the trucks) fall into the DUSTWUN machinery —
+        // status unknown, recoverable. Securing the site is the battalion's
+        // CHOICE, not its duty (favor + a salvage chance if it does).
+        // convoyId is kept one more pass so the site link below can latch.
         inst.state = 'refit'
         inst.refitT = S.t + (def.refitTime ?? REFIT_TIME)
-        delete inst.holder; delete inst.structId; delete inst.convoyId
+        delete inst.holder; delete inst.structId
         radio(assetDesk(inst.kind), 'loss',
-          `${def.name.toUpperCase()} CONVOY DESTROYED EN ROUTE — ASSET LOST, REPLACEMENT ON THE CL VII CLOCK`,
+          `${def.name.toUpperCase()} CONVOY DOWN IN YOUR AO — DIVISION'S PEOPLE, STATUS UNKNOWN. ASSIST IF ABLE`,
           undefined, undefined)
-        toast(`${def.name.toUpperCase()} CONVOY LOST`)
+        toast(`${def.name.toUpperCase()} CONVOY DOWN — STATUS UNKNOWN`)
         continue
       }
       if (!st) {
@@ -93,10 +96,23 @@ export function assetsUpdate(_dt: number): void {
       radio('NET', 'arrive', `${def.name.toUpperCase()} OPERATIONAL AT ${st.label}`, st.x, st.y)
       toast(`${def.name.toUpperCase()} OPERATIONAL`)
     } else if (inst.state === 'refit') {
+      // link the lost convoy's DUSTWUN site (created a tick after the loss)
+      if (inst.convoyId != null) {
+        const site = S.downed.find(d => d.unitId === inst.convoyId)
+        if (site) { inst.siteId = site.id; delete inst.convoyId }
+      }
+      // the hull comes off the CL VII clock; the instance stands up only when
+      // the CREW is fit too — people regenerate through the replacement
+      // pipeline (and contractors through the vendor), never a timer
       if (S.t < (inst.refitT ?? 0)) continue
+      if (!inst.hullReady) {
+        inst.hullReady = true
+        radio(assetDesk(inst.kind), 'arrive', `${def.name.toUpperCase()} REPLACEMENT HULL DELIVERED — CREW REGENERATING`, undefined, undefined)
+      }
+      if (!crewReady(inst)) continue
       inst.state = 'available'
-      delete inst.refitT
-      radio(assetDesk(inst.kind), 'arrive', `${def.name.toUpperCase()} REPLACEMENT FIELDED — BACK IN THE DIVISION POOL`, undefined, undefined)
+      delete inst.refitT; delete inst.hullReady; delete inst.siteId
+      radio(assetDesk(inst.kind), 'arrive', `${def.name.toUpperCase()} RECONSTITUTED — BACK IN THE DIVISION POOL`, undefined, undefined)
     }
   }
 

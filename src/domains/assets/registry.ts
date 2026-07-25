@@ -11,7 +11,7 @@ export function buildAssetRegistry(pack: Pack): AssetsState {
       pool.push({ id: `${kind}-${i}`, kind, state: 'available' })
     }
   }
-  return { pool, pending: [], queue: [], windows: [], unlocks: [] }
+  return { pool, pending: [], queue: [], windows: [], unlocks: [], favor: 0 }
 }
 
 // Campaign scripting: hand a pooled instance to a sister formation so

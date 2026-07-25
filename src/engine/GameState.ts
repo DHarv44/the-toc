@@ -131,6 +131,10 @@ export interface DownedSite {
   capturedT?: number         // first time the enemy held the site (skews MIA)
   secureT: number            // accumulated friendly-secure dwell toward resolution
   resolved?: boolean
+  // a HIGHER-echelon unit went down in the AO (division asset convoy):
+  // their problem, not the battalion's — helping is OPTIONAL (different FRAGO
+  // framing), but securing it earns FAVOR and a chance the iron is recovered
+  respFrom?: string
 }
 
 export interface UnitVehicle {
@@ -160,7 +164,12 @@ export interface AssetInstance {
   structId?: number          // player allocations: the base it's attached to
   convoyId?: number          // enroute: the live delivery convoy unit on the map
   setupT?: number            // setup: emplacement-complete sim time
-  refitT?: number            // refit/replacement: completion sim time
+  // refit = HULL replacement clock (CL VII) only; the instance stands up
+  // again when the hull is ready AND its crew slot is fit (crewReady) — the
+  // people regenerate through the replacement pipeline, not a timer
+  refitT?: number
+  hullReady?: boolean        // hull clock done, waiting on the crew (radio once)
+  siteId?: number            // DUSTWUN site of the lost convoy (salvage roll)
 }
 
 // USAF sortie window (ATO cycle): launches of `kind` are authorized inside it
@@ -177,6 +186,8 @@ export interface AssetsState {
   queue: Array<{ kind: string; structId?: number }>   // FIFO waiting list
   windows: SortieWindow[]
   unlocks: string[]          // capability unlocks in effect ('CAS')
+  favor: number              // standing with division — earned by helping with
+                             // division problems in your AO; speeds staff decisions
 }
 
 export interface ConvoyTask {
@@ -254,9 +265,11 @@ export interface Unit {
   // P2.5 strength inversion: casualties happen to PEOPLE, strength is derived
   dmgAcc?: number            // sub-element damage accumulator (strength points)
   repT?: number              // motorpool repair progress toward the next DAMAGED vic
-  // division asset delivery convoy (ASSET-REQUESTS.md): not TF force — no org
-  // slot, no force-cap seat, no fielded stat; the asset service owns its fate
-  divAsset?: boolean
+  // responsibility cache (derived at spawn from pack data): undefined = task
+  // force (ours); a formation name ('2-44 ADA') = a HIGHER-echelon unit
+  // transiting our AO — not task-organized, no org slot, no force-cap seat,
+  // no fielded stat; helping it is optional (favor), not a duty
+  respFrom?: string
 }
 
 // --- installations --------------------------------------------------------
@@ -667,7 +680,7 @@ export function createInitialState(): GameState {
     waves: null,
     campaign: null,
     org: null,
-    assets: { pool: [], pending: [], queue: [], windows: [], unlocks: [] },
+    assets: { pool: [], pending: [], queue: [], windows: [], unlocks: [], favor: 0 },
     downed: [],
     replT: 0,
     enemyFiresOkT: -999,

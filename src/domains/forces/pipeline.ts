@@ -81,6 +81,7 @@ function fillVacancies(soldiers: Soldier[], type: Unit['type'], seedKey: string,
   for (const s of soldiers) {
     if (filled >= n) break
     if (s.replaced) continue // billet already backfilled
+    if (s.kind === 'CIV') continue // contractors come from the VENDOR, not rear det
     if (!(s.status === 'KIA' || s.status === 'MIA' || (s.status === 'WIA' && s.evac))) continue
     if (s.vehId !== null) continue // crew replacement needs the vehicle chain — motorpool first (v2)
     // a NEW soldier record takes the billet slot (the fallen keep their name in
@@ -98,6 +99,40 @@ function fillVacancies(soldiers: Soldier[], type: Unit['type'], seedKey: string,
     filled++
   }
   return filled
+}
+
+// staff-recipe slots (asset crews) have no composition template: the
+// replacement takes the fallen soldier's BILLET as-is — division sends a
+// qualified body for the seat, same pos, same grade
+function fillStaffVacancies(soldiers: Soldier[], seedKey: string, n: number): number {
+  let filled = 0
+  for (const s of soldiers) {
+    if (filled >= n) break
+    if (s.replaced || s.kind === 'CIV') continue
+    if (!(s.status === 'KIA' || s.status === 'MIA' || (s.status === 'WIA' && s.evac))) continue
+    const id = Math.max(0, ...soldiers.map(x => x.id)) + 1
+    const nu: Soldier = { id, kind: s.kind, status: 'FIT', vehId: null, pos: s.pos, rank: s.rank, repl: true, xp: 0 }
+    nameSoldier(nu, `${seedKey}:repl`, 'friend')
+    soldiers.push(nu)
+    s.replaced = true
+    filled++
+  }
+  return filled
+}
+
+// contractors are a dime a dozen: the vendor has the next FSR at the gate the
+// moment a seat opens — every open CIV billet backfills each packet tick,
+// outside the rear-det budget entirely
+function backfillContractors(soldiers: Soldier[], seedKey: string): void {
+  for (const s of soldiers) {
+    if (s.kind !== 'CIV' || s.replaced) continue
+    if (!(s.status === 'KIA' || s.status === 'MIA' || (s.status === 'WIA' && s.evac))) continue
+    const id = Math.max(0, ...soldiers.map(x => x.id)) + 1
+    const nu: Soldier = { id, kind: 'CIV', status: 'FIT', vehId: null, pos: s.pos, rank: 'CIV', repl: true }
+    nameSoldier(nu, `${seedKey}:fsr`, 'friend')
+    soldiers.push(nu)
+    s.replaced = true
+  }
 }
 
 function replacementUpdate(): void {
@@ -121,6 +156,15 @@ function replacementUpdate(): void {
     if (!sl.tf || !sl.type || sl.unitId != null) continue
     const got = fillVacancies(sl.soldiers, sl.type, sl.id, PER_PACKET)
     landed += got
+  }
+  // BACKGROUND SIM: division rebuilds its own asset crews through the SAME
+  // rear-det stream — a commander who burns division assets is consuming the
+  // pipeline that also feeds him. Contractors are the exception: the vendor
+  // backfills CIV seats fast and free (no butt in the seat, no invoice).
+  for (const sl of S.org?.slots ?? []) {
+    if (!sl.id.startsWith('ASSET:')) continue
+    landed += fillStaffVacancies(sl.soldiers, sl.id, PER_PACKET)
+    backfillContractors(sl.soldiers, sl.id)
   }
   if (landed > 0) {
     const hq = S.structures.find(st => st.side === 'friend' && st.kind === 'HQ')
