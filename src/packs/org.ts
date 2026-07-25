@@ -27,6 +27,7 @@ const BN_CMD_GRP: StaffMember[] = [
 ]
 const BN_STAFF: StaffMember[] = [
   { kind: 'STAFF', pos: 'S1 — Personnel', rank: 'CPT' },
+  { kind: 'STAFF', pos: 'S1 NCOIC', rank: 'SSG' },
   { kind: 'STAFF', pos: 'S2 — Intelligence', rank: 'CPT' },
   { kind: 'STAFF', pos: 'S3 — Operations', rank: 'MAJ' },
   { kind: 'STAFF', pos: 'S4 — Logistics', rank: 'CPT' },

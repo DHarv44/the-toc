@@ -604,10 +604,44 @@ export default function S1Console() {
           .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
           .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
         const bns = [...new Set(slots.filter(sl => sl.bde !== 'ATT').map(sl => sl.bn))]
-          .filter(bn => bnS1(bn).length > 0)
-        if (playerBn && bns.includes(playerBn)) { bns.splice(bns.indexOf(playerBn), 1); bns.unshift(playerBn) }
+          .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
+        // the commander's OWN crew leads, as quick-read cards
+        const mine = playerBn ? bnS1(playerBn).sort((a, b) => rankW(b.rank) - rankW(a.rank)) : []
         return (
           <>
+            {secHeader(`YOUR S1 SECTION — ${playerBn}`, 'THE SHOP RUNNING THIS CONSOLE', 0)}
+            <Group gap="md" px={12} py={10} align="stretch" wrap="wrap">
+              {mine.map(s => (
+                <Group key={s.pid ?? s.id} gap={12} wrap="nowrap" p={12}
+                  style={{ border: '1px solid #22303d', borderRadius: 4, background: '#0d141c', minWidth: 340 }}>
+                  <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={44} h={54} />
+                  <Box>
+                    <Group gap={8} wrap="nowrap" align="center">
+                      <RankIcon rank={s.rank} style={playerPack().rankStyle} h={18} />
+                      <Text span fz="md" fw={700} c="#dceeff">{s.rank} {s.name}</Text>
+                    </Group>
+                    <Text fz="sm" c="#9ab8d0">{s.pos}</Text>
+                    <Group gap={8} wrap="nowrap" align="center">
+                      <Text span fz="xs" fw={700} c={STATUS_COL[s.status] ?? '#9ab8d0'}>{s.status}</Text>
+                      {(s.xp ?? 0) > 0 && (
+                        <Text span fz="xs" c="dark.3">COMBAT TIME {Math.round((s.xp ?? 0) / 60)} MIN</Text>
+                      )}
+                      {(s.awards ?? []).map(k => {
+                        const a = AWARDS[k as AwardKey]
+                        return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
+                      })}
+                    </Group>
+                  </Box>
+                </Group>
+              ))}
+            </Group>
+
+            <Group gap={10} align="center" mt="md" mb={4} mx={12}>
+              <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+              <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>PERSONNEL SERVICES — REST OF THE DIVISION</Text>
+              <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+            </Group>
+
             {g1 && (
               <>
                 {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
@@ -616,7 +650,7 @@ export default function S1Console() {
             )}
             {bns.map(bn => (
               <div key={bn}>
-                {secHeader(`${bn} S1`, bn === playerBn ? 'YOUR SHOP' : 'BATTALION PERSONNEL SECTION', 0)}
+                {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
                 {rankTree(bnS1(bn), 1)}
               </div>
             ))}
