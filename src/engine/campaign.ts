@@ -53,6 +53,20 @@ export const CAMPAIGN_LAYOUT: MapLayout = {
   // (Node ids: 0 = fob, 1.. = towns in order, last = enemy base.) Without this
   // the MST would reroute the trunk through the western towns.
   msr: [0, 1, 2, 3, 4, 9],
+  // NON-DEPLOYABLE infrastructure in the emptier parts of the theater — named
+  // places that later missions anchor on (and where unknown threats wait):
+  // the dam on the western river, VALEMONT's power plant, the northern rail
+  // yard, a depot in the far NE, the comm site on the east ridge, a ford on
+  // the southern branch east of ASHFORD, a refugee camp south of FALKE.
+  features: [
+    { gx: 44, gy: 118, kind: 'dam', name: 'HANGYE DAM' },
+    { gx: 63, gy: 52, kind: 'power', name: 'VALEMONT POWER' },
+    { gx: 108, gy: 14, kind: 'rail', name: 'NORTH RAILHEAD' },
+    { gx: 214, gy: 44, kind: 'depot', name: 'DEPOT 9' },
+    { gx: 224, gy: 132, kind: 'comm', name: 'RELAY SITE ECHO' },
+    { gx: 168, gy: 186, kind: 'ford', name: 'HORSESHOE FORD' },
+    { gx: 34, gy: 110, kind: 'camp', name: 'CAMP HOPE' },
+  ],
 }
 
 // Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
@@ -258,6 +272,23 @@ export const OPERATION: Operation = {
         // scripted OPFOR (the counterattack, later) will advance on the town
         c.opforObj = { x: town.x, y: town.y }
         OPERATION.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
+        // the wider theater is NOT empty: garrisons sit on the infrastructure
+        // out there, known to intel only as UNKNOWN contacts — reasons to go,
+        // threats when you do. Far outside the M1 fight; they hold their ground.
+        for (const site of [
+          { x: 108 * 50, y: 14 * 50, comp: ['MECH', 'INF'] as const },   // NORTH RAILHEAD
+          { x: 214 * 50, y: 44 * 50, comp: ['INF'] as const },           // DEPOT 9
+          { x: 44 * 50, y: 118 * 50, comp: ['INF'] as const },           // HANGYE DAM
+        ]) {
+          site.comp.forEach((k, i) => {
+            const p = nearestLand(S.map!, site.x + i * 140 - 70, site.y + 90)
+            const g = spawnEnemy(k, p.x, p.y)
+            S.contacts.set(g.id, {
+              x: p.x + (S.rng!() - 0.5) * 500, y: p.y + (S.rng!() - 0.5) * 500,
+              type: k, lastSeen: 0, live: false, strength: 100, unknown: true,
+            })
+          })
+        }
       },
     },
     {

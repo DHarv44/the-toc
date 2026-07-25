@@ -10,7 +10,7 @@ import type { TheaterData } from './theaters'
 import {
   CELL, GRID_DEFAULT, TERR_NAME, T_FIELD, T_FOREST, T_URBAN, T_WATER,
   R_PATH, R_ROAD, R_HIGHWAY,
-  type BridgeSpan, type MapFeature, type RoadClass, type RoadPoly, type Terrain,
+  type BridgeSpan, type InfraKind, type MapFeature, type RoadClass, type RoadPoly, type Terrain,
   type Town, type Vec2, type WorldMap,
 } from './WorldMap'
 
@@ -38,6 +38,9 @@ export interface MapLayout {
   // legs are added). Without it the trunk is the MST's fob→enemy-base path,
   // which extra towns can reroute away from the campaign's spine.
   msr?: ReadonlyArray<number>
+  // authored NON-DEPLOYABLE infrastructure (dams, rail yards, depots, fords…):
+  // named places pushed into map.features — mission anchors, not assets
+  features?: ReadonlyArray<{ gx: number; gy: number; kind: InfraKind; name: string }>
 }
 
 export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: TheaterData, layout?: MapLayout): WorldMap {
@@ -576,6 +579,14 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
         x: (c.at % GRID + 0.5) * CELL, y: ((c.at / GRID | 0) + 0.5) * CELL,
       })
     })
+  }
+
+  // authored infrastructure: named places straight from the layout (positions
+  // are the author's call — a dam WANTS to sit on the river, a ford in it)
+  if (layout?.features) {
+    for (const f of layout.features) {
+      features.push({ kind: f.kind, name: f.name, x: (f.gx + 0.5) * CELL, y: (f.gy + 0.5) * CELL })
+    }
   }
 
   const map: WorldMap = {

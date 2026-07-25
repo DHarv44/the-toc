@@ -1177,6 +1177,11 @@ replacement vehicles for surviving crews, and empty seats where the KIA were.
   knows); REFUGEE CAMP / HOSPITAL (S9 civil-affairs constraints — fires
   restrictions near protected sites); OP HILLS (named observation high ground).
   Each is layout-authorable data like towns; missions reference them as zones.
+  SHIPPED 2026-07-25 (v1, visual + intel anchors): dam/power/rail/depot/comm/
+  ford/camp kinds authored in the campaign layout, with unknown-contact
+  garrisons on the far sites. NOTE: SAM/RADAR sites, EW emitters and the like
+  are DEPLOYABLE ASSETS (either side places them) — they belong on the asset
+  list in Assets & Systems, not in the map layout.
 - **Awards & decorations (2026-07-25)** — medals awarded to troops through the
   campaign, tracked on the soldier (roster/troop card ribbon rack, S1 view).
   Prefer EVENT-DRIVEN over pure RNG — the sim already produces the triggers:

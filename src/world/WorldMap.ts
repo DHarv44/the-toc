@@ -52,8 +52,14 @@ export interface BridgeSpan extends Vec2 {
 // named terrain: rivers (biggest drainage lines) and hills (prominent peaks,
 // military-labelled by elevation — "HILL 91"). Radio calls, briefings and
 // objectives anchor to these instead of bare grid references.
+// Named map features: generated terrain (hills, rivers) plus authored
+// NON-DEPLOYABLE infrastructure — places, not assets. Infrastructure kinds are
+// mission anchors and reasons to move into the emptier parts of the theater;
+// they do nothing mechanically yet (functional effects like ford crossings or
+// dam floods come with the missions that use them).
+export type InfraKind = 'dam' | 'power' | 'rail' | 'depot' | 'comm' | 'ford' | 'camp'
 export interface MapFeature extends Vec2 {
-  kind: 'river' | 'hill'
+  kind: 'river' | 'hill' | InfraKind
   name: string
 }
 

@@ -640,9 +640,14 @@ export default function MapView() {
       ctx.textAlign = 'center'
       for (const t of S.map!.towns) ctx.fillText(t.name, w2sX(t.x), w2sY(t.y) - 6)
 
-      // named terrain: hills (spot-elevation style) and rivers (blue italic).
-      // Fainter than town names — reference marks, not objectives.
+      // named terrain: hills (spot-elevation style), rivers (blue italic), and
+      // authored INFRASTRUCTURE (glyph + name — places, not assets). Fainter
+      // than town names — reference marks, not objectives.
       if (view.ppm > 0.03) {
+        // infra glyphs: distinctive single characters until real icon art
+        const INFRA_GLYPH: Record<string, string> = {
+          dam: '▓', power: '⚡', rail: '▤', depot: '◫', comm: '📡', ford: '≈', camp: '⛺',
+        }
         for (const f of S.map!.features) {
           const fx = w2sX(f.x), fy = w2sY(f.y)
           if (f.kind === 'hill') {
@@ -651,10 +656,16 @@ export default function MapView() {
             ctx.fillText('▲', fx, fy + 3)
             ctx.font = '8.5px Consolas, monospace'
             ctx.fillText(f.name, fx, fy - 6)
-          } else {
+          } else if (f.kind === 'river') {
             ctx.fillStyle = night ? 'rgba(120,170,215,0.6)' : 'rgba(36,88,138,0.8)'
             ctx.font = 'italic 9px Consolas, monospace'
             ctx.fillText(f.name, fx, fy - 5)
+          } else {
+            ctx.fillStyle = night ? 'rgba(190,180,150,0.7)' : 'rgba(70,60,40,0.85)'
+            ctx.font = '10px Consolas, monospace'
+            ctx.fillText(INFRA_GLYPH[f.kind] ?? '■', fx, fy + 3)
+            ctx.font = '8.5px Consolas, monospace'
+            ctx.fillText(f.name, fx, fy - 7)
           }
         }
       }
