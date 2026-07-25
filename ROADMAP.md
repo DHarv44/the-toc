@@ -1659,3 +1659,10 @@ are called out here *and* stubbed in the active sections above where they matter
 - **Sensor lock during transit** — LOCK gated to on-station.
 - **ROUTE IMPASSABLE toast spam** — toast gated to player-issued orders; hostile
   pathfinding failures are silent.
+
+## Symbology audit
+- Sweep every MIL-STD-2525 symbol drawn on the map (units, structures, contacts,
+  drones, installations) for accuracy: correct frame shapes per affiliation,
+  correct function glyphs (branch modifiers, echelon marks, mobility indicators),
+  HQ staff offsets, and the new org echelons (DIV MAIN, BDE) — as close to the
+  standard as the canvas renderer allows.
