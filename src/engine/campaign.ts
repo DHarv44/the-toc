@@ -435,11 +435,12 @@ function activateObjective(S: GameState, c: CampaignState): void {
   }
 }
 
-// Reopen a received order from the log (the VTC replays it; sim keeps running).
+// Reopen a received order from the log — as a DOCUMENT, not a call: the deck
+// for review, no connect beat, no CG on the line.
 export function recallFrago(S: GameState, idx: number): void {
   const c = S.campaign
   const e = c?.fragoLog[idx]
-  if (c && e) c.frago = { title: e.title, text: e.text }
+  if (c && e) c.frago = { title: e.title, text: e.text, review: true }
 }
 
 // Acknowledge the opening briefing (UI ACKNOWLEDGE) and resume the sim.

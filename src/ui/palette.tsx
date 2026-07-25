@@ -141,7 +141,9 @@ export const unitItem = (t: UnitType): PaletteItem => {
   const att = playerPack().attached[t.key as UnitTypeKey]
   return {
     mode: 'deploy:' + t.key, key: t.key, field: true,
-    label: t.name, cost: t.cost, icon: <PaletteIcon unit={t} />,
+    // units aren't bought with supply (P5) — no price on the row; caps and
+    // refit turnaround are the limiter and show in the note
+    label: t.name, cost: null, icon: <PaletteIcon unit={t} />,
     tag: att ? `ATT — ${att.from}` : null,
     note: a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}` : a.capped ? `${a.used}/${a.max}` : null,
     disabled: !a.ready,

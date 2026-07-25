@@ -55,19 +55,11 @@ export function deployUnit(typeKey: UnitTypeKey, x: number, y: number, free = fa
   const mob = type.carrier ? type.carrier.mob : type.mob
   if (!isFinite(S.map!.moveFactor(x, y, mob))) return toast('NO-GO TERRAIN')
   if (!free) {
+    // units are NOT bought with supply (P5): the force pool, caps and refit
+    // cooldowns are the limiter — supply sustains the force, it doesn't buy it.
+    // Placement still requires a live deploy zone.
     const site = fundingStructure(x, y)
     if (!site) return toast('OUTSIDE DEPLOY ZONE')
-    if (site.kind === 'FOB') {
-      // forward bases spend their own stock — keep the convoys rolling
-      if ((site.stock || 0) < type.cost) {
-        return toast(`${site.label} LOW ON SUPPLY — ${type.abbr} NEEDS ${type.cost}, HAS ${Math.floor(site.stock || 0)}`)
-      }
-      site.stock -= type.cost
-    } else {
-      if (S.resources < type.cost) return toast('INSUFFICIENT SUPPLY')
-      S.resources -= type.cost
-    }
-    S.stats.supplySpent += type.cost
   }
   const u = newUnit(typeKey, 'friend', x, y)
   S.units.push(u)
@@ -108,18 +100,8 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
   if (av.cooldown > 0) return toast(`${type.abbr} REFITTING — ${fmtCooldown(av.cooldown)}`)
 
-  // forward bases spend their own stock; the HQ draws on the theatre pool
-  if (st.kind === 'FOB') {
-    if ((st.stock || 0) < type.cost) {
-      return toast(`${st.label} LOW ON SUPPLY — ${type.abbr} NEEDS ${type.cost}, HAS ${Math.floor(st.stock || 0)}`)
-    }
-    st.stock -= type.cost
-  } else {
-    if (S.resources < type.cost) return toast('INSUFFICIENT SUPPLY')
-    S.resources -= type.cost
-  }
-  S.stats.supplySpent += type.cost
-
+  // units are NOT bought with supply (P5): caps + cooldowns limit the force;
+  // supply sustains it (upkeep, munitions, structures) rather than buying it
   const mob = type.carrier ? type.carrier.mob : type.mob
   const spawn = nearestLand(S.map!, st.x, st.y, mob)
   const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)

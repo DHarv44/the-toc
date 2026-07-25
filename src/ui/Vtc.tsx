@@ -375,23 +375,26 @@ function CamTile({ label, sub, h, speaking, bars }: {
 // ---------------------------------------------------------------------------
 // The window
 // ---------------------------------------------------------------------------
-export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
+export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: {
   entry: { title: string; text: string }
   blocking?: boolean
+  review?: boolean       // recalled order: the DOCUMENT for review — no call, no voice
   startSlide?: number
   onClose: () => void
 }) {
-  const [phase, setPhase] = useState<'link' | 'live'>('link')
+  const [phase, setPhase] = useState<'link' | 'live'>(review ? 'live' : 'link')
   const [speaking, setSpeaking] = useState(false)
   const [slide, setSlide] = useState(startSlide)
   const [voiceOff, setVoiceOff] = useState(isBriefMuted())
   const slideRef = useRef<HTMLCanvasElement>(null)
 
   // connect beat, then the CG reads the order (speaking bars run for the
-  // exact scheduled duration; 0 = audio unavailable/muted, bars stay still)
+  // exact scheduled duration; 0 = audio unavailable/muted, bars stay still).
+  // A REVIEW skips all of it — it's a document, not a call.
   useEffect(() => {
-    setPhase('link')
     setSlide(startSlide)
+    if (review) { setPhase('live'); return }
+    setPhase('link')
     const t1 = setTimeout(() => {
       setPhase('live')
       const dur = radioBrief(entry.text)
@@ -445,14 +448,17 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
         borderBottom: '1px solid #24343f',
       }}>
         <span style={{
-          width: 7, height: 7, borderRadius: '50%', background: phase === 'live' ? '#d43a3a' : '#666',
-          animation: phase === 'live' ? 'vtcBlink 1.2s step-end infinite' : 'none',
+          width: 7, height: 7, borderRadius: '50%',
+          background: review ? '#54708a' : phase === 'live' ? '#d43a3a' : '#666',
+          animation: !review && phase === 'live' ? 'vtcBlink 1.2s step-end infinite' : 'none',
         }} />
-        <span style={{ fontSize: 10, letterSpacing: 2.5, color: '#9ab8d0' }}>DIV HQ — SECURE VTC</span>
-        <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
-          {phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
+        <span style={{ fontSize: 10, letterSpacing: 2.5, color: '#9ab8d0' }}>
+          {review ? 'ORDER — REVIEW COPY' : 'DIV HQ — SECURE VTC'}
         </span>
-        <button onClick={() => {
+        <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
+          {review ? 'FROM THE ORDERS LOG' : phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
+        </span>
+        {!review && <button onClick={() => {
           const next = !voiceOff
           setBriefMuted(next)
           setVoiceOff(next)
@@ -463,7 +469,7 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
             padding: '2px 9px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
             background: 'rgba(16,26,36,0.85)', border: `1px solid ${voiceOff ? '#6a4a4a' : '#2a3a48'}`,
             color: voiceOff ? '#c88a8a' : '#9ab8d0', fontSize: 9, letterSpacing: 1.5,
-          }}>{voiceOff ? 'VOICE OFF' : 'VOICE ON'}</button>
+          }}>{voiceOff ? 'VOICE OFF' : 'VOICE ON'}</button>}
       </div>
 
       {phase === 'link' ? (
@@ -476,7 +482,8 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 12, padding: 12 }}>
-          {/* roster column: the CG + attendees */}
+          {/* roster column: the CG + attendees — a CALL thing; a review is just the document */}
+          {!review && (
           <div style={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <CamTile label="CG · 1CD" h={390} bars speaking={speaking} />
             <div style={{ fontSize: 9, letterSpacing: 2, color: '#54708a' }}>
@@ -492,6 +499,7 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
               })}
             </div>
           </div>
+          )}
           {/* the deck */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
             <canvas ref={slideRef} width={1180} height={756}
@@ -516,7 +524,7 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
             padding: '7px 22px', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit',
             background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48', borderLeft: `3px solid ${AMBER}`,
             color: '#e6f0f8', fontSize: 11, letterSpacing: 2.5, fontWeight: 'bold',
-          }}>{blocking ? 'ACKNOWLEDGE' : 'END CALL'}</button>
+          }}>{blocking ? 'ACKNOWLEDGE' : review ? 'CLOSE' : 'END CALL'}</button>
       </div>
     </div>
   )
@@ -568,7 +576,17 @@ export function VtcFrago() {
   useUI((s) => s.tick)
   const c = S.campaign
   if (!c || c.complete || !c.briefed || c.frago == null) return null
+  if (c.frago.review) {
+    // recalled order: the document for review, not a call replay
+    return <ReviewDoc entry={c.frago} />
+  }
   return <FragoCall entry={c.frago} />
+}
+
+function ReviewDoc({ entry }: { entry: { title: string; text: string } }) {
+  usePauseWhileOpen()
+  const start = entry.title === 'LINES OF SUPPLY' ? 2 : 0
+  return <VtcWindow entry={entry} review startSlide={start} onClose={() => ackFrago(S)} />
 }
 
 // Blocking opener: the campaign's first VTC — the OPORD from higher. Holds the

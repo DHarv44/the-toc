@@ -13,8 +13,12 @@ Open `http://localhost:5187/?golden` →
 - `__goldenNew()` — same script against `window.__newGame` (once the new sim exists)
 - `__goldenDiff()` — both, digest equality
 
-**Baseline digest hash: `2409198223`** — deterministic across back-to-back runs.
-(Re-baselined 2026-07-24 for **FORCE-MODEL Phase 3 — derived combat + munitions**:
+**Baseline digest hash: `84143052`** — deterministic across back-to-back runs.
+(Re-baselined 2026-07-25 for **P5 stage A — free fielding**: units are no longer
+bought with supply (deployUnit/fieldUnit cost checks removed; caps + refit
+cooldowns limit the force, supply sustains it) — the golden scenario's scripted
+fielding now spends nothing, shifting the economy trajectory. Prior baseline
+`2409198223`, re-baselined 2026-07-24 for **FORCE-MODEL Phase 3 — derived combat + munitions**:
 direct-fire dps now derives from each unit's LIVE roster (alive shooters whose
 weapons have ammo — `forces/firepower.ts`) instead of the catalog dps pools; the
 old `× strength/100` scaling is gone (fewer live shooters already means less
