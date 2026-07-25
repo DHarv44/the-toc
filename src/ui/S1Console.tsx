@@ -422,7 +422,7 @@ export default function S1Console() {
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
         {playerBn && <BnDui bn={playerBn} h={54} title={pack.nicks?.[playerBn]} />}
         {/* the staff-section plate: as tall as the title+subtitle block */}
-        <Text fz={44} fw={700} c="#3d5a75" lh={1} style={{ letterSpacing: 1 }}>S1</Text>
+        <Text fz={54} fw={700} c="#ffffff" lh={1} style={{ letterSpacing: 1 }}>S1</Text>
         <Box>
           <Group gap={12} align="baseline" wrap="nowrap">
             <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
