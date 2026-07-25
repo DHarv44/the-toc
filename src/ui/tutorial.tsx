@@ -10,7 +10,6 @@
 // and floats the callout beside it.
 import { useEffect } from 'react'
 import { S } from '../engine/state'
-import { MISSIONS } from '../engine/campaign'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { nearestLand } from '../world/place'
 import { useUI, type UIState } from './store'
@@ -130,7 +129,10 @@ function spottedEnemy() {
   return best
 }
 
-// Curriculum, keyed by mission id (front-loaded; empty by mission 4).
+// Curriculum: ONE continuous step stream over the whole operation — steps whose
+// principals don't exist yet (the sustainment column before its FRAGO) simply
+// evaluate false / hide until the objective stream brings them on. Grouped by
+// the tasking they teach, purely for readability.
 export const TUTORIALS: Record<string, TutorialStep[]> = {
   lodgment: [
     // 1) select the recon platoon — and teach WHY scouts lead: the garrison is
@@ -421,6 +423,43 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
   ],
 }
 
+// the operation's full curriculum, in objective-stream order
+const CAMPAIGN_STEPS: TutorialStep[] = [
+  ...TUTORIALS.lodgment!,
+  ...TUTORIALS['lines-of-supply']!,
+]
+
+// ---------------------------------------------------------------------------
+// Reactive tip: the first time a line platoon falls below HALF strength,
+// pause and teach the BREAK drill. Not a sequenced step — it fires WHENEVER the
+// casualties happen (mid-assault, during the counterattack, even after the
+// scripted steps are done) and overrides the current cue until acted on.
+// One-shot per campaign (CampaignState.tutBreakShown). Scouts are excluded —
+// they already start on BREAK, and step 1 teaches that.
+// ---------------------------------------------------------------------------
+function hurtUnit() {
+  return S.units.find(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0 && u.strength < 50)
+}
+function breakTip(ui: UIState): TutorialHint | null {
+  const c = S.campaign
+  if (!c || c.tutBreakShown) return null
+  const u = hurtUnit()
+  if (!u) return null
+  if (u.roe === 'break') return null // acted on; the effect latches tutBreakShown
+  if (!ui.selectedIds.includes(u.id)) {
+    return {
+      text: 'CASUALTIES — the flashing platoon is below HALF strength. A mauled platoon fights at a fraction of its power; pull it out before it is destroyed.',
+      action: 'LEFT-CLICK the flashing platoon.',
+      targetUnit: u.id,
+    }
+  }
+  return {
+    text: 'BREAK CONTACT — the BREAK drill makes this platoon disengage and fall back on its own whenever it comes under fire. You can set it on any unit, any time.',
+    action: 'CLICK BREAK in the bottom tray.',
+    targetSel: 'roe-break',
+  }
+}
+
 const ACCENT = '#7ec8ff'   // callout chrome (matches the campaign UI)
 const RING_A = '#ffc63f'   // attention ring: pulses yellow…
 const RING_B = '#ff4a3c'   // …to red — reads as "look HERE" against the map blues
@@ -453,7 +492,21 @@ export default function TutorialOverlay() {
   // stays paused while a gated step is unfinished, then resumes.
   useEffect(() => {
     if (!c || !c.tutorial || c.complete || !c.briefed) return
-    const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
+    // reactive BREAK tip: pauses like a gate until the drill is set on the
+    // hurt platoon, then latches one-shot and hands back to the step flow
+    if (!c.tutBreakShown) {
+      const u = hurtUnit()
+      if (u) {
+        if (u.roe === 'break') {
+          c.tutBreakShown = true
+          if (S.speed === 0) S.speed = 1 // a pending gated step re-pauses next tick
+        } else {
+          if (S.speed !== 0) S.speed = 0
+          return // the tip owns the screen until acted on
+        }
+      }
+    }
+    const steps = CAMPAIGN_STEPS
     if (c.tutStep >= steps.length) return
     const step = steps[c.tutStep]!
     if (step.done(S, ui)) {
@@ -483,9 +536,12 @@ export default function TutorialOverlay() {
   }, [])
 
   if (!c || !c.tutorial || c.complete || !c.briefed) return null
-  const steps = TUTORIALS[MISSIONS[c.mission - 1]?.id ?? ''] ?? []
-  if (c.tutStep >= steps.length) return null
-  const hint = steps[c.tutStep]!.hint(S, ui)
+  const steps = CAMPAIGN_STEPS
+  // the reactive BREAK tip overrides the step cue — and still renders after the
+  // scripted steps are exhausted (casualties often come with the counterattack)
+  const tip = breakTip(ui)
+  if (!tip && c.tutStep >= steps.length) return null
+  const hint = tip ?? steps[c.tutStep]!.hint(S, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route to its waypoint)
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.

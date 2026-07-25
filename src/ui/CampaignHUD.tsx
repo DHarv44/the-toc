@@ -5,12 +5,22 @@
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  MISSIONS, evalObjective, ackBriefing, ackFrago, type ObjectiveSpec,
+  OPERATION, evalObjective, ackBriefing, ackFrago, type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
 const ACCENT = '#7ec8ff'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
+
+// Taskings pop up, they aren't a spoiler list: a FRAGO-bearing objective marks
+// a REVEAL POINT — everything from it onward stays off the board until the
+// stream reaches it. (Index of the first unreached frago objective.)
+function revealedEnd(objIdx: number): number {
+  for (let i = objIdx + 1; i < OPERATION.objectives.length; i++) {
+    if (OPERATION.objectives[i]!.frago) return i
+  }
+  return OPERATION.objectives.length
+}
 
 // progress suffix for the objective row, by verb
 function progressText(o: ObjectiveSpec, c: CampaignState): string {
@@ -28,8 +38,6 @@ export function CampaignObjectives() {
   useUI((s) => s.tick)
   const c = S.campaign
   if (!c || c.complete) return null
-  const m = MISSIONS[c.mission - 1]
-  if (!m) return null
 
   return (
     <div style={{
@@ -39,13 +47,13 @@ export function CampaignObjectives() {
       pointerEvents: 'none',
     }}>
       <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f7d95' }}>
-        MISSION {c.mission} · {MISSIONS.length > 1 ? `${c.mission}/${MISSIONS.length}` : ''}
+        OPERATION
       </div>
       <div style={{ fontSize: 13, letterSpacing: 2, color: '#dceeff', fontWeight: 'bold', marginTop: 2 }}>
-        {m.name}
+        {OPERATION.name}
       </div>
       <div style={{ height: 1, background: '#24343f', margin: '7px 0' }} />
-      {m.objectives.map((o, i) => {
+      {OPERATION.objectives.slice(0, revealedEnd(c.objIdx)).map((o, i) => {
         const st = c.status[i] || 'pending'
         const glyph = st === 'done' ? '✓' : st === 'active' ? '▶' : '○'
         const col = st === 'done' ? '#7ec87e' : st === 'active' ? ACCENT : '#5a7085'
@@ -119,17 +127,16 @@ export default function CampaignGate() {
   const c = S.campaign
   if (!c || c.complete) return null // campaign victory routes through EndScreen
 
-  // the campaign-opening briefing (mission 1 only) — the one modal left
+  // the campaign-opening briefing — the one modal left. Lists only the opening
+  // taskings; follow-ons arrive by FRAGO mid-fight.
   if (!c.briefed) {
-    const m = MISSIONS[c.mission - 1]
-    if (!m) return null
     return (
-      <ModalShell tag={`MISSION ${c.mission} — BRIEFING`} title={m.name}
+      <ModalShell tag="OPERATION — BRIEFING" title={OPERATION.name}
         actionLabel="ACKNOWLEDGE" onAction={() => { ackBriefing(S); bump() }}>
-        <div style={{ fontSize: 13, lineHeight: 1.65, color: '#b6cce0' }}>{m.brief}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.65, color: '#b6cce0' }}>{OPERATION.brief}</div>
         <div style={{ marginTop: 18 }}>
           <div style={{ fontSize: 9, letterSpacing: 2.5, color: '#5f7d95', marginBottom: 6 }}>OBJECTIVES</div>
-          {m.objectives.map((o, i) => (
+          {OPERATION.objectives.slice(0, revealedEnd(0)).map((o, i) => (
             <div key={o.id} style={{ display: 'flex', gap: 8, fontSize: 11.5, color: '#cfe2f2', margin: '3px 0' }}>
               <span style={{ color: '#5f7d95' }}>{i + 1}.</span>{o.label}
             </div>
@@ -150,8 +157,6 @@ export function FragoCard() {
   useUI((s) => s.tick)
   const c = S.campaign
   if (!c || c.complete || c.frago == null) return null
-  const m = MISSIONS[c.frago - 1]
-  if (!m) return null
 
   return (
     <div style={{
@@ -160,13 +165,13 @@ export function FragoCard() {
       borderRadius: 3, padding: '10px 13px', fontFamily: 'Consolas, monospace', userSelect: 'none',
     }}>
       <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#a8863e' }}>
-        FRAGO — MISSION {c.frago}
+        FRAGO — NEW TASKING
       </div>
       <div style={{ fontSize: 13.5, letterSpacing: 2, color: '#f2ddb0', fontWeight: 'bold', marginTop: 2 }}>
-        {m.name}
+        {c.frago.title}
       </div>
       <div style={{ height: 1, background: '#4a3c1e', margin: '7px 0' }} />
-      <div style={{ fontSize: 10.5, lineHeight: 1.55, color: '#d8c493' }}>{m.brief}</div>
+      <div style={{ fontSize: 10.5, lineHeight: 1.55, color: '#d8c493' }}>{c.frago.text}</div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 9 }}>
         <button onClick={() => { ackFrago(S); bump() }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#e8b34a' }}

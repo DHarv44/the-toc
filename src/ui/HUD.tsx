@@ -307,7 +307,7 @@ function SelectionTray() {
           <RouteSelect />
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ON CONTACT:</span>
           {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-            <button key={roe}
+            <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
               style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
               onClick={() => units.forEach(u => orderRoe(u.id, roe as Roe))}>
               {label}
@@ -382,7 +382,8 @@ function ContextMenu() {
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', padding: '4px 10px', borderBottom: '1px solid rgba(40,58,72,0.5)' }}>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>DRILL</span>
           {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-            <button key={roe} style={optBtn((u.roe || 'halt') === roe)}
+            <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
+              style={optBtn((u.roe || 'halt') === roe)}
               onClick={() => orderRoe(u.id, roe as Roe)}>{label}</button>
           ))}
         </div>

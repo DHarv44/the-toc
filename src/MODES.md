@@ -101,6 +101,22 @@ runner, the brief/tracker/FRAGO UI, palette gating, and the first two missions �
 all on one persistent world (no reset between missions). Golden UNCHANGED at
 `2409198223` (campaign is a new tick path; the A&D golden scenario never touches it).
 
+**Objective-stream restructure (2026-07-24, later the same day):** missions are
+GONE as containers — the campaign is one `OPERATION` (name, opening brief, flat
+`objectives: CampaignObjective[]`). Each objective carries its own `onActivate(S)`
+(allocations, palette gates, OPFOR placement, phase-line move) and optionally a
+`frago: {title, text}` card that drops at activation while the sim runs. The old
+M1+M2 are now ONE fight: CLEAR THE TOWN → DEFEAT THE COUNTERATTACK → (FRAGO:
+LINES OF SUPPLY) ESTABLISH THE FOB → OPEN THE SUPPLY LINE. `CampaignState.mission`
+is gone (`objIdx`/`status` span the whole operation; `frago` is the card object);
+`startMission` is gone (`activateObjective` is the only transition). The tracker
+and the opening briefing hide not-yet-revealed taskings (`revealedEnd`: a
+FRAGO-bearing objective is a reveal point). The tutorial is one continuous step
+stream (`CAMPAIGN_STEPS`), no per-mission reset. `defeat-group` counts a group
+in `phase === 'withdraw'` as BEATEN — a broken survivor running home no longer
+stalls the objective. Reactive BREAK tip (one-shot, `tutBreakShown`): any line
+platoon under 50% strength pauses and teaches select→BREAK, any time in the op.
+
 **Continuous-campaign rework (2026-07-24, same day as slice v1):**
 - **Authored map layout** — `MapLayout` in `world/mapgen.ts` (campaign passes
   `CAMPAIGN_LAYOUT`, skirmish passes nothing and stays byte-identical): pins the

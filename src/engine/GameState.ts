@@ -385,21 +385,21 @@ export interface WaveState {
 // Per-objective UI state, driven by the campaign runner (engine/campaign.ts).
 export type ObjStatus = 'pending' | 'active' | 'done'
 
-// Campaign mode state. null in other modes. One long operation on one map, run as
-// a sequence of missions on ONE persistent world — nothing resets between them.
-// `mission` / `objIdx` index into the mission table in engine/campaign.ts. All
-// fields are plain, serializable data (no closures): objectives are DATA in the
-// mission table, evaluated by pure functions keyed on their kind, so restoring a
-// save only needs these values (Save/Continue is deferred, but built for here).
-// Landmarks picked at setup (strongpoint / crossing / centerTown) anchor missions'
-// objectives; the rear target sets are the ids DEEP OPERATIONS must kill.
+// Campaign mode state. null in other modes. One long OPERATION on one map: a
+// stream of OBJECTIVES that activate in sequence on ONE persistent world —
+// missions are not separate game modes, they are taskings that pop up (FRAGO
+// cards) while the sim runs. `objIdx` indexes the operation's objective list in
+// engine/campaign.ts. All fields are plain, serializable data (no closures):
+// objectives are DATA, evaluated by pure functions keyed on their kind, so
+// restoring a save only needs these values (Save/Continue is deferred, but
+// built for here). Landmarks picked at setup (strongpoint / crossing /
+// centerTown) anchor objectives; the rear target sets are DEEP OPERATIONS ids.
 export interface CampaignState {
-  mission: number            // 1-based index into MISSIONS
-  objIdx: number             // current objective within the mission (sequential)
-  briefed: boolean           // opening briefing acknowledged (false = paused on brief; M1 only)
-  frago: number | null       // mission # with an unread FRAGO card (non-blocking, sim runs on)
+  objIdx: number             // current objective in the operation (sequential)
+  briefed: boolean           // opening briefing acknowledged (false = paused on it)
+  frago: { title: string; text: string } | null // unread FRAGO card (non-blocking, sim runs on)
   complete: boolean          // whole campaign won (checkEnd reads this)
-  status: ObjStatus[]        // per-objective UI state for the CURRENT mission
+  status: ObjStatus[]        // per-objective UI state across the WHOLE operation
   hold: number               // accumulated hold seconds (hold-for-time objectives)
   delivered: number          // convoy supply delivered since the objective began
   deliverBase: number        // target-structure stock baseline when a deliver objective began
@@ -409,6 +409,7 @@ export interface CampaignState {
   frontY: number             // authored phase line (world y) — COP baseline: enemy-assessed north of it
   tutorial: boolean          // guided tutorial enabled for this campaign
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
+  tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT

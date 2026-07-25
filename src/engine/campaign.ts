@@ -1,8 +1,9 @@
-// The campaign: one battalion's operation fought as a SEQUENCE of missions on a
-// single persistent world. Nothing resets between missions — the world is built
-// once (the mode's setup → startCampaign) and each mission is an objective +
-// allocation + OPFOR-script OVERLAY on the same live state, advanced softly in
-// the tick (runCampaign) without ever routing through the match-end freeze.
+// The campaign: one battalion's OPERATION on a single persistent world — a
+// STREAM OF OBJECTIVES that activate in sequence on the live state, not a set
+// of missions-as-game-modes. The world is built once (the mode's setup →
+// startCampaign); each objective's activation is a scripted overlay (allocations,
+// palette gates, OPFOR placement, FRAGO card) advanced softly in the tick
+// (runCampaign) without ever routing through the match-end freeze.
 //
 // Objectives are DATA, not code (see CampaignState): each is an ObjectiveSpec —
 // a `kind` plus flat params — evaluated by the pure `evalObjective` switch. That
@@ -86,14 +87,19 @@ export interface ObjectiveSpec {
   amount?: number                               // deliver: supply to land at the target
 }
 
-export interface Mission {
-  id: string
+// An operation objective: the six-verb spec plus the scripted moment it goes
+// ACTIVE. There are no mission containers — activation is where allocations
+// arrive, palette gates open, OPFOR gets placed, the phase line moves, and (for
+// follow-on taskings) the FRAGO card drops. The world never stops for any of it.
+export interface CampaignObjective extends ObjectiveSpec {
+  frago?: { title: string; text: string }        // tasking card dropped at activation (after the opener)
+  onActivate?(S: GameState): void                // scripted setup the moment this objective goes active
+}
+
+export interface Operation {
   name: string
-  brief: string                                 // situation + task from higher (briefing/FRAGO)
-  objectives: ObjectiveSpec[]
-  setup(S: GameState): void                      // allocations, palette gates, OPFOR placement
-  onObjComplete?(S: GameState, idx: number): void // scripted triggers (e.g. spawn the counterattack)
-  frontY?(S: GameState): number                  // authored COP phase line for this mission (omit = keep)
+  brief: string                                  // the opening OPORD (the one modal, campaign start)
+  objectives: CampaignObjective[]
 }
 
 // ---------------------------------------------------------------------------
@@ -117,10 +123,14 @@ export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState):
     }
     case 'defeat-group': {
       // only defeatable once the scripted group has actually been spawned
-      // (onObjComplete stamps c.eventT at spawn — see below)
+      // (activation stamps c.eventT at spawn — see the operation table)
       if (c.eventT == null) return { progress: 0, done: false }
-      const exists = S.enemyGroups.some(g => !g.dead && g.name === o.groupTag)
-      return { progress: exists ? 0 : 1, done: !exists }
+      // beaten = destroyed OR broken: a group the AI has put into WITHDRAW is
+      // combat-ineffective and running — chasing its last survivor across the
+      // map is not the mission
+      const g = S.enemyGroups.find(g => !g.dead && g.name === o.groupTag)
+      const beaten = !g || g.phase === 'withdraw'
+      return { progress: beaten ? 1 : 0, done: beaten }
     }
     case 'build': {
       const z = o.zone
@@ -173,102 +183,104 @@ function placeForce(S: GameState, comp: readonly UnitTypeKey[], around: Vec2, ra
   })
 }
 
-export const MISSIONS: readonly Mission[] = [
-  {
-    id: 'lodgment',
-    name: 'LODGMENT',
-    brief:
-      'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
-      + 'seize the crossroads town to your front — it owns the road net. A light '
-      + 'garrison is CONCEALED in the buildings: you will not see them until your '
-      + 'scouts find them or they open fire. Scouts screen forward — they are set to '
-      + 'break contact if engaged. Expect a counterattack once you take the town. '
-      + 'No fielding, no fires this phase; your platoons and their organic UAS are '
-      + 'what you have. FIND THEM. CLEAR THE TOWN. HOLD IT.',
-    objectives: [
-      { id: 'clear', label: 'CLEAR THE TOWN', kind: 'clear-area' },
-      { id: 'hold', label: 'DEFEAT THE COUNTERATTACK', kind: 'defeat-group', groupTag: 'REINFORCEMENT' },
-    ],
-    setup(S) {
-      const c = S.campaign!
-      const town = c.strongpoint
-      // this phase: no fielding, no support; organic drones only
-      c.allow = { field: false, support: false, drone: true }
-      // the town garrison — loose defenders that hold where they sit.
-      // Second-line troops: Javelins stripped (AT4s only), so armor that
-      // respects the close-ambush band can actually break them.
-      // north side of town (enemy-ward, away from the MSR bridge south of it —
-      // the approach march must stay outside their 800 m sight/MG envelope)
-      M1_GARRISON.forEach((k, i) => {
-        const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y - 80)
-        const g = spawnEnemy(k, p.x, p.y)
-        g.stowage.M_JAVELIN = 0
-      })
-      // the fixed force, near the HQ
-      placeForce(S, M1_FORCE, S.map!.fob, 260)
-      // scouts screen, they don't slug: the recon platoon starts on BREAK so a
-      // concealed garrison springing on it triggers a break-contact drill, not
-      // a stand-up fight (the tutorial's recon-forward flow depends on this;
-      // mission instructions get reworked for it later)
-      for (const u of S.units) {
-        if (u.side === 'friend' && u.type === 'SCT') u.roe = 'break'
-      }
-      // the counterattack (spawned on clear) will advance on the town
-      c.opforObj = { x: town.x, y: town.y }
-      // fill the objective zones now that the anchor is known
-      MISSIONS[0]!.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
+// The operation: one continuous fight, four objectives that pop up in turn.
+// Follow-on taskings (the FOB and the supply line) drop as FRAGOs mid-battle —
+// they are not a separate mission, just the next thing higher wants done.
+export const OPERATION: Operation = {
+  name: 'LODGMENT',
+  brief:
+    'TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and '
+    + 'seize the crossroads town to your front — it owns the road net. A light '
+    + 'garrison is CONCEALED in the buildings: you will not see them until your '
+    + 'scouts find them or they open fire. Scouts screen forward — they are set to '
+    + 'break contact if engaged. Expect a counterattack once you take the town. '
+    + 'No fielding, no fires to start; your platoons and their organic UAS are '
+    + 'what you have. Follow-on taskings will come by FRAGO. '
+    + 'FIND THEM. CLEAR THE TOWN. HOLD IT.',
+  objectives: [
+    {
+      id: 'clear', label: 'CLEAR THE TOWN', kind: 'clear-area',
+      onActivate(S) {
+        const c = S.campaign!
+        const town = c.strongpoint
+        // opening posture: no fielding, no support; organic drones only
+        c.allow = { field: false, support: false, drone: true }
+        // COP baseline at H-hour: the objective town itself is assessed enemy —
+        // the line runs just south of it, everything north shades red
+        c.frontY = town.y + 500
+        // the town garrison — loose defenders that hold where they sit.
+        // Second-line troops: Javelins stripped (AT4s only), so armor that
+        // respects the close-ambush band can actually break them. North side
+        // of town (enemy-ward, away from the MSR bridge south of it — the
+        // approach march must stay outside their 800 m sight/MG envelope).
+        M1_GARRISON.forEach((k, i) => {
+          const p = nearestLand(S.map!, town.x + (i - 0.5) * 160, town.y - 80)
+          const g = spawnEnemy(k, p.x, p.y)
+          g.stowage.M_JAVELIN = 0
+        })
+        // the fixed force, near the HQ
+        placeForce(S, M1_FORCE, S.map!.fob, 260)
+        // scouts screen, they don't slug: the recon platoon starts on BREAK so
+        // a concealed garrison springing on it triggers a break-contact drill,
+        // not a stand-up fight (the tutorial's recon-forward flow depends on it)
+        for (const u of S.units) {
+          if (u.side === 'friend' && u.type === 'SCT') u.roe = 'break'
+        }
+        // scripted OPFOR (the counterattack, later) will advance on the town
+        c.opforObj = { x: town.x, y: town.y }
+        OPERATION.objectives[0]!.zone = { x: town.x, y: town.y, r: 420 }
+      },
     },
-    // COP baseline at H-hour: the objective town itself is assessed enemy —
-    // the line runs just south of it, everything north shades red
-    frontY: (S) => S.campaign!.strongpoint.y + 500,
-    onObjComplete(S, idx) {
-      if (idx !== 0) return // town cleared → the enemy counterattacks to retake it
-      const c = S.campaign!
-      const from = reinforceFrom(S, c.strongpoint)
-      spawnCampaignGroup(M1_REINFORCE, 'REINFORCEMENT', from)
-      c.eventT = S.t // mark the group live so defeat-group can latch
-      radio('NET', 'contact', 'COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE TOWN', from.x, from.y)
-      toast('COUNTERATTACK INBOUND')
+    {
+      id: 'hold', label: 'DEFEAT THE COUNTERATTACK', kind: 'defeat-group', groupTag: 'REINFORCEMENT',
+      onActivate(S) {
+        // town cleared → the enemy counterattacks to retake it
+        const c = S.campaign!
+        const from = reinforceFrom(S, c.strongpoint)
+        spawnCampaignGroup(M1_REINFORCE, 'REINFORCEMENT', from)
+        c.eventT = S.t // mark the group live so defeat-group can latch
+        radio('NET', 'contact', 'COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE TOWN', from.x, from.y)
+        toast('COUNTERATTACK INBOUND')
+      },
     },
-  },
-  {
-    id: 'lines-of-supply',
-    name: 'LINES OF SUPPLY',
-    brief:
-      'GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics '
-      + 'platoon are pushing up to you from the rear — bring them forward and '
-      + 'establish a FOB in the town, then run a supply line up to it. You may '
-      + 'field a unit or two off the allocation if you need them. ESTABLISH THE FOB. '
-      + 'OPEN THE SUPPLY LINE.',
-    objectives: [
-      { id: 'fob', label: 'ESTABLISH THE FOB', kind: 'build', structKind: 'FOB' },
-      { id: 'route', label: 'OPEN THE SUPPLY LINE', kind: 'deliver', amount: 200 },
-    ],
-    setup(S) {
-      const c = S.campaign!
-      const town = c.strongpoint
-      // carryover: M1 units persist untouched. This phase adds only.
-      c.allow = { field: true, support: false, drone: true }
-      c.opforObj = null // the counterattack is beaten; no scripted pressure this phase
-      S.resources += 400 // allocation from higher
-      // engineers + logistics push up from the rear IN-WORLD: they enter at the
-      // south map edge below the HQ and drive themselves to it — reinforcements
-      // are something you watch arrive, not something that materializes
-      const W = S.map!.WORLD
-      const entry = nearestLand(S.map!, S.map!.fob.x, W - 120)
-      const rvEng = nearestLand(S.map!, S.map!.fob.x - 140, S.map!.fob.y + 220)
-      const rvLog = nearestLand(S.map!, S.map!.fob.x + 140, S.map!.fob.y + 220)
-      const eng = deployUnit('ENG', entry.x - 90, entry.y, true)
-      if (eng) orderMove(eng.id, rvEng.x, rvEng.y)
-      const log = deployUnit('LOG', entry.x + 90, entry.y, true)
-      if (log) orderMove(log.id, rvLog.x, rvLog.y)
-      // scope the FOB objective to the town
-      MISSIONS[1]!.objectives[0]!.zone = { x: town.x, y: town.y, r: 520 }
+    {
+      id: 'fob', label: 'ESTABLISH THE FOB', kind: 'build', structKind: 'FOB',
+      frago: {
+        title: 'LINES OF SUPPLY',
+        text:
+          'GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics '
+          + 'platoon are pushing up to you from the rear — bring them forward and '
+          + 'establish a FOB in the town, then run a supply line up to it. You may '
+          + 'field a unit or two off the allocation if you need them. ESTABLISH THE '
+          + 'FOB. OPEN THE SUPPLY LINE.',
+      },
+      onActivate(S) {
+        const c = S.campaign!
+        const town = c.strongpoint
+        // the town is held: fielding opens up, and the assessed line rolls
+        // north, halfway to the next bound
+        c.allow = { field: true, support: false, drone: true }
+        c.opforObj = null // the counterattack is beaten; no scripted pressure now
+        c.frontY = town.y - 1400
+        S.resources += 400 // allocation from higher
+        // engineers + logistics push up from the rear IN-WORLD: they enter at
+        // the south map edge below the HQ and drive themselves to it —
+        // reinforcements are something you watch arrive, not something that
+        // materializes
+        const W = S.map!.WORLD
+        const entry = nearestLand(S.map!, S.map!.fob.x, W - 120)
+        const rvEng = nearestLand(S.map!, S.map!.fob.x - 140, S.map!.fob.y + 220)
+        const rvLog = nearestLand(S.map!, S.map!.fob.x + 140, S.map!.fob.y + 220)
+        const eng = deployUnit('ENG', entry.x - 90, entry.y, true)
+        if (eng) orderMove(eng.id, rvEng.x, rvEng.y)
+        const log = deployUnit('LOG', entry.x + 90, entry.y, true)
+        if (log) orderMove(log.id, rvLog.x, rvLog.y)
+        OPERATION.objectives[2]!.zone = { x: town.x, y: town.y, r: 520 }
+      },
     },
-    // the town is ours — the assessed line rolls north, halfway to the next bound
-    frontY: (S) => S.campaign!.strongpoint.y - 1400,
-  },
-]
+    { id: 'route', label: 'OPEN THE SUPPLY LINE', kind: 'deliver', amount: 200 },
+  ],
+}
 
 // ---------------------------------------------------------------------------
 // Runner — called from the campaign ModeSpec (setup / update / checkEnd).
@@ -305,40 +317,37 @@ export function startCampaign(S: GameState): void {
 
   const town = pickAnchorTown(S)
   S.campaign = {
-    mission: 0, objIdx: 0, briefed: false, frago: null, complete: false,
-    status: [], hold: 0, delivered: 0, deliverBase: 0, eventT: null,
+    objIdx: 0, briefed: false, frago: null, complete: false,
+    status: OPERATION.objectives.map(() => 'pending'),
+    hold: 0, delivered: 0, deliverBase: 0, eventT: null,
     opforObj: null, allow: { field: false, support: false, drone: true },
-    frontY: town.y + 500, // provisional; each mission's frontY() re-anchors it
-    tutorial: _tutorialPending, tutStep: 0,
+    frontY: town.y + 500, // provisional; objective activations re-anchor it
+    tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false,
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
-  startMission(S, 1)
+  activateObjective(S, S.campaign) // objective 1 stages the opening fight
+  S.speed = 0                      // hold for the opening briefing; ackBriefing resumes
 }
 
-// Begin mission n (1-based): reset per-mission trackers and run its setup
-// overlay. Mission 1 raises the campaign-opening briefing (modal, sim held);
-// every later mission arrives as a FRAGO — new orders drop into the tracker
-// and a non-blocking card, and the world never stops (continuous campaign).
-export function startMission(S: GameState, n: number): void {
-  const c = S.campaign!
-  const m = MISSIONS[n - 1]!
-  c.mission = n
-  c.objIdx = 0
-  c.eventT = null
-  c.deliverBase = 0
-  c.tutStep = 0 // tutorial restarts its step counter each mission
-  c.status = m.objectives.map((_, i) => (i === 0 ? 'active' : 'pending'))
-  m.setup(S)
-  if (m.frontY) c.frontY = m.frontY(S) // advance the COP phase line
-  onObjActivate(S, c) // capture any baseline the first objective needs
-  if (n === 1) {
-    c.briefed = false
-    S.speed = 0       // hold for the opening briefing; ackBriefing resumes
-  } else {
-    c.frago = n
-    radio('NET', 'arrive', `FRAGO — MISSION ${n}: ${m.name}. NEW TASKING ON THE BOARD.`, undefined, undefined)
-    toast(`FRAGO — ${m.name}`)
+// Make the objective at c.objIdx ACTIVE: run its scripted setup, capture any
+// measurement baseline, and (after the opener) drop its FRAGO card. The sim is
+// never paused here — new taskings pop up while the world runs.
+function activateObjective(S: GameState, c: CampaignState): void {
+  const obj = OPERATION.objectives[c.objIdx]
+  if (!obj) return
+  c.status[c.objIdx] = 'active'
+  c.hold = 0
+  c.delivered = 0
+  obj.onActivate?.(S)
+  if (obj.kind === 'deliver') {
+    const fob = friendlyFob(S)
+    c.deliverBase = fob ? (fob.stock || 0) : 0
+  }
+  if (obj.frago && c.briefed) {
+    c.frago = obj.frago
+    radio('NET', 'arrive', `FRAGO — ${obj.frago.title}. NEW TASKING ON THE BOARD.`, undefined, undefined)
+    toast(`FRAGO — ${obj.frago.title}`)
   }
 }
 
@@ -356,46 +365,24 @@ export function ackFrago(S: GameState): void {
   if (c) c.frago = null
 }
 
-// capture whatever baseline the now-active objective needs to measure progress
-function onObjActivate(S: GameState, c: CampaignState): void {
-  const obj = MISSIONS[c.mission - 1]!.objectives[c.objIdx]
-  if (obj && obj.kind === 'deliver') {
-    const fob = friendlyFob(S)
-    c.deliverBase = fob ? (fob.stock || 0) : 0
-  }
-}
-
-// Per-tick runner. Advances objectives and missions on the live world; the
-// campaign never freezes/resets between missions (that's the whole point).
+// Per-tick runner. Advances the objective stream on the live world; nothing
+// ever freezes or resets between objectives (that's the whole point).
 export function runCampaign(S: GameState, _dt: number): void {
   const c = S.campaign
   if (!c || c.complete) return
   if (!c.briefed) return                    // waiting on the opening briefing
-  const m = MISSIONS[c.mission - 1]!
-  const obj = m.objectives[c.objIdx]
+  const obj = OPERATION.objectives[c.objIdx]
   if (!obj) return
   const { done } = evalObjective(obj, S, c)
   if (!done) return
 
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
-  m.onObjComplete?.(S, c.objIdx)
   c.objIdx++
 
-  if (c.objIdx >= m.objectives.length) {
-    // mission complete: last mission wins the campaign; otherwise the next
-    // mission's FRAGO drops immediately — the world never stops
-    if (c.mission >= MISSIONS.length) {
-      c.complete = true // checkEnd lands the win
-    } else {
-      toast(`${m.name} COMPLETE`)
-      startMission(S, c.mission + 1)
-    }
+  if (c.objIdx >= OPERATION.objectives.length) {
+    c.complete = true // operation complete: checkEnd lands the win
     return
   }
-
-  c.status[c.objIdx] = 'active'
-  c.hold = 0
-  c.delivered = 0
-  onObjActivate(S, c)
+  activateObjective(S, c) // the next tasking pops up; the world keeps running
 }
