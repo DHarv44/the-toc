@@ -19,6 +19,7 @@ import {
   processCapture, processWipe, remnantCheck,
 } from './casualties'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
+import { trailUpdate } from '../fires/expendables'
 import { netRadio, radio, toast } from '../comms/radio'
 
 // units: group pacing, column order/stragglers, dig progress, convoy loops,
@@ -260,6 +261,9 @@ export function movementUpdate(dt: number): void {
 export function drillsUpdate(dt: number): void {
   for (const u of S.units) {
     if (u.strength <= 0) continue
+    // engine-exhaust smoke keeps laying while the vehicle rolls (armed by the
+    // break drill). Side-agnostic, like every drill in this loop.
+    trailUpdate(u, dt)
     // deliberate attack: pursue the designated target until it dies
     if (u.attackId != null) {
       const tgt = S.units.find(x => x.id === u.attackId)

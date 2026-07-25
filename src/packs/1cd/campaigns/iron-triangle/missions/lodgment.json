@@ -6,21 +6,26 @@
   "objectives": [
     {
       "id": "scout", "label": "SCOUT OBJ KEATON", "kind": "recon-area",
-      "zone": { "place": "strongpoint", "r": 420 }
+      "zone": { "place": "strongpoint", "r": 420 },
+      "reports": ["s2"]
     },
     {
       "id": "clear", "label": "CLEAR OBJ KEATON", "kind": "clear-area",
-      "zone": { "place": "strongpoint", "r": 420 }
+      "zone": { "place": "strongpoint", "r": 420 },
+      "reports": ["s1", "s2", "s3", "s4"]
     },
     {
       "id": "hold", "label": "HOLD OBJ KEATON", "kind": "defeat-group",
-      "groupTag": "REINFORCEMENT"
+      "groupTag": "REINFORCEMENT",
+      "reports": ["s1", "s2", "s4"]
     },
     {
       "id": "fob", "label": "BUILD FOB KEATON", "kind": "build", "structKind": "FOB",
-      "zone": { "place": "strongpoint", "r": 520 }
+      "zone": { "place": "strongpoint", "r": 520 },
+      "reports": ["s4"]
     },
-    { "id": "route", "label": "OPEN THE SUPPLY LINE", "kind": "deliver", "amount": 200 }
+    { "id": "route", "label": "OPEN THE SUPPLY LINE", "kind": "deliver", "amount": 200,
+      "reports": ["s1", "s3", "s4"] }
   ],
   "triggers": [
     {
@@ -228,7 +233,12 @@
       },
       {
         "id": "await-clear",
-        "hints": [ { "hide": true } ],
+        "hints": [
+          { "next": true,
+            "text": "CLEAR AND HOLD OBJ KEATON\nThat is the whole task, and everything you need is already on the board: scouts screening, a Raven overhead, your battle group in the attack.\n\nFrom here it is YOUR fight. Let the assault run the order you gave it, or take the platoons back and maneuver them yourself — bound by bound, into cover, around a flank. The objective does not change.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 420 } },
+          { "hide": true }
+        ],
         "done": { "kind": "area-clear", "place": "strongpoint", "r": 420 }
       },
       {

@@ -13,7 +13,7 @@
 // change the entire game.
 import type { UnitType, UnitTypeKey } from '../domains/forces/catalog'
 import type {
-  AmmoType, WeaponType, TroopKind, VehicleType, UnitComposition,
+  AmmoType, WeaponType, ExpendableType, TroopKind, VehicleType, UnitComposition,
 } from '../domains/forces/composition'
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
@@ -72,6 +72,7 @@ export interface PackCatalogs {
   units: Record<string, UnitType>
   ammo: Record<string, AmmoType>
   weapons: Record<string, WeaponType>
+  expendables?: Record<string, ExpendableType>
   troops: Record<string, TroopKind>
   vehicles: Record<string, VehicleType>
   comps: Record<string, UnitComposition>
@@ -177,6 +178,11 @@ export interface MissionObjective {
   groupTag?: string                      // defeat-group: the scripted group's tag
   structKind?: StructureTypeKey          // build: what to stand up
   amount?: number                        // deliver: supply to land at the target
+  // which staff shops draft a report when this objective closes. Reporting is
+  // CONTENT, not a reflex: a scout finding the enemy is an S2 product and
+  // nothing else — nobody is hurt yet, nothing has been shot. A fight closes
+  // with the whole staff writing. Absent = no reports for this objective.
+  reports?: ('s1' | 's2' | 's3' | 's4')[]
 }
 
 // trigger conditions — stage-1 executor fires on objective moments; the wider

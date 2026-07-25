@@ -77,6 +77,7 @@ export interface ObjectiveSpec {
   groupTag?: string                             // defeat-group: the scripted group's name
   structKind?: StructureTypeKey                 // build: what to stand up
   amount?: number                               // deliver: supply to land at the target
+  reports?: StaffShop[]                         // which shops draft when it closes (mission content)
 }
 
 // The runtime operation view: the campaign's MAINLINE missions flattened into
@@ -116,7 +117,7 @@ function buildOperation(): void {
     m.objectives.forEach((o, i) => {
       objectives.push({
         id: o.id, label: o.label, kind: o.kind, groupTag: o.groupTag,
-        structKind: o.structKind, amount: o.amount,
+        structKind: o.structKind, amount: o.amount, reports: o.reports,
         missionId: mid, zoneSpec: o.zone,
         revealPoint: i === 0 && !!m.frago,
       })
@@ -595,8 +596,11 @@ export function runCampaign(S: GameState, _dt: number): void {
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
   fireTriggers(S, activeCampaign().missions[obj.missionId]!, 'objective-complete', obj.id)
-  // the WHOLE staff drafts post-mission figures unprompted — in parallel
-  for (const shop of ['s1', 's2', 's3', 's4'] as const) queueReport(S, true, shop)
+  // the shops the MISSION says draft on this objective, unprompted and in
+  // parallel. Which ones is content: a recon task closes with an S2 product,
+  // a fight closes with the whole staff. An objective that names none is one
+  // where nothing happened worth a report.
+  for (const shop of obj.reports ?? []) queueReport(S, true, shop)
   c.objIdx++
 
   if (c.objIdx >= operation().objectives.length) {

@@ -1823,7 +1823,9 @@ are called out here *and* stubbed in the active sections above where they matter
   (`src/MIGRATION.md`), golden-run verified, fully seeded sim, sim-edit HMR hot-apply.
   Golden baseline history: `696495692` → `4133144527` → `1929051837` → `60356280` →
   `1377301839` → `289931028` (reserve) → `2291045480` → `2402375581` (economy death) →
-  **`3077619369`** (current — drone launch requires orbit authority).
+  `3077619369` (drone launch requires orbit authority) →
+  **`1880095465`** (current — expendables: platoons pop smoke breaking contact, and
+  a break with no route out no longer strands the unit).
 
 ### Fixed Bugs
 - **OPFOR units crossing rivers** — see Water discipline above.

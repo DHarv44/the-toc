@@ -15,7 +15,7 @@ import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 // and a tank's loader MG both draw 7.62 link). Terminal effect lives on the
 // weapon (the weapon system includes its round's lethality).
 
-export type AmmoClass = 'SMALL' | 'AT' | 'CANNON' | 'INDIRECT'
+export type AmmoClass = 'SMALL' | 'AT' | 'CANNON' | 'INDIRECT' | 'SMOKE' | 'FRAG'
 
 export interface AmmoType {
   key: string
@@ -48,12 +48,50 @@ export interface WeaponType {
 export type WeaponKey = string
 export const WEAPONS: Readonly<Record<string, WeaponType>> = {}
 
+// --- expendables -----------------------------------------------------------
+// What a crew THROWS, POPS or BURNS rather than shoots. An expendable has no
+// range band, no dps and no target — it buys concealment or breaks up an
+// assault at arm's length — so it is not a weapon and does not live in the
+// weapon table. It still draws from the unit's stowage pool like any other
+// munition, which is what makes it run out and get resupplied.
+//
+//   SCREEN — a bank of grenades or a thrown pot: clouds NOW, where you stand
+//   TRAIL  — engine-exhaust smoke: a screen laid continuously while moving
+//   FRAG   — a hand grenade: small burst, close range, actual casualties
+//
+// `conceal` is what the cloud does to sensors and gunners alike (lower = more
+// hidden; it undercuts the terrain's own concealment). `dur` is how long it
+// stands, `puffs`/`spread` the pattern a launcher bank arcs around the vic.
+
+export type ExpendableClass = 'SCREEN' | 'TRAIL' | 'FRAG'
+
+export interface ExpendableType {
+  key: string
+  name: string
+  cls: ExpendableClass
+  launcher?: string      // what throws it, for the troop card (M250, by hand…)
+  ammo?: AmmoKey         // stowage pool it draws from; absent = not tracked (VEESS burns fuel)
+  load?: number          // carried per vehicle/soldier that mounts it
+  use?: number           // drawn per employment (a salvo is several grenades)
+  r: number              // effect radius, metres
+  conceal?: number       // SCREEN/TRAIL: concealment inside the cloud
+  dur?: number           // seconds the cloud stands
+  puffs?: number         // SCREEN: clouds in the pattern
+  spread?: number        // SCREEN: how far off the unit they land
+  dmg?: number           // FRAG: strength damage at the burst
+  reach?: number         // FRAG: how far it can be thrown
+}
+
+export type ExpendableKey = string
+export const EXPENDABLES: Readonly<Record<string, ExpendableType>> = {}
+
 // --- troop kinds -----------------------------------------------------------
 
 export interface TroopKind {
   key: string
   name: string
   weapons: readonly WeaponKey[]
+  expend?: readonly ExpendableKey[]
 }
 
 export type TroopKindKey = string
@@ -69,6 +107,7 @@ export interface VehicleType {
   crew: number
   pax: number
   weapons: readonly WeaponKey[]
+  expend?: readonly ExpendableKey[]
   soft: number
   mob: Mobility
   speed: number
@@ -144,9 +183,48 @@ export function initialStowage(key: UnitTypeKey): Stowage {
     if (w.shotTime == null) return
     stow[w.ammo] = (stow[w.ammo] ?? 0) + w.load * n
   }
-  for (const { type, n } of c.vehicles) for (const wk of VEHICLES[type].weapons) add(wk, n)
-  for (const { kind, n } of c.dismounts) for (const wk of TROOP_KINDS[kind].weapons) add(wk, n)
+  // expendables stow the same way — smoke and grenades run out, and run out
+  // per PLATOON: the squad cross-loads them exactly like rounds
+  const addX = (xk: ExpendableKey, n: number) => {
+    const x = EXPENDABLES[xk]
+    if (!x?.ammo || !x.load) return
+    stow[x.ammo] = (stow[x.ammo] ?? 0) + x.load * n
+  }
+  for (const { type, n } of c.vehicles) {
+    for (const wk of VEHICLES[type].weapons) add(wk, n)
+    for (const xk of VEHICLES[type].expend ?? []) addX(xk, n)
+  }
+  for (const { kind, n } of c.dismounts) {
+    for (const wk of TROOP_KINDS[kind].weapons) add(wk, n)
+    for (const xk of TROOP_KINDS[kind].expend ?? []) addX(xk, n)
+  }
   return stow
+}
+
+// every expendable this unit's vics and troops mount, best-first for a given
+// class (a vehicle bank beats a hand pot). Composition-derived, so it answers
+// for OPFOR exactly as it does for the player.
+//
+// `src` gates WHO can employ it right now, and it matters: riflemen buttoned up
+// in the back of a Bradley are not throwing smoke out the window. Mounted
+// infantry get their carrier's launchers or nothing; a platoon that has lost
+// its vehicles gets what the soldiers are carrying.
+export function unitExpendables(
+  key: UnitTypeKey, cls: ExpendableClass,
+  src: { veh?: boolean; troop?: boolean } = { veh: true, troop: true },
+): ExpendableType[] {
+  const c = COMPOSITIONS[key]
+  if (!c) return []
+  const seen = new Set<string>()
+  const out: ExpendableType[] = []
+  const take = (xk: ExpendableKey) => {
+    const x = EXPENDABLES[xk]
+    if (!x || x.cls !== cls || seen.has(x.key)) return
+    seen.add(x.key); out.push(x)
+  }
+  if (src.veh) for (const { type } of c.vehicles) for (const xk of VEHICLES[type].expend ?? []) take(xk)
+  if (src.troop) for (const { kind } of c.dismounts) for (const xk of TROOP_KINDS[kind].expend ?? []) take(xk)
+  return out.sort((a, b) => b.r - a.r)
 }
 
 // full-basic-load reference for resupply (immutable — do NOT mutate)

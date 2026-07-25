@@ -49,10 +49,12 @@ Static catalog (immutable templates, literal-union keys — same idiom as
 `UNIT_TYPES`):
 
 ```
-AmmoType     key, name, class ('SMALL'|'AT'|'CANNON'|'INDIRECT'|...)
+AmmoType     key, name, class ('SMALL'|'AT'|'CANNON'|'INDIRECT'|'SMOKE'|'FRAG')
 WeaponType   key, name, ammo: AmmoKey, range, dpsSoft, dpsHard, load (basic load per shooter)
-TroopKind    key, name, weapons: WeaponKey[]
-VehicleType  key, name, crew, pax, weapons: WeaponKey[], soft, mob, speed
+ExpendableType key, name, cls ('SCREEN'|'TRAIL'|'FRAG'), launcher, ammo, load, use,
+             r, conceal, dur, puffs, spread, dmg, reach
+TroopKind    key, name, weapons: WeaponKey[], expend: ExpendableKey[]
+VehicleType  key, name, crew, pax, weapons: WeaponKey[], expend: ExpendableKey[], soft, mob, speed
 UnitTemplate key → vehicles: {type, n}[], dismounts: {kind, n}[] (+ doctrine kept
              hand-tuned: sight, def posture, cost, glyph, indirect, logi...)
 ```
@@ -133,6 +135,38 @@ Unit     ...command fields unchanged... + soldiers: Soldier[], vehicles: Vehicle
       CASEVAC/WIA/KIA/MIA states. The Battalion Roster roadmap item lands here —
       including per-troop BIOS (clickable backstory, WIA/KIA reflected; see
       ROADMAP → Battalion Roster).
+
+### Expendables (2026-07-25) — what a crew throws, pops or burns
+
+A sixth template type, because smoke is not a weapon: no range band, no dps, no
+target. `ExpendableType` (composition.ts) + `EXPENDABLES` registry, filled from
+the pack library exactly like weapons; vehicles and troops list what they carry
+in `expend[]`, and it stows through the SAME pool as ammo (`initialStowage`), so
+it depletes and resupplies with everything else. Three classes:
+
+| cls | what it is | 1CD data |
+|-----|-----------|----------|
+| `SCREEN` | clouds NOW, in a fan on the threat bearing | `M83_SMOKE` (hand, r 55, conceal .34) · `M76_SMOKE` (vehicle bank, r 110 ×6 puffs, conceal .16) |
+| `TRAIL` | a wall laid continuously while moving | `VEESS` (engine exhaust, r 80, conceal .30, no ammo — it burns fuel) |
+| `FRAG` | a burst at arm's length, with casualties | `M67_FRAG` (r 15, reach 40, dmg 3) |
+
+Verbs live in `domains/fires/expendables.ts` — `popScreen` / `startTrail` +
+`trailUpdate` / `throwFrag` / `readyExpendable` — and are SIDE-AGNOSTIC: the
+break drill calls them, and OPFOR runs the same break drill. Each cloud carries
+its own `dur`/`conceal` onto `S.smoke`, so `concealment()` takes the thickest
+cloud over a point rather than one hardcoded number.
+
+**Who can employ it is a live check, not just a template read.** Mounted
+infantry are shut inside their carrier: they get the vehicle's launchers or
+nothing (riflemen do not throw grenades out the back of a Bradley). A platoon
+with no running vehicles is down to what the soldiers carry.
+
+Armor therefore has both: the M76 bank arcs six thick clouds across its frontage
+the instant it breaks, and VEESS lays a wall behind it the whole way out.
+
+**Verified** `.tmp-mig/break-check` 15/15 (pack data, stowage, scouts break and
+screen, OPFOR breaks with the same code, trail wall, mounted-infantry gate).
+Golden re-baselined `3077619369 → 1880095465`.
 
 ## Phase 1 results — derived vs hand-tuned aggregates
 

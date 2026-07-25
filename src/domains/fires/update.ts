@@ -5,6 +5,8 @@
 import { S } from '../../engine/state'
 import type { Unit, Structure } from '../../engine/GameState'
 import { findPath } from '../../world/pathfinding'
+import type { Vec2 } from '../../world/WorldMap'
+import { popScreen, screenCall, startTrail, throwFrag } from './expendables'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
@@ -46,6 +48,12 @@ export function directFireUpdate(dt: number): void {
         u.autoDismounted = true
         deriveElements(u)
         netRadio(u, 'contact', `IN CONTACT — DISMOUNTING`, u.x, u.y)
+      }
+      // GRENADE RANGE — the fight is at arm's length (a cleared building, a
+      // trench line): the dismounts throw. Any ROE, both sides; the reach and
+      // the burst are the expendable's, not the engine's.
+      if (S.t - (u.lastFragT ?? -999) > 12 && !u.mounted) {
+        if (throwFrag(u, tgt)) u.lastFragT = S.t
       }
       if (roe === 'halt') {
         // halt to fight rather than driving through the kill zone; keep the route to resume
@@ -155,28 +163,68 @@ export function directFireUpdate(dt: number): void {
     // Break FATIGUE: a unit that only just finished running does not run again —
     // it stands and fights this one (kills the push/retreat yo-yo where an AI
     // commander re-tasks a broken unit straight back into the same contact)
-    if (u.roe === 'break' && !u.breaking && S.t - (u.lastBreakT ?? -999) > 120) {
+    if (u.roe === 'break') {
       const underFire = S.t - (u.underFireT ?? -99) < 3
       const threat = tgt ? { x: tgt.x, y: tgt.y }
         : underFire && u.threatX != null ? { x: u.threatX, y: u.threatY! } : null
-      if (threat) {
-        u.breaking = true
-        // remember the objective so the drill can resume it once clear (one retry —
-        // see drillsUpdate). Convoys are exempt: their loop already re-paths itself.
-        if (!u.convoy && u.legs.length && !u.resumeDest) {
-          const dest = u.legs[u.legs.length - 1]!
-          u.resumeDest = { x: dest.x, y: dest.y }
+      // A FRESH break respects break fatigue. A unit ALREADY running that has
+      // run out of route while still in contact cuts another leg immediately —
+      // no fatigue gate, because standing still is how a breaking platoon dies.
+      const fresh = !u.breaking && S.t - (u.lastBreakT ?? -999) > 120
+      if (threat && (fresh || (u.breaking && !u.path.length))) {
+        const away = breakRoute(u, threat)
+        // NO route out is not a break: latching `breaking` on a failed path
+        // strands the unit — marked as running, standing still, and locked out
+        // of ever trying again. Leave it fighting and retry next tick.
+        if (away) {
+          if (!u.breaking) {
+            u.breaking = true
+            // remember the objective so the drill can resume it once clear (one retry —
+            // see drillsUpdate). Convoys are exempt: their loop already re-paths itself.
+            if (!u.convoy && u.legs.length && !u.resumeDest) {
+              const dest = u.legs[u.legs.length - 1]!
+              u.resumeDest = { x: dest.x, y: dest.y }
+            }
+            netRadio(u, 'contact', `BREAKING CONTACT — MOVING GRID ${grid(away.x, away.y)}`, u.x, u.y)
+          }
+          u.heldRoute = null
+          u.path = away.path
+          u.legs = [{ x: away.x, y: away.y, n: away.path.length }]
+          // smoke first, then move — the screen is what makes the move survivable.
+          // Both sides run this: the drill is the drill.
+          const scr = popScreen(u, threat)
+          if (scr) screenCall(u, scr)
+          startTrail(u, 30)
         }
-        u.heldRoute = null
-        const bdx = u.x - threat.x, bdy = u.y - threat.y
-        const bL = Math.hypot(bdx, bdy) || 1
-        const bx = clampWorld(S.map, u.x + (bdx / bL) * 900), by = clampWorld(S.map, u.y + (bdy / bL) * 900)
-        const bp = findPath(S.map!, u.x, u.y, bx, by, effStats(u).mob)
-        if (bp) { u.path = bp; u.legs = [{ x: bx, y: by, n: bp.length }] }
-        netRadio(u, 'contact', `BREAKING CONTACT — MOVING GRID ${grid(bx, by)}`, u.x, u.y)
       }
     }
   }
+}
+
+// A way OUT, not just a bearing. Straight away from the guns is the first
+// choice; if the ground there doesn't go (water, cliff, a closed valley) the
+// drill fans off that bearing and then shortens the bound rather than giving
+// up — a platoon in contact does not stand still because its preferred exit is
+// blocked. Fixed order, no rng: same contact, same route, every replay.
+const BREAK_FAN = [0, -0.5, 0.5, -1.0, 1.0, -1.6, 1.6]   // radians off the away bearing
+const BREAK_LEGS = [900, 550, 300]                        // metres, longest first
+
+function breakRoute(u: Unit, threat: { x: number; y: number }):
+{ x: number; y: number; path: Vec2[] } | null {
+  const away = Math.atan2(u.y - threat.y, u.x - threat.x)
+  const mob = effStats(u).mob
+  for (const dist of BREAK_LEGS) {
+    for (const off of BREAK_FAN) {
+      const a = away + off
+      const bx = clampWorld(S.map, u.x + Math.cos(a) * dist)
+      const by = clampWorld(S.map, u.y + Math.sin(a) * dist)
+      // never bound toward the shooter, whatever the terrain says
+      if (Math.hypot(bx - threat.x, by - threat.y) <= Math.hypot(u.x - threat.x, u.y - threat.y)) continue
+      const p = findPath(S.map!, u.x, u.y, bx, by, mob)
+      if (p) return { x: bx, y: by, path: p }
+    }
+  }
+  return null
 }
 
 // artillery shells, gunship cannon rounds, impact flash and smoke expiry
@@ -219,6 +267,8 @@ export function ballisticsUpdate(_dt: number): void {
   while (S.impacts.length && S.t - S.impacts[0]!.t > 6) S.impacts.shift()
   // smoke dissipates
   for (let i = S.smoke.length - 1; i >= 0; i--) {
-    if (S.t - S.smoke[i]!.t > SMOKE_DURATION) S.smoke.splice(i, 1)
+    // each cloud stands for its OWN duration (an expendable's `dur`); artillery
+    // smoke and anything else unmarked uses the house default
+    if (S.t - S.smoke[i]!.t > (S.smoke[i]!.dur ?? SMOKE_DURATION)) S.smoke.splice(i, 1)
   }
 }

@@ -85,6 +85,7 @@ function resolveCatalogs(
     units: table(man, lib, 'units', fallback),
     ammo: table(man, lib, 'ammo', fallback),
     weapons: table(man, lib, 'weapons', fallback),
+    expendables: table(man, lib, 'expendables', fallback),
     troops: table(man, lib, 'troops', fallback),
     vehicles: table(man, lib, 'vehicles', fallback),
     comps: table(man, lib, 'comps', fallback),

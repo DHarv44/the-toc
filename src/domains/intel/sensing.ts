@@ -18,9 +18,11 @@ export const SMOKE_DURATION = 75
 export function concealment(map: WorldMap, x: number, y: number): number {
   const t = map.terr[map.cellAt(x, y)]
   let c = (t === T_FOREST || t === T_URBAN) ? 0.45 : 1.0
-  // smoke screens beat everything — sensors and gunners alike
+  // smoke screens beat everything — sensors and gunners alike. Each cloud
+  // carries its own thickness (the expendable that laid it); overlapping
+  // clouds take the THICKEST, which is what makes a vehicle bank worth firing.
   for (const sm of S.smoke) {
-    if (Math.hypot(sm.x - x, sm.y - y) < sm.r) { c = Math.min(c, 0.22); break }
+    if (Math.hypot(sm.x - x, sm.y - y) < sm.r) c = Math.min(c, sm.c ?? 0.22)
   }
   return c
 }

@@ -13,8 +13,9 @@
 import type { Pack } from './types'
 import { UNIT_TYPES, type UnitType } from '../domains/forces/catalog'
 import {
-  AMMO, WEAPONS, TROOP_KINDS, VEHICLES, COMPOSITIONS, clearCompositionCaches,
-  type AmmoType, type WeaponType, type TroopKind, type VehicleType, type UnitComposition,
+  AMMO, WEAPONS, EXPENDABLES, TROOP_KINDS, VEHICLES, COMPOSITIONS, clearCompositionCaches,
+  type AmmoType, type WeaponType, type ExpendableType, type TroopKind, type VehicleType,
+  type UnitComposition,
 } from '../domains/forces/composition'
 import { DRONE_TYPES, type DroneType } from '../domains/air/catalog'
 import { FACILITIES, type FacilityType } from '../domains/installations/catalog'
@@ -25,6 +26,7 @@ type Mut<T> = Record<string, T>
 const mUnits = UNIT_TYPES as Mut<UnitType>
 const mAmmo = AMMO as Mut<AmmoType>
 const mWeapons = WEAPONS as Mut<WeaponType>
+const mExpend = EXPENDABLES as Mut<ExpendableType>
 const mTroops = TROOP_KINDS as Mut<TroopKind>
 const mVehicles = VEHICLES as Mut<VehicleType>
 const mComps = COMPOSITIONS as Mut<UnitComposition>
@@ -58,13 +60,14 @@ export function installedPacks(): readonly Pack[] {
 }
 
 export function installPacks(packs: Pack[]): void {
-  for (const reg of [mUnits, mAmmo, mWeapons, mTroops, mVehicles, mComps, mDrones, mFacilities]) wipe(reg)
+  for (const reg of [mUnits, mAmmo, mWeapons, mExpend, mTroops, mVehicles, mComps, mDrones, mFacilities]) wipe(reg)
   clearCompositionCaches()
   for (const p of packs) {
     const c = p.catalogs
     merge(mUnits, c.units, 'units', p.id)
     merge(mAmmo, c.ammo, 'ammo', p.id)
     merge(mWeapons, c.weapons, 'weapons', p.id)
+    merge(mExpend, c.expendables, 'expendables', p.id)
     merge(mTroops, c.troops, 'troops', p.id)
     merge(mVehicles, c.vehicles, 'vehicles', p.id)
     merge(mComps, c.comps, 'comps', p.id)

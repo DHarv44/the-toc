@@ -268,6 +268,10 @@ export interface Unit {
   breakRetried?: boolean     // the one break-resume retry has been spent
   coverSought?: boolean      // this contact's cover scan is spent (unit SOP)
   lastBreakT?: number        // when the last break-contact completed (break fatigue)
+  lastScreenT?: number       // last smoke screen popped (one pattern per contact)
+  lastFragT?: number         // last grenade thrown (close assault only)
+  trailT?: number            // engine-exhaust smoke: seconds of trail still running
+  trailPuffT?: number        // …and when the last puff of it was laid
   _sndFireT?: number         // feed-audio throttle (stamped by DroneView's audio pass)
   // P2.5 strength inversion: casualties happen to PEOPLE, strength is derived
   dmgAcc?: number            // sub-element damage accumulator (strength points)
@@ -423,6 +427,10 @@ export interface Smoke {
   y: number
   t: number
   r: number
+  // an expendable's own numbers when it laid this cloud: how long it stands and
+  // how thick it is. Absent = the artillery-smoke defaults (SMOKE_DURATION/0.22).
+  dur?: number
+  c?: number
 }
 
 export interface Wreck {
