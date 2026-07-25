@@ -19,6 +19,7 @@ import type { TutAnchor, TutCondition, TutHint, TutReactive, TutStep } from '../
 import type { Unit } from '../engine/GameState'
 import { useUI, type UIState } from './store'
 import { centerView, zoomFor } from '../map/view'
+import { tutorialCue } from '../audio/audio'
 
 // the resolved on-screen cue for one frame
 interface TutorialHint {
@@ -399,11 +400,10 @@ export default function TutorialOverlay() {
     ?? (hint.targetUnit != null ? (() => { const u = S.units.find(x => x.id === hint.targetUnit); return u ? { x: u.x, y: u.y } : undefined })() : undefined)
     ?? (hint.targetBox ? { x: (hint.targetBox.x0 + hint.targetBox.x1) / 2, y: (hint.targetBox.y0 + hint.targetBox.y1) / 2 } : undefined)
   const centerKey = tip ? 'tip' : `${c.tutStep}:${hint.targetPoint ? 'p' : hint.targetBox ? 'b' : hint.targetUnit != null ? 'u' : '-'}`
-  if (mapTarget && centerKey !== _centeredKey) {
+  if (centerKey !== _centeredKey) {
     _centeredKey = centerKey
-    centerView(mapTarget, { minZoom: zoomFor(4200) })
-  } else if (!mapTarget && centerKey !== _centeredKey) {
-    _centeredKey = centerKey // UI-anchored cue: no camera move, just remember the step
+    tutorialCue() // a new instruction popped — soft chime (master mute respects it)
+    if (mapTarget) centerView(mapTarget, { minZoom: zoomFor(4200) })
   }
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.
@@ -432,20 +432,26 @@ export default function TutorialOverlay() {
       const r = el.getBoundingClientRect()
       ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
       const vw = window.innerWidth, vh = window.innerHeight
-      if (r.bottom + 140 > vh) {
-        // control sits near the bottom (the selection tray): stack the callout
-        // ABOVE it, bottom-anchored and wide, pointing down — on top of the
-        // toolbar, never clipped by the screen edge
+      const short = r.height < 90 // a button/row — TALL boxes (a whole list) always get a side callout
+      if (short && r.bottom + 140 > vh) {
+        // a SHORT control near the bottom (the selection tray): stack the
+        // callout ABOVE it, bottom-anchored and wide, pointing down — on top
+        // of the toolbar, never clipped by the screen edge
         const w = 460
         const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8)
         callout = { left, top: r.top - 12, width: w, pointer: 'down', lift: true }
       } else {
         const w = 300
-        // beside the control, flipping left if the right side would clip
+        // beside the target, to the RIGHT (flipping left only if it would
+        // clip). Short controls center on the control; tall rectangles hang
+        // the callout near their top, clamped on-screen.
+        const top = short
+          ? Math.max(8, r.top + r.height / 2 - 34)
+          : Math.min(Math.max(8, r.top + 24), vh - 170)
         const fitsRight = r.right + 14 + w <= vw - 8
         callout = fitsRight
-          ? { left: r.right + 14, top: Math.max(8, r.top + r.height / 2 - 34), width: w, pointer: 'left' }
-          : { left: Math.max(8, r.left - 14 - w), top: Math.max(8, r.top + r.height / 2 - 34), width: w, pointer: 'right' }
+          ? { left: r.right + 14, top, width: w, pointer: 'left' }
+          : { left: Math.max(8, r.left - 14 - w), top, width: w, pointer: 'right' }
       }
     }
   } else if (hint.targetUnit != null) {

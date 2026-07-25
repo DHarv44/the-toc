@@ -87,6 +87,23 @@ export function muzzle(gain = 0.4, freq = 90): void {
   n.start(t, Math.random()); n.stop(t + 0.05)
 }
 
+// tutorial instruction cue: a soft two-note chime when a new TRAINING callout
+// pops — quiet and clean so it reads as UI, not battlefield.
+export function tutorialCue(): void {
+  if (muted || !audioReady()) return
+  const t = ctx!.currentTime
+  for (const [i, f] of [660, 880].entries()) {
+    const o = ctx!.createOscillator(); o.type = 'sine'
+    o.frequency.value = f
+    const g = ctx!.createGain()
+    g.gain.setValueAtTime(0.0001, t + i * 0.09)
+    g.gain.exponentialRampToValueAtTime(0.12, t + i * 0.09 + 0.015)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.16)
+    o.connect(g).connect(master!)
+    o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.18)
+  }
+}
+
 // round impact: a deep, low rumble that rolls off — quieter than the firing thud.
 export function rumble(gain = 0.25, freq = 55): void {
   if (muted || !audioReady()) return

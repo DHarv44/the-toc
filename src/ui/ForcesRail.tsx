@@ -265,8 +265,11 @@ function CallUpFlyout() {
           onCancel={() => setQrfPending(null)} />
       )}
       {/* the callable elements — the tutorial rings the WHOLE list (the pick
-          is the commander's, not one prescribed row) */}
-      <Box data-tut="garrison-list" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          is the commander's, not one prescribed row). The anchor sits on an
+          INNER div that hugs the rows, so the ring stops at the last unit
+          instead of swallowing the panel's empty space. */}
+      <Box style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div data-tut="garrison-list">
         {list.map(sl => {
           const it = slotItem(sl)
           const call = () => { if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending) }
@@ -280,6 +283,7 @@ function CallUpFlyout() {
           return it.tutSel ? <div key={it.key} data-tut={it.tutSel}>{row}</div> : row
         })}
         {list.length === 0 && <Text fz={10} c="dark.3" px="xs" py={6}>NONE AVAILABLE HERE</Text>}
+      </div>
       </Box>
     </Box>
   )

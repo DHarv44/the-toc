@@ -108,10 +108,9 @@
       },
       {
         "id": "deploy-drone",
-        "gate": true,
         "hints": [
           { "when": { "kind": "not", "of": { "kind": "selected-carrier" } },
-            "text": "EYES FORWARD — your recon platoon carries a hand-launched Raven UAV.",
+            "text": "EYES FORWARD — your recon platoon carries a hand-launched Raven UAV. Get it up WHILE they drive: the feed shows the ground ahead of them.",
             "action": "LEFT-CLICK your recon platoon.",
             "anchor": { "kind": "unit", "type": "SCT" } },
           { "text": "LAUNCH THE RAVEN — its drone goes up right over the platoon and gives you a live feed of the ground ahead.",

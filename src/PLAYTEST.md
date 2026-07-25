@@ -120,3 +120,11 @@
       — VERIFIED live
 - [ ] EYES ONLY: report call (open a PERSTAT first time) — the S1 officer's
       photo on the speaker tile
+
+## Tutorial polish (2026-07-25 latest)
+- [x] "Build your assault force" callout sits to the RIGHT of the garrison
+      ring; ring stops at the last unit row (no empty space) — VERIFIED
+- [x] Raven step un-gated: launches WHILE the scouts drive (~500m out, after
+      any showing instruction completes) — sequencing verified by flow
+- [ ] BY EAR: soft two-note chime when each new TRAINING instruction pops
+      (respects master mute)
