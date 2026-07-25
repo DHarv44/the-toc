@@ -84,8 +84,18 @@ export default function HUD() {
       }}>
         <button title={ui.night ? 'Switch to day' : 'Switch to night'}
           onClick={ui.toggleNight} style={mapCtl(ui.night)}>{ui.night ? '☾' : '☀'}</button>
-        <button title="Show weapon ranges for all units"
-          onClick={ui.toggleRanges} style={{ ...mapCtl(ui.showRanges), fontSize: 9, letterSpacing: 0.5 }}>RNG</button>
+        <button title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
+          onClick={() => ui.toggleOverlay('fires')}
+          style={{ ...mapCtl(ui.overlays.fires), fontSize: 7.5, letterSpacing: 0.5 }}>FIRES</button>
+        <button title="Sensor overlay — recon sight, drone footprints, SIG direction-finding"
+          onClick={() => ui.toggleOverlay('snsr')}
+          style={{ ...mapCtl(ui.overlays.snsr), fontSize: 7.5, letterSpacing: 0.5 }}>SNSR</button>
+        <button title="Weapon overlay — direct-fire range of the selected units"
+          onClick={() => ui.toggleOverlay('wpn')}
+          style={{ ...mapCtl(ui.overlays.wpn), fontSize: 7.5, letterSpacing: 0.5 }}>WPN</button>
+        <button title="Overlay intensity (cycles 100 / 70 / 45%)"
+          onClick={ui.cycleOverlayAlpha}
+          style={{ ...mapCtl(ui.overlayAlpha < 1), fontSize: 8 }}>{Math.round(ui.overlayAlpha * 100)}%</button>
         <button
           title="Fit map to screen"
           onClick={() => {

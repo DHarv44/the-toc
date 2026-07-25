@@ -73,8 +73,14 @@ export interface UIState {
   ctxMenu: CtxMenu | null   // screen coords
   feeds: Feed[]             // no feed shown until the player opens one (or deploys a drone)
   night: boolean
-  showRanges: boolean       // global weapon-range overlay for all friendly units
-  rangeUnits: Record<number, true> // per-unit range ring, independent of the global
+  // map overlays (map-corner toggles): each layer draws what its name says —
+  // fires = indirect max-range rings (the call-for-fire picture), snsr =
+  // recon/drone/DF coverage, wpn = direct-fire range of the SELECTED units
+  overlays: { fires: boolean; snsr: boolean; wpn: boolean }
+  toggleOverlay: (k: 'fires' | 'snsr' | 'wpn') => void
+  overlayAlpha: number      // commander's overlay intensity (1 → 0.7 → 0.45, cycles)
+  cycleOverlayAlpha: () => void
+  rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
   leftOpen: boolean         // side rails: collapse to their own edge, independently
   bgOpen: boolean           // BATTLE GROUPS rail (left, beside installations)
   netOpen: boolean
@@ -105,7 +111,6 @@ export interface UIState {
   openMenu: (m: CtxMenu) => void
   closeMenu: () => void
   toggleNight: () => void
-  toggleRanges: () => void
   toggleUnitRange: (id: number) => void
   toggleNet: () => void
   toggleLeft: () => void
@@ -126,7 +131,10 @@ export const useUI = create<UIState>()((set, get) => ({
   ctxMenu: null,
   feeds: [],
   night: false,
-  showRanges: false,
+  overlays: { fires: false, snsr: false, wpn: false },
+  toggleOverlay: (k) => set((s) => ({ overlays: { ...s.overlays, [k]: !s.overlays[k] } })),
+  overlayAlpha: 1,
+  cycleOverlayAlpha: () => set((s) => ({ overlayAlpha: s.overlayAlpha > 0.85 ? 0.7 : s.overlayAlpha > 0.6 ? 0.45 : 1 })),
   rangeUnits: {},
   // default rail state: everything tucked away except the fielded force
   leftOpen: false,
@@ -165,7 +173,6 @@ export const useUI = create<UIState>()((set, get) => ({
   openMenu: (m) => set({ ctxMenu: m }),
   closeMenu: () => set({ ctxMenu: null }),
   toggleNight: () => set((s) => ({ night: !s.night })),
-  toggleRanges: () => set((s) => ({ showRanges: !s.showRanges })),
   toggleUnitRange: (id) => set((s) => {
     const r = { ...s.rangeUnits }
     if (r[id]) delete r[id]; else r[id] = true

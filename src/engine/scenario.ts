@@ -155,7 +155,9 @@ export function initDevGame(seed = 1337): void {
   const rop = nearestLand(S.map!, red.x - 250, red.y - 750); addStructure('hostile', 'OP', rop.x, rop.y, 'RED OP', true)
 
   // one of every friendly unit type, in a tidy block forward of the friendly HQ
-  const BLUE: readonly UnitTypeKey[] = ['INF', 'STRY', 'MECH', 'ARM', 'AT', 'SCT', 'CAV', 'MOR', 'ARTY', 'ENG', 'SIG', 'LOG']
+  // one of every fieldable type in the DIVISION PACKAGE (incl. the MED det) —
+  // each draws its real 1CD/attachment slot from S.org
+  const BLUE: readonly UnitTypeKey[] = ['INF', 'STRY', 'MECH', 'ARM', 'AT', 'SCT', 'CAV', 'MOR', 'ARTY', 'ENG', 'SIG', 'LOG', 'MED']
   BLUE.forEach((k, i) => {
     const c = i % 4, r = (i / 4) | 0
     const p = nearestLand(S.map!, blue.x - 240 + c * 200, blue.y - 200 + r * 200)

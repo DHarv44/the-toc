@@ -570,3 +570,17 @@ distinct voice seed, document as the visual — no operation deck); afterwards
 just the document. VTC attendee tiles are now the PROPER people from the org:
 CG calls seat XO/S3/CSM, report calls seat the shop chain (S1 NCOIC/CSM/XO).
 The S1 tab's division tree is collapsed by default. campaign-check 37/37.
+
+**Role-based range overlays (2026-07-25):** the single RNG toggle is gone.
+Map-corner buttons (with DAY, above FIT) toggle three layers: **FIRES** —
+every indirect shooter's max-range ring, dashed orange with a gunline label
+("MIKE-13 · 6.5 KM") — the commander's call-for-fire picture; **SNSR** —
+collection coverage (recon sight teal, SIG DF purple, every airborne bird's
+sensor footprint); **WPN** — direct-fire engagement range of the SELECTED
+units only (focus aid, not wall-to-wall clutter; the tray's per-unit ring
+latch still works). ui.overlays {fires,snsr,wpn} replaces showRanges. Also:
+header rework (big TOC plate, small controls, clock beside speed, supply
+readouts moved to the new ▤ COMMAND DASHBOARD console), DAY/RNG relocated to
+the map corner, +FEED dropped (the FEEDS rail owns it), MED det added to the
+dev-sandbox force.
+Overlay intensity: a map-corner %% button cycles 100/70/45 (ui.overlayAlpha).

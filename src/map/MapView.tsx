@@ -1125,31 +1125,70 @@ export default function MapView() {
         return since < 0.35 ? 1 - since / 0.35 : 0.12
       }
 
-      // weapon-range rings, drawn under the symbols so they don't obscure them. Global
-      // toggle rings every friendly unit regardless of selection; a per-unit toggle only
-      // rings that unit while it's selected, so it's a focus aid, not permanent clutter.
+      // ROLE-BASED RANGE OVERLAYS (map-corner toggles), drawn under the symbols.
+      // FIRES = the call-for-fire picture: every indirect shooter's max-range
+      // ring, labeled — the commander sees at a glance what ground his guns can
+      // service. SNSR = collection coverage: recon sight, drone footprints, SIG
+      // direction-finding. WPN = direct-fire range of the SELECTED units (a
+      // focus aid, not wall-to-wall clutter); the per-unit tray toggle latches
+      // the same ring for a unit while it's selected.
       {
-        const showAll = ui.showRanges
+        const ov = ui.overlays
         const per = ui.rangeUnits || {}
         const sel = ui.selectedIds
-        for (const u of S.units) {
-          if (u.side !== 'friend' || u.strength <= 0) continue
-          const perOn = per[u.id] && sel.includes(u.id)
-          if (!showAll && !perOn) continue
-          const type = UNIT_TYPES[u.type]
-          const r = type.range
-          if (!r) continue
-          const px = w2sX(u.x), py = w2sY(u.y), rr = r * view.ppm
+        ctx.save()
+        ctx.globalAlpha = ui.overlayAlpha // the commander's intensity dial
+        const ring = (px: number, py: number, rM: number, stroke: string, fill: string, dash: number[], w = 2) => {
+          const rr = rM * view.ppm
           ctx.beginPath()
           ctx.arc(px, py, rr, 0, Math.PI * 2)
-          ctx.fillStyle = 'rgba(90,160,240,0.06)'
-          ctx.fill()
-          ctx.setLineDash([5, 4])
-          ctx.strokeStyle = per[u.id] ? 'rgba(255,215,90,0.55)' : 'rgba(90,160,240,0.4)'
-          ctx.lineWidth = 1
+          if (fill) { ctx.fillStyle = fill; ctx.fill() }
+          ctx.setLineDash(dash)
+          ctx.strokeStyle = stroke
+          ctx.lineWidth = w
           ctx.stroke()
           ctx.setLineDash([])
+          return rr
         }
+        for (const u of S.units) {
+          if (u.side !== 'friend' || u.strength <= 0) continue
+          const type = UNIT_TYPES[u.type]
+          const px = w2sX(u.x), py = w2sY(u.y)
+          // FIRES: indirect shooters — max range ring + gunline label
+          if (ov.fires && type.indirect) {
+            const rr = ring(px, py, type.indirect.range,
+              '#ff6e46', 'rgba(232,82,60,0.10)', [12, 7], 3)
+            if (rr > 46) {
+              ctx.font = 'bold 11px Consolas, monospace'
+              ctx.textAlign = 'center'
+              ctx.fillStyle = '#ffa078'
+              ctx.fillText(`${u.label} · ${(type.indirect.range / 1000).toFixed(1)} KM`, px, py - rr - 6)
+            }
+          }
+          // SNSR: dedicated collection — recon sight + SIG DF reach
+          if (ov.snsr) {
+            if (type.cat === 'RECON') {
+              ring(px, py, type.sight, '#6ee6c3', 'rgba(110,220,190,0.07)', [4, 5], 2.2)
+            }
+            if (type.df) {
+              ring(px, py, type.df, '#c896fa', '', [2, 6], 2.2)
+            }
+          }
+          // WPN: direct-fire engagement range, selected units only
+          if (type.range && ((ov.wpn && sel.includes(u.id)) || (per[u.id] && sel.includes(u.id)))) {
+            ring(px, py, type.range,
+              per[u.id] ? '#ffd75a' : '#6eb4ff', 'rgba(90,160,240,0.10)', [5, 4], 2.6)
+          }
+        }
+        // SNSR: airborne footprints — every friendly bird's sensor reach
+        if (ov.snsr) {
+          for (const d of S.drones) {
+            if (d.state === 'rtb') continue
+            ring(w2sX(d.x), w2sY(d.y), DRONE_TYPES[d.type].sight,
+              '#6ee6c3', 'rgba(110,220,190,0.05)', [3, 6], 1.8)
+          }
+        }
+        ctx.restore()
       }
 
       // DUSTWUN sites: a downed platoon's LKP, dim like a stale contact —
