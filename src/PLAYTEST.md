@@ -50,3 +50,12 @@
 - Release-asset UI button (code path only)
 - Attack aviation (#26), name pool expansion (#27)
 - Sortie-window row countdown; favor indicator anywhere in UI
+
+## JSON pack conversion (2026-07-25 — UNVERIFIED, see HANDOFF.md)
+- [ ] Golden 3077619369 unchanged; full battery green (task #29 — run FIRST)
+- [ ] S1 roster shows Dave's name dump (uppercased in code; ~12% female mix —
+      check female names don't clash with portrait rendering)
+- [ ] Pack viewer NAMES tab (male/female/last counts + truncated previews)
+- [ ] OPFOR troops still Korean-flavored names
+- [ ] Alarm: master mute (🔊 button) kills a LOOPING siren mid-attack
+- [ ] Aerostat endurance still infinite (JSON null→Infinity conversion)

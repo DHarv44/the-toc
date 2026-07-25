@@ -1,0 +1,14 @@
+{
+  "_doc": "OPFOR — the hostile side's OWN pack, placeholder until P4 makes it the real DPRK-flavored faction. Extends the shared US library but fields only the listed subset (today's game reality: generic platforms both sides).",
+  "id": "opfor",
+  "name": "OPFOR",
+  "abbr": "OPFOR",
+  "side": "hostile",
+  "catalogs": {
+    "extends": "us-platforms",
+    "units": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"],
+    "comps": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"]
+  },
+  "organic": {},
+  "attached": {}
+}

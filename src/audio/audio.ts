@@ -7,6 +7,7 @@
 import { bus } from '../engine/state'
 import { hashStr } from '../lib/math'
 import { activePack } from '../packs/install'
+import { PACK_1CD } from '../packs'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -53,6 +54,13 @@ export function setMuted(m: boolean): void {
   muted = !!m
   if (!muted) ensureAudio()
   if (master) master.gain.value = muted ? 0 : 0.85 // also silences the ambient loops
+  // the master mute silences the pack ALARM too — it's an HTMLAudio element
+  // outside the WebAudio graph, so it must be stopped explicitly
+  if (muted && alarmEl) {
+    alarmEl.pause()
+    alarmEl.currentTime = 0
+    if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null }
+  }
 }
 export function toggleMute(): boolean { setMuted(!muted); return muted }
 
@@ -455,8 +463,9 @@ export function incomingAlarm(): void {
   alarmLastPing = performance.now()
   if (alarmTimer) return // already sounding — the ping just extends it
   // the siren is PACK content — a different faction's base, a different Big
-  // Voice — with the stock siren as the fallback for packs that ship none
-  const src = activePack('friend')?.audio?.incomingAlarm ?? '/audio/incoming.mp3'
+  // Voice — falling back to 1CD's (the canonical pack) when one ships none
+  const src = activePack('friend')?.audio?.incomingAlarm ?? PACK_1CD.audio?.incomingAlarm
+  if (!src) return
   if (!alarmEl || alarmSrc !== src) { alarmEl = new Audio(src); alarmEl.volume = 0.55; alarmSrc = src }
   alarmEl.loop = true
   alarmEl.currentTime = 0

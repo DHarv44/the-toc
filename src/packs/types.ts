@@ -77,11 +77,15 @@ export interface PackCatalogs {
   facilities?: Record<string, FacilityType>
 }
 
-// Name pools the engine draws from when generating this pack's personnel.
-// FRAMEWORK mode: ship pools, the engine expands deterministically. A pack
-// that ships none falls back to the neutral default (packs/personnel.ts).
+// Name pools the engine draws from when generating this pack's personnel —
+// RESOLVED form (the pack folder's names.json ships first_names.male/female +
+// last_names; the loader maps it here). Names are stored AS WRITTEN by the
+// author; the app applies its own casing where its style demands. Generation
+// picks male-heavy (the loader/engine, not the data, owns that weighting).
+// A pack that ships none falls back to the neutral default (personnel.ts).
 export interface NamePools {
-  first: readonly string[]
+  male: readonly string[]
+  female: readonly string[]
   last: readonly string[]
 }
 

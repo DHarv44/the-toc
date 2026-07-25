@@ -1,0 +1,166 @@
+{
+  "_doc": "1st Cavalry Division — the player's pack. Self-contained folder: this manifest + names.json (+ crests/audio under public/ until the runtime loader serves pack folders directly). `catalogs.extends` pulls the shared US platform library; a total-conversion pack would inline its own tables instead.",
+  "id": "1cd",
+  "name": "1st Cavalry Division",
+  "abbr": "1CD",
+  "side": "friend",
+  "patch": "1cd",
+  "rankStyle": "us",
+  "catalogs": { "extends": "us-platforms" },
+  "audio": { "incomingAlarm": "/audio/incoming.mp3" },
+  "organic": {
+    "MECH": { "bn": "2-8 CAV" },
+    "ARM": { "bn": "1-12 CAV" },
+    "CAV": { "bn": "1-7 CAV" },
+    "SCT": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "SCT PLT" },
+    "MOR": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "MORT PLT" },
+    "MED": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "MED PLT" },
+    "ARTY": { "bn": "1-82 FA", "style": "btry" },
+    "ENG": { "bn": "91 BEB" },
+    "SIG": { "bn": "13 SIG BN" },
+    "LOG": { "bn": "115 BSB" }
+  },
+  "attached": {
+    "STRY": { "bn": "5-20 IN", "from": "2ID" },
+    "INF": { "bn": "1-506 IN", "from": "101 ABN" },
+    "AT": { "bn": "1-506 IN", "from": "101 ABN", "style": "hhc", "hhcName": "AT SEC" }
+  },
+  "mottos": {
+    "2-8 CAV": "HONOR AND COURAGE", "1-8 CAV": "HONOR AND COURAGE", "3-8 CAV": "HONOR AND COURAGE",
+    "1-5 CAV": "LOYALTY AND COURAGE", "2-5 CAV": "LOYALTY AND COURAGE",
+    "1-7 CAV": "GARRYOWEN", "2-7 CAV": "GARRYOWEN",
+    "4-9 CAV": "WE CAN, WE WILL", "6-9 CAV": "WE CAN, WE WILL",
+    "1-12 CAV": "SEMPER PARATUS",
+    "1-82 FA": "CAN AND WILL", "2-82 FA": "CAN AND WILL",
+    "3-16 FA": "MACTE NOVA VIRTUTE",
+    "91 BEB": "ACTS NOT WORDS", "8 BEB": "ESSAYONS", "3 BEB": "ESSAYONS",
+    "115 BSB": "MULE SKINNERS",
+    "13 SIG BN": "VOICE OF COMMAND",
+    "1-227 ARB": "POUVOIR", "2-227 AHB": "POUVOIR", "3-227 GSAB": "POUVOIR",
+    "7-17 CAV": "FORWARD",
+    "615 ASB": "COLD STEEL",
+    "5-20 IN": "TANT QUE JE PUIS",
+    "1-506 IN": "CURRAHEE"
+  },
+  "nicks": {
+    "2-8 CAV": "STALLIONS",
+    "1-82 FA": "DRAGONS",
+    "91 BEB": "SABERS",
+    "115 BSB": "MULESKINNERS",
+    "1-227 ARB": "FIRST ATTACK",
+    "1-506 IN": "RED CURRAHEE"
+  },
+  "formation": {
+    "playerBn": "2-8 CAV",
+    "bdes": [
+      {
+        "desig": "1ABCT", "nick": "IRONHORSE",
+        "bns": [
+          { "desig": "2-8 CAV", "kind": "CAB" },
+          { "desig": "1-12 CAV", "kind": "ARMOR", "tfCos": ["A CO"] },
+          { "desig": "1-7 CAV", "kind": "RECON", "tfCos": ["A TRP"] },
+          { "desig": "1-82 FA", "kind": "FA", "tfCos": ["A BTRY"] },
+          { "desig": "91 BEB", "kind": "BEB", "tfCos": ["A CO"] },
+          { "desig": "115 BSB", "kind": "BSB", "tfCos": ["A CO"] }
+        ]
+      },
+      {
+        "desig": "2ABCT", "nick": "BLACK JACK",
+        "bns": [
+          { "desig": "1-5 CAV", "kind": "CAB" },
+          { "desig": "1-8 CAV", "kind": "ARMOR" },
+          { "desig": "4-9 CAV", "kind": "RECON" },
+          { "desig": "3-16 FA", "kind": "FA" },
+          { "desig": "8 BEB", "kind": "BEB" },
+          { "desig": "15 BSB", "kind": "BSB" }
+        ]
+      },
+      {
+        "desig": "3ABCT", "nick": "GREYWOLF",
+        "bns": [
+          { "desig": "2-7 CAV", "kind": "CAB" },
+          { "desig": "3-8 CAV", "kind": "ARMOR" },
+          { "desig": "6-9 CAV", "kind": "RECON" },
+          { "desig": "2-82 FA", "kind": "FA" },
+          { "desig": "3 BEB", "kind": "BEB" },
+          { "desig": "215 BSB", "kind": "BSB" }
+        ]
+      },
+      {
+        "desig": "1ACB", "nick": "AIR CAV",
+        "bns": [
+          { "desig": "1-227 ARB", "kind": "ARB" },
+          { "desig": "7-17 CAV", "kind": "ARB" },
+          { "desig": "2-227 AHB", "kind": "AHB" },
+          { "desig": "3-227 GSAB", "kind": "GSAB" },
+          { "desig": "615 ASB", "kind": "ASB" }
+        ]
+      },
+      {
+        "desig": "DIVARTY", "nick": "RED TEAM",
+        "bns": [{ "desig": "HHB DIVARTY", "kind": "HHB-DIVARTY" }]
+      },
+      {
+        "desig": "1CD SUST", "nick": "WAGONMASTER",
+        "bns": [
+          { "desig": "STB", "kind": "STB" },
+          { "desig": "553 CSSB", "kind": "CSSB" },
+          { "desig": "13 SIG BN", "kind": "SIG", "tfCos": ["A CO"] }
+        ]
+      },
+      {
+        "desig": "HHBN", "nick": "MAVERICK",
+        "bns": [{ "desig": "HHBN 1CD", "kind": "HHBN" }]
+      }
+    ]
+  },
+  "assets": {
+    "CRAM": {
+      "name": "C-RAM Section", "from": "2-44 ADA", "echelon": "CORPS", "count": 3,
+      "setupTime": 120, "refitTime": 2400,
+      "delivers": { "facility": "CRAM" },
+      "crew": {
+        "billets": [
+          ["SFC", "Section Chief"], ["SSG", "Engagement NCO"],
+          ["SGT", "Radar Operator"], ["SPC", "Radar Operator"]
+        ],
+        "civ": 2
+      }
+    },
+    "AEROSTAT": {
+      "name": "PGSS Aerostat Det", "from": "PM Aerostats", "echelon": "DIV", "count": 1,
+      "setupTime": 90,
+      "delivers": { "tether": "AEROSTAT" },
+      "crew": { "billets": [["SSG", "Site Lead"]], "civ": 4 }
+    },
+    "SHADOW": {
+      "name": "Shadow Orbit", "from": "1ACB", "echelon": "DIV", "count": 2,
+      "delivers": { "orbit": "SHADOW" }
+    },
+    "SENTINEL": {
+      "name": "Sentinel Orbit", "from": "INSCOM", "echelon": "CORPS", "count": 1,
+      "delivers": { "orbit": "SENTINEL" }
+    },
+    "VIPER": {
+      "name": "Armed UAS Orbit", "from": "CENTCOM CAOC", "echelon": "CORPS", "count": 1,
+      "delivers": { "orbit": "VIPER" }
+    },
+    "ALO": {
+      "name": "ALO Team", "from": "3 ASOS", "echelon": "USAF", "count": 1,
+      "setupTime": 30,
+      "delivers": { "unlock": "CAS" },
+      "crew": { "billets": [["CPT", "Air Liaison Officer"], ["SSG", "TACP JTAC"]] }
+    },
+    "SPECTRE": {
+      "name": "AC-130 CAS Window", "from": "4 SOS", "echelon": "USAF", "sortie": true,
+      "callsigns": ["SPOOKY", "GHOST"],
+      "windowLen": 900, "atoLead": 180,
+      "delivers": { "window": "SPECTRE" }
+    },
+    "AIRLIFT": {
+      "name": "C-130 Airdrop", "from": "317 AW", "echelon": "USAF", "sortie": true,
+      "callsigns": ["REACH", "HERKY"],
+      "delivers": { "airdrop": true }
+    }
+  }
+}

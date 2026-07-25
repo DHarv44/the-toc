@@ -16,21 +16,32 @@ import { hashStr } from '../lib/math'
 import { activePack } from './install'
 
 // --- name pools ------------------------------------------------------------
-// Pools come from the SIDE'S PACK (Pack.names — framework mode); a pack that
-// ships none falls back to this neutral default. Explicit Pack.people pins
-// override generation per billet (applied in namePersonnel).
-const DEFAULT_FIRST = [
-  'ALEX', 'SAM', 'CHRIS', 'MORGAN', 'TAYLOR', 'JORDAN', 'CASEY', 'ROBIN',
-  'DREW', 'LEE', 'JAMIE', 'QUINN', 'REESE', 'AVERY', 'BLAKE', 'DANA',
+// Pools come from the SIDE'S PACK (Pack.names — pack folder's names.json,
+// stored as the author wrote them); a pack that ships none falls back to this
+// neutral default. The APP owns the casing (the TOC style is all-caps, so
+// composed names are uppercased in code — the data never screams). Explicit
+// Pack.people pins override generation per billet (applied in namePersonnel).
+const DEFAULT_MALE = [
+  'Alex', 'Sam', 'Chris', 'Morgan', 'Taylor', 'Jordan', 'Casey', 'Robin',
+  'Drew', 'Lee', 'Jamie', 'Quinn', 'Reese', 'Avery', 'Blake', 'Dana',
 ]
 const DEFAULT_LAST = [
-  'ADAMS', 'BAKER', 'CARTER', 'DIAZ', 'EVANS', 'FISHER', 'GRANT', 'HAYES',
-  'IRWIN', 'JONES', 'KELLER', 'LOPEZ', 'MASON', 'NOVAK', 'OSBORN', 'PARKS',
+  'Adams', 'Baker', 'Carter', 'Diaz', 'Evans', 'Fisher', 'Grant', 'Hayes',
+  'Irwin', 'Jones', 'Keller', 'Lopez', 'Mason', 'Novak', 'Osborn', 'Parks',
 ]
 
-function pools(side: 'friend' | 'hostile'): { first: readonly string[]; last: readonly string[] } {
+// realistic force mix: heavy male majority when the pack provides both pools
+const FEMALE_PCT = 12
+
+function pools(side: 'friend' | 'hostile'): { male: readonly string[]; female: readonly string[]; last: readonly string[] } {
+  // side's pack → 1CD (the canonical fallback, baked in at pack build) →
+  // this tiny neutral list only if everything else is somehow empty
   const n = activePack(side)?.names
-  return { first: n?.first ?? DEFAULT_FIRST, last: n?.last ?? DEFAULT_LAST }
+  return {
+    male: n?.male?.length ? n.male : DEFAULT_MALE,
+    female: n?.female ?? [],
+    last: n?.last?.length ? n.last : DEFAULT_LAST,
+  }
 }
 
 // junior enlisted rank spread (hash-weighted): mostly PFC/SPC, some PVT
@@ -75,9 +86,16 @@ function crewBillet(vehType: string, seat: number, h: number): { pos: string; ra
 // Name a soldier from the seed key (also stamps the stable personnel identity
 // `pid`, which seeds the portrait — so a face survives fielding transfers).
 export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hostile' = 'friend'): void {
-  const { first, last } = pools(side)
+  const p = pools(side)
   const h = hashStr(`${seedKey}:${s.id}`)
-  s.name = `${pick(first, h)} ${pick(last, hashStr(`${seedKey}:${s.id}:ln`))}`
+  // gender split is deterministic and male-heavy; a pack with no female pool
+  // (or an all-male force) simply always draws male
+  const female = p.female.length > 0
+    && Math.abs(hashStr(`${seedKey}:${s.id}:g`)) % 100 < FEMALE_PCT
+  const first = female ? p.female : p.male
+  // pool data is author-cased; the TOC's all-caps style is applied HERE, by
+  // the app — if a pack wants Van der Berg, the data keeps it
+  s.name = `${pick(first, h)} ${pick(p.last, hashStr(`${seedKey}:${s.id}:ln`))}`.toUpperCase()
   s.pid = `${seedKey}:${s.id}`
 }
 

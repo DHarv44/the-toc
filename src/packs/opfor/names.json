@@ -1,0 +1,14 @@
+{
+  "_doc": "OPFOR placeholder name pools (Korean romanization flavor) — P4 replaces with the real faction's pools.",
+  "first_names": {
+    "male": [
+      "Chol", "Myong", "Sung", "Hyon", "Kwang", "Yong", "Il", "Duk", "Chun", "Hak",
+      "Jin", "Ho", "Nam", "Su", "Won", "Gyu", "Sang", "Tae", "Hyun", "Min"
+    ],
+    "female": []
+  },
+  "last_names": [
+    "Ri", "Kim", "Pak", "Choe", "Kang", "Han", "Yun", "Jang", "O", "Sin",
+    "Jon", "Hwang", "So", "Mun", "Yang", "An", "Paek", "Ko", "Chong", "Im"
+  ]
+}

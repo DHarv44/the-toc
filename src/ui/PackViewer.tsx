@@ -149,8 +149,9 @@ function Names({ p }: { p: Pack }) {
   if (!p.names) return <Text fz={11} c="dark.3" mt={6}>No name pools — generation uses the neutral default.</Text>
   return (
     <Box mt={6}>
-      <Text fz={11} c="dark.1"><Text span c="dark.3" fz={10}>FIRST ({p.names.first.length}) </Text>{p.names.first.join(', ')}</Text>
-      <Text fz={11} c="dark.1" mt={4}><Text span c="dark.3" fz={10}>LAST ({p.names.last.length}) </Text>{p.names.last.join(', ')}</Text>
+      <Text fz={11} c="dark.1"><Text span c="dark.3" fz={10}>MALE ({p.names.male.length}) </Text>{p.names.male.slice(0, 60).join(', ')}{p.names.male.length > 60 ? ' …' : ''}</Text>
+      <Text fz={11} c="dark.1" mt={4}><Text span c="dark.3" fz={10}>FEMALE ({p.names.female.length}) </Text>{p.names.female.slice(0, 60).join(', ')}{p.names.female.length > 60 ? ' …' : ''}</Text>
+      <Text fz={11} c="dark.1" mt={4}><Text span c="dark.3" fz={10}>LAST ({p.names.last.length}) </Text>{p.names.last.slice(0, 80).join(', ')}{p.names.last.length > 80 ? ' …' : ''}</Text>
       {p.people && Object.keys(p.people).length > 0 && (
         <Text fz={11} c="#e8c547" mt={4}>{Object.keys(p.people).length} explicit roster pin(s)</Text>
       )}
