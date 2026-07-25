@@ -128,7 +128,7 @@ export function initGame(
 // enemy top-right) with one of every unit type staged near its base, weapons held so
 // nothing attrits until the dev commits to a fight.
 export function initDevGame(seed = 1337): void {
-  initGame(seed, MAP_SIZES.small) // smallest map — both bases fit in one screen
+  initGame(seed, MAP_SIZES.large) // room to exercise ranges, logistics and recon at scale
   S.devMode = true         // unlocks the DEV controls in the top bar
   S.resources = 999999
   S.fogEnabled = false
