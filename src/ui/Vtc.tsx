@@ -183,9 +183,9 @@ const DECK: Slide[] = [
     },
     bullets: () => [
       `Occupy the town — platoons ON LINE through the buildings.`,
-      `DIG IN. Urban cover + prepared positions.`,
-      `Defeat the expected counterattack from the north.`,
-      `HOLD until FOB KEATON stands.`,
+      `EXPECT a counterattack from the north.`,
+      `DIG IN — urban cover + prepared positions.`,
+      `HOLD until FOB KEATON is built.`,
     ],
   },
   // 3 — BUILD FOB: sustainment forward, the supply line
@@ -273,6 +273,29 @@ function drawSlide(cv: HTMLCanvasElement, idx: number): void {
   ctx.beginPath(); ctx.rect(MX, MY, MW, MH); ctx.clip()
   const tpm = TERRAIN_PX / CELL
   ctx.drawImage(terrainLayer(), sx * tpm, sy * tpm, f.span * tpm, f.span * tpm * (MH / MW), MX, MY, MW, MH)
+  // the road net (vector polylines — the cached terrain layer doesn't carry
+  // them): dirt dashed, roads solid, the MSR heavier. Drawn under the
+  // operational graphics like a printed map base.
+  {
+    const strokeCls = (cls: number, color: string, width: number, dash: number[] | null) => {
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+      ctx.setLineDash(dash ?? [])
+      ctx.beginPath()
+      for (const r of S.map!.roads) {
+        if (r.cls !== cls) continue
+        ctx.moveTo(inset.x(r.pts[0]!.x), inset.y(r.pts[0]!.y))
+        for (let p = 1; p < r.pts.length; p++) ctx.lineTo(inset.x(r.pts[p]!.x), inset.y(r.pts[p]!.y))
+      }
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    strokeCls(1, 'rgba(120,96,64,0.75)', 0.8, [3, 2.5])
+    strokeCls(2, 'rgba(96,80,58,0.9)', 1.4, null)
+    strokeCls(3, 'rgba(70,58,42,0.95)', 2.2, null)
+  }
   slide.body(inset)
   ctx.restore()
   ctx.strokeStyle = '#444'
