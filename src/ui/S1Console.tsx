@@ -1,19 +1,16 @@
-// S1 — PERSONNEL management console: a TREE-GRID over the task organization.
-// Rows are the org tree (TF → parent-battalion slices → platoons → vehicles /
-// squads → soldiers); columns are the PERSTAT numbers, AGGREGATED AT EVERY
-// LEVEL — collapsed it reads as the S1's PERSTAT rollup, expanded it's the
-// battle roster down to the individual soldier (portrait, rank, billet,
-// inline rename). Attached elements are explicitly badged at every level.
-// Mantine components at comfortable (lg-ish) sizing — this is a management
-// console, not a map overlay. The map's "PERSONNEL ROSTER…" jumps here with
-// the platoon expanded.
+// S1 — PERSONNEL management console: a TREE-GRID over the ENTIRE DIVISION.
+// The pack ships 1CD complete — every brigade, battalion, company and platoon
+// slot down to named soldiers (air cav included) — so the tree is the whole
+// formation, not just what's fielded. Rows aggregate PERSTAT at every level;
+// fieldable TF slots show live unit state when fielded, GARRISON — <site> when
+// not; everything else is marked where it sits (other brigade AOs, DIV MAIN).
+// Attached elements are badged with their donor at every level.
 import { useEffect, useRef, useState } from 'react'
 import { Badge, Box, Button, Group, Text, TextInput } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
-import { UNIT_TYPES } from '../domains/forces/catalog'
 import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
-import type { Unit, Soldier } from '../engine/GameState'
+import type { OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { playerPack } from '../packs'
 import { Portrait } from './portrait'
 import { PatchIcon, RankIcon } from './insignia'
@@ -32,11 +29,11 @@ function aggSoldiers(a: Agg, ss: Soldier[]): void {
     else if (s.status === 'KIA') a.kia++
   }
 }
-function aggUnit(u: Unit): Agg {
+function aggSlot(sl: OrgSlot): Agg {
   const a = zero()
-  aggSoldiers(a, u.soldiers)
-  a.vTot = u.vehicles.length
-  a.vOk = u.vehicles.filter(v => v.status === 'OK').length
+  aggSoldiers(a, sl.soldiers)
+  a.vTot = sl.vehicles.length
+  a.vOk = sl.vehicles.filter(v => v.status === 'OK').length
   return a
 }
 function aggSum(list: Agg[]): Agg {
@@ -50,8 +47,8 @@ function aggSum(list: Agg[]): Agg {
 // deterministic squads from the billets — PL/PSG/medic form the PLT HQ node,
 // each Squad Leader takes an even slice of the remaining dismounts.
 interface SquadNode { label: string; leader: Soldier | null; members: Soldier[] }
-function deriveSquads(u: Unit): SquadNode[] {
-  const dis = u.soldiers.filter(s => s.vehId == null)
+function deriveSquads(soldiers: Soldier[]): SquadNode[] {
+  const dis = soldiers.filter(s => s.vehId == null)
   if (!dis.length) return []
   const hq = dis.filter(s => s.pos === 'Platoon Leader' || s.pos === 'Platoon Sergeant' || s.pos === 'Platoon Medic')
   const sls = dis.filter(s => s.pos === 'Squad Leader')
@@ -65,7 +62,7 @@ function deriveSquads(u: Unit): SquadNode[] {
       out.push({ label: `${i + 1}${['ST', 'ND', 'RD'][i] ?? 'TH'} SQD`, leader: sl, members: [sl, ...slice] })
     })
   } else if (rest.length) {
-    out.push({ label: 'SECTION', leader: rest[rest.length - 1]!, members: rest })
+    out.push({ label: 'SECTION', leader: rest[0]!, members: rest })
   }
   return out
 }
@@ -77,7 +74,7 @@ function deriveSquads(u: Unit): SquadNode[] {
 const WPN_SHORT: Partial<Record<WeaponKey, string>> = {
   M4: 'M4', M249: 'SAW', M240: '240B', M240C: 'COAX', M2_50: '.50',
   AT4: 'AT4', JAVELIN: 'JVLN', TOW: 'TOW', M242: '25MM', M256: '120MM',
-  M252: '81MM', M109_155: '155MM',
+  M252: '81MM', M109_155: '155MM', M230: '30MM', HELLFIRE: 'AGM114',
 }
 function loadoutOf(s: Soldier): { chips: string[]; kit: string } {
   const chips = TROOP_KINDS[s.kind].weapons.map(w => WPN_SHORT[w] ?? w)
@@ -129,7 +126,7 @@ function NodeRow({ depth, open, onToggle, label, sub, att, leader, a, highlight 
 }) {
   return (
     <Group gap={10} wrap="nowrap" onClick={onToggle}
-      px={10} py={7} pl={10 + depth * 26}
+      px={10} py={7} pl={10 + depth * 24}
       style={{
         cursor: onToggle ? 'pointer' : 'default',
         borderTop: '1px solid #141e28', background: highlight ? '#10202e' : 'transparent',
@@ -148,7 +145,7 @@ function NodeRow({ depth, open, onToggle, label, sub, att, leader, a, highlight 
   )
 }
 
-function SoldierRow({ u, s, depth }: { u: Unit; s: Soldier; depth: number }) {
+function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
   const [editing, setEditing] = useState(false)
   // commit reads the LIVE input value — renames land even if change events
   // were swallowed; Escape backs out untouched
@@ -158,9 +155,9 @@ function SoldierRow({ u, s, depth }: { u: Unit; s: Soldier; depth: number }) {
     setEditing(false)
   }
   return (
-    <Group gap={10} wrap="nowrap" px={10} py={4} pl={10 + depth * 26 + 24}
+    <Group gap={10} wrap="nowrap" px={10} py={4} pl={10 + depth * 24 + 24}
       style={{ borderTop: '1px solid #10161d' }}>
-      <Portrait seed={`${u.id}:${s.id}`} kia={s.status === 'KIA'} w={26} h={32} />
+      <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={26} h={32} />
       <RankIcon rank={s.rank} style={playerPack().rankStyle} />
       <Text span fz="sm" fw={700} w={40} c="#9ab8d0" style={{ flex: '0 0 auto' }}>{s.rank}</Text>
       {editing ? (
@@ -193,29 +190,82 @@ function SoldierRow({ u, s, depth }: { u: Unit; s: Soldier; depth: number }) {
   )
 }
 
+// --- slot roster (vehicles + squads) ----------------------------------------
+function SlotRoster({ sl, depth, open, toggle }: {
+  sl: OrgSlot; depth: number; open: Set<string>; toggle: (k: string) => void
+}) {
+  return (
+    <>
+      {sl.vehicles.map((v: UnitVehicle) => {
+        const vKey = `v:${sl.id}:${v.id}`
+        const crew = sl.soldiers.filter(s => s.vehId === v.id)
+        const va = zero(); aggSoldiers(va, crew)
+        va.vTot = 1; va.vOk = v.status === 'OK' ? 1 : 0
+        const vc = crew[0]
+        return (
+          <div key={v.id}>
+            <NodeRow depth={depth} open={open.has(vKey)} onToggle={() => toggle(vKey)}
+              label={<Group gap={5} wrap="nowrap">
+                <Text span fz="sm" c={v.status === 'DESTROYED' ? COL.kia : '#b8cede'}>
+                  {(VEHICLES[v.type]?.name ?? v.type).toUpperCase()} #{v.id}
+                  {v.status === 'DESTROYED' ? ' — DESTROYED' : ''}
+                </Text>
+                {VEHICLES[v.type]?.weapons.map(w => <Chip key={w} label={WPN_SHORT[w] ?? w} />)}
+              </Group>}
+              leader={vc ? `${vc.rank} ${vc.name}` : undefined} a={va} />
+            {open.has(vKey) && crew.map(s => <SoldierRow key={s.id} s={s} depth={depth + 1} />)}
+          </div>
+        )
+      })}
+      {deriveSquads(sl.soldiers).map(sq => {
+        const sqKey = `sq:${sl.id}:${sq.label}`
+        const sa = zero(); aggSoldiers(sa, sq.members)
+        return (
+          <div key={sq.label}>
+            <NodeRow depth={depth} open={open.has(sqKey)} onToggle={() => toggle(sqKey)}
+              label={<Text span fz="sm" c="#b8cede">{sq.label}</Text>}
+              leader={sq.leader ? `${sq.leader.rank} ${sq.leader.name}` : undefined} a={sa} />
+            {open.has(sqKey) && sq.members.map(s => <SoldierRow key={s.id} s={s} depth={depth + 1} />)}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 // --- the console -----------------------------------------------------------
+// where a non-fielded slot sits, as the S1 would brief it
+function slotLocation(sl: OrgSlot): string {
+  if (sl.tf || sl.bn === playerPack().formation?.playerBn || sl.bde === 'ATT') {
+    const hq = S.structures.find(st => st.side === 'friend' && st.kind === 'HQ')
+    return `GARRISON — ${hq?.label ?? 'CP'}`
+  }
+  if (sl.bde === 'HHBN' || sl.bde === 'DIVARTY') return 'DIV MAIN'
+  if (sl.bde === '1CD SUST') return 'DIV SUPPORT AREA'
+  if (sl.bde === '1ACB') return 'THEATER AVN COMPLEX'
+  return `${sl.bde} AO`
+}
+
 export default function S1Console() {
   useUI((st) => st.tick)
   const ui = useUI()
-  const [open, setOpen] = useState<Set<string>>(() => new Set(['tf']))
+  const pack = playerPack()
+  const playerBn = pack.formation?.playerBn
+  const [open, setOpen] = useState<Set<string>>(() => new Set(
+    ['div', 'bde:1ABCT', playerBn ? `bn:${playerBn}` : 'bn:'],
+  ))
   const focusRef = useRef<HTMLDivElement>(null)
 
-  const pack = playerPack()
-  const bnOf = (u: Unit): string => {
-    const slot = pack.organic[u.type] ?? pack.attached[u.type]
-    return slot?.bn ?? pack.abbr
-  }
-
-  // a map-side "PERSONNEL ROSTER…" jump: expand down to the unit and scroll it
-  // into view, then clear the request
+  // a map-side "PERSONNEL ROSTER…" jump: expand down to the fielded slot and
+  // scroll it into view, then clear the request
   useEffect(() => {
     if (ui.console !== 's1' || ui.rosterId == null) return
-    const u = S.units.find(x => x.id === ui.rosterId)
-    if (u) {
-      const bn = bnOf(u)
+    const sl = S.org?.slots.find(x => x.unitId === ui.rosterId)
+    if (sl) {
       setOpen(prev => {
         const next = new Set(prev)
-        next.add('tf'); next.add(`bn:${bn}`); next.add(`u:${u.id}`)
+        next.add('div'); next.add(`bde:${sl.bde}`); next.add(`bn:${sl.bn}`)
+        next.add(`co:${sl.bn}:${sl.co}`); next.add(`slot:${sl.id}`)
         return next
       })
       setTimeout(() => {
@@ -227,6 +277,7 @@ export default function S1Console() {
   }, [ui.console, ui.rosterId])
 
   if (ui.console !== 's1') return null
+  const org = S.org
 
   const toggle = (key: string) => setOpen(prev => {
     const next = new Set(prev)
@@ -234,17 +285,43 @@ export default function S1Console() {
     return next
   })
 
-  const units = S.units.filter(u => u.side === 'friend' && u.soldiers.length > 0)
-  const bns = new Map<string, Unit[]>()
-  for (const u of units) {
-    const key = bnOf(u)
-    if (!bns.has(key)) bns.set(key, [])
-    bns.get(key)!.push(u)
-  }
-  const unitAggs = new Map<number, Agg>(units.map(u => [u.id, aggUnit(u)]))
-  const tfAgg = aggSum([...unitAggs.values()])
+  const slots = org?.slots ?? []
+  const slotAggs = new Map<string, Agg>(slots.map(sl => [sl.id, aggSlot(sl)]))
+  const divAgg = aggSum([...slotAggs.values()])
   const cmdr = S.campaign?.commander
   const dtg = `${String(Math.floor(S.t / 3600)).padStart(2, '0')}${String(Math.floor(S.t / 60) % 60).padStart(2, '0')}Z`
+
+  // brigade display order = formation order, attachments last
+  const bdeOrder: { desig: string; nick?: string }[] = [
+    ...(pack.formation?.bdes.map(b => ({ desig: b.desig, nick: b.nick })) ?? []),
+    ...(slots.some(sl => sl.bde === 'ATT') ? [{ desig: 'ATT', nick: 'ATTACHMENTS' }] : []),
+  ]
+
+  const renderSlot = (sl: OrgSlot, depth: number) => {
+    const key = `slot:${sl.id}`
+    const a = slotAggs.get(sl.id)!
+    const u = sl.unitId != null ? S.units.find(x => x.id === sl.unitId) : undefined
+    const lost = sl.unitId != null && !u
+    const ldr = sl.soldiers.find(s => (s.pos === 'Platoon Leader' || s.pos === 'Battalion Commander'
+      || s.pos === 'Flight Lead' || s.pos === 'Commanding General') && s.status === 'FIT')
+      ?? sl.soldiers.find(s => s.status === 'FIT') ?? sl.soldiers[0]
+    const status = u ? `FIELDED · ${u.label} · ${Math.max(0, Math.round(u.strength))}%`
+      : lost ? 'COMBAT LOSS' : slotLocation(sl)
+    return (
+      <div key={sl.id} ref={sl.unitId === ui.rosterId ? focusRef : undefined}>
+        <NodeRow depth={depth} open={open.has(key)} onToggle={() => toggle(key)}
+          label={<Text span fz="md" fw={sl.type ? 700 : 500}
+            c={lost ? COL.kia : u ? '#7ec8ff' : sl.tf ? '#9fd0f5' : '#7d95aa'}>
+            {sl.name}
+          </Text>}
+          att={sl.from ?? null}
+          sub={status}
+          leader={ldr ? `${ldr.rank} ${ldr.name}${ldr.cs ? ` · ${ldr.cs}` : ''}` : '— NONE FIT —'}
+          a={a} highlight={!!u} />
+        {open.has(key) && <SlotRoster sl={sl} depth={depth + 1} open={open} toggle={toggle} />}
+      </div>
+    )
+  }
 
   return (
     <Box pos="absolute" inset={0} p="lg"
@@ -256,7 +333,7 @@ export default function S1Console() {
         <PatchIcon id={pack.patch} h={38} />
         <Text fz="xl" fw={700} c="#dceeff" style={{ letterSpacing: 3 }}>S1 — PERSONNEL</Text>
         <Text fz="sm" c="dark.3" style={{ letterSpacing: 1.5 }}>
-          {pack.name.toUpperCase()} · TASK ORGANIZATION & PERSTAT · AS OF {dtg}
+          {pack.name.toUpperCase()} · DIVISION PERSTAT · AS OF {dtg}
         </Text>
         <Button size="sm" variant="default" ml="auto" onClick={() => ui.setConsole(null)}>← MAP</Button>
       </Group>
@@ -273,74 +350,54 @@ export default function S1Console() {
         <Text span fz="xs" c="dark.3" w={90} ta="right" style={{ flex: '0 0 auto', letterSpacing: 1.5 }}>STR</Text>
       </Group>
 
-      {/* TF root */}
-      <NodeRow depth={0} open={open.has('tf')} onToggle={() => toggle('tf')}
-        label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>TF COBALT</Text>}
-        sub={cmdr ? `LTC ${cmdr} · COBALT 6` : undefined}
-        leader={cmdr ? `LTC ${cmdr}` : undefined} a={tfAgg} />
+      {!org && (
+        <Text fz="sm" c="dark.3" p="md">NO DIVISION ORGANIZATION — PACK HAS NO FORMATION DATA.</Text>
+      )}
 
-      {open.has('tf') && [...bns.entries()].map(([bn, list]) => {
-        const att = list[0]!.attFrom ?? null
-        const bnKey = `bn:${bn}`
-        const bnAgg = aggSum(list.map(u => unitAggs.get(u.id)!))
+      {org && (
+        <NodeRow depth={0} open={open.has('div')} onToggle={() => toggle('div')}
+          label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{pack.name.toUpperCase()}</Text>}
+          sub={cmdr && playerBn ? `YOU COMMAND ${playerBn} · LTC ${cmdr}` : undefined}
+          a={divAgg} />
+      )}
+
+      {org && open.has('div') && bdeOrder.map(({ desig, nick }) => {
+        const bdeSlots = slots.filter(sl => sl.bde === desig)
+        if (!bdeSlots.length) return null
+        const bdeKey = `bde:${desig}`
+        const bdeAgg = aggSum(bdeSlots.map(sl => slotAggs.get(sl.id)!))
+        const bns = [...new Set(bdeSlots.map(sl => sl.bn))]
         return (
-          <div key={bn}>
-            <NodeRow depth={1} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
-              label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : '#9fd0f5'}>{bn}</Text>}
-              att={att} sub={att ? undefined : 'ORGANIC'} a={bnAgg} />
-            {open.has(bnKey) && list.map(u => {
-              const type = UNIT_TYPES[u.type]
-              const uKey = `u:${u.id}`
-              const a = unitAggs.get(u.id)!
-              const ldr = u.soldiers.find(s => s.pos === 'Platoon Leader' && s.status === 'FIT')
-                ?? u.soldiers.find(s => s.pos === 'Platoon Sergeant' && s.status === 'FIT')
-              const squads = deriveSquads(u)
+          <div key={desig}>
+            <NodeRow depth={1} open={open.has(bdeKey)} onToggle={() => toggle(bdeKey)}
+              label={<Text span fz="md" fw={600} c={desig === 'ATT' ? '#c8a25f' : '#9fd0f5'}>
+                {desig === 'ATT' ? 'ATTACHMENTS' : desig}
+              </Text>}
+              sub={desig === 'ATT' ? undefined : nick} a={bdeAgg} />
+            {open.has(bdeKey) && bns.map(bn => {
+              const bnSlots = bdeSlots.filter(sl => sl.bn === bn)
+              const bnKey = `bn:${bn}`
+              const bnAgg = aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))
+              const att = bnSlots[0]!.from ?? null
+              const cos = [...new Set(bnSlots.map(sl => sl.co))]
+              const mine = bn === playerBn
               return (
-                <div key={u.id} ref={u.id === ui.rosterId ? focusRef : undefined}>
-                  <NodeRow depth={2} open={open.has(uKey)} onToggle={() => toggle(uKey)}
-                    label={<Text span fz="md" fw={700} c="#7ec8ff">{u.label}</Text>}
-                    att={u.attFrom}
-                    sub={`${type.name.toUpperCase()} · ${u.lineage ?? ''}`}
-                    leader={ldr ? `${ldr.rank} ${ldr.name}${ldr.cs ? ` · ${ldr.cs}` : ''}` : '— NO LEADER FIT —'}
-                    a={a} />
-                  {open.has(uKey) && (
-                    <>
-                      {u.vehicles.map(v => {
-                        const vKey = `v:${u.id}:${v.id}`
-                        const crew = u.soldiers.filter(s => s.vehId === v.id)
-                        const va = zero(); aggSoldiers(va, crew)
-                        va.vTot = 1; va.vOk = v.status === 'OK' ? 1 : 0
-                        const vc = crew[0]
-                        return (
-                          <div key={v.id}>
-                            <NodeRow depth={3} open={open.has(vKey)} onToggle={() => toggle(vKey)}
-                              label={<Group gap={5} wrap="nowrap">
-                                <Text span fz="sm" c={v.status === 'DESTROYED' ? COL.kia : '#b8cede'}>
-                                  {(VEHICLES[v.type as keyof typeof VEHICLES]?.name ?? v.type).toUpperCase()} #{v.id}
-                                  {v.status === 'DESTROYED' ? ' — DESTROYED' : ''}
-                                </Text>
-                                {VEHICLES[v.type as keyof typeof VEHICLES]?.weapons.map(w =>
-                                  <Chip key={w} label={WPN_SHORT[w] ?? w} />)}
-                              </Group>}
-                              leader={vc ? `${vc.rank} ${vc.name}` : undefined} a={va} />
-                            {open.has(vKey) && crew.map(s => <SoldierRow key={s.id} u={u} s={s} depth={4} />)}
-                          </div>
-                        )
-                      })}
-                      {squads.map(sq => {
-                        const sqKey = `sq:${u.id}:${sq.label}`
-                        const sa = zero(); aggSoldiers(sa, sq.members)
-                        return (
-                          <div key={sq.label}>
-                            <NodeRow depth={3} open={open.has(sqKey)} onToggle={() => toggle(sqKey)}
-                              label={<Text span fz="sm" c="#b8cede">{sq.label}</Text>}
-                              leader={sq.leader ? `${sq.leader.rank} ${sq.leader.name}` : undefined} a={sa} />
-                            {open.has(sqKey) && sq.members.map(s => <SoldierRow key={s.id} u={u} s={s} depth={4} />)}
-                          </div>
-                        )
-                      })}
-                    </>
-                  )}
+                <div key={bn}>
+                  <NodeRow depth={2} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
+                    label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
+                    att={att} sub={mine ? 'YOUR BATTALION' : att ? undefined : 'ORGANIC'} a={bnAgg} />
+                  {open.has(bnKey) && cos.map(co => {
+                    const coSlots = bnSlots.filter(sl => sl.co === co)
+                    const coKey = `co:${bn}:${co}`
+                    const coAgg = aggSum(coSlots.map(sl => slotAggs.get(sl.id)!))
+                    return (
+                      <div key={co}>
+                        <NodeRow depth={3} open={open.has(coKey)} onToggle={() => toggle(coKey)}
+                          label={<Text span fz="sm" fw={600} c="#b8cede">{co}</Text>} a={coAgg} />
+                        {open.has(coKey) && coSlots.map(sl => renderSlot(sl, 4))}
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })}

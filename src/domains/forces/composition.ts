@@ -37,6 +37,10 @@ const AMMO_LITERAL = {
   A_120MM: { key: 'A_120MM', name: '120mm sabot/MPAT mix', cls: 'CANNON' },
   MORT_81: { key: 'MORT_81', name: '81mm mortar', cls: 'INDIRECT' },
   HOW_155: { key: 'HOW_155', name: '155mm howitzer', cls: 'INDIRECT' },
+  // aviation ordnance (Packs: the air cav ships with the division; airframes
+  // aren't fieldable ground units yet, so these exist for identity/display)
+  A_30MM: { key: 'A_30MM', name: '30mm chain gun', cls: 'CANNON' },
+  M_HELLFIRE: { key: 'M_HELLFIRE', name: 'Hellfire missile', cls: 'AT' },
 } as const satisfies Record<string, AmmoType>
 
 export type AmmoKey = keyof typeof AMMO_LITERAL
@@ -76,6 +80,9 @@ const WEAPONS_LITERAL = {
   // dpsSoft for MOR/ARTY); the fire-mission system stays on IndirectSpec
   M252: { key: 'M252', name: 'M252 81mm mortar', ammo: 'MORT_81', range: 3000, dpsSoft: 0.12, dpsHard: 0.05, load: 24 },
   M109_155: { key: 'M109_155', name: 'M109 155mm', ammo: 'HOW_155', range: 6500, dpsSoft: 0.33, dpsHard: 0.13, load: 16 },
+  // aviation weapon systems (display/identity only until air units field)
+  M230: { key: 'M230', name: 'M230 30mm', ammo: 'A_30MM', range: 1500, dpsSoft: 1.4, dpsHard: 0.5, load: 300 },
+  HELLFIRE: { key: 'HELLFIRE', name: 'AGM-114 Hellfire', ammo: 'M_HELLFIRE', range: 8000, dpsSoft: 0.1, dpsHard: 1.6, load: 8 },
 } as const satisfies Record<string, WeaponType>
 
 export type WeaponKey = keyof typeof WEAPONS_LITERAL
@@ -103,6 +110,12 @@ const TROOPS_LITERAL = {
   SIGNALLER: { key: 'SIGNALLER', name: 'Signaller', weapons: ['M4'] },
   MEDIC: { key: 'MEDIC', name: 'Medic', weapons: ['M4'] },
   CREWMAN: { key: 'CREWMAN', name: 'Crewman', weapons: ['M4'] },
+  // division org kinds (Packs: staff sections + the air cav — garrison rosters
+  // only for now, never fielded as ground shooters)
+  STAFF: { key: 'STAFF', name: 'Staff', weapons: ['M4'] },
+  PILOT: { key: 'PILOT', name: 'Aviator', weapons: ['M4'] },
+  CREW_CHIEF: { key: 'CREW_CHIEF', name: 'Crew Chief', weapons: ['M4'] },
+  MECHANIC: { key: 'MECHANIC', name: 'Mechanic', weapons: ['M4'] },
 } as const satisfies Record<string, TroopKind>
 
 export type TroopKindKey = keyof typeof TROOPS_LITERAL
@@ -133,6 +146,11 @@ const VEHICLES_LITERAL = {
   SP155: { key: 'SP155', name: 'M109 Paladin', crew: 4, pax: 0, weapons: ['M109_155'], soft: 0.5, mob: 'tracked', speed: 7 },
   FMTV: { key: 'FMTV', name: 'FMTV cargo truck', crew: 2, pax: 0, weapons: [], soft: 1.0, mob: 'wheeled', speed: 12 },
   RETRANS: { key: 'RETRANS', name: 'Retrans truck', crew: 2, pax: 2, weapons: [], soft: 0.8, mob: 'wheeled', speed: 12 },
+  // airframes (Packs: org inventory for the air cav brigade — crewed by PILOT/
+  // CREW_CHIEF org personnel, not CREWMAN buildRoster crews; not fieldable yet)
+  AH64: { key: 'AH64', name: 'AH-64E Apache', crew: 2, pax: 0, weapons: ['M230', 'HELLFIRE'], soft: 0.6, mob: 'wheeled', speed: 50 },
+  UH60: { key: 'UH60', name: 'UH-60M Black Hawk', crew: 4, pax: 11, weapons: ['M240'], soft: 0.8, mob: 'wheeled', speed: 48 },
+  CH47: { key: 'CH47', name: 'CH-47F Chinook', crew: 4, pax: 33, weapons: ['M240'], soft: 0.9, mob: 'wheeled', speed: 45 },
 } as const satisfies Record<string, VehicleType>
 
 export type VehicleKey = keyof typeof VEHICLES_LITERAL

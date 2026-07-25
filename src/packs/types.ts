@@ -25,6 +25,34 @@ export interface AttachedSlot extends OrganicSlot {
   from: string            // donor formation, e.g. '2ID' — shown as the ATT tag
 }
 
+// --- full-division formation ------------------------------------------------
+// The pack ships the ENTIRE division as data: brigades → battalions, each
+// battalion expanded to companies/platoon slots by its kind's template
+// (packs/org.ts). `tfCos` lists the companies allocated to the player's task
+// force (fieldable, garrisoned in theater); the player battalion contributes
+// everything. Skirmish later opens the whole tree; campaign stays on playerBn.
+export type BnKind =
+  | 'CAB' | 'ARMOR' | 'RECON' | 'FA' | 'BEB' | 'BSB' | 'SIG'   // ground
+  | 'ARB' | 'AHB' | 'GSAB' | 'ASB'                              // air cav
+  | 'CSSB' | 'HHBN' | 'HHB-DIVARTY' | 'STB'                     // support/staff
+
+export interface BnPlan {
+  desig: string           // '2-8 CAV'
+  kind: BnKind
+  tfCos?: string[]        // companies allocated to the TF ('A CO'…); playerBn = all
+}
+
+export interface BdePlan {
+  desig: string           // '1ABCT'
+  nick?: string           // 'IRONHORSE'
+  bns: BnPlan[]
+}
+
+export interface Formation {
+  playerBn: string        // the battalion the player commands ('2-8 CAV')
+  bdes: BdePlan[]
+}
+
 export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
@@ -37,6 +65,7 @@ export interface Pack {
   // this pack (not enforced in P1 — the palette still offers everything)
   organic: Partial<Record<UnitTypeKey, OrganicSlot>>
   attached: Partial<Record<UnitTypeKey, AttachedSlot>>
+  formation?: Formation   // the whole division (org materializes from this)
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const

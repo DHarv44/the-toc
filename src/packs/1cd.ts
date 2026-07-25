@@ -31,4 +31,71 @@ export const PACK_1CD: Pack = {
     INF: { bn: '1-506 IN', from: '101 ABN' },                 // light rifle attachment
     AT: { bn: '1-506 IN', from: '101 ABN', style: 'hhc', hhcName: 'AT SEC' },
   },
+  // The whole division, brigades down (packs/org.ts expands each battalion to
+  // companies/platoons/people). The campaign TF is the 1ABCT slice the player
+  // commands: ALL of 2-8 CAV plus one company/battery from each enabler.
+  formation: {
+    playerBn: '2-8 CAV',
+    bdes: [
+      {
+        desig: '1ABCT', nick: 'IRONHORSE',
+        bns: [
+          { desig: '2-8 CAV', kind: 'CAB' },                  // playerBn → fully allocated
+          { desig: '1-12 CAV', kind: 'ARMOR', tfCos: ['A CO'] },
+          { desig: '1-7 CAV', kind: 'RECON', tfCos: ['A TRP'] },
+          { desig: '1-82 FA', kind: 'FA', tfCos: ['A BTRY'] },
+          { desig: '91 BEB', kind: 'BEB', tfCos: ['A CO'] },
+          { desig: '115 BSB', kind: 'BSB', tfCos: ['A CO'] },
+        ],
+      },
+      {
+        desig: '2ABCT', nick: 'BLACK JACK',
+        bns: [
+          { desig: '1-5 CAV', kind: 'CAB' },
+          { desig: '1-8 CAV', kind: 'ARMOR' },
+          { desig: '4-9 CAV', kind: 'RECON' },
+          { desig: '3-16 FA', kind: 'FA' },
+          { desig: '8 BEB', kind: 'BEB' },
+          { desig: '15 BSB', kind: 'BSB' },
+        ],
+      },
+      {
+        desig: '3ABCT', nick: 'GREYWOLF',
+        bns: [
+          { desig: '2-7 CAV', kind: 'CAB' },
+          { desig: '3-8 CAV', kind: 'ARMOR' },
+          { desig: '6-9 CAV', kind: 'RECON' },
+          { desig: '2-82 FA', kind: 'FA' },
+          { desig: '3 BEB', kind: 'BEB' },
+          { desig: '215 BSB', kind: 'BSB' },
+        ],
+      },
+      {
+        desig: '1ACB', nick: 'AIR CAV',
+        bns: [
+          { desig: '1-227 ARB', kind: 'ARB' },                // AH-64E attack
+          { desig: '7-17 CAV', kind: 'ARB' },                 // heavy attack recon
+          { desig: '2-227 AHB', kind: 'AHB' },                // UH-60M assault
+          { desig: '3-227 GSAB', kind: 'GSAB' },              // CH-47F / MEDEVAC
+          { desig: '615 ASB', kind: 'ASB' },
+        ],
+      },
+      {
+        desig: 'DIVARTY', nick: 'RED TEAM',
+        bns: [{ desig: 'HHB DIVARTY', kind: 'HHB-DIVARTY' }],
+      },
+      {
+        desig: '1CD SUST', nick: 'WAGONMASTER',
+        bns: [
+          { desig: 'STB', kind: 'STB' },
+          { desig: '553 CSSB', kind: 'CSSB' },
+          { desig: '13 SIG BN', kind: 'SIG', tfCos: ['A CO'] }, // division signal (TF slice)
+        ],
+      },
+      {
+        desig: 'HHBN', nick: 'MAVERICK',
+        bns: [{ desig: 'HHBN 1CD', kind: 'HHBN' }],
+      },
+    ],
+  },
 }

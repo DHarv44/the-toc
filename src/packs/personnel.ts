@@ -70,11 +70,24 @@ function crewBillet(vehType: string, seat: number, h: number): { pos: string; ra
   return { pos: 'Driver', rank: 'SPC' }
 }
 
-// Assign names/ranks/positions/callsigns to a freshly built roster, in place.
-export function assignPersonnel(u: Unit): void {
-  const first = u.side === 'friend' ? US_FIRST : RED_FIRST
-  const last = u.side === 'friend' ? US_LAST : RED_LAST
-  const comp = COMPOSITIONS[u.type]
+// Name a soldier from the seed key (also stamps the stable personnel identity
+// `pid`, which seeds the portrait — so a face survives fielding transfers).
+export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hostile' = 'friend'): void {
+  const first = side === 'friend' ? US_FIRST : RED_FIRST
+  const last = side === 'friend' ? US_LAST : RED_LAST
+  const h = hashStr(`${seedKey}:${s.id}`)
+  s.name = `${pick(first, h)} ${pick(last, hashStr(`${seedKey}:${s.id}:ln`))}`
+  s.pid = `${seedKey}:${s.id}`
+}
+
+// Names + billets for a composition-built roster, seeded by any stable key —
+// units pass their id, division-org slots pass the slot path (so a platoon
+// keeps its exact people whether garrisoned or fielded).
+export function namePersonnel(
+  soldiers: Soldier[], vehicles: Unit['vehicles'], type: Unit['type'],
+  seedKey: string, side: 'friend' | 'hostile',
+): void {
+  const comp = COMPOSITIONS[type]
   const noDismountLeaders = !comp.dismounts.some(d => d.kind === 'LEADER')
 
   // walk the roster in build order (crews per vehicle first, then dismounts —
@@ -85,13 +98,13 @@ export function assignPersonnel(u: Unit): void {
   for (const d of comp.dismounts) kindTotal.set(d.kind, d.n)
 
   const vehCommanders: Soldier[] = []
-  for (const s of u.soldiers) {
-    const h = hashStr(`${u.id}:${s.id}`)
-    s.name = `${pick(first, h)} ${pick(last, hashStr(`${u.id}:${s.id}:ln`))}`
+  for (const s of soldiers) {
+    const h = hashStr(`${seedKey}:${s.id}`)
+    nameSoldier(s, seedKey, side)
     if (s.vehId != null) {
       const seat = perVeh.get(s.vehId) ?? 0
       perVeh.set(s.vehId, seat + 1)
-      const veh = u.vehicles.find(v => v.id === s.vehId)
+      const veh = vehicles.find(v => v.id === s.vehId)
       const b = crewBillet(veh?.type ?? 'HMMWV', seat, h)
       s.pos = b.pos; s.rank = b.rank
       if (seat === 0) vehCommanders.push(s)
@@ -107,13 +120,24 @@ export function assignPersonnel(u: Unit): void {
   // the PL, the last vehicle's commander the PSG — they ride, not walk
   if (noDismountLeaders && vehCommanders.length > 1) {
     const pl = vehCommanders[0]!, psg = vehCommanders[vehCommanders.length - 1]!
-    pl.pos = 'Platoon Leader'; pl.rank = pick(['2LT', '2LT', '1LT'], hashStr(`${u.id}:pl`))
+    pl.pos = 'Platoon Leader'; pl.rank = pick(['2LT', '2LT', '1LT'], hashStr(`${seedKey}:pl`))
     psg.pos = 'Platoon Sergeant'; psg.rank = 'SFC'
   }
+}
 
-  // personal callsigns for the leadership billets ("6" = the boss, "7" = PSG)
+// personal callsigns for the leadership billets ("6" = the boss, "7" = PSG) —
+// assigned at FIELDING (labels don't exist in garrison)
+export function assignCallsigns(u: Unit): void {
   for (const s of u.soldiers) {
     if (s.pos === 'Platoon Leader') s.cs = `${u.label}-6`
     else if (s.pos === 'Platoon Sergeant') s.cs = `${u.label}-7`
   }
+}
+
+// Assign names/ranks/positions/callsigns to a freshly built roster, in place.
+// (Enemy units + the slot-exhausted fallback path; slot-drawn friendlies keep
+// their garrison personnel and only take callsigns.)
+export function assignPersonnel(u: Unit): void {
+  namePersonnel(u.soldiers, u.vehicles, u.type, `${u.id}`, u.side)
+  assignCallsigns(u)
 }

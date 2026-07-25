@@ -47,6 +47,19 @@ const bar = (x: number, color: string): ReactNode =>
 const leaf = (color: string): ReactNode =>
   <ellipse cx={9} cy={8} rx={4.6} ry={5.6} fill={color} stroke={BLACK} strokeWidth="0.6" />
 
+const STAR_D = 'M 9 1 l 2 4.6 5 .4 -3.8 3.2 1.2 4.8 -4.4 -2.6 -4.4 2.6 1.2 -4.8 L 2 6 l 5 -.4 Z'
+const starAt = (cx: number, cy: number, s: number, color = SILVER): ReactNode =>
+  <path transform={`translate(${cx} ${cy}) scale(${s}) translate(-9 -8)`} d={STAR_D}
+    fill={color} stroke={BLACK} strokeWidth={0.5 / s} />
+// warrant officer bar: silver with n black squares
+const warrant = (n: number): ReactNode => (
+  <>
+    {bar(6.7, SILVER)}
+    {Array.from({ length: n }, (_, i) =>
+      <rect key={i} x={7.2} y={3.8 + i * (9 / n)} width={3.6} height={9 / n - 1} fill={BLACK} />)}
+  </>
+)
+
 const US_RANKS: Record<string, ReactNode> = {
   PVT: null,
   PFC: chevrons(1, 1),
@@ -57,12 +70,19 @@ const US_RANKS: Record<string, ReactNode> = {
   SFC: chevrons(3, 2),
   MSG: chevrons(3, 3),
   '1SG': chevrons(3, 3, true),
+  SGM: <>{chevrons(3, 3)}{starAt(9, 8, 0.34, GOLD)}</>,
+  CSM: <>{chevrons(3, 3)}{starAt(9, 8, 0.42, GOLD)}</>,
+  WO1: warrant(1),
+  CW2: warrant(2),
+  CW3: warrant(3),
   '2LT': bar(6.7, GOLD),
   '1LT': bar(6.7, SILVER),
   CPT: <>{bar(3.6, SILVER)}{bar(9.8, SILVER)}</>,
   MAJ: leaf(GOLD),
   LTC: leaf(SILVER),
-  COL: <path d="M 9 1 l 2 4.6 5 .4 -3.8 3.2 1.2 4.8 -4.4 -2.6 -4.4 2.6 1.2 -4.8 L 2 6 l 5 -.4 Z" fill={SILVER} stroke={BLACK} strokeWidth="0.5" />,
+  COL: <path d={STAR_D} fill={SILVER} stroke={BLACK} strokeWidth="0.5" />,
+  BG: starAt(9, 8, 0.95),
+  MG: <>{starAt(5.4, 8, 0.62)}{starAt(12.6, 8, 0.62)}</>,
 }
 
 export function RankIcon({ rank, style = 'us', h = 15 }: { rank?: string; style?: string; h?: number }) {

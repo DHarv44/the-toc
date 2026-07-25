@@ -20,6 +20,8 @@ import {
 import { addStructure, deployUnit } from '../domains/installations/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import type { UnitTypeKey } from '../domains/forces/catalog'
+import { playerPack } from '../packs'
+import { buildDivisionOrg } from '../packs/org'
 
 export function initGame(
   seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
@@ -85,6 +87,9 @@ export function initGame(
   S.counters.nextId = 1
   S.counters.designators.friend = 0; S.counters.designators.hostile = 0
   S.counters.lineage = {}
+  // the player pack's whole division, people and all — built BEFORE any friendly
+  // unit spawns so the starter force draws real garrison slots (rng-free)
+  S.org = buildDivisionOrg(playerPack())
 
   // starting installations: the single command post, plus its airstrip
   addStructure('friend', 'HQ', S.map.fob.x, S.map.fob.y, 'HQ COBALT', true)
@@ -129,6 +134,8 @@ export function initDevGame(seed = 1337): void {
   S.units = []
   S.structures = []              // place a clean corner-to-corner layout ourselves
   S.enemyGroups = []
+  S.org = buildDivisionOrg(playerPack()) // the discarded starter force burned slots — reissue
+
   const W = S.map!.WORLD
   // friendly lower-left, enemy upper-right (screen up = -y)
   const blue = nearestLand(S.map!, W * 0.26, W * 0.74)

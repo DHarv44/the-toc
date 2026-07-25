@@ -443,3 +443,22 @@ voice, no roster — not a replayed VTC call.
   needs AID (0.8/s vs 0.25/s trickle), vehicle revival needs MOTORPOOL
   (healUnit's revive flag). Enemy bases keep the implicit full set. Golden
   unchanged from 84143052 (friendly HQ defaults preserve prior behavior).
+
+**Division org (2026-07-25):** the pack now ships the ENTIRE 1st Cavalry
+Division — `Pack.formation` (brigades → battalions by kind) expands through
+`packs/org.ts::buildDivisionOrg` into `S.org.slots`: **229 slots, ~3,600 named
+soldiers** built at initGame (deterministic slot-path hashes, zero rng — golden
+UNCHANGED at 84143052). Ground brigades (1ABCT/2ABCT/3ABCT with real CAB/
+ARMOR/RECON/FA/BEB/BSB lineages), the AIR CAV (1ACB: AH-64E/UH-60M/CH-47F
+airframes with CW-ranked pilots and crew chiefs), DIVARTY, sustainment and the
+division staff (HHBN — the CG is a real MG record). FIELDING NOW DRAWS A SLOT:
+`newUnit` takes the first free TF-allocated slot of its type — lineage AND
+roster move BY REFERENCE (slot.soldiers IS unit.soldiers; a dead unit's roster
+stays on the slot → COMBAT LOSS). TF allocation = ALL of 2-8 CAV (playerBn;
+campaign puts the player's name on its CMD GRP) + one company/battery per
+1ABCT enabler + both attachments; slot-exhausted overflow falls back to the
+old counter lineage. S1 is now a DIVISION tree — every slot shows FIELDED
+(live unit), GARRISON — <HQ>, COMBAT LOSS, or its rear location; skirmish
+later opens battalion selection from this same data. CAVEAT for Save/Continue:
+unit↔slot rosters are shared references — serialization must re-link (or
+serialize slots as the single source). New insignia: SGM/CSM/WO1/CW2/CW3/BG/MG.

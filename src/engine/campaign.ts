@@ -92,6 +92,8 @@ import { spawnEnemy } from '../domains/forces/factory'
 import { spawnCampaignGroup } from '../domains/opfor/ai'
 import { nearestLand, clampWorld } from '../world/place'
 import { radio, toast } from '../domains/comms/radio'
+import { playerPack } from '../packs'
+import { buildDivisionOrg, setBnCommander } from '../packs/org'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -386,6 +388,10 @@ export function startCampaign(S: GameState): void {
   }
   S.units = []
   S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh
+  // …and neither did its slot draws: reissue the division org, then put the
+  // player's name on the 2-8 CAV command group (the player IS that battalion's CO)
+  S.org = buildDivisionOrg(playerPack())
+  if (S.org) setBnCommander(S.org, playerPack().formation?.playerBn ?? '2-8 CAV', _commanderPending)
   S.enemyGroups = []
   S.nextWave = Infinity        // no economy-driven waves — missions script the OPFOR
   S.enemyResources = 0

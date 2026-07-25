@@ -8,7 +8,8 @@ import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
 import { playerPack, lineageFor } from '../../packs'
-import { assignPersonnel } from '../../packs/personnel'
+import { assignPersonnel, assignCallsigns } from '../../packs/personnel'
+import { drawSlot } from '../../packs/org'
 
 const FRIEND_CALLS = [
   'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA',
@@ -22,10 +23,17 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   const label = side === 'friend'
     ? FRIEND_CALLS[(S.counters.designators.friend - 1) % FRIEND_CALLS.length] + '-' + S.counters.designators.friend
     : 'E' + String(S.counters.designators.hostile).padStart(2, '0')
-  // formal lineage: the nth fielded platoon of a type takes the next slot in
-  // its parent battalion (pack-defined; plain counter, no rng — golden-safe)
+  // Fielding a friendly unit DRAWS a garrisoned slot from the division org:
+  // the unit takes the slot's lineage and its roster (same records — shared
+  // by reference, so the S1 garrison view and the fielded unit never diverge).
+  // Slot-exhausted overflow (dev sandbox spamming) falls back to the old
+  // counter lineage with a fresh provisional roster.
   let lineage: string | undefined, attFrom: string | undefined
-  if (side === 'friend') {
+  const slot = side === 'friend' && S.org ? drawSlot(S.org, typeKey) : null
+  if (slot) {
+    lineage = slot.lin
+    attFrom = slot.from
+  } else if (side === 'friend') {
     const n = S.counters.lineage[typeKey] ?? 0
     S.counters.lineage[typeKey] = n + 1
     const lin = lineageFor(playerPack(), typeKey, n)
@@ -55,7 +63,16 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   }
   if (type.indirect) u.ammo = type.indirect.load // basic load, both sides
   initElements(u)
-  assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
+  if (slot) {
+    // the slot's people ARE the unit's people (shared arrays); they bring their
+    // garrison names/billets and only pick up fielded callsigns here
+    u.soldiers = slot.soldiers
+    u.vehicles = slot.vehicles
+    slot.unitId = u.id
+    assignCallsigns(u)
+  } else {
+    assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
+  }
   if (side === 'friend') S.stats.fielded++ // after-action counter
   return u
 }

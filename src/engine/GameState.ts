@@ -62,6 +62,33 @@ export interface Soldier {
   rank?: string              // "SGT" (pack rank table)
   pos?: string               // billet: "Team Leader", "Gunner", "Platoon Medic"…
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
+  pid?: string               // stable personnel identity (portrait seed) — survives fielding
+}
+
+// --- division organization (Packs P3 groundwork) ----------------------------
+// The player's ENTIRE division, materialized at init: every platoon-equivalent
+// slot down to named privates (and pilots — the air cav ships too). Fielding a
+// unit DRAWS a garrisoned TF slot: the unit takes the slot's lineage and its
+// roster BY REFERENCE (slot.soldiers IS unit.soldiers), so casualties are the
+// same records either way and the slot keeps the roster when a dead unit is
+// spliced from S.units (unitId then dangles → rendered as a combat loss).
+export interface OrgSlot {
+  id: string                 // stable slot path, seeds personnel generation
+  bde: string                // parent brigade designation ('1ABCT', 'ATT'…)
+  bn: string                 // parent battalion designation ('2-8 CAV')
+  co: string                 // company/troop/battery ('A CO', 'HHC')
+  name: string               // slot name inside the company ('1st PLT', 'CMD GRP')
+  lin: string                // full display lineage ('1st PLT, A CO, 2-8 CAV')
+  type?: UnitTypeKey         // fieldable game unit type (staff/aviation slots have none)
+  from?: string              // donor formation for attachments ('2ID')
+  tf: boolean                // allocated to the player's task force (in theater, drawable)
+  unitId: number | null      // live fielded unit, if drawn
+  soldiers: Soldier[]
+  vehicles: UnitVehicle[]
+}
+
+export interface DivOrg {
+  slots: OrgSlot[]
 }
 
 export interface UnitVehicle {
@@ -482,6 +509,7 @@ export interface GameState {
   hill: HillState | null     // King of the Hill objective (null in other modes)
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
+  org: DivOrg | null         // the player pack's full division organization (friend side)
   enemyFiresOkT: number      // next sim time ANY OPFOR fire mission may launch (rolled window)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
@@ -532,6 +560,7 @@ export function createInitialState(): GameState {
     hill: null,
     waves: null,
     campaign: null,
+    org: null,
     enemyFiresOkT: -999,
     nextWave: 60,
     airCooldown: {},
