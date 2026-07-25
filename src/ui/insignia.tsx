@@ -128,30 +128,51 @@ function crestCharge(kind: string, ink: string): ReactNode {
   }
 }
 
+// motto scroll shared by every crest variant
+const mottoScroll = (motto: string, y: number): ReactNode => (
+  <>
+    <rect x="1" y={y} width="38" height="7.4" rx="1.6" fill="#101820" stroke="#c8a83c" strokeWidth="0.8" />
+    <text x="20" y={y + 5.4} textAnchor="middle" fill="#d8c88a"
+      style={{ font: `700 ${motto.length > 16 ? 3.4 : 4.2}px Consolas, monospace`, letterSpacing: 0.2 }}>
+      {motto}
+    </text>
+  </>
+)
+
+// --- real regimental arms ---------------------------------------------------
+// Official coats of arms as art files (public/crests/ — US Army heraldry is
+// public domain; the 8th Cav COA is the Wikimedia Commons vector the user
+// picked). The file is the full achievement (crest, shield, motto scroll), so
+// no procedural scroll is added. Regiments without art fall back to the
+// branch-generic shield.
+const CREST_ART: Record<string, { src: string; aspect: number }> = {
+  '8 CAV': { src: '/crests/8cav.svg', aspect: 744 / 1052 },
+}
+const regimentOf = (bn: string): string => bn.replace(/^\d+-/, '')
+
 export function BnCrest({ bn, kind, motto, h = 46 }: {
   bn: string; kind?: string; motto?: string; h?: number
 }) {
+  const art = CREST_ART[regimentOf(bn)]
+  if (art) {
+    return (
+      <img src={art.src} alt={`${bn} coat of arms`} title={motto ? `“${motto}”` : bn}
+        style={{ height: h, width: h * art.aspect, flex: '0 0 auto', objectFit: 'contain' }} />
+    )
+  }
+  const W = 40, H = 60
   const b = BRANCH[bnBranch(kind)] ?? BRANCH.cav!
   const ink = b.chief === '#20261c' ? '#20261c' : b.chief
-  const W = 40, H = 52
   return (
     <svg width={h * (W / H)} height={h} viewBox={`0 0 ${W} ${H}`} style={{ flex: '0 0 auto' }}
       role="img" aria-label={`${bn} coat of arms`}>
-      {/* shield */}
-      <path d="M 3 4 H 37 V 24 Q 37 36 20 42 Q 3 36 3 24 Z" fill={b.field} stroke="#c8a83c" strokeWidth="1.6" />
-      {/* chief band */}
-      <path d="M 3 4 H 37 V 11 H 3 Z" fill={b.chief} />
-      {crestCharge(b.charge, ink)}
-      {/* motto scroll */}
-      {motto && (
-        <>
-          <rect x="1" y="44" width="38" height="7.4" rx="1.6" fill="#101820" stroke="#c8a83c" strokeWidth="0.8" />
-          <text x="20" y="49.4" textAnchor="middle" fill="#d8c88a"
-            style={{ font: `700 ${motto.length > 16 ? 3.4 : 4.2}px Consolas, monospace`, letterSpacing: 0.2 }}>
-            {motto}
-          </text>
-        </>
-      )}
+      {/* shield (generic branch arms, shifted down to leave crest space) */}
+      <g transform="translate(0 8)">
+        <path d="M 3 4 H 37 V 24 Q 37 36 20 42 Q 3 36 3 24 Z" fill={b.field} stroke="#c8a83c" strokeWidth="1.6" />
+        <path d="M 3 4 H 37 V 11 H 3 Z" fill={b.chief} />
+        {crestCharge(b.charge, ink)}
+      </g>
+      {motto && mottoScroll(motto, 52)}
     </svg>
   )
 }

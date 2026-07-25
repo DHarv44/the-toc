@@ -436,7 +436,6 @@ export default function S1Console() {
             S1 — PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
           </Text>
         </Box>
-        <Box ml="auto"><PatchIcon id={pack.patch} h={34} /></Box>
       </Group>
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
