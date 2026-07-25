@@ -200,25 +200,19 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       done: () => enemySpotted(),
       hint: () => ({ text: '', hidden: true }),
     },
-    // 5) contact — group the rest of the force (select them together). Gated: the
-    //    sim pauses on contact. The box highlight clears once they're all selected.
+    // 5) contact — TASK-ORGANIZE. The mission does NOT hand the player a formed
+    //    battle group: which platoons fight together is the commander's call.
+    //    The step teaches the MECHANIC (multi-select = a battle group) and gates
+    //    on the player grouping ANY two-plus line platoons of their choosing —
+    //    no box drawn around "the right answer".
     {
-      id: 'group-select',
+      id: 'task-organize',
       gate: true,
       done: (_S, ui) => ui.selectedIds.filter(id => {
         const u = S.units.find(x => x.id === id)
         return !!u && u.side === 'friend' && u.type !== 'SCT'
       }).length >= 2,
       hint: () => {
-        // box the remaining (non-recon) platoons so the player sees who to group
-        const rest = S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0)
-        let targetBox: TutorialHint['targetBox']
-        if (rest.length) {
-          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-          for (const u of rest) { x0 = Math.min(x0, u.x); y0 = Math.min(y0, u.y); x1 = Math.max(x1, u.x); y1 = Math.max(y1, u.y) }
-          const pad = 95
-          targetBox = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }
-        }
         // narrate whichever way the contact came: a clean standoff spot, or the
         // garrison springing its ambush and the scouts' BREAK drill kicking in
         const sct = recon()
@@ -227,13 +221,14 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
           ? 'AMBUSH SPRUNG — the hidden garrison opened up on your scouts, and they are breaking contact on their own (their BREAK drill). The enemy is fixed on the map. '
           : 'CONTACT — your scouts spotted the garrison from standoff without being engaged. '
         return {
-          text: lead + 'GROUP YOUR FORCE — your line platoons fight together now.',
-          action: 'DRAG a selection box around your platoons (or SHIFT-CLICK each).',
-          targetBox,
+          text: lead + 'TASK-ORGANIZE — how you fight this is YOUR call. Platoons selected '
+            + 'together move and fight as one BATTLE GROUP (it shows up in the BATTLE '
+            + 'GROUPS rail on the left). Pick the platoons you want on the assault.',
+          action: 'DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons.',
         }
       },
     },
-    // 6) attack — switch the selected group to ATTACK mode, then right-click the enemy.
+    // 6) attack — switch the chosen group to ATTACK mode, then right-click the enemy.
     {
       id: 'attack-enemy',
       gate: true,
@@ -241,7 +236,7 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       hint: (_S, ui) => {
         if (ui.cmdMode !== 'attack') {
           return {
-            text: 'SET ATTACK POSTURE — attack orders send the group in to close with and destroy, instead of just moving.',
+            text: 'SET ATTACK POSTURE — attack orders send your battle group in to close with and destroy, instead of just moving.',
             action: 'CLICK ATTACK in the bottom tray (or press E).',
             targetSel: 'attack-mode',
           }
@@ -250,7 +245,7 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         // knows which unit to right-click
         const e = spottedEnemy()
         return {
-          text: 'ASSAULT — your group will advance on the highlighted enemy and clear the position.',
+          text: 'ASSAULT — your battle group will advance on the highlighted enemy and clear the position.',
           action: 'RIGHT-CLICK the highlighted enemy.',
           targetUnit: e?.id,
         }

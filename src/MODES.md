@@ -546,3 +546,14 @@ engineer scarlet/white, signal orange, aviation ultramarine, sustainment,
 infantry blue), branch charge (sabers/cannon/castle/flash/wings…), motto
 scroll. S1's header is now the PROUD BATTALION HEADER — crest + "2-8 CAV" +
 motto, 1CD patch moved to the right; battalion rows show their mottos.
+
+**Task-organization tutorial (2026-07-25):** the mission no longer hands the
+player a formed battle group. The old step 5 boxed EVERY line platoon and
+ordered them grouped; the reworked step ('task-organize') teaches the MECHANIC
+— platoons selected together fight as one battle group and appear in the
+BATTLE GROUPS rail — and gates on the player grouping any two-plus platoons of
+their own choosing (no highlight around "the right answer"). Step 6 copy now
+says "your battle group". The M2 sustainment steps still direct ENG+LOG to the
+town — that's a mission task, not task organization. (The campaign engine never
+scripted friendly groupIds; the tutorial was the only place a battle group was
+formed FOR the commander.)
