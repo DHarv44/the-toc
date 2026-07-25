@@ -6,7 +6,7 @@
 // not; everything else is marked where it sits (other brigade AOs, DIV MAIN).
 // Attached elements are badged with their donor at every level.
 import { useEffect, useRef, useState } from 'react'
-import { Badge, Box, Button, Group, Text, TextInput } from '@mantine/core'
+import { Badge, Box, Button, Group, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
 import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
@@ -246,11 +246,14 @@ function slotLocation(sl: OrgSlot): string {
   return `${sl.bde} AO`
 }
 
+type S1Tab = 'div' | 'tf' | 'bn'
+
 export default function S1Console() {
   useUI((st) => st.tick)
   const ui = useUI()
   const pack = playerPack()
   const playerBn = pack.formation?.playerBn
+  const [tab, setTab] = useState<S1Tab>('div')
   const [open, setOpen] = useState<Set<string>>(() => new Set(
     ['div', 'bde:1ABCT', playerBn ? `bn:${playerBn}` : 'bn:'],
   ))
@@ -262,6 +265,7 @@ export default function S1Console() {
     if (ui.console !== 's1' || ui.rosterId == null) return
     const sl = S.org?.slots.find(x => x.unitId === ui.rosterId)
     if (sl) {
+      setTab('div') // the jump expands the division tree — land where it's visible
       setOpen(prev => {
         const next = new Set(prev)
         next.add('div'); next.add(`bde:${sl.bde}`); next.add(`bn:${sl.bn}`)
@@ -323,6 +327,50 @@ export default function S1Console() {
     )
   }
 
+  // company rows for a battalion (or a battalion's TF slice) — shared by all tabs
+  const renderCos = (list: OrgSlot[], bn: string, depth: number) => {
+    const cos = [...new Set(list.map(sl => sl.co))]
+    return cos.map(co => {
+      const coSlots = list.filter(sl => sl.co === co)
+      const coKey = `co:${bn}:${co}`
+      const coAgg = aggSum(coSlots.map(sl => slotAggs.get(sl.id)!))
+      return (
+        <div key={co}>
+          <NodeRow depth={depth} open={open.has(coKey)} onToggle={() => toggle(coKey)}
+            label={<Text span fz="sm" fw={600} c="#b8cede">{co}</Text>} a={coAgg} />
+          {open.has(coKey) && coSlots.map(sl => renderSlot(sl, depth + 1))}
+        </div>
+      )
+    })
+  }
+
+  // the TF = fieldable allocated slots PLUS the player battalion's own staff/
+  // support slots (the TOC deploys with its battalion — `tf` only gates fielding)
+  const tfSlots = slots.filter(sl => sl.tf || sl.bn === playerBn)
+  const tfBns = (() => {
+    const seen: string[] = []
+    for (const sl of tfSlots) if (!seen.includes(sl.bn)) seen.push(sl.bn)
+    if (playerBn && seen.includes(playerBn)) { seen.splice(seen.indexOf(playerBn), 1); seen.unshift(playerBn) }
+    return seen
+  })()
+
+  // switching tabs pre-expands that tab's tree to its useful depth (keys are
+  // SHARED across tabs — it's the same org, expansion state rides with it)
+  const switchTab = (t: S1Tab) => {
+    setTab(t)
+    setOpen(prev => {
+      const next = new Set(prev)
+      if (t === 'tf') {
+        next.add('tfroot')
+        for (const sl of tfSlots) { next.add(`bn:${sl.bn}`); next.add(`co:${sl.bn}:${sl.co}`) }
+      } else if (t === 'bn' && playerBn) {
+        next.add('bnroot')
+        for (const sl of slots) if (sl.bn === playerBn) next.add(`co:${sl.bn}:${sl.co}`)
+      }
+      return next
+    })
+  }
+
   return (
     <Box pos="absolute" inset={0} p="lg"
       style={{
@@ -333,9 +381,25 @@ export default function S1Console() {
         <PatchIcon id={pack.patch} h={38} />
         <Text fz="xl" fw={700} c="#dceeff" style={{ letterSpacing: 3 }}>S1 — PERSONNEL</Text>
         <Text fz="sm" c="dark.3" style={{ letterSpacing: 1.5 }}>
-          {pack.name.toUpperCase()} · DIVISION PERSTAT · AS OF {dtg}
+          {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
         </Text>
         <Button size="sm" variant="default" ml="auto" onClick={() => ui.setConsole(null)}>← MAP</Button>
+      </Group>
+
+      {/* view tabs: the whole division / the task force slice / the player's battalion */}
+      <Group gap={6} pt={12}>
+        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION']] as [S1Tab, string][]).map(([t, label]) => (
+          <UnstyledButton key={t} onClick={() => switchTab(t)} px={16} py={6}
+            style={{
+              border: `1px solid ${tab === t ? '#3d5a75' : '#22303d'}`,
+              background: tab === t ? '#101c28' : 'transparent',
+              borderRadius: '3px 3px 0 0',
+            }}>
+            <Text span fz="sm" fw={700} c={tab === t ? '#7ec8ff' : '#54708a'} style={{ letterSpacing: 1.5 }}>
+              {label}
+            </Text>
+          </UnstyledButton>
+        ))}
       </Group>
 
       {/* column headers */}
@@ -354,14 +418,14 @@ export default function S1Console() {
         <Text fz="sm" c="dark.3" p="md">NO DIVISION ORGANIZATION — PACK HAS NO FORMATION DATA.</Text>
       )}
 
-      {org && (
+      {tab === 'div' && org && (
         <NodeRow depth={0} open={open.has('div')} onToggle={() => toggle('div')}
           label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{pack.name.toUpperCase()}</Text>}
           sub={cmdr && playerBn ? `YOU COMMAND ${playerBn} · LTC ${cmdr}` : undefined}
           a={divAgg} />
       )}
 
-      {org && open.has('div') && bdeOrder.map(({ desig, nick }) => {
+      {tab === 'div' && org && open.has('div') && bdeOrder.map(({ desig, nick }) => {
         const bdeSlots = slots.filter(sl => sl.bde === desig)
         if (!bdeSlots.length) return null
         const bdeKey = `bde:${desig}`
@@ -379,31 +443,64 @@ export default function S1Console() {
               const bnKey = `bn:${bn}`
               const bnAgg = aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))
               const att = bnSlots[0]!.from ?? null
-              const cos = [...new Set(bnSlots.map(sl => sl.co))]
               const mine = bn === playerBn
               return (
                 <div key={bn}>
                   <NodeRow depth={2} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
                     label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
                     att={att} sub={mine ? 'YOUR BATTALION' : att ? undefined : 'ORGANIC'} a={bnAgg} />
-                  {open.has(bnKey) && cos.map(co => {
-                    const coSlots = bnSlots.filter(sl => sl.co === co)
-                    const coKey = `co:${bn}:${co}`
-                    const coAgg = aggSum(coSlots.map(sl => slotAggs.get(sl.id)!))
-                    return (
-                      <div key={co}>
-                        <NodeRow depth={3} open={open.has(coKey)} onToggle={() => toggle(coKey)}
-                          label={<Text span fz="sm" fw={600} c="#b8cede">{co}</Text>} a={coAgg} />
-                        {open.has(coKey) && coSlots.map(sl => renderSlot(sl, 4))}
-                      </div>
-                    )
-                  })}
+                  {open.has(bnKey) && renderCos(bnSlots, bn, 3)}
                 </div>
               )
             })}
           </div>
         )
       })}
+
+      {/* TASK FORCE: how the TF is laid out — the allocated slices, player bn first */}
+      {tab === 'tf' && org && (
+        <>
+          <NodeRow depth={0} open={open.has('tfroot')} onToggle={() => toggle('tfroot')}
+            label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>TF COBALT</Text>}
+            sub={playerBn ? `TASK-ORGANIZED ON ${playerBn} · 1CD + ATTACHMENTS` : undefined}
+            leader={cmdr ? `LTC ${cmdr} · COBALT 6` : undefined}
+            a={aggSum(tfSlots.map(sl => slotAggs.get(sl.id)!))} />
+          {open.has('tfroot') && tfBns.map(bn => {
+            const bnSlots = tfSlots.filter(sl => sl.bn === bn)
+            const bnKey = `bn:${bn}`
+            const att = bnSlots[0]!.from ?? null
+            const mine = bn === playerBn
+            return (
+              <div key={bn}>
+                <NodeRow depth={1} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
+                  label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
+                  att={att}
+                  sub={mine ? 'YOUR BATTALION — FULL ALLOCATION'
+                    : `${bnSlots.length} ELEMENT${bnSlots.length === 1 ? '' : 'S'} ATTACHED TO TF`}
+                  a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
+                {open.has(bnKey) && renderCos(bnSlots, bn, 2)}
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* the player's battalion, complete — the whole 2-8 roster */}
+      {tab === 'bn' && org && playerBn && (() => {
+        const bnSlots = slots.filter(sl => sl.bn === playerBn)
+        const cdrS = bnSlots.find(sl => sl.name === 'CMD GRP')
+          ?.soldiers.find(s => s.pos === 'Battalion Commander')
+        return (
+          <>
+            <NodeRow depth={0} open={open.has('bnroot')} onToggle={() => toggle('bnroot')}
+              label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{playerBn}</Text>}
+              sub="YOUR BATTALION"
+              leader={cdrS ? `${cdrS.rank} ${cdrS.name}` : undefined}
+              a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
+            {open.has('bnroot') && renderCos(bnSlots, playerBn, 1)}
+          </>
+        )
+      })()}
 
       <Text fz="xs" c="dark.3" mt="md" pt={8} style={{ borderTop: '1px solid #17222c', letterSpacing: 1 }}>
         REPLACEMENT PIPELINE — NO FLOW ESTABLISHED (REAR DETACHMENT NOT YET IN THEATER)
