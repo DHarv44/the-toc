@@ -1,6 +1,27 @@
 # HANDOFF — 2026-07-25 (compact anchor; Fable 5 → Opus)
 
-## ⚓ COMPACT ANCHOR — state as of commit `69e56fa` (all pushed, tree clean)
+## ⚓ COMPACT ANCHOR — state as of commit `f02fffa` (all pushed, tree clean)
+
+**LATEST BATCH (past 69e56fa) — garrison states + force UX, all user-designed:**
+- **Garrison is a place + an assignment** (`adc8ed1`): OrgSlot.garrisonAt
+  (home base, CP default, survives deployment); RTB tray button (to HOME);
+  GARRISON → map mode (click a base = reassign + stand down there — FOBs gain
+  garrisons this way); arrival de-fields into the slot (installations/update).
+  fieldSlot stages from the element's home. map/view.ts centerView/zoomFor
+  utility (one camera mover); tutorial auto-centers+zooms on map cues.
+- **Rails split properly** (`f02fffa`): ui/CommandRail.tsx (bases: facilities/
+  ISR/DIVISION requests/QRF) + ui/ForcesRail.tsx (force: battle groups w/ ADD
+  UNIT, independents, ＋ CALL UP picker — garrison HIDDEN until opened; in-rail
+  picker with base chips + unit-type icon tabs; width 270). CommandPanel.tsx
+  deleted.
+- **QRF = DEDICATED duty on a GARRISONED slot** (OrgSlot.qrf, multiple
+  allowed): launches ITSELF (fieldSlot) on base attack, returns to garrison
+  keeping the duty; manual deploy releases it after an in-rail amber warning
+  (session DON'T WARN AGAIN, ui.qrfWarnOff). qrf.ts fully reworked.
+- **Unit cooldowns REMOVED** (roster is the limiter; force cap stays; C-130/
+  airframe/asset turnarounds untouched).
+- Gates held every step: golden 3077619369 · campaign-check 37/37 · live
+  browser walks. PLAYTEST.md has the eyes-only queue for all of it.
 
 **The user is NOT named Dave** — never address them by any name (a wrong
 inference was scrubbed from all docs 2026-07-25; memory `user-name-never-infer`).
