@@ -17,6 +17,7 @@ import { recoveryUpdate } from '../domains/forces/recovery'
 import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
 import { interceptUpdate } from '../domains/installations/intercept'
+import { qrfUpdate } from '../domains/defense/qrf'
 import { directFireUpdate, ballisticsUpdate } from '../domains/fires/update'
 import { airUpdate } from '../domains/air/update'
 import { updateContacts } from '../domains/intel/sensing'
@@ -45,6 +46,7 @@ export function tick(dt: number): void {
   movementUpdate(dt)      // columns, movement, convoy, bridging, dig progress
   directFireUpdate(dt)    // direct-fire combat + the drills it triggers
   interceptUpdate(dt)     // point defense engages inbound rounds (pre-impact)
+  qrfUpdate(dt)           // base QRFs launch on attack, stand down when quiet
   ballisticsUpdate(dt)    // shells, gunship rounds, impact/smoke expiry
   drillsUpdate(dt)        // pursuit, break-contact recovery, mission resumption
   casualtyReports()

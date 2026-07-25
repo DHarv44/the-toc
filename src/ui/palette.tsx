@@ -116,6 +116,7 @@ export interface PaletteItem {
   fieldDrone?: boolean   // organic UAS: one-click launch over the carrying unit
   installFac?: boolean   // FOB facility build-out: one-click install at the site
   reqAsset?: boolean     // division asset: one-click REQUEST up the chain (key = asset kind)
+  qrfToggle?: boolean    // QRF assignment toggle (key = the garrisoned unit's id)
   label: string
   tag?: string | null
   cost?: number | string | null
@@ -280,10 +281,27 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
           disabled: !!owned || hqOrganic || k === 'CRAM',
         }
       })
+      // QRF (task #30): garrisoned units toggle onto the base's reaction
+      // force — launches ITSELF when the base takes IDF or direct attack
+      const qrfItems: PaletteItem[] = S.units
+        .filter(u => u.side === 'friend' && u.strength > 0 && !u.respFrom
+          && Math.hypot(u.x - st.x, u.y - st.y) <= 450)
+        .map(u => {
+          const t = UNIT_TYPES[u.type]
+          return {
+            mode: 'qrf:' + u.id, key: String(u.id), qrfToggle: true,
+            label: `${u.label} · ${t?.abbr ?? u.type}`,
+            tag: u.qrfHome === st.id ? (u.qrfOutT != null ? 'QRF — RESPONDING' : 'QRF — STANDING BY') : 'ASSIGN TO QRF',
+            cost: null, icon: t ? <PaletteIcon unit={t} /> : undefined,
+            note: u.qrfHome === st.id ? '✓ QRF' : null,
+          }
+        })
       return {
         title: `${st.label} — ${STRUCTURES[st.kind].name.toUpperCase()}`,
         sourceId: st.id, purse: st.kind === 'FOB' ? Math.floor(st.stock || 0) : null,
-        sections: [...groundSections(), aerostat, { header: 'FACILITIES', items: facItems }],
+        sections: [...groundSections(), aerostat,
+          { header: 'FACILITIES', items: facItems },
+          ...(qrfItems.length ? [{ header: 'QUICK REACTION FORCE', items: qrfItems }] : [])],
       }
     }
     return null // OP fields nothing

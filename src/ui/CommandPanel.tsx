@@ -7,6 +7,7 @@ import { S } from '../engine/state'
 import { fieldUnit, installFacility } from '../domains/installations/orders'
 import { fieldAerostat, fieldUnitDrone } from '../domains/air/orders'
 import { requestAsset } from '../domains/assets/service'
+import { toggleQrf } from '../domains/defense/qrf'
 import type { DroneTypeKey } from '../domains/air/catalog'
 import type { FacilityKey } from '../domains/installations/catalog'
 import { forceCount, forceCap } from '../domains/economy/economy'
@@ -159,8 +160,9 @@ function DeploySection() {
             // ground units, the aerostat, organic UAS and facility build-outs all
             // act immediately from the selected site/unit — no deploy mode, no
             // map click. Airfield UAS still place an orbit point on the map.
-            const oneClick = (it.field || it.fieldAero || it.fieldDrone || it.installFac || it.reqAsset) && ctx.sourceId != null
+            const oneClick = (it.field || it.fieldAero || it.fieldDrone || it.installFac || it.reqAsset || it.qrfToggle) && ctx.sourceId != null
             const fire = () => {
+              if (it.qrfToggle) return void toggleQrf(Number(it.key))
               if (it.reqAsset) return void requestAsset(it.key!, ctx.sourceId)
               if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
               if (it.fieldDrone) {

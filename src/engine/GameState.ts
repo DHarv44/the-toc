@@ -270,6 +270,9 @@ export interface Unit {
   // transiting our AO — not task-organized, no org slot, no force-cap seat,
   // no fielded stat; helping it is optional (favor), not a duty
   respFrom?: string
+  // QRF (task #30): assigned as the Quick Reaction Force of this base
+  qrfHome?: number           // structure id the unit stands QRF for
+  qrfOutT?: number           // responding since (unset = standing by in garrison)
 }
 
 // --- installations --------------------------------------------------------
@@ -299,6 +302,7 @@ export interface Structure {
   facilities?: string[]
   intBudget?: number         // point-defense engagement budget (intercept spec rof)
   lastIntT?: number          // last intercept engagement (radio throttle)
+  qrfT?: number              // last QRF launch re-evaluation (throttle)
 }
 
 // --- air ------------------------------------------------------------------
