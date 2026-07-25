@@ -8,7 +8,7 @@
   },
   "objectives": [
     {
-      "id": "fob", "label": "ESTABLISH FOB KEATON", "kind": "build", "structKind": "FOB",
+      "id": "fob", "label": "BUILD FOB KEATON", "kind": "build", "structKind": "FOB",
       "zone": { "place": "strongpoint", "r": 520 }
     },
     { "id": "route", "label": "OPEN THE SUPPLY LINE", "kind": "deliver", "amount": 200 }

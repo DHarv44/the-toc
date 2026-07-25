@@ -21,6 +21,12 @@
   get side callouts (right), ring hugs the unit rows; auto-center+zoom via
   map/view.ts centerView.
 
+- **Objective stream reads as a phased plan** (last Fable change): SCOUT OBJ
+  KEATON (new `recon-area` engine verb — live contact in zone, or zone empty)
+  → CLEAR → HOLD OBJ KEATON → BUILD FOB KEATON → OPEN THE SUPPLY LINE — all
+  labels/order in the pack mission JSON; campaign-check updated (5-obj
+  stream, still 37/37; golden unchanged).
+
 **OPUS PRIORITY QUEUE (user-ordered):**
 1. **Bottom menu (selection tray) UI rework** — see ROADMAP "Bottom menu
    (selection tray) UI rework": grouping, visual language, room to grow.

@@ -67,7 +67,7 @@ export function campaignAllows(kind: 'field' | 'support' | 'drone'): boolean {
 // Objective specs — the six-verb vocabulary. M1+M2 use four; the rest land with
 // later missions. Params are flat and plain so the whole spec serializes.
 // ---------------------------------------------------------------------------
-export type ObjKind = 'clear-area' | 'defeat-group' | 'build' | 'deliver'
+export type ObjKind = 'recon-area' | 'clear-area' | 'defeat-group' | 'build' | 'deliver'
 
 export interface ObjectiveSpec {
   id: string
@@ -154,6 +154,20 @@ function inZone(u: { x: number; y: number }, z: { x: number; y: number; r: numbe
 
 export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState): { progress: number; done: boolean } {
   switch (o.kind) {
+    case 'recon-area': {
+      // eyes on the objective: a LIVE contact inside the zone (your sensors
+      // actually hold the enemy there). Knowledge-honest — assessed/stale
+      // doesn't count. An emptied zone counts as reconned (nothing to find).
+      const z = o.zone
+      if (!z) return { progress: 0, done: false }
+      let anyAlive = false
+      for (const u of S.units) {
+        if (u.side !== 'hostile' || u.strength <= 0 || !inZone(u, z)) continue
+        anyAlive = true
+        if (S.contacts.get(u.id)?.live) return { progress: 1, done: true }
+      }
+      return anyAlive ? { progress: 0, done: false } : { progress: 1, done: true }
+    }
     case 'clear-area': {
       const z = o.zone
       if (!z) return { progress: 0, done: false } // zone is filled at mission setup

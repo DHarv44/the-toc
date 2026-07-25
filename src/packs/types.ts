@@ -168,7 +168,7 @@ export type PlaceRef = string | {
 // CampaignState). Stage-1 query vocabulary: town-nearest.
 export interface AnchorQuery { query: 'town-nearest'; to: string }
 
-export type MissionObjectiveKind = 'clear-area' | 'defeat-group' | 'build' | 'deliver'
+export type MissionObjectiveKind = 'recon-area' | 'clear-area' | 'defeat-group' | 'build' | 'deliver'
 export interface MissionObjective {
   id: string
   label: string
