@@ -46,6 +46,18 @@
 12. **Base names** — 'HQ COBALT', 'COBALT STRIP', 'CP GARRYOWEN',
     'GARRYOWEN STRIP' in scenario/campaign: pack naming pools.
 
+## Ammo natures (user directive 2026-07-25 — top of the list)
+0. **Ammo carries no properties** — `AmmoType` is identity only (key/name/class);
+   the terminal effects live everywhere BUT the ammo: a mortar/howitzer's
+   dmg/blast/flight/scatter on the unit type's `IndirectSpec`, the HE vs ICM vs
+   SMOKE differences hardcoded in `domains/fires` (ShellKind switch), AP on the
+   weapon. Fix: enrich the pack's ammo table so each NATURE is a full spec —
+   `{ dmg, blast, ap, flight/speed, scatter, effect: 'he'|'icm'|'smoke'|…,
+   sound params }` — weapons declare which natures they fire, fire missions pick
+   a nature from stowage, and the engine's gunnery reads the nature's numbers.
+   One tube, many natures (M252 firing HE/ICM/SMOKE/ILLUM = four ammo entries,
+   one weapon). Golden-affecting; do as its own gated step.
+
 ## Platform behavior constants
 13. **Aerostat scan rate** — `air/orders.ts` AEROSTAT_SCAN_RATE is platform
     data → DroneType field.

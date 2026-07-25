@@ -12,66 +12,89 @@ in *Priority* are the actual plan.
 **Status:** ✅ shipped · 🟡 partial · ⬜ not started
 An unmarked heading is not started. ⬜ is used only where something *looks* built but isn't —
 so nobody plans work off a false lead. Statuses were verified against the source, not
-self-reported. Last audited 2026-07-23. **Completed items live in the Shipped Archive at
-the bottom of this file** — the sections above it are the open work.
+self-reported. Last audited **2026-07-25**. **Completed items live in the Shipped Archive
+at the bottom of this file** — the sections above it are the open work. When a section
+here contradicts a dated block in `src/MODES.md`, MODES.md wins (it's written at ship
+time; this file is periodically re-audited).
 
 ---
 
 ## Status at a Glance
 
-**✅ Shipped (~45)** — full compact records in the **Shipped Archive** at the bottom.
-Recent headliners (all 2026-07-23): real-DEM theaters (M1) · cartography glow-up (M2) ·
-vector road hierarchy with bridges (M2.5) · hamlets + named terrain (M3a) ·
-terrain-anchored radio (M3b) · mode-recipe framework + KotH hill guarantee (M4) ·
-feed ground on painted textures + AO apron · game-mode framework with three playable
-modes and the end-of-match screen · water-discipline movement fixes.
+**Last audited 2026-07-25.** Full shipped detail: dated blocks in `src/MODES.md`;
+personnel/composition model in `src/FORCE-MODEL.md`; asset-request design in
+`src/ASSET-REQUESTS.md`; open engine-content debt in `src/HARDCODE-AUDIT.md`.
 
-**🟡 Partial (13)** — M4 mode recipes *(campaign recipe pending)* · Campaign *(slice v1
-shipped: M1 LODGMENT + M2 LINES OF SUPPLY playable end-to-end; missions 3+ pending design)*
-· Air asset cost & access · Drone team & organic UAS · Drone airframe
-types & FPV · Tactical smoke *(system yes, triggers no)* · SIGINT/EW *(DF only)* ·
-Enemy AI / OPFOR · Enemy economy *(wave ramping open)* · Radio chatter library & message
-factory · Seed-generated maps *(seed not surfaced)* · Installation-gated unlocks *(no
-existence gating)* · Bottom panel / selection tray · Deployment & fielding *(radius
-gating open)*.
+**The 2026-07-24/25 wave (headliners):**
+- **Packs own everything (stage 2)** — engine ships VERBS, packs ship NOUNS. All
+  platform / composition / drone / facility data lives in pack-land (`packs/lib`),
+  installed into empty engine registries at init. OPFOR is its own pack (P4 upgrades it
+  in place). Name pools + explicit roster pins. Pack viewer in the dev sandbox.
+- **Nothing is purchased** — the supply-point economy is dead. Limiters are basic
+  loads, force caps, refit cooldowns, placement rules and division ALLOCATIONS. LOG
+  convoys haul physical materiel to FOB stock. Base Defense pays in division priority
+  (cap growth + unrequested DIVISION MAIN pushes), not points.
+- **Division asset requests** — request up the chain: relevance → availability →
+  approve / deny(reason) / FIFO queue; REAL ambushable delivery convoys + emplacement
+  dwell; orbit authority + ATO sortie windows enforced at launch; facilities are
+  effect SPECS (intercept/repair/aid params incl. synth sound); campaign scarcity with
+  scripted releases. `asset-check` 22/22.
+- **The personnel loop end-to-end** — full 1CD org with named soldiers (P1-P3):
+  roster-derived strength, wounds/evac/KIA dials, DUSTWUN deferred fates + PERSONNEL
+  RECOVERY FRAGOs, battlefield promotions, replacement pipeline, Purple Hearts;
+  S1 console (battalion heraldry header, PERSTATS tab), staff reports (request + auto,
+  VTC-then-document), command dashboard, role-based range overlays.
+- **Campaign** — continuous objective stream on the authored Chorwon layout; open
+  fielding from H-hour; the airstrip is H-hour infrastructure (never player-built);
+  missions no longer pre-form battle groups (task organization is the commander's).
 
-**⬜ Everything else is not started.** Two items are commonly mistaken for started —
-they are not: **Individual unit formations** (the old `formationOffset` dead code was
-removed in the TS migration — nothing exists) and **Symmetric fog & counter-recon**
-(`updateContacts` is one-directional; the AI reads ground truth — there is no enemy
-contact model).
+**Earlier waves** (2026-07-23): real-DEM theaters, cartography, road hierarchy +
+bridges, hamlets/named terrain, mode recipes, OPFOR operational commander
+(main/supporting effort · reserve · posture), unit SOPs (bound-to-cover, break
+fatigue), fire-tempo rework. See the Shipped Archive.
+
+**Known ⬜ traps** (look built, aren't): **Individual unit formations** (dead code
+removed in the TS migration) and **Symmetric fog & counter-recon** (`updateContacts`
+is one-directional; the OPFOR reads ground truth).
 
 ---
 
 ## Priority
 
-### Now
-1. **Quality-of-life pass** ← **CURRENT FOCUS** *(2026-07-23, Dave's call)* — playtest
-   irritations and small fixes. First item (CPU units fording rivers) is fixed; more
-   items land here as they're found.
-2. **Campaign restart** — the map track hit its planned gate (M4); the campaign is next
-   per the original plan: one battalion's war on the battalion-TOC model (objective
-   specs, mission arc, briefings, NPC HHQ, allocation).
-3. **Bottom panel / selection tray** — the last piece of HUD that ignores the Mantine
-   theme and the only one that degrades badly with a large selection.
+### Now — the #21 chain (in flight)
+1. **Asset crews as org slots** *(task #21 step 2)* — C-RAM/aerostat/ALO crews
+   materialized as ATT org slots (named mil + CIV FSR contractors, S1-visible),
+   Defense of Freedom Medal for wounded contractors.
+2. **Base under fire (#14)** — incoming.mp3 alarm, subtle red TOC flash, the
+   INTERCEPT verb reading the facility spec (targets/pk/rof/sound params — never a
+   system name), proximity-scaled booms + 300-500 ms shake, bus events sim→UI.
+3. **Name pools (#27)** — 600+ first / 2000+ last names in the 1CD pack (own lib
+   files); OPFOR proportional. Every generated name re-rolls (accepted).
 
 ### Next — the enablers
-4. **Save / continue game** — highest player-facing value per unit of work; a hard
-   prerequisite for the campaign's long play. Easier now: fully seeded sim, typed plain
-   data built for a JSON round-trip.
-5. **Enemy AI / OPFOR** — battlegroups exist; what's missing is a commander above them,
-   a reserve, counterattacks, and any use of the air/ISR layer.
-6. **Symmetric fog & counter-recon** — the AI cheats today. This is the single change that
-   most raises the ceiling on every other combat system.
-7. **M3c oversized world** *(parked by Dave until wanted)* — real generated terrain
-   beyond the AO for the feeds; BFT crops to the AO.
+4. **Hardcode audit (#28)** — work `src/HARDCODE-AUDIT.md` top-down: billet/rank
+   tables, callsign pools, radio voice culture, force lists, base naming, MED rates,
+   insignia/awards → pack data.
+5. **Attack aviation (#26)** — AH-64 attack weapons teams from the pack's own 1ACB +
+   A-10/AC-130 CAS windows; commander-level control only (designate an EA, desired
+   effects/restrictions, CLEARED HOT / ABORT — crew AI services targets; the manual
+   FIRE button dies everywhere, SPECTRE migrates).
+6. **P4: OPFOR faction pack (#10)** — upgrade `packs/opfor.ts` from placeholder to
+   the DPRK-flavored fictional faction: its own platforms, org, names, heraldry.
+7. **S4 LOGSTAT + materiel ledger** — CL V rolls up from real stowage, CL VII from
+   org hulls; LOGSTATS tab per the PERSTAT pattern; replaces the last supply-point
+   plumbing.
+8. **Save / continue** — fully seeded sim, plain serializable state. CAVEAT: shared
+   roster references (org slot ↔ fielded unit ↔ DUSTWUN site) must re-link on load;
+   S.assets/convoys serialize clean.
 
 ### Later — depth
-Unit wiki · scenario builder · tutorial map · call for fire · counter-battery · attack
-helicopters · air defence & SEAD · sustainment (ammo/fuel, MEDEVAC, speedballs) ·
-true line-of-sight · smoke triggers · auto break-contact · installations' defences & C-RAM ·
-radio channels/nets · better three.js assets & particles · UAV sensor realism · urban
-depth · remaining game modes (zone capture · spec ops · custom scenarios).
+After Action Reviews · 2525 symbology audit · maps + missions in packs · unit
+net-intel cueing (spot reports orient nearby units) · zone capture · spec ops ·
+scenario builder · call for fire (approve/deny, ammo as the currency) ·
+counter-battery · SEAD/air defense · UAV sensor realism · symmetric fog &
+counter-recon · smoke triggers · true LOS · E&E / LZ evac (DUSTWUN extension) ·
+staff-report competence scaling · unit wiki · urban depth · helipad installation.
 
 ### Someday — architecture
 SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
@@ -264,8 +287,13 @@ OPFOR kept fighting, nothing acknowledged the loss. Shipped since.)
 Defense v1 and the Difficulty Presets are ✅ shipped — see the Shipped Archive. Open
 follow-ups from Base Defense v1 live in the stub below.)*
 
-### Base Defense v1 — Follow-Ups ⬜
-The mode is playable end-to-end (archive entry has the record); deliberate v1 cuts plus
+### Base Defense v1 — Follow-Ups ⬜ *(reward loop REWORKED 2026-07-25)*
+The mode is playable end-to-end (archive entry has the record). The v1 supply-payout
+loop is GONE with the purchase economy: holding now earns **division priority** —
+force cap +2 per wave, refit clocks clear, and DIVISION MAIN pushes unrequested
+support (AT/ARM/MED/ARTY on waves 2/4/6/8) during staging. Planned on top: wave
+milestones flip division ASSET registry entries free (C-RAM after wave 2, CAS windows
+late — hooks ready in modes.ts). Deliberate v1 cuts plus
 the wave-direction rework (added 2026-07-23):
 - **No enemy HQ** — waves shouldn't muster at a hostile base at all (today they launch
   from the OPFOR HQ, which also means killing it insta-wins the mode). The threat is
@@ -290,19 +318,12 @@ the wave-direction rework (added 2026-07-23):
   field; a wave becomes `{comp, axis, scheme}` instead of just a comp list; flanking
   elements are the same battlegroup machinery with a different aim point.
 
-### Earned Income — Tie Supply to Ground Held ⬜
-Upkeep now caps how big a force you can sustain, but the *gross* rate is still a flat
-faucet: a fixed lift every few seconds, identical whether you hold one base or half the map.
-`STRUCTURES` even has an `income` field that is `0` on every entry and read by nothing.
-- **Installations generate supply** — a base rate from the HQ, more per FOB, a little per OP,
-  so expansion is the economic engine and losing a base actually costs you.
-- **Towns/objectives as income** — holding a town contributes, which gives the map's terrain
-  features a strategic value beyond cover.
-- **Makes the tutorial's arc pay off** — "take the town, put a FOB on it, run a convoy" should
-  visibly raise your rate; right now it changes nothing.
-- Design notes: `incomePerMin()` already centralises the gross figure — extend it to sum
-  friendly structures instead of returning a flat lift, and surface the breakdown in the
-  supply tooltip. Pairs with the upkeep model already in place.
+### Earned Income — Tie Supply to Ground Held ☠ *(DEAD 2026-07-25 — no purchase economy)*
+Superseded wholesale: the player supply-point economy was removed ("nothing is
+purchased"). There is no income to earn. The surviving idea — ground held mattering
+economically — returns through the **materiel ledger** (S4): holding ground shortens
+LOC's, protects convoys, and keeps FOB stock (physical materiel) flowing. The OPFOR's
+internal economy remains as hidden AI pacing only.
 
 ### 3. Zone Capture ⬜ *(Hell Let Loose style — NEEDS DESIGN DISCUSSION before build)*
 Contested-line control:
@@ -456,18 +477,18 @@ mode: you build the battle, then fight it.
 
 ## Assets & Systems
 
-### Unit-Requested Artillery (Call for Fire)
+### Unit-Requested Artillery (Call for Fire) *(cost model updated 2026-07-25)*
 Frontline units can request artillery when a friendly artillery unit is in range:
 - A maneuver unit that has a friendly indirect-fire unit within that gun's range can
   **call for fire** on a target.
 - The request surfaces as a **toaster in the bottom-left** with **APPROVE / DENY**.
-- Approving expends supplies from the **nearest logistics node to the firing artillery
-  unit** — the FOB or HQ closest to the gun, whichever it is — not the requesting unit.
-- If that node lacks the supplies for the mission, **APPROVE is disabled** (deny only).
+- ~~Approving expends supplies~~ **No supply costs exist any more** — the currency is
+  the battery's BASIC LOAD (`u.ammo`) and the reload window; a winchester battery
+  can't be approved, and resupply is physical (LOG runs / base stock, later CL V in
+  the materiel ledger).
 - Design notes: reuse the existing `fireMission` path for the actual gunnery; add a
-  pending-request queue that the HUD renders as approve/deny toasts; compute cost against
-  the shell/rounds and debit the nearest friendly FOB/HQ stock to the firing battery;
-  gate the approve control on `nodeStock >= missionCost`.
+  pending-request queue that the HUD renders as approve/deny toasts; gate APPROVE on
+  the battery's rounds remaining, never on points.
 
 ### Counter-Battery  *(worth investigating)*
 Make the fires fight a cat-and-mouse instead of free artillery:
@@ -481,8 +502,15 @@ Make the fires fight a cat-and-mouse instead of free artillery:
   counter-battery asset/radar converts recent acquisitions into a return fire mission;
   ties into the SIGINT/emitter and Enemy AI work.
 
-### Attack Helicopters (AH-64 Apache & AH-1Z Viper)
-Rotary-wing close air support — the same feed/target-designation and per-vic damage
+### Attack Helicopters (AH-64 Apache & AH-1Z Viper) *(command model SETTLED 2026-07-25 — task #26)*
+**Settled with Dave:** the commander NEVER fires. AH-64 attack weapons teams come from
+the pack's own 1ACB (1-227 ARB / 7-17 CAV — org-backed named pilots, requested through
+the division asset pipeline), are given a BATTLE POSITION + ENGAGEMENT AREA, and the
+air-mission-commander AI picks the weapon per target. Player verbs: designate, desired
+effects/restrictions, CLEARED HOT / ABORT. The platform detail below survives as the
+flight/weapons reference; the "player selects and fires" control scheme it describes is
+DEAD (SPECTRE migrates to clearance semantics too). AH-1Z only if a USMC pack ships.
+Rotary-wing close air support — the same feed and per-vic damage
 model as the gunship, but a fundamentally different platform:
 - **Not tied to an orbit.** They can be flown to a position, **hover** to hold a
   battle position, pop up/mask behind terrain, and reposition on command — unlike the
@@ -526,15 +554,14 @@ air layer (UAS, gunship, helos) into a real risk/reward decision instead of free
   air-engagement envelope; base AD is a per-structure air weapon; reuse the shared
   air-platform module (feed, weapons, ammo) for the A-10.
 
-### Air Asset Cost & Access 🟡 *(costs + cheap field drones done; helos / A-10 / fighters absent)*
-Air power is a premium capability, not something you spam:
-- **Air assets are expensive** *(done)* — the AC-130 gunship and the larger fixed-wing UAS
-  carry high supply costs (Shadow 350 / Sentinel 650 / Viper 900 / Aerostat 600 / AC-130 1500),
-  so committing air is a real economic decision. Attack helos / A-10 / fighters still to come.
-- **Small field drones stay cheap and unit-accessible** *(done)* — the hand-launched recon/loiter
-  drones (Raven 75, Switchblade 150) remain deployable by frontline units, no airfield required.
-- Design notes: keep `src:'field'` drones low-cost and airfield-independent; scale costs up
-  for the airfield/helipad assets; pairs with Installation-Gated Unlocks.
+### Air Asset Cost & Access ✅ *(SUPERSEDED + SHIPPED 2026-07-25 as ALLOCATION, not cost)*
+Air power is premium — but the mechanism changed with the death of the purchase
+economy: nothing costs supply. Access is **granted authority** via the division asset
+pipeline (shipped): Shadow/Sentinel/Viper fly on allocated ORBITS, AC-130 on ATO
+sortie WINDOWS (needs the ALO/JTAC on your net), the aerostat where its det is
+emplaced. Field-launched Raven/Switchblade remain organic kit, no authority needed.
+Concurrency caps + turnaround cooldowns still apply on top. Attack helos / A-10 land
+via task #26 on the same authority model.
 
 ### UAV Sensor Realism — Footprint & ID Degradation ⬜ *(added 2026-07-23 — UAVs are OP)*
 UAVs currently spot everything in a big omnidirectional radius — too easy, too far.
@@ -848,7 +875,14 @@ slower, fuzzier, and sometimes the only thing that sees through terrain and fog:
 
 ## Command & Control
 
-### Staff-Section Views (S1–S6) ⬜ *(added 2026-07-23)*
+### Staff-Section Views (S1–S6) 🟡 *(S1 SHIPPED 2026-07-25 — console model, not view-filters)*
+**Shipped:** the S1 console (battalion heraldry header, roster by company with
+casualty/recovery states, S1-crew cards, division chain, PERSTATS tab), staff
+reports (request + post-mission auto → VTC-then-document, unread badges, TopBar
+routing), and the ▤ Command Dashboard. The shipped model is a full CONSOLE view over
+the map column per shop — richer than the original "filter presets" idea below.
+Next shop: **S4** (LOGSTATS + motorpool/OR rates + the materiel ledger), then S2.
+Original sketch (kept for the remaining shops):
 The TOC UI reorganized the way a real battalion staff splits the fight — one COP, with
 switchable staff-section views that filter overlays and panels to one seat's concerns
 (design law 4: you're playing every seat; this makes each seat feel like a seat):
@@ -1031,7 +1065,13 @@ the halt/dismount/break drills. What's still missing is everything above and aro
   objectives/reserves/phasing; give hostile forces the drone + request systems; expose a
   difficulty setting that scales tempo, competence, and asset access.
 
-### Enemy Economy — the OPFOR Buys What It Fields 🟡 *(economy, upkeep cap, difficulty income and a map-size force cap shipped; wave ramping still open)*
+### Enemy Economy — the OPFOR Buys What It Fields 🟡 *(role changed 2026-07-25)*
+**Premise update:** the player no longer has a point economy at all (nothing is
+purchased), so this system is no longer "the AI plays by the player's rules" — it is
+the OPFOR's **internal pacing governor**, invisible to the player, and stays because
+it bounds what the AI can put on the board. Wave ramping remains open. Long-term the
+OPFOR should migrate to the same force-pool/allocation model the player uses (its
+pack's org + caps), retiring the point purse — fold into P4. Original record:
 **The AI plays by the player's rules.** It doesn't today: `spawnBattlegroup` conjures an entire
 template into existence on a timer — free, no supply cost, no upkeep, no cap, no cooldown. That
 is the reason it can put everything on the board at once while the player is counting supply,
@@ -1366,9 +1406,12 @@ Bases shouldn't be passive HP sponges — give FOBs and HQs organic protection:
   visible hostile, resolving against the element model like unit fire; render tower
   icons on the map and models in the drone feed.
 
-### C-RAM at FOBs and HQs
-Counter-Rocket, Artillery and Mortar defence for the bases, so incoming indirect fire isn't a
-guaranteed hit:
+### C-RAM at FOBs and HQs 🟡 *(acquisition + spec SHIPPED 2026-07-25; intercept verb lands with #14)*
+**Shipped:** C-RAM as a division-request asset (never bought, never built out) —
+convoy-delivered, crew-emplaced, effect-spec-driven (`targets/pk/rof/sound` in
+packs/lib/facilities.ts; the engine never knows the name). **Open:** the INTERCEPT
+verb itself — engaging `S.shells` in flight — ships with #14 base-under-fire, reading
+exactly the spec below describes:
 - **Intercepts inbound indirect fire** — a C-RAM at a FOB/HQ engages mortar/artillery/rocket
   rounds inbound to its protected radius, destroying some fraction of the salvo before impact
   (with the characteristic burst of fire in the drone feed and on the map).
@@ -1388,7 +1431,12 @@ A rotary-wing base for the attack helicopters (and future utility/lift helos):
 - Design notes: new `STRUCTURES` entry with `launchesHelos` (parallel to the airfield's
   `launchesDrones`); helo assets spawn from the nearest helipad.
 
-### Installation-Gated Unlocks 🟡 *(context-sensitive palette shipped; nothing is greyed with a "needs airfield/helipad" hint — the only existence check is a toast at click time)*
+### Installation-Gated Unlocks 🟡 *(superseded upward 2026-07-25: AUTHORITY gating shipped)*
+The 2026-07-25 asset system gates harder than this section imagined: airfield UAS rows
+are now REQUEST rows until division grants an orbit/window (with live pipeline status
+on the row), and the aerostat is tied to its emplaced det. What remains from the
+original idea is only the mundane existence hint (greyed "needs airfield") for
+structures themselves. Original sketch:
 The deploy palette is now **context-sensitive**: it only appears when you select a fielding
 source and lists exactly what that source can field — click an **airfield** for the fixed-wing
 UAS + AC-130, an **HQ/FOB** for ground units + the aerostat, an **engineer** for installations,
@@ -1525,6 +1573,61 @@ project already has a civilian model to draw on when we pick this up.
 
 ---
 
+## Recent Additions (2026-07-24/25)
+
+### 2525 Symbology audit ⬜
+Sweep every MIL-STD-2525 symbol drawn on the map (units, structures, contacts,
+drones, installations) for accuracy: correct frame shapes per affiliation, correct
+function glyphs (branch modifiers, echelon marks, mobility indicators), HQ staff
+offsets, and the new org echelons (DIV MAIN, BDE) — as close to the standard as the
+canvas renderer allows.
+
+### After Action Reviews ⬜
+AAR screen when a campaign objective/operation completes: everything we can show —
+friendly casualties by name (KIA/WIA/RTD/evac/MIA), enemy casualties and vehicles
+destroyed, vehicles lost vs repaired, munitions expended, timeline of key events
+(contacts, FRAGOs, objectives), awards earned (Purple Hearts now, valor awards
+later). The P2.5 roster model already records most of this — the AAR is largely a
+presentation layer.
+
+### E&E evac / LZ pickup (DUSTWUN extension) ⬜
+When no ground unit can reach a DUSTWUN site, call an air evac instead: the player
+designates an LZ in a relatively safe zone; survivors attempt escape & evasion
+overland to it (movement risk vs enemy positions, time pressure vs the golden-hour
+decay), and a 3-227 GSAB bird (the org's MEDEVAC/lift flights are real airframes
+with crews) makes the pickup. Enemy near the LZ or the route degrades the odds; a
+hot LZ can abort. Ties air cav gameplay, DUSTWUN recovery, and CASEVAC together.
+
+### Staff-report competence ⬜
+PERSTAT (and future LOGSTAT/INTSUM/OPSUM) prep delay should scale with the producing
+OIC's experience/competence — a green S1 takes longer and maybe misses details; a
+seasoned one is fast and sharp. Hook: the org has real officers with XP records;
+report quality/turnaround becomes one of them.
+
+### Maps & missions in packs ⬜ *(added 2026-07-25)*
+A pack should be able to ship its own THEATERS (map layouts / DEM windows / authored
+town chains) and its own MISSIONS/CAMPAIGNS (operation tables, briefs, scripted
+OPFOR) — "1 pack could change the entire game" ends with content, not just platforms.
+Requires engine work: the campaign runner becomes a generic mission interpreter
+(objective specs are already data); CAMPAIGN_LAYOUT/OPERATION move out of
+engine/campaign.ts into pack space; mode setup reads pack-declared scenarios. See
+src/HARDCODE-AUDIT.md items 8-12.
+
+### Ammo natures in packs ⬜ *(added 2026-07-25 — user directive; HARDCODE-AUDIT item 0)*
+Pack ammo entries become full NATURE specs (dmg, blast, AP, flight, scatter, effect
+kind, sound) instead of identity-only; weapons declare which natures they fire (one
+mortar tube — HE/ICM/SMOKE/ILLUM natures), fire missions pick a nature from stowage,
+and the engine's gunnery reads the nature's numbers. Golden-affecting; its own gated
+step at the top of the hardcode-audit work.
+
+### Unit net-intel cueing ⬜ *(proposed 2026-07-25 — awaiting Dave's call)*
+Units act on net knowledge, not just their own eyes: a spot report cues nearby
+friendly units to orient/scan toward the reported grid (faster acquisition when the
+target enters their envelope); garrisons reorient to reported threat axes. Direct
+fire stays see-only — cueing changes attention, never permission.
+
+---
+
 ## Shipped Archive
 
 Everything below is **done and verified**. Compact records — the full design text lives
@@ -1648,7 +1751,8 @@ are called out here *and* stubbed in the active sections above where they matter
 - **TypeScript migration** — full strict-TS domain-driven rewrite of the whole game
   (`src/MIGRATION.md`), golden-run verified, fully seeded sim, sim-edit HMR hot-apply.
   Golden baseline history: `696495692` → `4133144527` → `1929051837` → `60356280` →
-  **`1377301839`** (current).
+  `1377301839` → `289931028` (reserve) → `2291045480` → `2402375581` (economy death) →
+  **`3077619369`** (current — drone launch requires orbit authority).
 
 ### Fixed Bugs
 - **OPFOR units crossing rivers** — see Water discipline above.
@@ -1660,42 +1764,3 @@ are called out here *and* stubbed in the active sections above where they matter
 - **ROUTE IMPASSABLE toast spam** — toast gated to player-issued orders; hostile
   pathfinding failures are silent.
 
-## Symbology audit
-- Sweep every MIL-STD-2525 symbol drawn on the map (units, structures, contacts,
-  drones, installations) for accuracy: correct frame shapes per affiliation,
-  correct function glyphs (branch modifiers, echelon marks, mobility indicators),
-  HQ staff offsets, and the new org echelons (DIV MAIN, BDE) — as close to the
-  standard as the canvas renderer allows.
-
-## After Action Reviews
-- AAR screen when a campaign objective/operation completes: everything we can
-  show — friendly casualties by name (KIA/WIA/RTD/evac/MIA), enemy casualties
-  and vehicles destroyed, vehicles lost vs repaired, munitions expended,
-  supplies consumed, timeline of key events (contacts, FRAGOs, objectives),
-  awards earned (Purple Hearts now, valor awards later). The P2.5 roster model
-  already records most of this — the AAR is largely a presentation layer.
-
-## E&E evac / LZ pickup (DUSTWUN extension)
-- When no ground unit can reach a DUSTWUN site, call an air evac instead: the
-  player designates an LZ in a relatively safe zone; survivors attempt escape &
-  evasion overland to it (movement risk vs enemy positions, time pressure vs
-  the golden-hour decay), and a 3-227 GSAB bird (the org's MEDEVAC/lift
-  flights are real airframes with crews) makes the pickup. Enemy near the LZ
-  or the route degrades the odds; a hot LZ can abort. Ties air cav gameplay,
-  DUSTWUN recovery, and CASEVAC v3 together.
-
-## Staff-report competence
-- PERSTAT (and future LOGSTAT/INTSUM/OPSUM) prep delay should scale with the
-  producing OIC's experience/competence — a green S1 takes longer and maybe
-  misses details; a seasoned one is fast and sharp. Hook: the org has real
-  officers with XP records; report quality/turnaround becomes one of them.
-
-## Maps & missions in packs (added 2026-07-25)
-A pack should be able to ship its own THEATERS (map layouts / DEM windows /
-authored town chains) and its own MISSIONS/CAMPAIGNS (operation tables,
-briefs, scripted OPFOR) — "1 pack could change the entire game" ends with
-content, not just platforms. Requires engine work: the campaign runner
-becomes a generic mission interpreter (objective specs are already data);
-CAMPAIGN_LAYOUT/OPERATION move out of engine/campaign.ts into pack space;
-mode setup reads pack-declared scenarios. See src/HARDCODE-AUDIT.md items
-8-12.
