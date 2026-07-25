@@ -113,12 +113,13 @@ export function controlField(S: GameState): ControlField | null {
     if (st.side === 'friend') fr.push({ x: st.x, y: st.y, w: W_STRUCT })
     else if (!S.fogEnabled || S.structContacts.has(st.id)) en.push({ x: st.x, y: st.y, w: W_STRUCT })
   }
-  // assessment prior: seed rows either side of the authored phase line (the
-  // floods fight to a midline ≈ frontY, warped by the terrain between them),
-  // plus rear anchors so neither side's deep rear can flip empty
+  // ASYMMETRIC priors, deliberately: the RED side is an assessment (higher
+  // claims everything beyond the phase line for the enemy — seed row past
+  // frontY plus their rear), but the BLUE side is EARNED — the friendly zone
+  // grows only from real presence (units, HQs, FOBs) and the entry edge you
+  // actually own. The blue trace shows what blue has captured, nothing more.
   for (let x = cellM / 2; x < WORLD; x += cellM * 2) {
     en.push({ x, y: c.frontY - 1200, w: W_ASSESS })
-    fr.push({ x, y: c.frontY + 1200, w: W_ASSESS })
     en.push({ x, y: cellM, w: W_REAR })
     fr.push({ x, y: WORLD - cellM, w: W_REAR })
   }

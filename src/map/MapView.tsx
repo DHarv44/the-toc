@@ -4,7 +4,8 @@
 // ctrl = add/toggle). RIGHT = orders (click ground = move, click a hostile =
 // attack, drag = formation line with a live preview, release to lay the
 // formation; shift = append waypoint; right-click a route pip deletes it).
-// Pan with the middle-mouse drag, WASD, or cursor edge-scroll. Right-clicking
+// Pan with the middle-mouse drag or WASD (no edge-scroll — the camera never
+// moves unless the player deliberately moves it). Right-clicking
 // directly ON a friendly unit opens its context menu (per-unit orders); those
 // orders also live on the bottom selection tray, and deploys on the left
 // command panel.
@@ -453,23 +454,9 @@ export default function MapView() {
       if (heldKeys.has('s')) { view.cy += step; moved = true }
       if (heldKeys.has('a')) { view.cx -= step; moved = true }
       if (heldKeys.has('d')) { view.cx += step; moved = true }
-      // edge-scroll: the cursor resting in the map's border band pans the camera
-      // (suppressed mid-drag so it doesn't fight a marquee/formation/pan).
-      // The cursor must actually be INSIDE the canvas: mousemove is a window
-      // listener, so a cursor parked over the rails/top bar (or off the frame)
-      // leaves a stale out-of-bounds position that would otherwise read as
-      // "in the edge band" and pan the map away forever.
-      if (pointerOver && !panDrag && !marquee && !lineDrag) {
-        const EDGE = 22
-        const mx = mouse.x, my = mouse.y
-        const inFrame = mx >= 0 && my >= 0 && mx <= canvas.width && my <= canvas.height
-        if (inFrame) {
-          if (mx < EDGE) { view.cx -= step; moved = true }
-          else if (mx > canvas.width - EDGE) { view.cx += step; moved = true }
-          if (my < EDGE) { view.cy -= step; moved = true }
-          else if (my > canvas.height - EDGE) { view.cy += step; moved = true }
-        }
-      }
+      // (edge-scroll removed 2026-07-25: the camera moves ONLY on deliberate
+      // input — middle-mouse drag or WASD — never because the cursor happened
+      // to rest near the map edge)
       if (moved) clampView()
     }, 40)
     canvas.addEventListener('mousedown', onDown)
@@ -984,6 +971,16 @@ export default function MapView() {
           ctx.lineWidth = 1
           ctx.strokeRect(x - 1, y - 1, sz + 2, sz + 2)
         }
+      }
+
+      // DIVISION MAIN — higher HQ as a place on the map (campaign, inert).
+      // Deep rear, bottom-left: it does nothing, it is simply there.
+      if (S.campaign?.divHq) {
+        const d = S.campaign.divHq
+        drawStructure(ctx, w2sX(d.x), w2sY(d.y), {
+          side: 'friend', kind: 'HQ', label: 'DIV MAIN · 1CD',
+          building: false, progress: 1, hpFrac: 1,
+        })
       }
 
       // structures (friendly always; hostile once spotted or fog off)

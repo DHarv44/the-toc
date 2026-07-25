@@ -36,13 +36,23 @@ export const CAMPAIGN_LAYOUT: MapLayout = {
   // M1 arc — NORTH of the southern river branch, with the MSR bridge 1.35 km
   // short of town (the approach march crosses unobserved). Later bounds run
   // 1.8-2.7 km each up the spine.
+  // spine towns first (order = road-node indices), then the wider world:
+  // VALEMONT is the big city in the enemy's northwest — a later-campaign prize;
+  // FALKE and GARWICK flesh out the west and the northern approaches.
   towns: [
     { gx: 130, gy: 170, name: 'ASHFORD' },
     { gx: 104, gy: 143, name: 'BREVIK' },
     { gx: 130, gy: 104, name: 'CALDER' },
     { gx: 158, gy: 60, name: 'DORAN' },
     { gx: 62, gy: 132, name: 'ELMSTED' },
+    { gx: 52, gy: 44, name: 'VALEMONT', size: 11 },
+    { gx: 38, gy: 92, name: 'FALKE' },
+    { gx: 96, gy: 26, name: 'GARWICK' },
   ],
+  // the MSR is AUTHORED: HQ → ASHFORD → BREVIK → CALDER → DORAN → enemy base.
+  // (Node ids: 0 = fob, 1.. = towns in order, last = enemy base.) Without this
+  // the MST would reroute the trunk through the western towns.
+  msr: [0, 1, 2, 3, 4, 9],
 }
 
 // Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
@@ -339,6 +349,10 @@ export function startCampaign(S: GameState): void {
   S.structures = S.structures.filter(s =>
     (s.side === 'friend' && s.kind === 'HQ') || (s.side === 'hostile' && s.kind === 'HQ'))
   for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
+  // the battalion CP gets a NAME, like every real position does
+  for (const st of S.structures) {
+    if (st.side === 'friend' && st.kind === 'HQ') st.label = 'CP GARRYOWEN'
+  }
   S.units = []
   S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh
   S.enemyGroups = []
@@ -357,6 +371,9 @@ export function startCampaign(S: GameState): void {
     opforObj: null, allow: { field: false, support: false, drone: true },
     frontY: town.y + 500, // provisional; objective activations re-anchor it
     commander: _commanderPending,
+    // DIVISION MAIN sits in the deep rear, bottom-left — higher headquarters
+    // as a place on the map (inert: it does nothing, it is simply THERE)
+    divHq: nearestLand(S.map!, S.map!.WORLD * 0.08, S.map!.WORLD * 0.94),
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false,
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],

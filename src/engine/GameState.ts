@@ -419,6 +419,7 @@ export interface CampaignState {
   allow: { field: boolean; support: boolean; drone: boolean } // palette gates for this mission
   frontY: number             // authored phase line (world y) — COP baseline: enemy-assessed north of it
   commander: string          // the player's name — the task force CO (VTC roster, reports)
+  divHq: Vec2 | null         // the DIVISION MAIN marker in the deep rear (decorative — inert)
   tutorial: boolean          // guided tutorial enabled for this campaign
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties

@@ -1166,6 +1166,17 @@ replacement vehicles for surviving crews, and empty seats where the KIA were.
   of the story: WIA shows the wound and evac state, KIA the date/place of loss.
   The point is weight — losses should read as people, not counters. Rides on the
   Force Composition Model's Soldier objects (src/FORCE-MODEL.md, Phase 4).
+- **Map objectives beyond towns/cities (2026-07-25)** — candidate authored
+  features that each open a mission archetype: AIRFIELD (seize/deny — the
+  runway becomes a friendly UAS base when taken); BRIDGES as named objectives
+  (seize intact before demolition); DAM (flood-threat leverage, seize-intact);
+  POWER PLANT / SUBSTATION (grid leverage, S9 pressure); RAIL YARD (interdict
+  enemy resupply); FUEL/AMMO DEPOT (raid targets); COMM/RELAY TOWER (EW & S6
+  play); SAM/RADAR SITE (enables later air phases); BORDER CROSSING & MOUNTAIN
+  PASS (chokepoint control); FORDS (tactical river options the enemy also
+  knows); REFUGEE CAMP / HOSPITAL (S9 civil-affairs constraints — fires
+  restrictions near protected sites); OP HILLS (named observation high ground).
+  Each is layout-authorable data like towns; missions reference them as zones.
 - **Awards & decorations (2026-07-25)** — medals awarded to troops through the
   campaign, tracked on the soldier (roster/troop card ribbon rack, S1 view).
   Prefer EVENT-DRIVEN over pure RNG — the sim already produces the triggers:

@@ -140,6 +140,17 @@ replacement pipeline (LTC's lever = who pulls back to refit); P4 DPRK-flavored
 fictional enemy pack (campaign) + real-army packs for skirmish; then S-shop
 views (S1 personnel, S4 log) on top.
 
+**Map batch (2026-07-25):** BN HQ is named **CP GARRYOWEN** (campaign rename in
+startCampaign). **DIV MAIN · 1CD** marker in the deep rear bottom-left
+(`CampaignState.divHq`, drawn by MapView — inert, deliberately: higher HQ as a
+place). Layout grew: **VALEMONT** (big city, NW — `size: 11` urban stamp via
+`MapLayout.towns[].size`/`Town.stamp`), FALKE, GARWICK; the MSR is now AUTHORED
+(`MapLayout.msr` node path promoted to highway — extra towns can no longer
+reroute the trunk off the campaign spine). **Blue trace = CAPTURED ground
+only**: the friendly flood has no assessed prior row — only real units,
+installations and the owned entry edge (red keeps its assessment prior).
+Edge-scroll pan REMOVED: the camera moves only on middle-drag or WASD.
+
 **Packs P2 (2026-07-25):** PERSONNEL. Every soldier gets name/rank/position/
 callsign at creation (`packs/personnel.ts::assignPersonnel`, called from
 newUnit) — DETERMINISTIC (hashStr of unit id + soldier slot, zero rng draws,

@@ -26,12 +26,18 @@ const D8: ReadonlyArray<readonly [number, number]> = [
 // Skirmish passes no layout and remains byte-identical per seed (golden-gated).
 export interface MapLayout {
   window?: { ox: number; oy: number }                       // theater patch offset (theater maps only)
-  towns?: ReadonlyArray<{ gx: number; gy: number; name: string }>
+  // `size` = urban stamp radius in cells (default: procgen's 4-7 town). A CITY
+  // is just a big stamp (10-12 ≈ a 1 km+ built-up area).
+  towns?: ReadonlyArray<{ gx: number; gy: number; name: string; size?: number }>
   fob?: { gx: number; gy: number }                          // friendly base site
   enemyBase?: { gx: number; gy: number }
   // extra road edges between layout nodes (0 = fob, 1..n = towns in order,
   // n+1 = enemy base) laid on top of the MST; replaces the default town link
   extraEdges?: ReadonlyArray<readonly [number, number]>
+  // the authored MSR: a node path whose legs are promoted to highway (missing
+  // legs are added). Without it the trunk is the MST's fob→enemy-base path,
+  // which extra towns can reroute away from the campaign's spine.
+  msr?: ReadonlyArray<number>
 }
 
 export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: TheaterData, layout?: MapLayout): WorldMap {
@@ -283,7 +289,7 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     // order — order matters, it defines the road-node indices extraEdges uses
     for (const t of layout.towns) {
       const c = snapSite(t)
-      towns.push({ gx: c.gx, gy: c.gy, x: c.gx * CELL, y: c.gy * CELL, name: t.name })
+      towns.push({ gx: c.gx, gy: c.gy, x: c.gx * CELL, y: c.gy * CELL, name: t.name, stamp: t.size })
     }
   } else {
     const cands: Array<{ gx: number; gy: number; s: number }> = []
@@ -313,7 +319,7 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   // is yards and lots, not forest (rng draw order preserved: one draw per
   // dx,dy exactly as before)
   for (const t of towns) {
-    const size = 4 + Math.floor(rng() * 4)
+    const size = t.stamp ?? (4 + Math.floor(rng() * 4))
     for (let dy = -size; dy <= size; dy++) {
       for (let dx = -size; dx <= size; dx++) {
         const r = rng()
@@ -350,9 +356,18 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     }
   } else if (towns.length >= 2) edges.push([1, 2])
 
-  // trunk: the edge chain from node 0 (friendly base) to the enemy base
+  // trunk: the authored MSR when the layout declares one, otherwise the edge
+  // chain the MST happens to run from node 0 (friendly base) to the enemy base
   const trunk = new Set<number>()
-  {
+  if (layout?.msr && layout.msr.length > 1) {
+    for (let i = 0; i < layout.msr.length - 1; i++) {
+      const a = layout.msr[i]!, b = layout.msr[i + 1]!
+      if (a < 0 || b < 0 || a >= nodes.length || b >= nodes.length || a === b) continue
+      let k = edges.findIndex(([x, y]) => (x === a && y === b) || (x === b && y === a))
+      if (k < 0) { edges.push([a, b]); k = edges.length - 1 }
+      trunk.add(k)
+    }
+  } else {
     const adj: number[][] = nodes.map(() => [])
     edges.forEach(([a, b], k) => { adj[a]!.push(k); adj[b]!.push(k) })
     const prevEdge = new Int32Array(nodes.length).fill(-1)

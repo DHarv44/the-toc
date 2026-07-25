@@ -32,6 +32,7 @@ export interface Town extends Vec2 {
   gx: number
   gy: number
   name: string
+  stamp?: number // authored urban stamp radius in cells (cities); absent = procgen roll
 }
 
 // one road as vector geometry: a Chaikin-smoothed world-space polyline with a
