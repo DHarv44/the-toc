@@ -134,6 +134,18 @@ export interface PackAsset {
   crew?: AssetCrewRecipe  // attach-and-live-here assets: real ATT org slots
 }
 
+// Staff sections ("the shops"): the pack DESCRIBES its staff — the UI builds
+// the shop tabs/consoles from this data (a different army's staff has
+// different names, reports and flavor). Keys are IDs (s1..s6), immutable.
+export interface StaffSection {
+  label: string           // tab label: 'S1'
+  name: string            // 'Personnel'
+  full: string            // detailed name: 'S1 — Personnel'
+  report: string          // the report this desk produces: 'PERSTAT'
+  desc: string            // short description (tooltips)
+  detail: string          // fleshed-out description (console sub-header/help)
+}
+
 export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
@@ -142,6 +154,7 @@ export interface Pack {
   catalogs: PackCatalogs  // the platforms this pack's world is made of
   names?: NamePools       // personnel name generation inputs
   people?: PeoplePins     // explicit roster pins (override generation)
+  staff?: Record<string, StaffSection> // the shops (falls back to 1CD's)
   assets?: Record<string, PackAsset> // requestable division/corps/USAF assets
   // pack-declared audio ASSETS (engine synthesizes everything else from spec
   // params): a different faction's base has a different Big Voice

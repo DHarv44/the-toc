@@ -9,7 +9,7 @@
 // a `kind` plus flat params — evaluated by the pure `evalObjective` switch. That
 // keeps campaign state fully serializable for the (deferred) Save/Continue.
 import { S } from './state'
-import type { GameState, CampaignState, Soldier, Structure } from './GameState'
+import type { GameState, CampaignState, Soldier, StaffShop, Structure } from './GameState'
 
 // The campaign is always fought on the SAME ground: one baked real-world theater
 // (Chorwon Valley — the Iron Triangle), Large size, one fixed seed → an identical,
@@ -443,7 +443,7 @@ export function startCampaign(S: GameState): void {
     // as a place on the map (inert: it does nothing, it is simply THERE)
     divHq: nearestLand(S.map!, S.map!.WORLD * 0.08, S.map!.WORLD * 0.94),
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false, dustwunSeen: [],
-    reports: { pending: null, log: [] },
+    reports: { pending: [], log: [] },
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
@@ -490,27 +490,48 @@ export function recallFrago(S: GameState, idx: number): void {
 const dtgOf = (t: number): string =>
   `${String(Math.floor(t / 3600)).padStart(2, '0')}${String(Math.floor(t / 60) % 60).padStart(2, '0')}Z`
 
-// the S1 in charge — CPT McBride (or whoever holds the billet when he doesn't)
-export function s1Officer(S: GameState): Soldier | null {
+// the BILLET that owns each shop (org-structure wiring — engine machinery);
+// everything human-facing (names, report titles, descriptions) is PACK data
+const SHOPS: Record<StaffShop, { pos: string; alt?: string }> = {
+  s1: { pos: 'S1 — Personnel', alt: 'S1 NCOIC' },
+  s2: { pos: 'S2 — Intelligence' },
+  s3: { pos: 'S3 — Operations', alt: 'Operations NCO' },
+  s4: { pos: 'S4 — Logistics' },
+}
+
+const reportName = (shop: StaffShop): string =>
+  playerPack().staff?.[shop]?.report ?? shop.toUpperCase()
+const shopTitle = (shop: StaffShop): string =>
+  (playerPack().staff?.[shop]?.full ?? shop).toUpperCase()
+
+// the officer holding a shop's billet (or its NCOIC when the OIC is down)
+export function shopOfficer(S: GameState, shop: StaffShop): Soldier | null {
   const bn = playerPack().formation?.playerBn
+  const spec = SHOPS[shop]
   for (const sl of S.org?.slots ?? []) {
     if (sl.bn !== bn) continue
-    const s = sl.soldiers.find(x => x.pos === 'S1 — Personnel' && x.status === 'FIT')
-      ?? sl.soldiers.find(x => x.pos === 'S1 NCOIC' && x.status === 'FIT')
+    const s = sl.soldiers.find(x => x.pos === spec.pos && x.status === 'FIT')
+      ?? (spec.alt ? sl.soldiers.find(x => x.pos === spec.alt && x.status === 'FIT') : undefined)
     if (s) return s
   }
   return null
 }
+export const s1Officer = (S: GameState): Soldier | null => shopOfficer(S, 's1')
 
-export function queueReport(S: GameState, auto = false): void {
+const officerCall = (S: GameState, shop: StaffShop): string => {
+  const o = shopOfficer(S, shop)
+  return o ? `${o.rank} ${(o.name ?? '').split(' ').pop()}` : shop.toUpperCase()
+}
+
+export function queueReport(S: GameState, auto = false, shop: StaffShop = 's1'): void {
   const c = S.campaign
-  if (!c || c.reports.pending) return
-  const delay = 20 + (Math.abs(hashStr(`perstat:${S.t.toFixed(1)}`)) % 100) / 10 // 20–30 s
-  c.reports.pending = { shop: 's1', readyT: S.t + delay, auto }
+  if (!c) return
+  if (c.reports.pending.some(p => p.shop === shop)) return // that desk is already drafting
+  const delay = 20 + (Math.abs(hashStr(`${shop}:${S.t.toFixed(1)}`)) % 100) / 10 // 20–30 s
+  c.reports.pending.push({ shop, readyT: S.t + delay, auto })
   if (!auto) {
-    const s1 = s1Officer(S)
-    radio(s1 ? `${s1.rank} ${(s1.name ?? '').split(' ').pop()}` : 'S1', 'request',
-      'ROGER — PERSTAT IN PREP, FIGURES TO FOLLOW', undefined, undefined)
+    radio(officerCall(S, shop), 'request',
+      `ROGER — ${reportName(shop)} IN PREP, FIGURES TO FOLLOW`, undefined, undefined)
   }
 }
 
@@ -553,38 +574,124 @@ function composePerstat(S: GameState): string {
   )
 }
 
-function deliverReports(S: GameState, c: NonNullable<GameState['campaign']>): void {
-  const p = c.reports.pending
-  if (!p || S.t < p.readyT) return
-  c.reports.pending = null
-  const entry = {
-    id: S.counters.nextId++, shop: p.shop, title: `PERSTAT ${dtgOf(S.t)}`,
-    t: S.t, text: composePerstat(S), read: false,
+// The LOGSTAT: materiel ONLY — motorpool, munitions posture, forward stock,
+// and the division asset board. Personnel belong to the S1.
+function composeLogstat(S: GameState): string {
+  let ok = 0, dam = 0, dest = 0
+  const stow: Record<string, number> = {}
+  let idfRounds = 0
+  for (const u of S.units) {
+    if (u.side !== 'friend') continue
+    for (const v of u.vehicles) {
+      if (v.status === 'OK') ok++
+      else if (v.status === 'DAMAGED') dam++
+      else dest++
+    }
+    for (const [k, n] of Object.entries(u.stowage)) stow[k] = (stow[k] ?? 0) + (n ?? 0)
+    idfRounds += u.ammo ?? 0
   }
-  c.reports.log.push(entry)
-  const s1 = s1Officer(S)
-  radio(s1 ? `${s1.rank} ${(s1.name ?? '').split(' ').pop()}` : 'S1', 'arrive',
-    `PERSTAT COMPLETE — ${p.auto ? 'POST-MISSION FIGURES' : 'AS REQUESTED'}, STANDING BY TO BRIEF`,
-    undefined, undefined)
-  toast('S1 PERSTAT READY')
+  const orPct = ok + dam + dest ? Math.round(ok / (ok + dam + dest) * 100) : 100
+  const fobs = S.structures.filter(s => s.side === 'friend' && s.kind === 'FOB')
+  const stock = fobs.reduce((n, s) => n + Math.floor(s.stock || 0), 0)
+  const convoys = S.units.filter(u => u.side === 'friend' && u.convoy).length
+  const clv = Object.entries(stow).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([k, n]) => `${k} ${Math.floor(n)}`).join(', ')
+  const A = S.assets
+  const alloc = A.pool.filter(a => a.holder === 'TF' && a.state === 'allocated').length
+  const moving = A.pool.filter(a => a.state === 'enroute' || a.state === 'setup').length
+  return (
+    `LOGSTAT AS OF ${dtgOf(S.t)}.\n\n`
+    + `1. EQUIPMENT. ${ok} vehicles mission capable, ${dam} in maintenance, ${dest} combat losses — `
+    + `OR rate ${orPct} percent.\n\n`
+    + `2. CLASS V. Fires basic load ${idfRounds} rounds across the tubes. `
+    + `Stowage on hand: ${clv || 'nominal'}.\n\n`
+    + `3. FORWARD STOCK. ${stock} at ${fobs.length} FOB${fobs.length === 1 ? '' : 'S'}; ${convoys} convoy${convoys === 1 ? '' : 's'} running.\n\n`
+    + `4. DIVISION ASSETS. ${alloc} allocated to the task force, ${moving} inbound or emplacing, `
+    + `${A.queue.length} on the waiting list${A.favor > 0 ? `; command favor is working for us` : ''}.\n\n`
+    + `S4 SENDS.`
+  )
 }
 
-// Open a report: first time is the CALL (the S1 on the line, no operation
-// deck), afterwards just the document. Never stomps a live FRAGO window.
+// The INTSUM: the enemy picture as the COP actually knows it.
+function composeIntsum(S: GameState): string {
+  let live = 0, stale = 0, unknown = 0
+  const notable: string[] = []
+  for (const [, ct] of S.contacts) {
+    if (ct.unknown) unknown++
+    else if (ct.live) live++
+    else stale++
+    if (ct.live && notable.length < 6) notable.push(`${ct.type} ${locRef(S.map!, ct.x, ct.y)}`)
+  }
+  const drones = S.drones.filter(d => !d.tether)
+  const aero = S.drones.some(d => d.tether != null)
+  return (
+    `INTSUM AS OF ${dtgOf(S.t)}.\n\n`
+    + `1. ENEMY. ${live} contacts held LIVE, ${stale} stale last-known, ${unknown} assessed but unidentified. `
+    + `${S.stats.enemyDestroyed} enemy elements destroyed to date.\n\n`
+    + `2. CURRENT TRACKS. ${notable.length ? notable.join('; ') + '.' : 'No live tracks this period.'}\n\n`
+    + `3. COLLECTION. ${drones.length} UAS airborne${aero ? ', aerostat coverage over the base network' : ''}. `
+    + 'Assessment confidence follows coverage — what we cannot see, we do not know.\n\n'
+    + `S2 SENDS.`
+  )
+}
+
+// The OPSUM: the fight as it stands — objectives, posture, forces committed.
+function composeOpsum(S: GameState, c: CampaignState): string {
+  const obj = OPERATION.objectives[c.objIdx]
+  const done = c.status.filter(s => s === 'done').length
+  const inContact = S.units.filter(u => u.side === 'friend' && S.t - u.lastCombatT < 60).length
+  const fielded = S.units.filter(u => u.side === 'friend' && !u.respFrom).length
+  const dustwun = S.downed.filter(d => d.side === 'friend' && !d.resolved).length
+  return (
+    `OPSUM AS OF ${dtgOf(S.t)}.\n\n`
+    + `1. OPERATION ${OPERATION.name}. ${done}/${OPERATION.objectives.length} objectives complete. `
+    + `Current: ${obj ? obj.label : 'OPERATION COMPLETE'}.\n\n`
+    + `2. FORCES. ${fielded} elements fielded, ${inContact} in contact this hour.\n\n`
+    + `3. INCIDENTS. ${dustwun ? `${dustwun} personnel recovery site${dustwun === 1 ? '' : 's'} OPEN.` : 'No open recovery tasks.'}\n\n`
+    + `S3 SENDS.`
+  )
+}
+
+const COMPOSERS: Record<StaffShop, (S: GameState, c: CampaignState) => string> = {
+  s1: (S) => composePerstat(S),
+  s2: (S) => composeIntsum(S),
+  s3: (S, c) => composeOpsum(S, c),
+  s4: (S) => composeLogstat(S),
+}
+
+function deliverReports(S: GameState, c: NonNullable<GameState['campaign']>): void {
+  for (let i = c.reports.pending.length - 1; i >= 0; i--) {
+    const p = c.reports.pending[i]!
+    if (S.t < p.readyT) continue
+    c.reports.pending.splice(i, 1)
+    const name = reportName(p.shop)
+    c.reports.log.push({
+      id: S.counters.nextId++, shop: p.shop, title: `${name} ${dtgOf(S.t)}`,
+      t: S.t, text: COMPOSERS[p.shop](S, c), read: false,
+    })
+    radio(officerCall(S, p.shop), 'arrive',
+      `${name} COMPLETE — ${p.auto ? 'POST-MISSION FIGURES' : 'AS REQUESTED'}, STANDING BY TO BRIEF`,
+      undefined, undefined)
+    toast(`${p.shop.toUpperCase()} ${name} READY`)
+  }
+}
+
+// Open a report: first time is the CALL (the shop officer on the line, no
+// operation deck), afterwards just the document. Never stomps a live FRAGO.
 export function openReport(S: GameState, id: number): void {
   const c = S.campaign
   const e = c?.reports.log.find(x => x.id === id)
   if (!c || !e || c.frago) return
-  const s1 = s1Officer(S)
-  const speaker = s1
-    ? { name: `${s1.rank} ${s1.name ?? ''}`.trim(), title: 'S1 — PERSONNEL' }
-    : { name: 'S1', title: 'S1 — PERSONNEL' }
+  const o = shopOfficer(S, e.shop)
+  const speaker = o
+    ? { name: `${o.rank} ${o.name ?? ''}`.trim(), title: shopTitle(e.shop) }
+    : { name: e.shop.toUpperCase(), title: shopTitle(e.shop) }
   c.frago = { title: e.title, text: e.text, speaker, docOnly: true, review: e.read }
   e.read = true
 }
 
-export function unreadReports(S: GameState): number {
-  return S.campaign?.reports.log.filter(e => !e.read).length ?? 0
+export function unreadReports(S: GameState, shop?: StaffShop): number {
+  return S.campaign?.reports.log.filter(e => !e.read && (!shop || e.shop === shop)).length ?? 0
 }
 
 // Acknowledge the opening briefing (UI ACKNOWLEDGE) and resume the sim.
@@ -649,7 +756,8 @@ export function runCampaign(S: GameState, _dt: number): void {
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
   obj.onComplete?.(S)
-  queueReport(S, true) // the shop drafts its post-mission PERSTAT unprompted
+  // the WHOLE staff drafts post-mission figures unprompted — in parallel
+  for (const shop of ['s1', 's2', 's3', 's4'] as const) queueReport(S, true, shop)
   c.objIdx++
 
   if (c.objIdx >= OPERATION.objectives.length) {

@@ -97,8 +97,8 @@ export interface UIState {
   rosterId: number | null   // unit whose personnel roster panel is open (null = closed)
   openRoster: (id: number) => void
   closeRoster: () => void
-  console: 's1' | 'dash' | 'packs' | null // console replacing the map column (null = map)
-  setConsole: (c: 's1' | 'dash' | 'packs' | null) => void
+  console: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null // console replacing the map column (null = map)
+  setConsole: (c: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null) => void
   s1Nav: string | null      // one-shot tab request for the S1 console ('perstats'…)
   openS1: (tab: string) => void
   clearS1Nav: () => void

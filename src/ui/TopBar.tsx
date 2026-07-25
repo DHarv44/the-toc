@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Box, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
 import { devIncomingStrike } from '../devtools/incoming'
+import { playerPack } from '../packs'
 import { setMuted as audioSetMuted } from '../audio/audio'
 import { unreadReports } from '../engine/campaign'
 import { UnreadDot } from './S1Console'
@@ -70,21 +71,26 @@ export default function TopBar() {
         {/* staff shops: each opens its section's console over the map column.
             S2-S4 stand up as their data gets moving parts. */}
         <Button.Group>
-          <Tooltip label="S1 — Personnel (PERSTAT, rosters, replacements)" withArrow>
-            <Button size="sm" variant={ui.console === 's1' ? 'filled' : 'default'}
-              style={{ position: 'relative', overflow: 'visible' }}
-              onClick={() => {
-                // unread traffic routes straight to what the alert is for
-                if (unreadReports(S) > 0) ui.openS1('perstats')
-                else ui.setConsole(ui.console === 's1' ? null : 's1')
-              }}>
-              S1
-              <UnreadDot n={unreadReports(S)} />
-            </Button>
-          </Tooltip>
-          <Tooltip label="S2 — Intelligence (soon)" withArrow><Button size="sm" variant="default" disabled>S2</Button></Tooltip>
-          <Tooltip label="S3 — Operations (soon)" withArrow><Button size="sm" variant="default" disabled>S3</Button></Tooltip>
-          <Tooltip label="S4 — Logistics (soon)" withArrow><Button size="sm" variant="default" disabled>S4</Button></Tooltip>
+          {/* the shop tabs are built from the PACK's staff section data —
+              a different army's staff, different tabs. Only shops with a
+              console today render (s1-s4; s6 stands up with EW). */}
+          {(['s1', 's2', 's3', 's4'] as const).map((k) => {
+            const info = playerPack().staff?.[k]
+            return (
+              <Tooltip key={k} label={`${info?.full ?? k.toUpperCase()} — ${info?.desc ?? ''}`} withArrow>
+                <Button size="sm" variant={ui.console === k ? 'filled' : 'default'}
+                  style={{ position: 'relative', overflow: 'visible' }}
+                  onClick={() => {
+                    // unread S1 traffic routes straight to what the alert is for
+                    if (k === 's1' && unreadReports(S, 's1') > 0) ui.openS1('perstats')
+                    else ui.setConsole(ui.console === k ? null : k)
+                  }}>
+                  {info?.label ?? k.toUpperCase()}
+                  <UnreadDot n={unreadReports(S, k)} />
+                </Button>
+              </Tooltip>
+            )
+          })}
         </Button.Group>
         <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Command dashboard" withArrow>

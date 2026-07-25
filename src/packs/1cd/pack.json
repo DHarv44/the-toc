@@ -8,6 +8,33 @@
   "rankStyle": "us",
   "catalogs": { "extends": "us-platforms" },
   "audio": { "incomingAlarm": "/audio/incoming.mp3" },
+  "staff": {
+    "s1": {
+      "label": "S1", "name": "Personnel", "full": "S1 — Personnel", "report": "PERSTAT",
+      "desc": "Strength, casualties, replacements",
+      "detail": "The S1 shop tracks every soldier in the task force: assigned strength, wounded and killed, the DUSTWUN board, the replacement pipeline from rear detachment, promotions and awards. Its PERSTAT is the commander's honest picture of the people."
+    },
+    "s2": {
+      "label": "S2", "name": "Intelligence", "full": "S2 — Intelligence", "report": "INTSUM",
+      "desc": "Enemy picture, tracks, collection",
+      "detail": "The S2 shop owns the enemy picture as the COP actually knows it: live tracks, stale last-knowns, assessed-but-unidentified contacts, and the collection plan that feeds them. What the sensors cannot see, the S2 will not claim."
+    },
+    "s3": {
+      "label": "S3", "name": "Operations", "full": "S3 — Operations", "report": "OPSUM",
+      "desc": "Objectives, orders, the fight",
+      "detail": "The S3 shop runs the current fight: the operation's objectives, orders received, task organization, unit states and ROE, and open incidents like personnel recovery. The OPSUM is the fight as it stands, no varnish."
+    },
+    "s4": {
+      "label": "S4", "name": "Logistics", "full": "S4 — Logistics", "report": "LOGSTAT",
+      "desc": "Motorpool, munitions, division assets",
+      "detail": "The S4 shop keeps the iron running: vehicle operational-readiness and the motorpool queue, Class V posture across the tubes, forward stock at the FOBs, convoys on the road, and the division asset board — what is allocated, inbound, or on the waiting list."
+    },
+    "s6": {
+      "label": "S6", "name": "Signal", "full": "S6 — Signal", "report": "COMSTAT",
+      "desc": "Net status, retrans, comms coverage",
+      "detail": "The S6 shop owns the network: retrans coverage, net health and (when the systems exist) jamming and electronic protection. Stands up with the EW layer."
+    }
+  },
   "organic": {
     "MECH": { "bn": "2-8 CAV" },
     "ARM": { "bn": "1-12 CAV" },

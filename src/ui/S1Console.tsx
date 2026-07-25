@@ -490,7 +490,7 @@ export default function S1Console() {
             <Text span fz="sm" fw={700} c={tab === t ? '#7ec8ff' : '#54708a'} style={{ letterSpacing: 1.5 }}>
               {label}
             </Text>
-            {t === 'perstats' && <UnreadDot n={unreadReports(S)} />}
+            {t === 'perstats' && <UnreadDot n={unreadReports(S, 's1')} />}
           </UnstyledButton>
         ))}
       </Group>
@@ -628,7 +628,7 @@ export default function S1Console() {
           .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
         // the commander's OWN crew leads, as quick-read cards
         const mine = playerBn ? bnS1(playerBn).sort((a, b) => rankW(b.rank) - rankW(a.rank)) : []
-        const pending = S.campaign?.reports.pending
+        const pending = S.campaign?.reports.pending.find(p => p.shop === 's1')
         return (
           <>
             <Group gap={10} wrap="nowrap" px={10} py={7} justify="space-between"
@@ -708,12 +708,12 @@ export default function S1Console() {
           {!S.campaign && (
             <Text fz="sm" c="dark.3" p="md">STAFF REPORTS RUN IN THE CAMPAIGN.</Text>
           )}
-          {S.campaign && S.campaign.reports.log.length === 0 && (
+          {S.campaign && S.campaign.reports.log.filter(e => e.shop === 's1').length === 0 && (
             <Text fz="sm" c="dark.3" p="md">
               NO PERSTATS ON FILE — REQUEST ONE FROM THE S1 TAB, OR COMPLETE A MISSION.
             </Text>
           )}
-          {S.campaign && [...S.campaign.reports.log].reverse().map(e => (
+          {S.campaign && [...S.campaign.reports.log].filter(e => e.shop === 's1').reverse().map(e => (
             <UnstyledButton key={e.id} w="100%" onClick={() => openReport(S, e.id)}>
               <Group gap={10} wrap="nowrap" px={12} py={8}
                 style={{ borderTop: '1px solid #141e28' }}

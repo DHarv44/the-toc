@@ -13,6 +13,7 @@ import EndScreenGate from './ui/EndScreen'
 import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
 import S1Console from './ui/S1Console'
+import StaffConsole from './ui/StaffConsole'
 import CommandDashboard from './ui/CommandDashboard'
 import PackViewer from './ui/PackViewer'
 import TutorialOverlay from './ui/tutorial'
@@ -79,6 +80,7 @@ export default function App() {
             <VtcFrago />
             {/* consoles replace the map column while open */}
             <S1Console />
+            <StaffConsole />
             <CommandDashboard />
             <PackViewer />
             {/* base-under-fire INCOMING banner: top of the map/console pane */}

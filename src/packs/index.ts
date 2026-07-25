@@ -124,6 +124,7 @@ function buildPack(
     assets: man.assets,
     audio: man.audio ?? fallback?.audio,
     names: resolveNames(names) ?? fallback?.names,
+    staff: man.staff ?? fallback?.staff,
     people: man.people,
     // the ONE json->typed boundary cast (see header note)
   } as Pack

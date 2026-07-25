@@ -534,6 +534,9 @@ export interface WaveState {
 // Per-objective UI state, driven by the campaign runner (engine/campaign.ts).
 export type ObjStatus = 'pending' | 'active' | 'done'
 
+// the staff shops that produce reports (S6 joins when EW/net systems exist)
+export type StaffShop = 's1' | 's2' | 's3' | 's4'
+
 // Campaign mode state. null in other modes. One long OPERATION on one map: a
 // stream of OBJECTIVES that activate in sequence on ONE persistent world —
 // missions are not separate game modes, they are taskings that pop up (FRAGO
@@ -570,12 +573,13 @@ export interface CampaignState {
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties
   dustwunSeen: number[]      // DUSTWUN site ids already raised as PERSONNEL RECOVERY taskings
-  // staff reports (P3 follow-on): each shop produces ITS report — S1 = PERSTAT
-  // (S4 LOGSTAT, S2 INTSUM later). Request → delay → alert; first open is the
-  // VTC (speaker + document), afterwards just the document.
+  // staff reports: each shop produces ITS report — S1 PERSTAT, S2 INTSUM,
+  // S3 OPSUM, S4 LOGSTAT. Request → delay → alert; first open is the VTC
+  // (speaker + document), afterwards just the document. The staff works in
+  // PARALLEL: one pending report per shop, never one slot for the building.
   reports: {
-    pending: { shop: 's1'; readyT: number; auto?: boolean } | null
-    log: Array<{ id: number; shop: 's1'; title: string; t: number; text: string; read: boolean }>
+    pending: Array<{ shop: StaffShop; readyT: number; auto?: boolean }>
+    log: Array<{ id: number; shop: StaffShop; title: string; t: number; text: string; read: boolean }>
   }
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
