@@ -1,0 +1,74 @@
+# Hardcode audit — content still living in the engine (2026-07-25)
+
+> User directive: "identify all the other shit that we are hardcoding like
+> that." Doctrine: engine = verbs, packs = nouns. Everything below is CONTENT
+> currently baked into engine/UI code that should be pack data (or spec-driven
+> like the facility effects). Work the list top-down; each item is small.
+
+## Personnel & identity
+1. **Billet titles + rank tables** — `packs/personnel.ts` `dismountBillet` /
+   `crewBillet` hardcode US ranks (2LT/SFC/SSG…) and billet names per troop
+   kind. Should be a pack table (rank ladder + billet naming) with the engine
+   keeping only the STRUCTURE (casualty-order leadership, crew seats).
+2. **Junior-enlisted rank spread** (`JR` array) + officer picks
+   (`['2LT','2LT','1LT']`) — same move.
+3. **Friendly callsign pool** — `forces/factory.ts` `FRIEND_CALLS`
+   (ALPHA…TANGO) and the hostile `E##` designator format. Pack callsign
+   styles.
+4. **Awards catalog** — `packs/awards.ts` is pack-LAND but not pack-DATA:
+   Purple Heart etc. should hang off the pack (US awards vs OPFOR's own).
+   Defense of Freedom Medal lands here with #21 step 2 (contractor crews).
+5. **Rank insignia tables** — `ui/insignia.tsx` US_RANKS glyph table is
+   engine-side; `rankStyle: 'us'` selects it, but a new pack can't ADD a
+   style without engine edits. Insignia renderers = engine verbs; the
+   rank LIST belongs to the pack.
+
+## Radio & voice
+6. **Net phrasing** — `comms/radio.ts` `NET_HIGHER` (COMMAND/BASE/TOC…),
+   `RADIO_CLOSINGS` (OVER/OUT…): US net culture. Pack voice tables (the
+   OPFOR net should not sound like Fort Cavazos).
+7. **Milspeak strings across services** (campaign FRAGOs, asset desk names
+   DIV G3/CORPS G3/ASOC, PERSTAT format) — fine for the US pack today, but
+   they live in engine files; missions-in-packs (roadmap) is the real fix.
+
+## Force lists & missions
+8. **Campaign mission content** — `engine/campaign.ts` OPERATION table,
+   M1_FORCE/M1_GARRISON/M1_REINFORCE unit lists, CAMPAIGN_LAYOUT towns,
+   brief/FRAGO text. Covered by the roadmap item "maps + missions in packs"
+   — a campaign is CONTENT and should ship with (or alongside) a pack.
+9. **Dev-sandbox BLUE/RED spawn lists** — `engine/scenario.ts` should derive
+   from the installed packs' fieldable types, not literal arrays.
+10. **Difficulty start forces** — `economy/difficulty.ts` `startForce` unit
+    lists are pack-relative content on an engine table.
+11. **Base Defense wave comps + division pushes** — `engine/modes.ts`
+    WAVE_COMPS / WAVE_PUSHES reference unit keys; OPFOR waves belong to the
+    OPFOR pack, pushes to the player pack.
+12. **Base names** — 'HQ COBALT', 'COBALT STRIP', 'CP GARRYOWEN',
+    'GARRYOWEN STRIP' in scenario/campaign: pack naming pools.
+
+## Platform behavior constants
+13. **Aerostat scan rate** — `air/orders.ts` AEROSTAT_SCAN_RATE is platform
+    data → DroneType field.
+14. **MED treatment rates** — `forces/update.ts` 0.7 (MED nearby) / 0.35
+    (dug-in medic) are unit capabilities → unit-type/pack fields (the aid
+    facility rate already moved to specs).
+15. **Crew-billet vehicle fallback** — `crewBillet(veh ?? 'HMMWV')` default
+    references a US vehicle key.
+16. **Asset service fallbacks** — DEFAULT_SETUP/DEFAULT_WINDOW/
+    DEFAULT_ATO_LEAD/REFIT_TIME in `assets/service.ts` are acceptable as
+    fallbacks but every 1CD asset should carry explicit values (CRAM +
+    SPECTRE do; fill in the rest).
+
+## Audio (rule set by user)
+17. **Any future system sound = spec params, never a hardcoded clip choice**
+    — the intercept spec's `sound` block is the pattern; #14's synthesized
+    C-RAM burst must read it. `incoming.mp3`-style ASSET references should
+    be pack-declared paths, with engine synth/playback as the verb, plus
+    user-tweakable overrides later.
+
+## Already fixed (pattern references)
+- Platform catalogs → packs/lib (stage 2, commit 706c65b)
+- Facility rates/radii/intercept params → effect specs (efcc6d2)
+- Name pools → Pack.names + neutral fallback; people pins
+- Asset timers → PackAsset fields
+- OPFOR as its own pack

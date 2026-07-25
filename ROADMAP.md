@@ -1689,3 +1689,13 @@ are called out here *and* stubbed in the active sections above where they matter
   producing OIC's experience/competence — a green S1 takes longer and maybe
   misses details; a seasoned one is fast and sharp. Hook: the org has real
   officers with XP records; report quality/turnaround becomes one of them.
+
+## Maps & missions in packs (added 2026-07-25)
+A pack should be able to ship its own THEATERS (map layouts / DEM windows /
+authored town chains) and its own MISSIONS/CAMPAIGNS (operation tables,
+briefs, scripted OPFOR) — "1 pack could change the entire game" ends with
+content, not just platforms. Requires engine work: the campaign runner
+becomes a generic mission interpreter (objective specs are already data);
+CAMPAIGN_LAYOUT/OPERATION move out of engine/campaign.ts into pack space;
+mode setup reads pack-declared scenarios. See src/HARDCODE-AUDIT.md items
+8-12.
