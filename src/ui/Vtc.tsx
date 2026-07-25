@@ -340,7 +340,9 @@ function CamTile({ label, sub, h, speaking, bars, seed }: {
   label: string; sub?: string; h: number; speaking?: boolean; bars?: boolean
   seed?: string   // the REAL person's portrait seed — cameras-off VTC shows the DA photo
 }) {
-  const photoH = Math.min(Math.round(h * 0.62), 150)
+  // photo scales with the tile — the PRESENTER'S big tile gets a visibly
+  // larger portrait than the attendee thumbnails
+  const photoH = Math.round(h * 0.62)
   return (
     <div style={{
       position: 'relative', height: h, borderRadius: 3, overflow: 'hidden',

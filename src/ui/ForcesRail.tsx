@@ -72,6 +72,8 @@ export default function ForcesRail() {
   const ui = useUI()
   return (
     <>
+      {/* the CALL UP picker flies out to the LEFT of the Forces panel */}
+      {ui.bgOpen && ui.callupOpen && <CallUpFlyout />}
       <Rail side="left" title="FORCES" width={270} open={ui.bgOpen} onToggle={ui.toggleBg}
         footer={
           // CALL UP is a BUTTON pinned to the rail's bottom — the picker is a
@@ -85,7 +87,6 @@ export default function ForcesRail() {
         <BattleGroups />
         <Box h={8} />
       </Rail>
-      {ui.bgOpen && ui.callupOpen && <CallUpFlyout />}
     </>
   )
 }
