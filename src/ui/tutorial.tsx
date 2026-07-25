@@ -343,15 +343,16 @@ export default function TutorialOverlay() {
     if (el) {
       const r = el.getBoundingClientRect()
       ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
-      const w = 300
       const vw = window.innerWidth, vh = window.innerHeight
       if (r.bottom + 140 > vh) {
         // control sits near the bottom (the selection tray): stack the callout
-        // ABOVE it, bottom-anchored, pointing down — on top of the toolbar,
-        // never clipped by the screen edge
+        // ABOVE it, bottom-anchored and wide, pointing down — on top of the
+        // toolbar, never clipped by the screen edge
+        const w = 460
         const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8)
         callout = { left, top: r.top - 12, width: w, pointer: 'down', lift: true }
       } else {
+        const w = 300
         // beside the control, flipping left if the right side would clip
         const fitsRight = r.right + 14 + w <= vw - 8
         callout = fitsRight
