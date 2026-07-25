@@ -13,6 +13,8 @@ export const PACK_1CD: Pack = {
   name: '1st Cavalry Division',
   abbr: '1CD',
   side: 'friend',
+  patch: '1cd',
+  rankStyle: 'us',
   organic: {
     MECH: { bn: '2-8 CAV' },                                  // combined arms bn (Bradley)
     ARM: { bn: '1-12 CAV' },                                  // combined arms bn (Abrams)

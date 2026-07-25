@@ -1166,6 +1166,14 @@ replacement vehicles for surviving crews, and empty seats where the KIA were.
   of the story: WIA shows the wound and evac state, KIA the date/place of loss.
   The point is weight — losses should read as people, not counters. Rides on the
   Force Composition Model's Soldier objects (src/FORCE-MODEL.md, Phase 4).
+- **Awards & decorations (2026-07-25)** — medals awarded to troops through the
+  campaign, tracked on the soldier (roster/troop card ribbon rack, S1 view).
+  Prefer EVENT-DRIVEN over pure RNG — the sim already produces the triggers:
+  WIA/KIA → Purple Heart (automatic, doctrinal); platoon defeats a counterattack
+  while dug in → leader ARCOM; medic in a platoon whose WIA get evacuated →
+  merit award; sustained-contact survival thresholds → valor awards, with a
+  little hash jitter so it doesn't feel mechanical. Award ceremony beat between
+  missions (radio/VTC mention) sells it.
 - Build order: (1) roster data + name/rank generation + S1 readout · (2) WIA/KIA +
   golden hour + ground CASEVAC to the FOB aid station · (3) MEDEVAC bird + the 9-line
   request flow (absorbs *Casualties & MEDEVAC* below) · (4) vehicle replacement

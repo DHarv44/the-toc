@@ -82,6 +82,11 @@ export interface UIState {
   fireOpts: FireOpts
   droneModes: Record<number, string> // droneId -> camera mode; rides with the aircraft
   tick: number
+  rosterId: number | null   // unit whose personnel roster panel is open (null = closed)
+  openRoster: (id: number) => void
+  closeRoster: () => void
+  console: 's1' | null      // staff-shop console replacing the map column (null = map)
+  setConsole: (c: 's1' | null) => void
   setDroneMode: (droneId: number, mode: string) => void
   setFireOpts: (patch: Partial<FireOpts>) => void
   select: (id: number | null) => void
@@ -121,6 +126,13 @@ export const useUI = create<UIState>()((set, get) => ({
   fireOpts: { shell: 'HE', rounds: 0, sheaf: 'STD' },
   droneModes: {},
   tick: 0,
+  rosterId: null,
+  // "PERSONNEL ROSTER…" from the map: the S1 console owns rosters — open it
+  // focused on that unit (the console expands + scrolls, then clears the id)
+  openRoster: (id) => set({ rosterId: id, console: 's1', ctxMenu: null }),
+  closeRoster: () => set({ rosterId: null }),
+  console: null,
+  setConsole: (c) => set({ console: c }),
   setDroneMode: (droneId, mode) => set((s) => ({ droneModes: { ...s.droneModes, [droneId]: mode } })),
   setFireOpts: (patch) => set((s) => ({ fireOpts: { ...s.fireOpts, ...patch } })),
   select: (id) => set({ selectedIds: id == null ? [] : [id], mode: 'select' }),

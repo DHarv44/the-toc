@@ -140,6 +140,27 @@ replacement pipeline (LTC's lever = who pulls back to refit); P4 DPRK-flavored
 fictional enemy pack (campaign) + real-army packs for skirmish; then S-shop
 views (S1 personnel, S4 log) on top.
 
+**Packs P2 (2026-07-25):** PERSONNEL. Every soldier gets name/rank/position/
+callsign at creation (`packs/personnel.ts::assignPersonnel`, called from
+newUnit) — DETERMINISTIC (hashStr of unit id + soldier slot, zero rng draws,
+digest-invisible; golden holds at 2409198223). Billets follow casualty order
+(last LEADER = PL, second-last = PSG, others = Squad Leaders); leaderless
+platoons (tanks/guns/trucks) put the PL in the first vehicle and PSG in the
+last; crew seats map to TC/Gunner/Loader/Driver. Leadership callsigns:
+`<label>-6` (PL) / `<label>-7` (PSG); the player is COBALT 6. LEADER counts in
+COMPOSITIONS were topped up (riflemen⇄leaders — same M4, combat-identical) so
+rifle platoons have real squad leaders. **S1 console** (`ui/S1Console.tsx`,
+staff bar S1|S2|S3|S4 in the TopBar, S2-4 stubbed): a TREE-GRID over the task
+org — TF → battalion slices (ATT badges) → platoons → vehicles/derived squads →
+soldiers — with PERSTAT columns aggregated at every level; Mantine styling;
+map's "PERSONNEL ROSTER…" jumps here expanded+scrolled; inline rename (commit
+reads live input value); loadout chips (WPN_SHORT + ✚/💨/📻 kit glyphs).
+`ui/portrait.tsx` = hash-seeded DA-photo portrait factory (KIA slash variant);
+`ui/insignia.tsx` = pack-keyed patch ('1cd' shield) + rank insignia ('us'
+chevrons/bars/leaves) — Pack gains `patch`/`rankStyle` ids so pack data stays
+JSON-able. TEMP gallery at `/?insignia` (ui/InsigniaTest.tsx). Tutorial cues
+hide while a console is open.
+
 **COP two-line trace (2026-07-25):** the control field now yields BOTH lines —
 `blue` (friendly forward trace, ctl=+CONTEST) and `red` (enemy trace,
 ctl=−CONTEST) with UNCONTESTED ground between; the wash only paints beyond the

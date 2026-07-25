@@ -8,6 +8,7 @@ import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
 import { playerPack, lineageFor } from '../../packs'
+import { assignPersonnel } from '../../packs/personnel'
 
 const FRIEND_CALLS = [
   'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA',
@@ -54,6 +55,7 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   }
   if (type.indirect) u.ammo = type.indirect.load // basic load, both sides
   initElements(u)
+  assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
   if (side === 'friend') S.stats.fielded++ // after-action counter
   return u
 }

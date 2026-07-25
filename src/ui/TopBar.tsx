@@ -73,6 +73,18 @@ export default function TopBar() {
       )}
 
       <Group gap={6} wrap="nowrap" ml="auto">
+        {/* staff shops: each opens its section's console over the map column.
+            S2-S4 stand up as their data gets moving parts. */}
+        <Button.Group>
+          <Tooltip label="S1 — Personnel (PERSTAT, rosters, replacements)" withArrow>
+            <Button variant={ui.console === 's1' ? 'filled' : 'default'}
+              onClick={() => ui.setConsole(ui.console === 's1' ? null : 's1')}>S1</Button>
+          </Tooltip>
+          <Tooltip label="S2 — Intelligence (soon)" withArrow><Button variant="default" disabled>S2</Button></Tooltip>
+          <Tooltip label="S3 — Operations (soon)" withArrow><Button variant="default" disabled>S3</Button></Tooltip>
+          <Tooltip label="S4 — Logistics (soon)" withArrow><Button variant="default" disabled>S4</Button></Tooltip>
+        </Button.Group>
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Command panel" withArrow>
           <Button variant={ui.leftOpen ? 'filled' : 'default'} onClick={ui.toggleLeft}>▤</Button>
         </Tooltip>

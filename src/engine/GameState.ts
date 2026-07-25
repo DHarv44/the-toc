@@ -57,6 +57,11 @@ export interface Soldier {
   kind: TroopKindKey
   status: SoldierStatus
   vehId: number | null       // crewed vehicle (unit-local id), null = dismount
+  // personnel (Packs P2): assigned at creation, deterministic, digest-invisible
+  name?: string              // "MARCUS DELACRUZ" — player-renamable from the troop card
+  rank?: string              // "SGT" (pack rank table)
+  pos?: string               // billet: "Team Leader", "Gunner", "Platoon Medic"…
+  cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
 }
 
 export interface UnitVehicle {

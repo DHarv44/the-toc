@@ -423,6 +423,7 @@ function ContextMenu() {
             : `FIRE MISSION… (${Math.floor(u.ammo ?? 0)} RDS)`,
           () => ui.setMode('target'), u.missionCooldown > 0 || (u.ammo ?? 0) < 1)}
         {type.canBridge && item('PONTOON BRIDGE…', () => ui.setMode('bridge'))}
+        {u.soldiers.length > 0 && item('PERSONNEL ROSTER…', () => ui.openRoster(u.id))}
         {item('CENTER MAP', () => { const v = winView(); if (v) { v.cx = u.x; v.cy = u.y } })}
       </div>
     </>

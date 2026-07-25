@@ -157,31 +157,35 @@ export interface UnitComposition {
 // how a platoon's capabilities degrade as it takes losses (Phase 3: derived
 // firepower reads the survivors).
 const COMPOSITIONS_LITERAL = {
+  // NOTE on LEADER counts (Packs P2): leaders carry the same M4 as riflemen, so
+  // trading RIFLEMAN slots for LEADER slots changes NOTHING in the combat model
+  // (same headcount, same weapons, same stowage) — it only gives the billet
+  // system real squad leaders: 3 SLs + PSG + PL for a rifle platoon.
   INF: {
     unit: 'INF',
     vehicles: [{ type: 'HMMWV', n: 4 }],
     dismounts: [
-      { kind: 'RIFLEMAN', n: 14 }, { kind: 'RIFLEMAN_AT', n: 4 },
+      { kind: 'RIFLEMAN', n: 12 }, { kind: 'RIFLEMAN_AT', n: 4 },
       { kind: 'AUTO_RIFLEMAN', n: 6 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 2 },
-      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 3 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 5 },
     ],
   },
   STRY: {
     unit: 'STRY',
     vehicles: [{ type: 'STRYKER', n: 4 }],
     dismounts: [
-      { kind: 'RIFLEMAN', n: 16 }, { kind: 'RIFLEMAN_AT', n: 6 },
+      { kind: 'RIFLEMAN', n: 14 }, { kind: 'RIFLEMAN_AT', n: 6 },
       { kind: 'AUTO_RIFLEMAN', n: 6 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 2 },
-      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 3 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 5 },
     ],
   },
   MECH: {
     unit: 'MECH',
     vehicles: [{ type: 'BRADLEY', n: 4 }],
     dismounts: [
-      { kind: 'RIFLEMAN', n: 8 }, { kind: 'RIFLEMAN_AT', n: 4 },
+      { kind: 'RIFLEMAN', n: 6 }, { kind: 'RIFLEMAN_AT', n: 4 },
       { kind: 'AUTO_RIFLEMAN', n: 4 }, { kind: 'MG_GUNNER', n: 2 }, { kind: 'AT_GUNNER', n: 3 },
-      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 2 },
+      { kind: 'MEDIC', n: 1 }, { kind: 'LEADER', n: 4 },
     ],
   },
   ARM: {
@@ -220,7 +224,7 @@ const COMPOSITIONS_LITERAL = {
     unit: 'ENG',
     vehicles: [{ type: 'ESV', n: 3 }],
     dismounts: [
-      { kind: 'SAPPER', n: 10 }, { kind: 'RIFLEMAN_AT', n: 4 }, { kind: 'LEADER', n: 2 },
+      { kind: 'SAPPER', n: 8 }, { kind: 'RIFLEMAN_AT', n: 4 }, { kind: 'LEADER', n: 4 },
     ],
   },
   SIG: {

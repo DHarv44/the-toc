@@ -30,6 +30,8 @@ export interface Pack {
   name: string            // '1st Cavalry Division'
   abbr: string            // '1CD'
   side: 'friend' | 'hostile'
+  patch?: string          // shoulder-sleeve insignia id — rendered by ui/insignia (keeps pack data JSON-able)
+  rankStyle?: string      // rank-insignia style id ('us' chevrons/bars; other armies bring their own)
   // every unit type the game offers is either organic to the formation or an
   // attachment from a donor; a type in neither map simply isn't fielded by
   // this pack (not enforced in P1 — the palette still offers everything)

@@ -483,11 +483,13 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
               {speaking ? '— CG TRANSMITTING —' : 'CG STANDING BY'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {/* your own preview tile, like any real VTC client */}
-              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="YOU" h={124} />
-              {attendees.map(u => (
-                <CamTile key={u.id} label={u.label} h={124} />
-              ))}
+              {/* your own preview tile, like any real VTC client — you are COBALT 6 */}
+              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="COBALT 6" h={124} />
+              {attendees.map(u => {
+                const pl = u.soldiers.find(s => s.pos === 'Platoon Leader' && s.status === 'FIT')
+                const sub = pl ? `${pl.rank} ${(pl.name ?? '').split(' ').pop()}` : undefined
+                return <CamTile key={u.id} label={u.label} sub={sub} h={124} />
+              })}
             </div>
           </div>
           {/* the deck */}

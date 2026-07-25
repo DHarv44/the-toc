@@ -10,7 +10,9 @@ import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
 import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
+import S1Console from './ui/S1Console'
 import TutorialOverlay from './ui/tutorial'
+import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
@@ -21,6 +23,9 @@ import { CAMPAIGN_THEATER, CAMPAIGN_SEED, setCampaignTutorial } from './engine/c
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
+
+  // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
+  if (window.location.search.includes('insignia')) return <InsigniaTest />
 
   // theater elevation loads async (a one-time fetch of our own baked asset,
   // then cached) — the splash stays up for the few ms it takes
@@ -62,6 +67,8 @@ export default function App() {
           {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
           <CampaignObjectives />
           <VtcFrago />
+          {/* staff-shop console replaces the map column while open */}
+          <S1Console />
         </div>
         <NetPanel />
       </div>

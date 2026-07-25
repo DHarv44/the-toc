@@ -536,6 +536,7 @@ export default function TutorialOverlay() {
   }, [])
 
   if (!c || !c.tutorial || c.complete || !c.briefed) return null
+  if (ui.console) return null // a staff console owns the column; cues point at the map
   const steps = CAMPAIGN_STEPS
   // the reactive BREAK tip overrides the step cue — and still renders after the
   // scripted steps are exhausted (casualties often come with the counterattack)
