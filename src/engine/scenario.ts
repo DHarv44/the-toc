@@ -20,13 +20,17 @@ import {
 import { addStructure, deployUnit } from '../domains/installations/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import { playerPack } from '../packs'
+import { playerPack, installActivePacks } from '../packs'
 import { buildDivisionOrg } from '../packs/org'
 
 export function initGame(
   seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
   mode: ModeId = DEFAULT_MODE, theater?: TheaterData,
 ): void {
+  // the active packs' catalogs go into the engine registries FIRST — every
+  // platform lookup below reads them (idempotent re-install; module load
+  // already installed the defaults for pre-init reads)
+  installActivePacks()
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
   // mode map recipe: reroll the MAP seed (bounded) until the terrain fits the

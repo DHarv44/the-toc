@@ -4,9 +4,28 @@
 // (1CD doesn't organically have them). Battalion designations are real 1CD
 // lineage (1ABCT "Ironhorse" slice + division enablers).
 //
-// P1: organization + lineage only. The unit STATS are the existing shared
-// catalog — combat is byte-identical to the pre-pack game.
+// Stage 2: the pack is SELF-CONTAINED — it ships its platform catalogs
+// (composed from the shared US library) and its name pools. Combat stays
+// byte-identical to the pre-pack game: same tables, same keys, same order.
 import type { Pack } from './types'
+import { US_UNITS } from './lib/units'
+import { US_AMMO, US_WEAPONS, US_TROOPS, US_VEHICLES, US_COMPS } from './lib/composition'
+import { US_DRONES } from './lib/drones'
+
+// The US name pools (moved verbatim from personnel.ts — same lists, same
+// order, so every generated name in existing saves/rosters is unchanged).
+const FIRST = [
+  'MARCUS', 'TYLER', 'JAMES', 'DEVON', 'CARLOS', 'ETHAN', 'ANDRE', 'LUIS',
+  'BRANDON', 'KYLE', 'DARIUS', 'COLE', 'MIGUEL', 'JORDAN', 'TRAVIS', 'ISAAC',
+  'CALEB', 'RYAN', 'OMAR', 'JARED', 'VICTOR', 'NOLAN', 'ELI', 'DANTE',
+]
+const LAST = [
+  'DELACRUZ', 'WHITAKER', 'OKONKWO', 'RAMIREZ', 'THAO', 'BURKE', 'CASTILLO',
+  'PRUITT', 'JENNINGS', 'KOWALSKI', 'BARNES', 'GUTIERREZ', 'HOLLOWAY', 'NGUYEN',
+  'SATTERFIELD', 'ORTIZ', 'MCBRIDE', 'ADEYEMI', 'LANDRY', 'VANCE', 'SHEPPARD',
+  'CARDENAS', 'BOONE', 'WINTERS', 'ESPARZA', 'TILLMAN', 'ROJAS', 'GALLAGHER',
+  'HUTCHINS', 'MOSLEY', 'FARRELL', 'QUINTERO', 'STANTON', 'BEASLEY', 'AKANA',
+]
 
 export const PACK_1CD: Pack = {
   id: '1cd',
@@ -15,6 +34,12 @@ export const PACK_1CD: Pack = {
   side: 'friend',
   patch: '1cd',
   rankStyle: 'us',
+  catalogs: {
+    units: US_UNITS, ammo: US_AMMO, weapons: US_WEAPONS,
+    troops: US_TROOPS, vehicles: US_VEHICLES, comps: US_COMPS,
+    drones: US_DRONES,
+  },
+  names: { first: FIRST, last: LAST },
   organic: {
     MECH: { bn: '2-8 CAV' },                                  // combined arms bn (Bradley)
     ARM: { bn: '1-12 CAV' },                                  // combined arms bn (Abrams)

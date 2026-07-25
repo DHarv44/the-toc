@@ -248,6 +248,7 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
   // attachments: the donor battalions' attached slices, as an 'ATT' pseudo-bde
   const attBns = new Map<string, { from: string; cos: CoSpec[] }>()
   for (const [type, slot] of Object.entries(pack.attached)) {
+    if (!slot) continue
     const bn = slot.bn
     if (!attBns.has(bn)) attBns.set(bn, { from: slot.from, cos: [] })
     const entry = attBns.get(bn)!

@@ -13,24 +13,25 @@
 import type { Unit, Soldier } from '../engine/GameState'
 import { VEHICLES, COMPOSITIONS, type TroopKindKey } from '../domains/forces/composition'
 import { hashStr } from '../lib/math'
+import { activePack } from './install'
 
 // --- name pools ------------------------------------------------------------
-// The player's (US) pool. Enemy factions bring their own with their pack (P4);
-// until then hostile rosters draw from a placeholder red pool.
-const US_FIRST = [
-  'MARCUS', 'TYLER', 'JAMES', 'DEVON', 'CARLOS', 'ETHAN', 'ANDRE', 'LUIS',
-  'BRANDON', 'KYLE', 'DARIUS', 'COLE', 'MIGUEL', 'JORDAN', 'TRAVIS', 'ISAAC',
-  'CALEB', 'RYAN', 'OMAR', 'JARED', 'VICTOR', 'NOLAN', 'ELI', 'DANTE',
+// Pools come from the SIDE'S PACK (Pack.names — framework mode); a pack that
+// ships none falls back to this neutral default. Explicit Pack.people pins
+// override generation per billet (applied in namePersonnel).
+const DEFAULT_FIRST = [
+  'ALEX', 'SAM', 'CHRIS', 'MORGAN', 'TAYLOR', 'JORDAN', 'CASEY', 'ROBIN',
+  'DREW', 'LEE', 'JAMIE', 'QUINN', 'REESE', 'AVERY', 'BLAKE', 'DANA',
 ]
-const US_LAST = [
-  'DELACRUZ', 'WHITAKER', 'OKONKWO', 'RAMIREZ', 'THAO', 'BURKE', 'CASTILLO',
-  'PRUITT', 'JENNINGS', 'KOWALSKI', 'BARNES', 'GUTIERREZ', 'HOLLOWAY', 'NGUYEN',
-  'SATTERFIELD', 'ORTIZ', 'MCBRIDE', 'ADEYEMI', 'LANDRY', 'VANCE', 'SHEPPARD',
-  'CARDENAS', 'BOONE', 'WINTERS', 'ESPARZA', 'TILLMAN', 'ROJAS', 'GALLAGHER',
-  'HUTCHINS', 'MOSLEY', 'FARRELL', 'QUINTERO', 'STANTON', 'BEASLEY', 'AKANA',
+const DEFAULT_LAST = [
+  'ADAMS', 'BAKER', 'CARTER', 'DIAZ', 'EVANS', 'FISHER', 'GRANT', 'HAYES',
+  'IRWIN', 'JONES', 'KELLER', 'LOPEZ', 'MASON', 'NOVAK', 'OSBORN', 'PARKS',
 ]
-const RED_FIRST = ['CHOL', 'MYONG', 'SUNG', 'HYON', 'KWANG', 'YONG', 'IL', 'DUK', 'CHUN', 'HAK']
-const RED_LAST = ['RI', 'KIM', 'PAK', 'CHOE', 'KANG', 'HAN', 'YUN', 'JANG', 'O', 'SIN']
+
+function pools(side: 'friend' | 'hostile'): { first: readonly string[]; last: readonly string[] } {
+  const n = activePack(side)?.names
+  return { first: n?.first ?? DEFAULT_FIRST, last: n?.last ?? DEFAULT_LAST }
+}
 
 // junior enlisted rank spread (hash-weighted): mostly PFC/SPC, some PVT
 const JR = ['PVT', 'PFC', 'PFC', 'SPC', 'SPC', 'SPC']
@@ -62,7 +63,7 @@ export function dismountBillet(kind: TroopKindKey, idx: number, groupN: number, 
 
 // crew billets by seat index, shaped by the vehicle (armed/unarmed, crew size)
 function crewBillet(vehType: string, seat: number, h: number): { pos: string; rank: string } {
-  const spec = VEHICLES[vehType as keyof typeof VEHICLES]
+  const spec = VEHICLES[vehType]
   const armed = spec.weapons.length > 0
   if (!armed) return seat === 0 ? { pos: 'Driver', rank: 'SPC' } : { pos: 'A-Driver', rank: pick(JR, h) }
   if (seat === 0) return { pos: 'Vehicle Commander', rank: pick(['SSG', 'SGT'], h) }
@@ -74,8 +75,7 @@ function crewBillet(vehType: string, seat: number, h: number): { pos: string; ra
 // Name a soldier from the seed key (also stamps the stable personnel identity
 // `pid`, which seeds the portrait — so a face survives fielding transfers).
 export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hostile' = 'friend'): void {
-  const first = side === 'friend' ? US_FIRST : RED_FIRST
-  const last = side === 'friend' ? US_LAST : RED_LAST
+  const { first, last } = pools(side)
   const h = hashStr(`${seedKey}:${s.id}`)
   s.name = `${pick(first, h)} ${pick(last, hashStr(`${seedKey}:${s.id}:ln`))}`
   s.pid = `${seedKey}:${s.id}`
@@ -123,6 +123,19 @@ export function namePersonnel(
     const pl = vehCommanders[0]!, psg = vehCommanders[vehCommanders.length - 1]!
     pl.pos = 'Platoon Leader'; pl.rank = pick(['2LT', '2LT', '1LT'], hashStr(`${seedKey}:pl`))
     psg.pos = 'Platoon Sergeant'; psg.rank = 'SFC'
+  }
+
+  // EXPLICIT pins (Pack.people): a pack can put a real person on a billet —
+  // keyed '<seedKey>/<pos>' — and generation fills everything it doesn't pin
+  const people = activePack(side)?.people
+  if (people) {
+    for (const s of soldiers) {
+      const pin = s.pos && people[`${seedKey}/${s.pos}`]
+      if (pin) {
+        if (pin.name) s.name = pin.name.toUpperCase()
+        if (pin.rank) s.rank = pin.rank
+      }
+    }
   }
 }
 

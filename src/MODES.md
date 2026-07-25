@@ -584,3 +584,21 @@ readouts moved to the new ▤ COMMAND DASHBOARD console), DAY/RNG relocated to
 the map corner, +FEED dropped (the FEEDS rail owns it), MED det added to the
 dev-sandbox force.
 Overlay intensity: a map-corner %% button cycles 100/70/45 (ui.overlayAlpha).
+
+**Stage 2 — pack-owned catalogs (2026-07-25):** the engine ships VERBS, packs
+ship NOUNS. All platform data (UNIT_TYPES / AMMO / WEAPONS / TROOP_KINDS /
+VEHICLES / COMPOSITIONS / DRONE_TYPES) moved out of the domain catalogs into
+pack-land: `packs/lib/*` is the shared US platform library, `packs/1cd.ts`
+and the new `packs/opfor.ts` compose their catalogs from it, and
+`packs/install.ts` pours the active packs into the (now empty-at-rest) engine
+registries at pack-module load + every initGame. Key types relaxed to string;
+merge is by identity with a collision throw, player pack installs first
+(iteration order fixed). OPFOR is ITS OWN pack from day one — placeholder
+sharing US platforms + the Korean-flavor name pools until P4 replaces it.
+Personnel names now resolve pack pools (Pack.names) with a neutral default
+fallback, and Pack.people pins real names onto billets ('<slot>/<pos>') over
+generation. 2525 glyph set + structures/facilities stay engine-side.
+Campaign airfield: GARRYOWEN STRIP exists at H-hour; AFLD construction gated
+out of campaign (a division tasking, not a purchase). Golden 2291045480
+unchanged ×2; campaign 37/37, casualty 22/22, pipeline 12/12, roster 8/8,
+phase3 14/14.

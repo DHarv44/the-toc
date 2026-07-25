@@ -5,9 +5,17 @@
 // serves the player's division, fictional campaign OPFOR, and (later) real
 // armies selectable in skirmish.
 //
-// P1 scope: organization + lineage only — zero combat/stat changes. Billets,
-// ranks, names and the replacement pipeline layer onto this in later phases.
-import type { UnitTypeKey } from '../domains/forces/catalog'
+// Stage 2 (2026-07-25): a pack is SELF-CONTAINED content — it ships its own
+// platform catalogs (units/vehicles/weapons/ammo/troops/comps/drones) composed
+// from the shared library in packs/lib/ (or entirely its own tables), plus its
+// name pools. The engine defines the interfaces and behaviors; packs/install.ts
+// pours the active packs' data into the engine registries at init. One pack can
+// change the entire game.
+import type { UnitType, UnitTypeKey } from '../domains/forces/catalog'
+import type {
+  AmmoType, WeaponType, TroopKind, VehicleType, UnitComposition,
+} from '../domains/forces/composition'
+import type { DroneType } from '../domains/air/catalog'
 
 // how a unit type's parent element is designated inside its battalion:
 //  - 'plt'  — numbered platoon in a lettered company ("1st PLT, A CO, 2-8 CAV")
@@ -53,11 +61,42 @@ export interface Formation {
   bdes: BdePlan[]
 }
 
+// Everything the pack's formations are made of. Tables usually reference the
+// shared library (packs/lib/*) — identical object references across packs are
+// fine (the installer merges by identity); CONFLICTING redefinitions of a key
+// throw at install. A total-conversion pack ships tables of its own.
+export interface PackCatalogs {
+  units: Record<string, UnitType>
+  ammo: Record<string, AmmoType>
+  weapons: Record<string, WeaponType>
+  troops: Record<string, TroopKind>
+  vehicles: Record<string, VehicleType>
+  comps: Record<string, UnitComposition>
+  drones?: Record<string, DroneType>
+}
+
+// Name pools the engine draws from when generating this pack's personnel.
+// FRAMEWORK mode: ship pools, the engine expands deterministically. A pack
+// that ships none falls back to the neutral default (packs/personnel.ts).
+export interface NamePools {
+  first: readonly string[]
+  last: readonly string[]
+}
+
+// EXPLICIT mode: pin real people onto generated billets. Key format is
+// '<org slot path>/<billet pos>' (e.g. '2-8 CAV/HHC/STAFF/S1 — Personnel');
+// anything not pinned falls through to generation. This is how a pack ships a
+// real roster without giving up procedural fill for the rest.
+export type PeoplePins = Record<string, { name?: string; rank?: string }>
+
 export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
   abbr: string            // '1CD'
   side: 'friend' | 'hostile'
+  catalogs: PackCatalogs  // the platforms this pack's world is made of
+  names?: NamePools       // personnel name generation inputs
+  people?: PeoplePins     // explicit roster pins (override generation)
   patch?: string          // shoulder-sleeve insignia id — rendered by ui/insignia (keeps pack data JSON-able)
   rankStyle?: string      // rank-insignia style id ('us' chevrons/bars; other armies bring their own)
   // every unit type the game offers is either organic to the formation or an
