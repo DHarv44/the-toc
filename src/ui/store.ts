@@ -125,9 +125,10 @@ export const useUI = create<UIState>()((set, get) => ({
   night: false,
   showRanges: false,
   rangeUnits: {},
-  leftOpen: true,
-  bgOpen: false,
-  netOpen: true,
+  // default rail state: everything tucked away except the fielded force
+  leftOpen: false,
+  bgOpen: true,
+  netOpen: false,
   feedsOpen: false,
   feedsW: 400,
   toggleBg: () => set((s) => ({ bgOpen: !s.bgOpen })),

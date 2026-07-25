@@ -68,10 +68,11 @@ export default function Rail({ side, title, width, open, onToggle, footer, child
     </Box>
   )
 
-  // strip stays on the screen-edge side so the tab bar keeps its position
+  // the tab rides the panel's RIGHT edge — a drawer handle: left rails push it
+  // out toward the map, right rails keep it on the screen edge
   return (
     <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
-      {side === 'left' ? <>{strip}{panel}</> : <>{panel}{strip}</>}
+      {panel}{strip}
     </Box>
   )
 }
