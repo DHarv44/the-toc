@@ -20,7 +20,8 @@ export const btn = (active: boolean): CSSProperties => ({
 })
 
 // rail geometry, shared so map-column overlays can work out how much room they have
-export const RAIL_W = { left: 232, net: 310, strip: 22 } as const
+// strip fits the bold vertical-rl `lg` tab labels
+export const RAIL_W = { left: 232, net: 310, strip: 34 } as const
 export const TOPBAR_H = 34
 
 // width of the map column for a given rail state — overlays inside it (context

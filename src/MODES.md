@@ -406,3 +406,40 @@ Game Modes → 7.
   session notes; the biggest canvas in the DOM is the map, the small ones are
   palette icons; React batches, so DOM queries need a separate eval after a
   state change).
+
+**P5 stage A (2026-07-25):** FIELDING IS FREE. `fieldUnit`/`deployUnit` no
+longer spend supply (force cap + refit cooldowns are the limiter; deploy-zone
+placement checks kept); organic unit UAS (`spec.src === 'field'`) launch free
+too — only airfield UAS and BUILDS still cost. This IS a tick-path economy
+change: golden deliberately re-baselined **2409198223 → 84143052** (run twice,
+deterministic; documented in MIGRATION.md). Recalled orders (`recallFrago` /
+LODGMENT reopen) are review DOCUMENTS — slides + text, no link phase, no
+voice, no roster — not a replayed VTC call.
+
+**P5 stage B (2026-07-25):** the TOC gets its real furniture.
+- **Rail layout**: [INSTALLATIONS|BATTLE GROUPS] map [FEEDS|NET] — every rail
+  a true flex sibling (collapsing one genuinely widens the map), both left
+  rails openable side by side `|x|x|` JBC-P style. CommandPanel is now the
+  INSTALLATIONS rail (roster + contextual deploy palette + FACILITIES rows);
+  `BattleGroupsPanel` lists the fielded force (formed groups, then
+  independents; lineage + ATT tags).
+- **Tab strips are the ONLY toggle** (2026-07-25 follow-up): the vertical
+  edge strip stays visible while its panel is open (strip on the screen-edge
+  side, so tabs hold position), the in-panel title bar is GONE, strip labels
+  are Mantine `lg` bold (`RailStrip` in ui/Rail.tsx, shared by FeedsPanel;
+  `RAIL_W.strip` 22 → 34).
+- **FEEDS rail** (ui/FeedsPanel.tsx): right-side flyout where feeds STACK —
+  floating feed windows over the map are gone. Width-resizable by dragging
+  its inboard edge (300–680, `ui.feedsW`); `FeedWindow` gained `docked` mode
+  where min/max/close are PANEL-relative (min = title row in the stack, max =
+  fills the panel, win = stacked block, height-resize only); deploying a UAS
+  auto-opens the panel (`addFeed`/`showDrone` set `feedsOpen`).
+- **Selection tray is a LAYOUT ROW below the map**, not an overlay — the map
+  column is a flex column (map area with overlays on top, tray beneath).
+- **FACILITIES are functional** (installations/catalog.ts `FACILITIES`,
+  `Structure.facilities`): HQ has MOTORPOOL + AID SECTION organically; a FOB
+  buys them (`installFacility`, one-click rows in the palette, costs supply).
+  Reconstitution in constructionUpdate is now GATED by them — troop recovery
+  needs AID (0.8/s vs 0.25/s trickle), vehicle revival needs MOTORPOOL
+  (healUnit's revive flag). Enemy bases keep the implicit full set. Golden
+  unchanged from 84143052 (friendly HQ defaults preserve prior behavior).

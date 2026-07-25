@@ -1,10 +1,41 @@
-// Shared chrome for the two side rails: a full-height column with a title bar and a
-// scrolling body, collapsing to a thin strip on its own edge. Hand-rolled rather than
-// Mantine's AppShell so the map column stays a plain flex child we control.
-// Ported verbatim from src/ui/Rail.jsx.
+// Shared chrome for the side rails, JBC-P style: a vertical tab strip that is
+// ALWAYS visible and is the panel's only toggle. Collapsed = just the strip;
+// expanded = strip + the panel beside it (strip on the screen-edge side, so the
+// tabs hold their positions). No title bar inside the panel — the strip IS the
+// title. Hand-rolled rather than Mantine's AppShell so the map column stays a
+// plain flex child we control.
 import type { ReactNode } from 'react'
 import { Box, Group, Stack, Text, ScrollArea, UnstyledButton, Tooltip } from '@mantine/core'
 import { RAIL_W } from './styles'
+
+// The tab itself — exported so FeedsPanel (custom width/resize) can share it.
+export function RailStrip({ side, title, open, onToggle }: {
+  side: 'left' | 'right'
+  title: string
+  open: boolean
+  onToggle: () => void
+}) {
+  const icon = side === 'left' ? (open ? '◀' : '▶') : (open ? '▶' : '◀')
+  return (
+    <Tooltip label={`${open ? 'Hide' : 'Show'} ${title.toLowerCase()}`}
+      position={side === 'left' ? 'right' : 'left'} withArrow>
+      <UnstyledButton onClick={onToggle} w={RAIL_W.strip}
+        style={{
+          flex: '0 0 auto',
+          background: open ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-dark-7)',
+          [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--mantine-color-dark-4)',
+        }}>
+        <Stack gap="xs" align="center" pt="xs">
+          <Text span fz={11} c="dark.2">{icon}</Text>
+          <Text span fz="lg" fw={700} c={open ? 'toc.3' : 'dark.3'}
+            style={{ writingMode: 'vertical-rl', letterSpacing: 2 }}>
+            {title}
+          </Text>
+        </Stack>
+      </UnstyledButton>
+    </Tooltip>
+  )
+}
 
 export default function Rail({ side, title, width, open, onToggle, footer, children }: {
   side: 'left' | 'right'
@@ -15,47 +46,15 @@ export default function Rail({ side, title, width, open, onToggle, footer, child
   footer?: ReactNode
   children?: ReactNode
 }) {
-  const collapseIcon = side === 'left' ? '◀' : '▶'
-  const expandIcon = side === 'left' ? '▶' : '◀'
+  const strip = <RailStrip side={side} title={title} open={open} onToggle={onToggle} />
+  if (!open) return strip
 
-  if (!open) {
-    return (
-      <Tooltip label={`Show ${title.toLowerCase()}`} position={side === 'left' ? 'right' : 'left'} withArrow>
-        <UnstyledButton onClick={onToggle} w={RAIL_W.strip}
-          style={{
-            flex: '0 0 auto', background: 'var(--mantine-color-dark-7)',
-            [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--mantine-color-dark-4)',
-          }}>
-          <Stack gap="xs" align="center" pt="xs">
-            <Text span fz={11} c="dark.2">{expandIcon}</Text>
-            <Text span fz={10} c="dark.3" style={{ writingMode: 'vertical-rl', letterSpacing: 2 }}>
-              {title}
-            </Text>
-          </Stack>
-        </UnstyledButton>
-      </Tooltip>
-    )
-  }
-
-  return (
+  const panel = (
     <Box w={width} style={{
       flex: '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       background: 'var(--mantine-color-dark-7)',
       [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--mantine-color-dark-4)',
     }}>
-      <Group px="xs" py={6} gap="xs" wrap="nowrap" justify="space-between"
-        style={{
-          flex: '0 0 auto', background: 'var(--mantine-color-dark-8)',
-          borderBottom: '1px solid var(--mantine-color-dark-5)',
-        }}>
-        <Text span fz={10} c="toc.3" style={{ letterSpacing: 1.5 }}>{title}</Text>
-        <Tooltip label={`Hide ${title.toLowerCase()}`} withArrow>
-          <UnstyledButton onClick={onToggle}>
-            <Text span fz={11} c="dark.2">{collapseIcon}</Text>
-          </UnstyledButton>
-        </Tooltip>
-      </Group>
-
       <ScrollArea style={{ flex: 1, minHeight: 0 }} scrollbarSize={6} type="hover">
         {children}
       </ScrollArea>
@@ -66,6 +65,13 @@ export default function Rail({ side, title, width, open, onToggle, footer, child
           background: 'var(--mantine-color-dark-8)',
         }}>{footer}</Box>
       )}
+    </Box>
+  )
+
+  // strip stays on the screen-edge side so the tab bar keeps its position
+  return (
+    <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
+      {side === 'left' ? <>{strip}{panel}</> : <>{panel}{strip}</>}
     </Box>
   )
 }
