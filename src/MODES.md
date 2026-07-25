@@ -602,3 +602,22 @@ Campaign airfield: GARRYOWEN STRIP exists at H-hour; AFLD construction gated
 out of campaign (a division tasking, not a purchase). Golden 2291045480
 unchanged ×2; campaign 37/37, casualty 22/22, pipeline 12/12, roster 8/8,
 phase3 14/14.
+
+**The purchase economy is DEAD (2026-07-25):** nothing is bought, anywhere.
+Fire missions, structures (deployStructure/convertToHq), facilities and every
+UAS sortie no longer touch supply points; the limiters are honest ones —
+basic loads (u.ammo/stowage), force caps, refit cooldowns, placement rules,
+and division asset allocations (#21). S.resources is a dead counter (0);
+player supply lift/upkeep tick removed (the OPFOR's internal economy remains
+as invisible AI pacing). LOG convoys now load FULL capacity at the CP —
+division provides — and FOB stock is hauled MATERIEL, not spendable money
+(the S4 ledger later itemizes it into ammo classes). Palette rows show no
+prices; dashboard SUSTAINMENT = forward stock + convoys running + motorpool
+queue; EndScreen SUPPLY SPENT and the dev +10K button are gone. C-RAM left
+the facilities build-out list entirely — division request only.
+**Base Defense reworked:** payouts → DIVISION PRIORITY. Each wave held:
+force cap +2 and refit clocks clear; on waves 2/4/6/8 DIVISION MAIN pushes
+support unrequested (AT/ARM/MED/ARTY) during staging with net traffic.
+Asset pushes hook in when the request service lands. Golden RE-BASELINED
+2402375581 (×2; world byte-identical, only money accounting moved); all
+checks green (37/22/12/8/14).

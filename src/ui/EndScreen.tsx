@@ -75,7 +75,6 @@ export default function EndScreenGate({ onNewGame }: { onNewGame: () => void }) 
           <StatCell label="UNITS FIELDED" value={st.fielded} />
           <StatCell label="UNITS LOST" value={st.lost} />
           <StatCell label="ENEMY DESTROYED" value={st.enemyDestroyed} />
-          <StatCell label="SUPPLY SPENT" value={st.supplySpent.toLocaleString()} />
         </div>
         <div style={{ fontSize: 9.5, letterSpacing: 2, color: '#54708a', marginTop: 12 }}>
           {SIZE_LABEL[S.map?.GRID ?? 0] || `${S.map?.GRID ?? '?'} CELLS`} MAP

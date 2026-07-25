@@ -40,6 +40,54 @@ export const PACK_1CD: Pack = {
     drones: US_DRONES,
   },
   names: { first: FIRST, last: LAST },
+  // Requestable division/corps/USAF assets (ASSET-REQUESTS.md): what the TOC
+  // can ask higher for. Pooled counts are the DIVISION's holdings — campaign
+  // scripting pre-allocates pieces to sister brigades so scarcity is real.
+  assets: {
+    CRAM: {
+      name: 'C-RAM Section', from: '2-44 ADA', echelon: 'CORPS', count: 3,
+      delivers: { facility: 'CRAM' },
+      crew: {
+        billets: [
+          ['SFC', 'Section Chief'], ['SSG', 'Engagement NCO'],
+          ['SGT', 'Radar Operator'], ['SPC', 'Radar Operator'],
+        ],
+        civ: 2, // FSR contractors — that's how C-RAM actually runs
+      },
+    },
+    AEROSTAT: {
+      name: 'PGSS Aerostat Det', from: 'PM Aerostats', echelon: 'DIV', count: 1,
+      delivers: { tether: 'AEROSTAT' },
+      crew: { billets: [['SSG', 'Site Lead']], civ: 4 }, // PGSS is contractor-run
+    },
+    SHADOW: {
+      name: 'Shadow Orbit', from: '1ACB', echelon: 'DIV', count: 2,
+      delivers: { orbit: 'SHADOW' },
+    },
+    SENTINEL: {
+      name: 'Sentinel Orbit', from: 'INSCOM', echelon: 'CORPS', count: 1,
+      delivers: { orbit: 'SENTINEL' },
+    },
+    VIPER: {
+      name: 'Armed UAS Orbit', from: 'CENTCOM CAOC', echelon: 'CORPS', count: 1,
+      delivers: { orbit: 'VIPER' },
+    },
+    ALO: {
+      name: 'ALO Team', from: '3 ASOS', echelon: 'USAF', count: 1,
+      delivers: { unlock: 'CAS' },
+      crew: { billets: [['CPT', 'Air Liaison Officer'], ['SSG', 'TACP JTAC']] },
+    },
+    SPECTRE: {
+      name: 'AC-130 CAS Window', from: '4 SOS', echelon: 'USAF', sortie: true,
+      callsigns: ['SPOOKY', 'GHOST'],
+      delivers: { window: 'SPECTRE' },
+    },
+    AIRLIFT: {
+      name: 'C-130 Airdrop', from: '317 AW', echelon: 'USAF', sortie: true,
+      callsigns: ['REACH', 'HERKY'],
+      delivers: { airdrop: true }, // roadmap mechanic — requests evaluate honestly
+    },
+  },
   organic: {
     MECH: { bn: '2-8 CAV' },                                  // combined arms bn (Bradley)
     ARM: { bn: '1-12 CAV' },                                  // combined arms bn (Abrams)

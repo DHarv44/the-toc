@@ -75,7 +75,7 @@ export function initGame(
   S.enemyForceCap = Math.round(base * mul.enemy)
   S.fieldCooldown = {}
   S.devMode = false        // dev tooling is opt-in via the sandbox, not on in a real game
-  S.resources = diff.supplies
+  S.resources = 0          // DEAD counter: nothing is purchased (ASSET-REQUESTS.md)
   S.mode = mode
   S.won = false; S.lost = false
   S.endT = null
@@ -134,7 +134,6 @@ export function initGame(
 export function initDevGame(seed = 1337): void {
   initGame(seed, MAP_SIZES.large) // room to exercise ranges, logistics and recon at scale
   S.devMode = true         // unlocks the DEV controls in the top bar
-  S.resources = 999999
   S.fogEnabled = false
   S.nextWave = Infinity
   S.units = []

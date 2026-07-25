@@ -139,6 +139,46 @@ export interface UnitVehicle {
   status: VehicleStatus
 }
 
+// --- division asset requests (ASSET-REQUESTS.md) ----------------------------
+// The TOC requests capability up the chain; division allocates from a REAL
+// pool (built from Pack.assets at init). All plain serializable data; every
+// outcome is a hashStr roll, never the rng stream.
+// An approved asset is NOT instant capability: a REAL convoy spawns at
+// division in the rear and drives the road net to the requesting base
+// (watchable, escortable, ambushable — the convoy dying loses the asset to
+// the CL VII timer), then the section EMPLACES on site (setup). A C-RAM
+// approved during an IDF attack does nothing for that attack. Effects
+// (facility/tether/orbit) apply only when setup completes ('allocated').
+// Orbit/window authority (paperwork, not iron) skips the convoy.
+export type AssetState = 'available' | 'allocated' | 'enroute' | 'setup' | 'refit'
+
+export interface AssetInstance {
+  id: string                 // 'CRAM-1'
+  kind: string               // Pack.assets key
+  state: AssetState
+  holder?: string            // who has it: 'TF' (the player) or a sister formation
+  structId?: number          // player allocations: the base it's attached to
+  convoyId?: number          // enroute: the live delivery convoy unit on the map
+  setupT?: number            // setup: emplacement-complete sim time
+  refitT?: number            // refit/replacement: completion sim time
+}
+
+// USAF sortie window (ATO cycle): launches of `kind` are authorized inside it
+export interface SortieWindow {
+  kind: string
+  opensT: number
+  closesT: number
+}
+
+export interface AssetsState {
+  pool: AssetInstance[]
+  // staff decisions in flight: request → (processing delay) → outcome traffic
+  pending: Array<{ kind: string; structId?: number; decideT: number }>
+  queue: Array<{ kind: string; structId?: number }>   // FIFO waiting list
+  windows: SortieWindow[]
+  unlocks: string[]          // capability unlocks in effect ('CAS')
+}
+
 export interface ConvoyTask {
   fobId: number
   phase: 'toSource' | 'load' | 'toFob' | 'unload'
@@ -570,6 +610,7 @@ export interface GameState {
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   org: DivOrg | null         // the player pack's full division organization (friend side)
+  assets: AssetsState        // division asset pool + request pipeline (ASSET-REQUESTS.md)
   downed: DownedSite[]       // DUSTWUN sites awaiting recovery (friend wipes)
   replT: number              // next replacement-packet arrival (P3 pipeline clock)
   enemyFiresOkT: number      // next sim time ANY OPFOR fire mission may launch (rolled window)
@@ -623,6 +664,7 @@ export function createInitialState(): GameState {
     waves: null,
     campaign: null,
     org: null,
+    assets: { pool: [], pending: [], queue: [], windows: [], unlocks: [] },
     downed: [],
     replT: 0,
     enemyFiresOkT: -999,

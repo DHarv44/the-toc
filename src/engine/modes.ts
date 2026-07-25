@@ -6,6 +6,7 @@ import type { GameState } from './GameState'
 import type { WorldMap } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { spawnScriptedBattlegroup } from '../domains/opfor/ai'
+import { deployUnit } from '../domains/installations/orders'
 import { radio, toast } from '../domains/comms/radio'
 import { startCampaign, runCampaign } from './campaign'
 
@@ -34,7 +35,19 @@ export interface ModeSpec {
 const WAVE_TARGET = 10          // assaults to survive for the win
 const WAVE_FIRST_DELAY = 90     // seconds before wave 1 (time to dig in)
 const WAVE_INTERMISSION = 75    // seconds between a repelled wave and the next
-const wavePayout = (n: number) => 500 + 200 * n
+
+// Holding earns DIVISION PRIORITY, not money (no purchase economy): the force
+// cap grows each wave held, refit clocks clear, and on some waves DIVISION
+// MAIN pushes support unrequested during the staging period — it just shows
+// up at the base with radio traffic. (Asset pushes — C-RAM, orbits — hook in
+// here once the request service lands; see ASSET-REQUESTS.md / task #21.)
+const WAVE_CAP_GROWTH = 2
+const WAVE_PUSHES: Readonly<Record<number, readonly UnitTypeKey[]>> = {
+  2: ['AT'],            // AT section against the coming combined arms
+  4: ['ARM'],           // a tank platoon before the armor waves
+  6: ['MED'],           // casualties are mounting — an aid detachment
+  8: ['ARTY'],          // guns for the end game
+}
 
 // hand-tuned escalation: light probes → combined arms → armor with guns behind it
 const WAVE_COMPS: ReadonlyArray<readonly UnitTypeKey[]> = [
@@ -102,11 +115,11 @@ export const MODES: Record<ModeId, ModeSpec> = {
   'base-defense': {
     id: 'base-defense',
     label: 'BASE DEFENSE',
-    sub: 'Survive escalating waves · banked supply, payouts between assaults',
+    sub: 'Survive escalating waves · hold and division releases more force',
     setup(S) {
-      // banked economy: no passive lifts, no upkeep (supplyUpdate returns early
-      // while S.waves exists), and the OPFOR's own economy-driven waves are off —
-      // the scripted schedule IS the opposition
+      // no economy at all: division priority between waves is the reward
+      // (supplyUpdate returns early while S.waves exists), and the OPFOR's own
+      // economy-driven waves are off — the scripted schedule IS the opposition
       S.nextWave = Infinity
       S.enemySupplyLift = 0
       S.enemyResources = 0
@@ -137,10 +150,24 @@ export const MODES: Record<ModeId, ModeSpec> = {
         if (S.enemyGroups.some(g => w.groupIds.includes(g.id))) return
         w.survived = w.n
         if (w.survived >= w.target) return // checkEnd takes it from here
-        const payout = wavePayout(w.n)
-        S.resources += payout
-        radio('NET', 'arrive', `WAVE ${w.n} REPELLED — RESUPPLY DELIVERED, +${payout}`, undefined, undefined)
-        toast(`WAVE ${w.n} REPELLED — +${payout} SUPPLY`)
+        // division priority, not money: the pool grows and the refit clocks
+        // clear — the staging period is for FIELDING, not shopping
+        S.forceCap += WAVE_CAP_GROWTH
+        S.fieldCooldown.friend = {}
+        radio('NET', 'arrive', `WAVE ${w.n} REPELLED — DIVISION RELEASES FORCE, CAP ${S.forceCap}`, undefined, undefined)
+        toast(`WAVE ${w.n} REPELLED — FORCE POOL ${S.forceCap}`)
+        // some waves, DIVISION MAIN pushes support you never asked for — it
+        // arrives at the base during staging with its own net traffic
+        const push = WAVE_PUSHES[w.n]
+        if (push) {
+          const hq = S.structures.find(s => s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'FOB'))
+          if (hq) {
+            push.forEach((k, i) => {
+              const u = deployUnit(k, hq.x + 140 + i * 90, hq.y + 160, true)
+              if (u) radio('NET', 'arrive', `DIVISION PUSH — ${u.label} ATTACHED TO THE DEFENSE, NO REQUEST NEEDED`, u.x, u.y)
+            })
+          }
+        }
         w.n++
         w.phase = 'intermission'
         w.interT = WAVE_INTERMISSION

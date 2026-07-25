@@ -159,7 +159,6 @@ function DeploySection() {
             // act immediately from the selected site/unit — no deploy mode, no
             // map click. Airfield UAS still place an orbit point on the map.
             const oneClick = (it.field || it.fieldAero || it.fieldDrone || it.installFac) && ctx.sourceId != null
-            const short = oneClick && it.installFac && it.cost != null && S.resources < (it.cost as number)
             const fire = () => {
               if (it.installFac) return void installFacility(ctx.sourceId!, it.key as FacilityKey)
               if (it.fieldDrone) {
@@ -175,7 +174,7 @@ function DeploySection() {
             }
             const row = (
               <PaletteRow key={it.mode} icon={it.icon} label={it.label} tag={it.tag} cost={it.cost}
-                note={it.note} disabled={it.disabled || !!short}
+                note={it.note} disabled={it.disabled}
                 onPlus={oneClick ? fire : undefined}
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fire() : pick(it.mode))} />

@@ -14,8 +14,6 @@ export interface FireMissionOpts {
   sheaf?: Sheaf
 }
 
-const ROUND_COST: Record<ShellKind, number> = { HE: 15, ICM: 25, SMOKE: 12 }
-
 export function fireMission(unitId: number, x: number, y: number, opts: FireMissionOpts = {}): void | null {
   const u = S.units.find(u => u.id === unitId)
   if (!u || !UNIT_TYPES[u.type].indirect) return
@@ -32,12 +30,8 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   const shell = opts.shell || 'HE'
   const rounds = Math.min(opts.rounds || ind.salvo, Math.floor(u.ammo ?? ind.salvo))
   const sheafMul = opts.sheaf === 'AREA' ? 2.2 : opts.sheaf === 'POINT' ? 0.55 : 1
-  const cost = rounds * (ROUND_COST[shell] || 15)
-  if ((friendly ? S.resources : S.enemyResources) < cost) {
-    return friendly ? toast('INSUFFICIENT SUPPLY FOR MISSION') : undefined
-  }
-  if (friendly) { S.resources -= cost; S.stats.supplySpent += cost }
-  else S.enemyResources -= cost
+  // no supply charge (nothing is purchased): the basic load (u.ammo) and the
+  // reload cooldown are the honest limiters — resupply is physical (LOG/base)
   u.ammo = (u.ammo ?? rounds) - rounds
   u.missionCooldown = ind.cooldown * Math.max(0.6, rounds / ind.salvo)
   // a battery ordered to fire mid-march holds its route and resumes it after the

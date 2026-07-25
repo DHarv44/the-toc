@@ -147,8 +147,10 @@ export function movementUpdate(dt: number): void {
         } else if (c.phase === 'load') {
           c.timer -= dt
           if (c.timer <= 0) {
-            c.carrying = Math.min(logi.capacity, Math.floor(S.resources))
-            S.resources -= c.carrying
+            // division provides at the CP — trucks load full capacity of real
+            // materiel (ammo and stores), no point-pool draw. What the FOB
+            // holds is what the trucks have physically hauled up.
+            c.carrying = logi.capacity
             c.phase = 'toFob'
           }
         } else if (c.phase === 'toFob') {

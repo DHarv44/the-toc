@@ -7,16 +7,14 @@ import { SUPPLY_INTERVAL, upkeepPerMin } from './economy'
 // resupply either landed or it didn't. Upkeep is netted off the same lift so the
 // readout moves in one clean step instead of two fighting each other.
 export function supplyUpdate(dt: number): void {
-  // Base Defense (waves): the passive economy is OFF — no lifts, no upkeep.
-  // You bank what you're given and spend deliberately; payouts come from the
-  // wave scheduler when an assault is repelled.
-  if (S.waves) return
+  // The PLAYER has no point economy anymore — nothing is purchased
+  // (ASSET-REQUESTS.md): capability comes from the force pool, physical
+  // logistics and division requests. Only the OPFOR still banks and pays —
+  // its internal economy is AI pacing, invisible to the player.
+  if (S.waves) return // waves: the scripted schedule IS the opposition
   S.supplyT = (S.supplyT || 0) + dt
   while (S.supplyT >= SUPPLY_INTERVAL) {
     S.supplyT -= SUPPLY_INTERVAL
-    const draw = Math.round(upkeepPerMin('friend') * SUPPLY_INTERVAL / 60)
-    S.resources = Math.max(0, S.resources + (S.supplyLift || 0) - draw)
-    // the OPFOR banks and pays on the same clock
     const eDraw = Math.round(upkeepPerMin('hostile') * SUPPLY_INTERVAL / 60)
     S.enemyResources = Math.max(0, S.enemyResources + (S.enemySupplyLift || 0) - eDraw)
   }

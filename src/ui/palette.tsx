@@ -159,12 +159,13 @@ export const droneItem = (dt: DroneType): PaletteItem => {
     : capped ? `${a.active}/${a.max}`
     : null
   return {
-    mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: dt.cost,
+    mode: 'deploy:DRONE:' + dt.key, label: dt.name, tag: droneTag(dt), cost: null,
     icon: <PaletteIcon drone={dt} />, note, disabled: !a.ready,
   }
 }
+// no costs anywhere — construction is engineer effort + placement rules
 export const structItem = (st: StructureType): PaletteItem =>
-  ({ mode: 'build:' + st.key, label: st.name, cost: st.cost, icon: <PaletteIcon struct={st} /> })
+  ({ mode: 'build:' + st.key, label: st.name, cost: null, icon: <PaletteIcon struct={st} /> })
 
 // Organic (unit-carried) UAS: a one-click ⊕ launch over the carrying unit, capped
 // at the unit's single bird — reads 1/1 once it's up, like the aerostat at a site.
@@ -172,7 +173,7 @@ export const organicDroneItem = (dt: DroneType, unitId: number): PaletteItem => 
   const active = S.drones.filter(d => d.launcherId === unitId).length
   return {
     mode: 'deploy:DRONE:' + dt.key, key: dt.key, fieldDrone: true,
-    label: dt.name, tag: droneTag(dt), cost: dt.cost, icon: <PaletteIcon drone={dt} />,
+    label: dt.name, tag: droneTag(dt), cost: null, icon: <PaletteIcon drone={dt} />,
     note: `${active}/1`, disabled: active >= 1,
   }
 }
@@ -203,18 +204,20 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
           disabled: taken, note: taken ? '1/1' : null }],
       }
       // facilities: what the base RUNS. The HQ's organic set reads as
-      // operational; a FOB shows what it has and what it can still build out.
+      // operational; a FOB shows what it has and can still stand up. C-RAM is
+      // never a build-out — it arrives only by division request (task #21
+      // wires the request row here).
       const facItems: PaletteItem[] = (Object.keys(FACILITIES) as FacilityKey[]).map(k => {
         const spec = FACILITIES[k]
         const owned = st.facilities?.includes(k)
-        // the HQ carries MOTORPOOL/AID organically; C-RAM is a deliberate buy anywhere
         const hqOrganic = st.kind === 'HQ' && k !== 'CRAM'
+        const reqOnly = k === 'CRAM' && !owned
         return {
-          mode: 'fac:' + k, key: k, installFac: !owned && !hqOrganic,
+          mode: 'fac:' + k, key: k, installFac: !owned && !hqOrganic && !reqOnly,
           label: spec.name, tag: spec.desc,
-          cost: owned || hqOrganic ? null : spec.cost,
-          note: owned ? '✓ OPERATIONAL' : hqOrganic ? '—' : null,
-          disabled: !!owned || hqOrganic,
+          cost: null,
+          note: owned ? '✓ OPERATIONAL' : hqOrganic ? '—' : reqOnly ? 'BY DIV REQUEST' : null,
+          disabled: !!owned || hqOrganic || reqOnly,
         }
       })
       return {

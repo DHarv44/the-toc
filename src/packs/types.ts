@@ -89,6 +89,41 @@ export interface NamePools {
 // real roster without giving up procedural fill for the rest.
 export type PeoplePins = Record<string, { name?: string; rank?: string }>
 
+// --- requestable division assets (ASSET-REQUESTS.md) ------------------------
+// The pack ships its habitual enablers: everything the battalion can REQUEST
+// up the chain. `from` keeps the lineage honest (the org shows them as ATT
+// from their real parent formations). Pooled assets have a `count`; USAF
+// items are `sortie: true` (ATO windows, never pooled hulls — their crews are
+// radio traffic, not org slots).
+export type AssetEchelon = 'DIV' | 'CORPS' | 'USAF'
+
+export interface AssetCrewRecipe {
+  billets: readonly (readonly [rank: string, pos: string])[]
+  civ?: number            // civilian contractor count (FSRs — noncombatants,
+                          // Defense of Freedom Medal when wounded)
+}
+
+// what an approved request physically delivers
+export interface AssetDelivery {
+  facility?: string       // installs this facility at the requesting base ('CRAM')
+  tether?: string         // raises this drone at the requesting base ('AEROSTAT')
+  orbit?: string          // +1 concurrent orbit authority for this drone key ('SHADOW')
+  window?: string         // opens an ATO sortie window for this drone key ('SPECTRE')
+  unlock?: string         // capability unlock ('CAS' — the ALO team on your net)
+  airdrop?: boolean       // roadmap: airdrop resupply (C-130)
+}
+
+export interface PackAsset {
+  name: string            // 'C-RAM Section'
+  from: string            // owning formation ('2-44 ADA', '317 AW')
+  echelon: AssetEchelon
+  count?: number          // pooled instances division can allocate
+  sortie?: boolean        // ATO-cycle sortie windows instead of a pool
+  callsigns?: readonly string[]  // sortie assets: radio identities ('REACH')
+  delivers: AssetDelivery
+  crew?: AssetCrewRecipe  // attach-and-live-here assets: real ATT org slots
+}
+
 export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
@@ -97,6 +132,7 @@ export interface Pack {
   catalogs: PackCatalogs  // the platforms this pack's world is made of
   names?: NamePools       // personnel name generation inputs
   people?: PeoplePins     // explicit roster pins (override generation)
+  assets?: Record<string, PackAsset> // requestable division/corps/USAF assets
   patch?: string          // shoulder-sleeve insignia id — rendered by ui/insignia (keeps pack data JSON-able)
   rankStyle?: string      // rank-insignia style id ('us' chevrons/bars; other armies bring their own)
   // every unit type the game offers is either organic to the formation or an

@@ -321,7 +321,7 @@ export const OPERATION: Operation = {
           'GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics '
           + 'platoon are pushing up to you from the rear — bring them forward and '
           + 'establish FOB KEATON in the town, then run a supply line up to it. '
-          + 'You may field a unit or two off the allocation if you need them. '
+          + 'Field whatever the task force can give you if you need it. '
           + 'ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE.',
       },
       onActivate(S) {
@@ -332,7 +332,6 @@ export const OPERATION: Operation = {
         c.allow = { field: true, support: false, drone: true }
         c.opforObj = null // the counterattack is beaten; no scripted pressure now
         c.frontY = town.y - 1400
-        S.resources += 400 // allocation from higher
         // engineers + logistics push up from the rear IN-WORLD: they enter at
         // the south map edge below the HQ and drive themselves to it —
         // reinforcements are something you watch arrive, not something that

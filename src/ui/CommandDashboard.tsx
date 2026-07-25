@@ -6,7 +6,7 @@ import { Box, Group, Text } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
 import { OPERATION, unreadReports } from '../engine/campaign'
-import { incomePerMin, upkeepPerMin, forceCount, forceCap } from '../domains/economy/economy'
+import { forceCount, forceCap } from '../domains/economy/economy'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { playerPack } from '../packs'
 import { BnDui } from './insignia'
@@ -56,9 +56,11 @@ export default function CommandDashboard() {
   for (const u of S.units) if (u.side === 'friend') tally(u.soldiers)
   for (const sl of S.org?.slots ?? []) if (sl.tf && sl.type && sl.unitId == null) tally(sl.soldiers)
 
-  const gross = Math.round(incomePerMin())
-  const upkeep = Math.round(upkeepPerMin())
-  const net = gross - upkeep
+  // sustainment is PHYSICAL now (no point economy): forward stock is what the
+  // trucks have actually hauled, readiness is the motorpool queue
+  const fobStock = S.structures.filter(s => s.side === 'friend' && s.kind === 'FOB')
+    .reduce((n, s) => n + Math.floor(s.stock || 0), 0)
+  const convoys = S.units.filter(u => u.side === 'friend' && u.convoy).length
   const dustwun = S.downed.filter(d => d.side === 'friend' && !d.resolved).length
   const vicsDam = S.units.filter(u => u.side === 'friend')
     .reduce((n, u) => n + u.vehicles.filter(v => v.status === 'DAMAGED').length, 0)
@@ -96,8 +98,8 @@ export default function CommandDashboard() {
           <Sub v={`${pipelineBacklog()} REPLACEMENTS REQUESTED · NEXT PACKET ${Math.max(0, Math.ceil((S.replT - S.t) / 60))} MIN`} />
         </Tile>
         <Tile label="SUSTAINMENT" accent="#c8843c">
-          <Big v={Math.floor(S.resources).toLocaleString()} c="#e8c547" />
-          <Sub v={<>SUPPLY · NET <span style={{ color: net >= 0 ? '#7ec87e' : '#e8524a' }}>{net >= 0 ? '+' : ''}{net}/MIN</span> · UPKEEP −{upkeep}/MIN</>} />
+          <Big v={fobStock.toLocaleString()} c="#e8c547" />
+          <Sub v={`FORWARD STOCK AT FOBS · ${convoys} CONVOY${convoys === 1 ? '' : 'S'} RUNNING`} />
           <Sub v={`${vicsDam} VIC${vicsDam === 1 ? '' : 'S'} DAMAGED AWAITING MOTORPOOL`} />
         </Tile>
         <Tile label="PERSONNEL RECOVERY" accent={dustwun ? '#9a7ec8' : '#3d5a75'}>

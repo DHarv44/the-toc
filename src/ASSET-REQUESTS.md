@@ -1,8 +1,9 @@
-# Division Asset Requests — settled design (2026-07-25)
+# Division Asset Requests — settled design (rev 2, 2026-07-25)
 
-> The build spec for the request-up-the-chain system. Decided with the user in
-> session; implement in the order at the bottom. Companion: MODES.md (shipped
-> systems), ROADMAP.md.
+> The build spec for the request-up-the-chain system. Rev 2 supersedes rev 1's
+> "generated attachments outside the pack": since stage 2 (pack-owned
+> catalogs), the PACK ships its habitual enablers too — see "Pack-owned
+> assets". Companion: MODES.md (shipped systems), ROADMAP.md.
 
 ## Doctrine
 
@@ -11,18 +12,34 @@ is REQUESTED up the chain; higher allocates from what actually exists. Supply
 points survive only as internal plumbing until the materiel ledger replaces
 them (S4). "How would it happen in a real TOC?" governs everything here.
 
+## Pack-owned assets (stage 2 decision)
+
+The pack is the player's ENTIRE force experience — the division AND the
+habitual enablers around it. `Pack.assets` declares every requestable asset:
+key, name, real parent formation (`from: '2-44 ADA'`), echelon
+(`DIV | CORPS | USAF`), pooled `count` OR `sortie: true`, delivery effect, and
+a `crew` recipe (mil billets + CIV contractor count).
+
+- **Attach-and-live-here assets** (C-RAM, aerostat det, ALO team): crews are
+  materialized EAGERLY by buildDivisionOrg as ATT org slots — named people,
+  garrisoned at division, `tf: false` until an approval attaches them. S1 sees
+  them the moment they arrive. Contractors are noncombatants; wounded
+  contractors get the **Defense of Freedom Medal**, NOT the Purple Heart.
+- **Sortie assets** (C-130 airlift, CAS): capability entries with a squadron
+  name and a callsign pool ("REACH", "HERKY") — crews exist as radio traffic
+  only, never org slots. We don't do the Air Force's PERSTAT for them.
+
 ## The model
 
-1. **Division asset registry** (campaign state): a real list of allocatable
-   assets — e.g. 3× C-RAM sections, 1× aerostat system (PGSS), 1× ALO team,
-   2× Shadow orbits, N× MEDEVAC lines. Each: `available | allocated(to) |
-   refit/destroyed`. Campaign scripting pre-allocates pieces to sister
-   brigades so scarcity is real from mission one, and releases them as the
-   operation progresses (net traffic announces it).
+1. **Division asset registry** (S.assets, built from Pack.assets at init):
+   each pooled asset instance is `available | allocated(to) | enroute |
+   refit`. Campaign scripting pre-allocates pieces to sister brigades so
+   scarcity is real from mission one, and releases them as the operation
+   progresses (net traffic announces it).
 2. **Request pipeline**: `relevance check → availability check → approve /
-   approve-degraded / deny(reason) / queue`. All deterministic — the player
-   learns the staff system, never gambles with it. Denials state the failing
-   factor in milspeak from day one.
+   approve-degraded / deny(reason) / queue`. All deterministic (hashStr, no
+   rng draws) — the player learns the staff system, never gambles with it.
+   Denials state the failing factor in milspeak from day one.
    - **Phase relevance** (per asset kind, reads the objective + the COP):
      C-RAM = phase-agnostic, fast-tracked by recent indirect near the base.
      Aerostat = relevant once you HOLD ground (defend/FOB/supply phases).
@@ -36,46 +53,45 @@ them (S4). "How would it happen in a real TOC?" governs everything here.
      asset frees, the queue head auto-approves with radio traffic. The player
      can RELEASE an asset back to division.
    - Destroyed assets leave the pool on a long CL VII replacement timer.
-   - Air Force items (CAS/lift) are cycle-based (sortie windows per ATO day),
-     never pooled hulls — we don't track Air Force iron.
-3. **Approved = physically arrives**: a C-RAM section convoys in; the aerostat
-   det stands up; a sortie window opens. ETA varies by outcome tier.
+   - USAF items are ATO-cycle **sortie windows**, never pooled hulls.
+3. **Approved = a REAL convoy on the map** (decided 2026-07-25): iron assets
+   (C-RAM, aerostat det, ALO team) spawn a delivery convoy at DIVISION MAIN
+   in the deep rear (map edge outside campaign) that drives the road net to
+   the requesting base — watchable, escortable, ambushable. Convoy destroyed
+   = asset lost to the CL VII timer. On arrival the section EMPLACES (setup
+   dwell — approval during an IDF attack does nothing for that attack), THEN
+   the effect goes live and the crew slots attach. Orbit/window authority is
+   paperwork, not iron — no convoy, just staff delay.
 
-## Generated attachments (outside the pack)
+## Airfields
 
-The pack is PURE 1CD. Non-1CD attachments are generated ON THE FLY at approval
-(`packs/attachments.ts` factory — deterministic, named, slotted into S.org
-under ATT so S1 shows them immediately):
-- **C-RAM section** — from 2-44 ADA: mil crew + **2-3 civilian FSR
-  contractors** (that's how C-RAM actually runs).
-- **Aerostat det** — PGSS is contractor-operated: mostly CIV crew.
-- **ALO team** — USAF CPT + TACP NCO, TACON to the player (S1-visible); their
-  aircraft stay untracked.
-- Contractors: noncombatant casualty rules; wounded contractors get the
-  **Defense of Freedom Medal**, NOT the Purple Heart (real rule — second entry
-  for packs/awards.ts).
+Division-echelon infrastructure, pre-existing on the campaign map (GARRYOWEN
+STRIP at H-hour — shipped 2026-07-25). Never player-built in campaign;
+standing one up is its own scripted tasking. Sortie windows land at an
+airfield that exists — they don't conjure one.
 
 ## Materiel ledger (S4, later)
 
 Replaces supply points. CL V posture rolls up from real stowage (already
 tracked per AmmoKey). CL VII authorized-vs-on-hand rolls up from the org's
-per-hull records (already tracked, Bradleys through Chinooks); losses create
-deficiencies, requests replenish with delivery delay. CL I/III abstract.
-S4 console = LOGSTATS tab (PERSTATS pattern), request board, vehicle OR rates.
+per-hull records; losses create deficiencies, requests replenish with delivery
+delay. CL I/III abstract. S4 console = LOGSTATS tab (PERSTATS pattern),
+request board, vehicle OR rates.
 
 ## Build order
 
-1. Asset registry + request service (relevance, availability, queue, release,
-   deterministic outcomes, radio traffic). Registry visible in request UI
-   ("C-RAM: 1/3 AVAILABLE").
-2. Generated-attachment factory (C-RAM section w/ contractors, aerostat det,
-   ALO team) + Defense of Freedom Medal.
+1. `Pack.assets` schema + 1CD assets table (C-RAM ×3 from 2-44 ADA w/ FSR
+   contractors, PGSS aerostat det, ALO team, Shadow orbits, C-130 sortie
+   line) + S.assets registry + request service (relevance, availability,
+   queue, release, deterministic outcomes, radio traffic). Registry visible
+   in request UI ("C-RAM: 1/3 AVAILABLE").
+2. Asset crews materialized in buildDivisionOrg (ATT slots, CIV contractors,
+   Defense of Freedom Medal in packs/awards.ts).
 3. Convert C-RAM/aerostat/airfield-UAS acquisition from purchase → request.
-   (WIP note: CRAM currently exists as a purchasable FACILITY — catalog entry
-   `CRAM` in installations/catalog.ts + palette/orders HQ-buy path — that was
-   the pre-design stopgap and gets replaced by the request flow. Keep the
-   facility EFFECT (intercept coverage) — the request delivers the section
-   that mans it.)
+   (The CRAM purchasable-facility stopgap — catalog entry + HQ-buy path —
+   dies here; the facility EFFECT stays, the request delivers the section
+   that mans it. Drone launches stop drawing supply; allocation + cooldowns
+   are the limiter.)
 4. **#14 base-under-fire lands on top**: `public/audio/incoming.mp3` (already
    imported) alarm when indirect is inbound on the commander's CP, subtle red
    TOC flash, C-RAM intercepts with a SYNTHESIZED burst (procedural, like the

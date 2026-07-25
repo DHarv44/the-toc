@@ -40,22 +40,18 @@ export function addStructure(
   return s
 }
 
-// FOB build-out: buy a facility for an established forward base. Structures
-// and facilities still cost supply — it's UNITS that stopped being purchases.
+// FOB build-out: stand up a facility at an established forward base. NOTHING
+// is purchased — a motorpool/aid station is the battalion's own people and
+// gear relocating forward. C-RAM is NOT establishable here at all: it arrives
+// only by division request (ASSET-REQUESTS.md), delivered by convoy.
 export function installFacility(structId: number, key: FacilityKey): void {
   const st = S.structures.find(s => s.id === structId && s.side === 'friend')
   if (!st) return
   if (st.buildT > 0) { toast(`${st.label} STILL UNDER CONSTRUCTION`); return }
-  // FOBs buy any build-out; the HQ carries MOTORPOOL/AID organically but a
-  // C-RAM battery is a deliberate purchase anywhere
-  if (st.kind !== 'FOB' && !(st.kind === 'HQ' && key === 'CRAM')) {
-    toast('BUILD-OUTS ARE FOR FORWARD BASES'); return
-  }
+  if (key === 'CRAM') { toast('C-RAM COMES BY DIVISION REQUEST, NOT BUILD-OUT'); return }
+  if (st.kind !== 'FOB') { toast('BUILD-OUTS ARE FOR FORWARD BASES'); return }
   if (st.facilities?.includes(key)) { toast(`${st.label} ALREADY HAS A ${FACILITIES[key].name.toUpperCase()}`); return }
   const spec = FACILITIES[key]
-  if (S.resources < spec.cost) { toast('INSUFFICIENT SUPPLY'); return }
-  S.resources -= spec.cost
-  S.stats.supplySpent += spec.cost
   st.facilities = [...(st.facilities ?? []), key]
   toast(`${spec.name.toUpperCase()} ESTABLISHED AT ${st.label}`)
   radio('NET', 'arrive', `${st.label} — ${spec.name.toUpperCase()} IS OPERATIONAL`, st.x, st.y)
@@ -146,7 +142,6 @@ export function deployStructure(kind: StructureTypeKey, x: number, y: number): S
   // an airfield is division-echelon infrastructure: the campaign's exists at
   // H-hour, and standing up another would be its own tasking, not a purchase
   if (kind === 'AFLD' && S.campaign) return toast('AIRFIELD CONSTRUCTION IS A DIVISION TASKING')
-  if (S.resources < spec.cost) return toast('INSUFFICIENT SUPPLY')
   if (S.map!.terrAt(x, y) === T_WATER) return toast('CANNOT BUILD ON WATER')
   if (kind === 'HQ' && S.structures.some(s => s.side === 'friend' && s.kind === 'HQ')) {
     return toast('ONLY ONE COMMAND POST PERMITTED')
@@ -171,8 +166,7 @@ export function deployStructure(kind: StructureTypeKey, x: number, y: number): S
       : kind === 'AFLD' ? 'AIRFIELD MUST BE ESTABLISHED NEAR THE HQ'
         : kind === 'FOB' ? 'TOO FAR FROM BASE — NEEDS A SUPPLY TRUCK ON SITE'
           : 'TOO FAR FROM EXISTING BASE')
-  S.resources -= spec.cost
-  S.stats.supplySpent += spec.cost
+  // no cost: construction is engineer effort + placement rules, not a purchase
   const s = addStructure('friend', kind, x, y)
   toast(s.label + ' — CONSTRUCTION STARTED')
   return s
@@ -185,10 +179,7 @@ export function convertToHq(structId: number): Structure | null {
   if (S.structures.some(o => o.side === 'friend' && o.kind === 'HQ')) {
     return toast('ONLY ONE COMMAND POST PERMITTED')
   }
-  if (S.resources < 300) return toast('INSUFFICIENT SUPPLY')
-  S.resources += (s.stock || 0) // remaining FOB stock absorbed into the main pool
-  S.resources -= 300
-  S.stats.supplySpent += 300
+  // no cost: re-establishing command is a decision, not a purchase
   const spec = STRUCTURES.HQ
   s.kind = 'HQ'
   s.buildT = 40
