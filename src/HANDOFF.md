@@ -1,21 +1,57 @@
 # HANDOFF — 2026-07-25 (compact anchor; Fable 5 → Opus)
 
-## ⚓ COMPACT ANCHOR — state as of commit `016db98` (all pushed, tree clean)
+## ⚓ COMPACT ANCHOR — state as of commit `69e56fa` (all pushed, tree clean)
 
-**Latest (past 45fc459):** #32 proud-headers rework ✅ (`016db98`) — shop
-subtitles end at the division name; shop charter (desc/detail) moved to a
-HoverCard on the big shop plate itself (hover S1/S2/... — no icon); BnHeader
-generalized (dark/paper tones, `division` identity via new pack root fields
-`nick`/`motto` in 1cd/pack.json); report documents carry the producing shop's
-letterhead (frago state gained `shop`); DIV HQ masthead above the VTC slide
-deck. Verified live: S1/S2 subtitles + S2 hover charter. EYES ONLY remaining
-(PLAYTEST.md "Proud headers rework"): paper letterhead on an opened report,
-DIV HQ deck masthead on a FRAGO.
+**The user is NOT named Dave** — never address them by any name (a wrong
+inference was scrubbed from all docs 2026-07-25; memory `user-name-never-infer`).
 
-**In flight next: CAMPAIGN TUTORIAL rework (the user, end of Fable session).**
-No design settled yet — read the existing tutorial code (grep `tutorial` /
-Splash "TUTORIAL HINTS" toggle) before proposing. Everything else below is
-stable ground.
+**CAMPAIGN-DOWN PACK CONTENT (the big one — src/PACK-MISSIONS.md is the
+contract, packs/README.md is the law):** packs ship CAMPAIGNS; a campaign owns
+its MAP and MISSIONS; missions own objectives/triggers/tutorial. Engine keeps
+verbs only. SHIPPED through S3:
+- **S1** ✅ (`c57c20b`) golden-neutral conversion: `packs/1cd/campaigns/
+  iron-triangle/{campaign,map}.json + missions/{lodgment,fob-keaton}.json`;
+  engine/missions/{places,effects}.ts (resolver + 12 effect kinds); campaign.ts
+  runs the manifest's `mainline` (order = pack data, never TS); `operation()`
+  replaced the OPERATION const (UI updated).
+- **S2** ✅ (`66084f6`) cold start: NOTHING fielded at H-hour — the commander
+  calls up the force and forms the first battle group.
+- **S3** ✅ (`66084f6`) tutorial-as-data: curriculum in mission JSON
+  (`tutorial.steps/reactive`); ui/tutorial.tsx is the INTERPRETER (condition/
+  anchor vocab in packs/types.ts; break-drill reactive verb, pack words).
+- **S4 open** (#33): mission INSTANCES (concurrent main+side), side-mission
+  pool roller (weights/cooldowns via S.rng), place queries, first side
+  mission (idf-pot). Design in PACK-MISSIONS.md.
+- Golden 3077619369 THROUGHOUT (skirmish untouched); campaign-check 37/37
+  (cold-start asserts); verified live in browser end-to-end.
+
+**#32 proud headers** ✅ (`016db98`): trimmed subtitles, plate-hover charter,
+paper letterheads on reports; motto now "First Team" (pack config); the big
+DIV HQ VTC masthead was later REMOVED per the user (headers belong ON the
+shop's PPT product — roadmapped as G-shop product headers with a `gstaff`
+pack section); concise patch + '1CD DIV HQ' id sits in the VTC window bar.
+
+**COMMAND rail rework** ✅ (`69e56fa`, task #34): Installations→COMMAND;
+CP palette = THE GARRISON (real org elements '1st PLT · A CO' sectioned by
+warfighting function, `fieldSlot(slotId, structId)` — no type-draw), player
+bn + ATT only; DIVISION — REQUESTS one-stop asset asks at the CP; Battle
+Groups ＋ ADD UNIT (attach a fielded independent to a group). FOBs no longer
+field ground units (behavior change — flagged in PLAYTEST.md).
+
+**Next builds (user-ordered):**
+1. **Unit/attachment REQUESTS from division** — the asset pipeline's sibling:
+   request a company/platoon from a sister formation; staff decision
+   (relevance/favor), approved → slots become ATT + road-march arrival (like
+   M2 ENG/LOG), denials in milspeak. Design before building.
+2. **Tutorial completion** — full curriculum playtest (cold start → dig-in →
+   M2 steps), then fix what the run exposes. COMMAND rework unblocked this.
+3. S4 side missions · #26 attack aviation · #28 hardcode audit (ammo natures
+   first) · #10 P4 OPFOR pack · #15 architecture pass.
+4. Roadmap adds 2026-07-25: G-shop product headers · VTC real troop avatars ·
+   pack-driven UI theme · Starship Troopers pack (after packs complete).
+
+PLAYTEST.md carries the eyes-only queue (COMMAND section: ADD UNIT flow,
+DIVISION — REQUESTS, FOB-fielding change, full tutorial run).
 
 Everything below "VERIFIED" is DONE and green. Late-session additions past the
 original handoff, all verified (tsc clean · golden 3077619369 · campaign 37/37):
