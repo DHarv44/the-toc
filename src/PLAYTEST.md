@@ -1,6 +1,6 @@
 # Playtest checklist — needs eyes, not harnesses (2026-07-25)
 
-> Per Dave: no more test-writing for this feature line — the big playtest is
+> Per the user: no more test-writing for this feature line — the big playtest is
 > the validation. Everything below is HEADLESS-VERIFIED but has never been
 > watched in real play. Check items off (or file findings) during the
 > sandbox/campaign playtest sessions.
@@ -53,7 +53,7 @@
 
 ## JSON pack conversion (2026-07-25 — UNVERIFIED, see HANDOFF.md)
 - [ ] Golden 3077619369 unchanged; full battery green (task #29 — run FIRST)
-- [ ] S1 roster shows Dave's name dump (uppercased in code; ~12% female mix —
+- [ ] S1 roster shows the user's name dump (uppercased in code; ~12% female mix —
       check female names don't clash with portrait rendering)
 - [ ] Pack viewer NAMES tab (male/female/last counts + truncated previews)
 - [ ] OPFOR troops still Korean-flavored names

@@ -12,7 +12,7 @@ deck. Verified live: S1/S2 subtitles + S2 hover charter. EYES ONLY remaining
 (PLAYTEST.md "Proud headers rework"): paper letterhead on an opened report,
 DIV HQ deck masthead on a FRAGO.
 
-**In flight next: CAMPAIGN TUTORIAL rework (Dave, end of Fable session).**
+**In flight next: CAMPAIGN TUTORIAL rework (the user, end of Fable session).**
 No design settled yet — read the existing tutorial code (grep `tutorial` /
 Splash "TUTORIAL HINTS" toggle) before proposing. Everything else below is
 stable ground.
@@ -21,7 +21,7 @@ Everything below "VERIFIED" is DONE and green. Late-session additions past the
 original handoff, all verified (tsc clean · golden 3077619369 · campaign 37/37):
 
 - **#29 verify** ✅ — JSON packs proven (golden ×2, six-harness battery, boot:
-  234 org slots, Dave's names live, OPFOR pools separate).
+  234 org slots, the user's names live, OPFOR pools separate).
 - **#30 QRF** ✅ — palette toggle at HQ/FOB (garrisoned only), auto-launch on
   IDF/attack, knowledge-honest targeting (live track vs shell back-azimuth
   bounded move), 120 s stand-down. Verified live (bearing response + radio).
@@ -35,12 +35,12 @@ original handoff, all verified (tsc clean · golden 3077619369 · campaign 37/37
 **Open tasks:** #26 attack aviation (design settled in ROADMAP/#26) ·
 #28 hardcode audit (ammo natures item 0 first — golden-affecting, own gated
 step) · #10 P4 OPFOR faction pack (JSON loader ready for it) · #15
-architecture pass. **Owed to Dave:** the sandbox show-off demo / playtest
+architecture pass. **Owed to the user:** the sandbox show-off demo / playtest
 session (PLAYTEST.md is the script). Eyes-only checks pending: female-name
 portraits, mute-mid-alarm, S2/S3/S4 visual pass (rendered but only
 text-probed).
 
-> Dave's directive: no more test runs this session — MARK what needs testing.
+> the user's directive: no more test runs this session — MARK what needs testing.
 > This doc is the jump start: exact state, unverified work, and fleshed-out
 > designs for the next builds. Read PLAYTEST.md alongside it.
 
@@ -49,7 +49,7 @@ text-probed).
 The JSON pack conversion checked out completely: tsc clean · golden
 **3077619369 unchanged ×2** · battery green (campaign 37 · casualty 22 ·
 asset 32 · pipeline 12 · roster 8 · phase3 14) · browser boot clean — 234 org
-slots (229 + 5 asset crews), blue roster on Dave's dump (uppercased in code),
+slots (229 + 5 asset crews), blue roster on the user's dump (uppercased in code),
 OPFOR on its own pools. Remaining eyes-only checks live in PLAYTEST.md
 (female-name portraits, mute-mid-alarm by ear, pack viewer NAMES tab).
 
@@ -70,20 +70,20 @@ final commit carrying this doc)
 - **JSON packs**: `src/packs/1cd/{pack,names}.json`,
   `src/packs/opfor/{pack,names}.json`, `src/packs/lib/us-platforms.json`;
   TS data files deleted; loader in `packs/index.ts` (extends/subset/fallback);
-  IDs-not-names contract documented in the lib `_doc`. Dave's name dump is in
+  IDs-not-names contract documented in the lib `_doc`. the user's name dump is in
   1cd/names.json (author-cased; app uppercases; male-heavy ~88/12).
 - Mute fix: master mute now stops the looping alarm element (UNVERIFIED).
 
 ## Outstanding interrupted work
 
-- The **sandbox show-off demo** Dave asked for ("watch in the preview, click
+- The **sandbox show-off demo** the user asked for ("watch in the preview, click
   around like a commander") — postponed until mid-flight work landed; still
   owed after verification passes.
 - `packs/awards.ts` is still TS content in pack-land (HARDCODE-AUDIT #4);
   DoF/PH data should eventually move into pack JSON.
 - PLAYTEST.md checklist has never been exercised.
 
-## DESIGN: QRF (new feature, Dave 2026-07-25)
+## DESIGN: QRF (new feature, the user 2026-07-25)
 
 Commander assigns garrisoned units at an HQ/FOB as the Quick Reaction Force:
 
@@ -147,7 +147,7 @@ entries from `'s1'` to `'s1'|'s2'|'s3'|'s4'|'s6'`; per-shop composers.
 ## Cleanup / changeover checklist
 
 - [ ] Verification battery (top of this doc) green → commit "verified" note
-- [ ] PLAYTEST.md session with Dave (the show-off demo doubles as it)
+- [ ] PLAYTEST.md session with the user (the show-off demo doubles as it)
 - [ ] Mute-during-alarm behavior confirmed by ear
 - [ ] Task list: #29 (verify), #30 (QRF), #31 (S-shops) created this session;
       #26 attack aviation, #28 hardcode audit, #10 P4, #15 architecture pass
