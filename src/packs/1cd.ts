@@ -52,6 +52,16 @@ export const PACK_1CD: Pack = {
     '5-20 IN': 'TANT QUE JE PUIS',
     '1-506 IN': 'CURRAHEE',
   },
+  // Battalion nicknames (battalion-specific — 2-8 are the Stallions even
+  // though 1-8 and 3-8 share the regiment's arms and motto)
+  nicks: {
+    '2-8 CAV': 'STALLIONS',
+    '1-82 FA': 'DRAGONS',
+    '91 BEB': 'SABERS',
+    '115 BSB': 'MULESKINNERS',
+    '1-227 ARB': 'FIRST ATTACK',
+    '1-506 IN': 'RED CURRAHEE',
+  },
   // The whole division, brigades down (packs/org.ts expands each battalion to
   // companies/platoons/people). The campaign TF is the 1ABCT slice the player
   // commands: ALL of 2-8 CAV plus one company/battery from each enabler.

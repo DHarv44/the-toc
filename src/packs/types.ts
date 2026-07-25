@@ -69,6 +69,8 @@ export interface Pack {
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)
   mottos?: Record<string, string>
+  // battalion nicknames (battalion-specific, unlike regimental mottos)
+  nicks?: Record<string, string>
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const

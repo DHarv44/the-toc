@@ -150,6 +150,22 @@ const CREST_ART: Record<string, { src: string; aspect: number }> = {
 }
 const regimentOf = (bn: string): string => bn.replace(/^\d+-/, '')
 
+// Distinctive unit insignia — the BATTALION's badge (battalion-numbered scroll,
+// nickname arc), keyed by full designation. The DUI leads the S1 header; the
+// regimental coat of arms anchors the other end.
+const DUI_ART: Record<string, { src: string; aspect: number }> = {
+  '2-8 CAV': { src: '/crests/2-8cav-dui.png', aspect: 1 },
+}
+
+export function BnDui({ bn, h = 46, title }: { bn: string; h?: number; title?: string }) {
+  const art = DUI_ART[bn]
+  if (!art) return null
+  return (
+    <img src={art.src} alt={`${bn} distinctive unit insignia`} title={title ?? bn}
+      style={{ height: h, width: h * art.aspect, flex: '0 0 auto', objectFit: 'contain' }} />
+  )
+}
+
 export function BnCrest({ bn, kind, motto, h = 46 }: {
   bn: string; kind?: string; motto?: string; h?: number
 }) {

@@ -15,7 +15,7 @@ import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
-import { BnCrest, PatchIcon, RankIcon, RibbonIcon } from './insignia'
+import { BnCrest, BnDui, RankIcon, RibbonIcon } from './insignia'
 
 const COL = { fit: '#7ec87e', wia: '#e8c547', kia: '#e8524a', mia: '#9a7ec8', dim: '#54708a' }
 const STATUS_COL: Record<string, string> = { FIT: COL.fit, WIA: COL.wia, KIA: COL.kia, MIA: COL.mia }
@@ -415,12 +415,14 @@ export default function S1Console() {
       }}>
       {/* DUSTWUN attention pulse (company + platoon labels) */}
       <style>{'@keyframes s1pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
-      {/* the proud battalion header: coat of arms, designation, regimental motto */}
+      {/* the proud battalion header: the battalion's DUI leads (its own badge —
+          numbered scroll, STALLIONS arc), designation + motto + nickname in the
+          middle, the REGIMENTAL coat of arms anchoring the right — crest by the
+          door, colors in the case. */}
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
-        {playerBn && (
-          <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
-            kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
-        )}
+        {playerBn && <BnDui bn={playerBn} h={54} title={pack.nicks?.[playerBn]} />}
+        {/* the staff-section plate: as tall as the title+subtitle block */}
+        <Text fz={44} fw={700} c="#3d5a75" lh={1} style={{ letterSpacing: 1 }}>S1</Text>
         <Box>
           <Group gap={12} align="baseline" wrap="nowrap">
             <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
@@ -431,11 +433,22 @@ export default function S1Console() {
                 “{pack.mottos[playerBn]}”
               </Text>
             )}
+            {playerBn && pack.nicks?.[playerBn] && (
+              <Text fz="md" fw={700} c="#d8b84a" style={{ letterSpacing: 2 }}>
+                {pack.nicks[playerBn]}
+              </Text>
+            )}
           </Group>
           <Text fz="xs" c="dark.3" style={{ letterSpacing: 1.5 }}>
-            S1 — PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
+            PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
           </Text>
         </Box>
+        {playerBn && (
+          <Box ml="auto">
+            <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
+              kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
+          </Box>
+        )}
       </Group>
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
