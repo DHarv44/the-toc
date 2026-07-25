@@ -33,6 +33,25 @@ export const PACK_1CD: Pack = {
     INF: { bn: '1-506 IN', from: '101 ABN' },                 // light rifle attachment
     AT: { bn: '1-506 IN', from: '101 ABN', style: 'hhc', hhcName: 'AT SEC' },
   },
+  // Regimental mottos — the real lineage heraldry (verified against the unit
+  // DUI/COA records; 17th Cav and 615th use their traditional words).
+  mottos: {
+    '2-8 CAV': 'HONOR AND COURAGE', '1-8 CAV': 'HONOR AND COURAGE', '3-8 CAV': 'HONOR AND COURAGE',
+    '1-5 CAV': 'LOYALTY AND COURAGE', '2-5 CAV': 'LOYALTY AND COURAGE',
+    '1-7 CAV': 'GARRYOWEN', '2-7 CAV': 'GARRYOWEN',
+    '4-9 CAV': 'WE CAN, WE WILL', '6-9 CAV': 'WE CAN, WE WILL',
+    '1-12 CAV': 'SEMPER PARATUS',
+    '1-82 FA': 'CAN AND WILL', '2-82 FA': 'CAN AND WILL',
+    '3-16 FA': 'MACTE NOVA VIRTUTE',
+    '91 BEB': 'ACTS NOT WORDS', '8 BEB': 'ESSAYONS', '3 BEB': 'ESSAYONS',
+    '115 BSB': 'MULE SKINNERS',
+    '13 SIG BN': 'VOICE OF COMMAND',
+    '1-227 ARB': 'POUVOIR', '2-227 AHB': 'POUVOIR', '3-227 GSAB': 'POUVOIR',
+    '7-17 CAV': 'FORWARD',
+    '615 ASB': 'COLD STEEL',
+    '5-20 IN': 'TANT QUE JE PUIS',
+    '1-506 IN': 'CURRAHEE',
+  },
   // The whole division, brigades down (packs/org.ts expands each battalion to
   // companies/platoons/people). The campaign TF is the 1ABCT slice the player
   // commands: ALL of 2-8 CAV plus one company/battery from each enabler.

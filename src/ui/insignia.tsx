@@ -85,6 +85,77 @@ const US_RANKS: Record<string, ReactNode> = {
   MG: <>{starAt(5.4, 8, 0.62)}{starAt(12.6, 8, 0.62)}</>,
 }
 
+// Battalion coat of arms — a DUI-style shield in branch heraldry colors with a
+// branch charge and the regimental motto on a scroll beneath. Procedural (same
+// doctrine as the portrait/patch factories): the pack supplies designation +
+// motto, the branch supplies the field.
+const BRANCH: Record<string, { field: string; chief: string; charge: string }> = {
+  cav: { field: '#c8a83c', chief: '#20261c', charge: 'sabers' },   // cavalry/armor yellow
+  fa: { field: '#9d2933', chief: '#20261c', charge: 'cannon' },    // artillery scarlet
+  en: { field: '#9d2933', chief: '#e8e4da', charge: 'castle' },    // engineer scarlet/white
+  sig: { field: '#d97a28', chief: '#e8e4da', charge: 'flash' },    // signal orange
+  av: { field: '#2b4c7e', chief: '#c8a83c', charge: 'wings' },     // aviation ultramarine/gold
+  sus: { field: '#7a5c3c', chief: '#c8a83c', charge: 'wheel' },    // sustainment
+  in: { field: '#5b84b1', chief: '#e8e4da', charge: 'muskets' },   // infantry blue
+  hq: { field: '#3c6e6e', chief: '#c8a83c', charge: 'star' },      // division troops
+}
+// pack BnKind → branch key
+export const bnBranch = (kind?: string): string => {
+  switch (kind) {
+    case 'CAB': case 'ARMOR': case 'RECON': return 'cav'
+    case 'FA': case 'HHB-DIVARTY': return 'fa'
+    case 'BEB': return 'en'
+    case 'SIG': return 'sig'
+    case 'ARB': case 'AHB': case 'GSAB': case 'ASB': return 'av'
+    case 'BSB': case 'CSSB': case 'STB': return 'sus'
+    case 'HHBN': return 'hq'
+    default: return 'in'
+  }
+}
+
+function crestCharge(kind: string, ink: string): ReactNode {
+  const sw = { stroke: ink, strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' as const }
+  switch (kind) {
+    case 'sabers': return <g {...sw}><path d="M 12 30 Q 20 22 28 14" /><path d="M 28 30 Q 20 22 12 14" /></g>
+    case 'cannon': return <g {...sw}><path d="M 12 28 L 28 16" /><path d="M 12 16 L 28 28" /><circle cx="20" cy="22" r="3.4" fill={ink} stroke="none" /></g>
+    case 'castle': return <g fill={ink}><rect x="12" y="18" width="16" height="12" /><rect x="12" y="14" width="3.6" height="5" /><rect x="18.2" y="14" width="3.6" height="5" /><rect x="24.4" y="14" width="3.6" height="5" /></g>
+    case 'flash': return <path d="M 23 12 L 14 23 L 20 23 L 17 32 L 26 20 L 20 20 Z" fill={ink} />
+    case 'wings': return <g {...sw}><path d="M 20 26 L 20 16" /><path d="M 10 24 Q 16 14 20 18 Q 24 14 30 24" /></g>
+    case 'wheel': return <g {...sw}><circle cx="20" cy="22" r="7" /><path d="M 20 15 V 29 M 13 22 H 27" /></g>
+    case 'muskets': return <g {...sw}><path d="M 15 30 L 15 13" /><path d="M 25 30 L 25 13" /></g>
+    case 'star': return <path transform="translate(20 22) scale(0.9) translate(-9 -8)" d={STAR_D} fill={ink} />
+    default: return null
+  }
+}
+
+export function BnCrest({ bn, kind, motto, h = 46 }: {
+  bn: string; kind?: string; motto?: string; h?: number
+}) {
+  const b = BRANCH[bnBranch(kind)] ?? BRANCH.cav!
+  const ink = b.chief === '#20261c' ? '#20261c' : b.chief
+  const W = 40, H = 52
+  return (
+    <svg width={h * (W / H)} height={h} viewBox={`0 0 ${W} ${H}`} style={{ flex: '0 0 auto' }}
+      role="img" aria-label={`${bn} coat of arms`}>
+      {/* shield */}
+      <path d="M 3 4 H 37 V 24 Q 37 36 20 42 Q 3 36 3 24 Z" fill={b.field} stroke="#c8a83c" strokeWidth="1.6" />
+      {/* chief band */}
+      <path d="M 3 4 H 37 V 11 H 3 Z" fill={b.chief} />
+      {crestCharge(b.charge, ink)}
+      {/* motto scroll */}
+      {motto && (
+        <>
+          <rect x="1" y="44" width="38" height="7.4" rx="1.6" fill="#101820" stroke="#c8a83c" strokeWidth="0.8" />
+          <text x="20" y="49.4" textAnchor="middle" fill="#d8c88a"
+            style={{ font: `700 ${motto.length > 16 ? 3.4 : 4.2}px Consolas, monospace`, letterSpacing: 0.2 }}>
+            {motto}
+          </text>
+        </>
+      )}
+    </svg>
+  )
+}
+
 // Award ribbon bar (packs/awards): stripe colors left→right, standard ribbon
 // proportions. Tooltip-titled by the caller.
 export function RibbonIcon({ stripes, w = 18, h = 6 }: { stripes: readonly string[]; w?: number; h?: number }) {

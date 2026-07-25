@@ -66,6 +66,9 @@ export interface Pack {
   organic: Partial<Record<UnitTypeKey, OrganicSlot>>
   attached: Partial<Record<UnitTypeKey, AttachedSlot>>
   formation?: Formation   // the whole division (org materializes from this)
+  // regimental mottos by battalion designation — real lineage heraldry
+  // (rendered on the S1 battalion header's coat of arms)
+  mottos?: Record<string, string>
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const

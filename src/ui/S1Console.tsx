@@ -15,7 +15,7 @@ import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
-import { PatchIcon, RankIcon, RibbonIcon } from './insignia'
+import { BnCrest, PatchIcon, RankIcon, RibbonIcon } from './insignia'
 
 const COL = { fit: '#7ec87e', wia: '#e8c547', kia: '#e8524a', mia: '#9a7ec8', dim: '#54708a' }
 const STATUS_COL: Record<string, string> = { FIT: COL.fit, WIA: COL.wia, KIA: COL.kia, MIA: COL.mia }
@@ -415,13 +415,31 @@ export default function S1Console() {
       }}>
       {/* DUSTWUN attention pulse (company + platoon labels) */}
       <style>{'@keyframes s1pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
+      {/* the proud battalion header: coat of arms, designation, regimental motto */}
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
-        <PatchIcon id={pack.patch} h={38} />
-        <Text fz="xl" fw={700} c="#dceeff" style={{ letterSpacing: 3 }}>S1 — PERSONNEL</Text>
-        <Text fz="sm" c="dark.3" style={{ letterSpacing: 1.5 }}>
-          {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
-        </Text>
-        <Button size="sm" variant="default" ml="auto" onClick={() => ui.setConsole(null)}>← MAP</Button>
+        {playerBn && (
+          <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
+            kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
+        )}
+        <Box>
+          <Group gap={12} align="baseline" wrap="nowrap">
+            <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
+              {playerBn ?? pack.abbr}
+            </Text>
+            {playerBn && pack.mottos?.[playerBn] && (
+              <Text fz="md" fw={600} c="#c8a83c" style={{ letterSpacing: 1.5 }}>
+                “{pack.mottos[playerBn]}”
+              </Text>
+            )}
+          </Group>
+          <Text fz="xs" c="dark.3" style={{ letterSpacing: 1.5 }}>
+            S1 — PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
+          </Text>
+        </Box>
+        <Group gap="md" ml="auto" wrap="nowrap">
+          <PatchIcon id={pack.patch} h={34} />
+          <Button size="sm" variant="default" onClick={() => ui.setConsole(null)}>← MAP</Button>
+        </Group>
       </Group>
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
@@ -486,7 +504,10 @@ export default function S1Console() {
                 <div key={bn}>
                   <NodeRow depth={2} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
                     label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
-                    att={att} sub={mine ? 'YOUR BATTALION' : att ? undefined : 'ORGANIC'} a={bnAgg} />
+                    att={att}
+                    sub={[mine ? 'YOUR BATTALION' : !att ? 'ORGANIC' : '', pack.mottos?.[bn] ? `“${pack.mottos[bn]}”` : '']
+                      .filter(Boolean).join(' · ')}
+                    a={bnAgg} />
                   {open.has(bnKey) && renderCos(bnSlots, bn, 3)}
                 </div>
               )
@@ -513,8 +534,11 @@ export default function S1Console() {
                 <NodeRow depth={1} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
                   label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
                   att={att}
-                  sub={mine ? 'YOUR BATTALION — FULL ALLOCATION'
-                    : `${bnSlots.length} ELEMENT${bnSlots.length === 1 ? '' : 'S'} ATTACHED TO TF`}
+                  sub={[
+                    mine ? 'YOUR BATTALION — FULL ALLOCATION'
+                      : `${bnSlots.length} ELEMENT${bnSlots.length === 1 ? '' : 'S'} ATTACHED TO TF`,
+                    pack.mottos?.[bn] ? `“${pack.mottos[bn]}”` : '',
+                  ].filter(Boolean).join(' · ')}
                   a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
                 {open.has(bnKey) && renderCos(bnSlots, bn, 2)}
               </div>
@@ -532,7 +556,8 @@ export default function S1Console() {
           <>
             <NodeRow depth={0} open={open.has('bnroot')} onToggle={() => toggle('bnroot')}
               label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{playerBn}</Text>}
-              sub="YOUR BATTALION"
+              sub={['YOUR BATTALION', pack.mottos?.[playerBn] ? `“${pack.mottos[playerBn]}”` : '']
+                .filter(Boolean).join(' · ')}
               leader={cdrS ? `${cdrS.rank} ${cdrS.name}` : undefined}
               a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
             {open.has('bnroot') && renderCos(bnSlots, playerBn, 1)}

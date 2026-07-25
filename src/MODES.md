@@ -534,3 +534,15 @@ pipeline footer (backlog + next packet ETA), company labels roll up state
 (amber "— CASUALTIES", pulsing "— RECOVERY REQ" when a platoon is DUSTWUN,
 platoon label pulses too). Golden UNCHANGED at 84143052 (×2); pipeline-check
 12/12 (NEW), casualty 22/22, campaign 29/29, phase3 14/14, roster 8/8.
+
+**Battalion heraldry (2026-07-25):** `Pack.mottos` — real regimental mottos as
+pack data (verified: 8th CAV "HONOR AND COURAGE", 5th "LOYALTY AND COURAGE",
+7th "GARRYOWEN", 9th "WE CAN, WE WILL", 12th "SEMPER PARATUS", 82 FA "CAN AND
+WILL", 16 FA "MACTE NOVA VIRTUTE", 91 BEB "ACTS NOT WORDS", 115 BSB "MULE
+SKINNERS", 13 SIG "VOICE OF COMMAND", 227 AVN "POUVOIR", 20 IN "TANT QUE JE
+PUIS", 506 IN "CURRAHEE"). `ui/insignia.tsx::BnCrest` renders a procedural
+DUI-style coat of arms — branch heraldry field (cav yellow, artillery scarlet,
+engineer scarlet/white, signal orange, aviation ultramarine, sustainment,
+infantry blue), branch charge (sabers/cannon/castle/flash/wings…), motto
+scroll. S1's header is now the PROUD BATTALION HEADER — crest + "2-8 CAV" +
+motto, 1CD patch moved to the right; battalion rows show their mottos.
