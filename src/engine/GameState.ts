@@ -106,6 +106,29 @@ export interface DivOrg {
   slots: OrgSlot[]
 }
 
+// --- DUSTWUN (P2.5 follow-up) ----------------------------------------------
+// A friendly platoon that goes down is NOT resolved on the spot — the TOC only
+// knows the signal dropped. The site holds the unresolved roster at the last
+// known position (dim symbol, like a stale contact). Securing the area rolls
+// the truth: fast = most recovered (golden hour), enemy-held = captured (MIA),
+// never = MIA-heavy at the end. Securing IS the rescue mission.
+export interface DownedSite {
+  id: number
+  unitId: number             // the fallen unit (its org slot keys off this)
+  side: Side
+  type: UnitTypeKey
+  label: string              // 'GOLF-7'
+  lineage?: string
+  x: number
+  y: number
+  t: number                  // sim time the signal dropped
+  soldiers: Soldier[]        // unresolved roster (shared refs with the org slot)
+  vehicles: UnitVehicle[]
+  capturedT?: number         // first time the enemy held the site (skews MIA)
+  secureT: number            // accumulated friendly-secure dwell toward resolution
+  resolved?: boolean
+}
+
 export interface UnitVehicle {
   id: number
   type: VehicleKey
@@ -472,6 +495,7 @@ export interface CampaignState {
   tutorial: boolean          // guided tutorial enabled for this campaign
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties
+  dustwunSeen: number[]      // DUSTWUN site ids already raised as PERSONNEL RECOVERY taskings
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT
@@ -528,6 +552,7 @@ export interface GameState {
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   org: DivOrg | null         // the player pack's full division organization (friend side)
+  downed: DownedSite[]       // DUSTWUN sites awaiting recovery (friend wipes)
   enemyFiresOkT: number      // next sim time ANY OPFOR fire mission may launch (rolled window)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
@@ -579,6 +604,7 @@ export function createInitialState(): GameState {
     waves: null,
     campaign: null,
     org: null,
+    downed: [],
     enemyFiresOkT: -999,
     nextWave: 60,
     airCooldown: {},

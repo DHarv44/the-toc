@@ -496,3 +496,21 @@ changes, and A's old pass was a surrender fluke; both documented in the entry
 files), campaign-check 29/29. Known readout quirk: a mounted unit's strength
 reads its EXPOSED set — remounting healthy carriers over dismount casualties
 raises the bar (PERSTAT in S1 tells the truth).
+
+**DUSTWUN (2026-07-25):** friendly wipes are no longer resolved on the spot —
+the TOC only knows the signal dropped. `S.downed` holds the unresolved roster
+at the LKP (dim friendly symbol, "DUSTWUN nM" — same stale treatment as enemy
+LKP contacts; S1 slot reads STATUS UNKNOWN). `forces/recovery.ts` (new tick
+slot after attritionSync) drives the clock: an enemy element sitting on the
+site marks it captured (survivors → POW odds); a friendly element securing it
+(≤220 m, no enemies inside 600 m, 30 s dwell) rolls the truth via
+`resolveDownedSite` — WIA survival decays on a ~golden-hour curve (full inside
+~5 min → 15% floor by ~25 min), a MED element on the recovery adds +15%, FIT
+survivors walk home to the slot as cadre. Never secured = written off MIA-heavy
+(AAR later). The campaign raises a **PERSONNEL RECOVERY** FRAGO per site
+(recallable; securing IS the rescue mission — replaces the old wipe-time MIA
+RNG). Also: **survivors dismount** — a mounted platoon whose last vic dies
+converts to a foot remnant on BREAK (remnantCheck in attritionSync) instead of
+being deleted; the "wiped too easily" fix. Golden UNCHANGED at 84143052 (×2);
+casualty-check 22/22, campaign-check 29/29, phase3-check 14/14. Roadmapped:
+LZ evac / E&E for unreachable sites (GSAB birds).

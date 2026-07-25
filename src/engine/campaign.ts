@@ -94,6 +94,7 @@ import { nearestLand, clampWorld } from '../world/place'
 import { radio, toast } from '../domains/comms/radio'
 import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
+import { locRef } from '../world/ref'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -416,7 +417,7 @@ export function startCampaign(S: GameState): void {
     // DIVISION MAIN sits in the deep rear, bottom-left — higher headquarters
     // as a place on the map (inert: it does nothing, it is simply THERE)
     divHq: nearestLand(S.map!, S.map!.WORLD * 0.08, S.map!.WORLD * 0.94),
-    tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false,
+    tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false, dustwunSeen: [],
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
@@ -474,6 +475,22 @@ export function runCampaign(S: GameState, _dt: number): void {
   const c = S.campaign
   if (!c || c.complete) return
   if (!c.briefed) return                    // waiting on the opening briefing
+  // PERSONNEL RECOVERY taskings: a platoon going DUSTWUN raises a FRAGO —
+  // higher wants that ground secured and those soldiers accounted for.
+  // (Resolution reports come from the recovery sweep itself.)
+  for (const site of S.downed) {
+    if (site.side !== 'friend' || c.dustwunSeen.includes(site.id)) continue
+    c.dustwunSeen.push(site.id)
+    const text =
+      `TASK FORCE, THIS IS HIGHER. We show ${site.label} — ${site.lineage ?? 'UNKNOWN ELEMENT'} — `
+      + `off the net, last known ${locRef(S.map!, site.x, site.y)}. Status of personnel UNKNOWN. `
+      + 'Get an element to that grid and SECURE IT. Every minute matters for the wounded; '
+      + 'if the enemy holds that ground, our people become prisoners. '
+      + 'A medical element on the recovery will save lives. FIND THEM. BRING THEM HOME.'
+    c.fragoLog.push({ title: `PERSONNEL RECOVERY — ${site.label}`, text, t: S.t })
+    if (!c.frago) c.frago = { title: `PERSONNEL RECOVERY — ${site.label}`, text }
+    radio('NET', 'request', `PERSONNEL RECOVERY TASKED — ${site.label} LKP, SECURE AND SWEEP`, site.x, site.y)
+  }
   const obj = OPERATION.objectives[c.objIdx]
   if (!obj) return
   const { done } = evalObjective(obj, S, c)

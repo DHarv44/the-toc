@@ -1152,6 +1152,17 @@ export default function MapView() {
         }
       }
 
+      // DUSTWUN sites: a downed platoon's LKP, dim like a stale contact —
+      // status unknown until somebody secures the ground (recovery.ts)
+      for (const site of S.downed) {
+        if (site.side !== 'friend') continue
+        const age = Math.floor((S.t - site.t) / 60)
+        drawUnitSymbol(ctx, w2sX(site.x), w2sY(site.y), {
+          side: 'friend', glyph: UNIT_TYPES[site.type].glyph, stale: true,
+          label: `${site.label} DUSTWUN ${age}M`, showStrength: false,
+        })
+      }
+
       // friendly units (always shown — it's blue force tracking)
       for (const u of S.units) {
         if (u.side !== 'friend') continue

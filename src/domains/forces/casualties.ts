@@ -10,7 +10,7 @@
 // stream draws, so the golden path only moves where combat outcomes genuinely
 // changed (documented re-baseline).
 import { S } from '../../engine/state'
-import type { ShellKind, Soldier, Unit, UnitElement, UnitVehicle, WoundSev } from '../../engine/GameState'
+import type { DownedSite, ShellKind, Soldier, Unit, UnitElement, UnitVehicle, WoundSev } from '../../engine/GameState'
 import { T_FOREST, T_URBAN } from '../../world/WorldMap'
 import { UNIT_TYPES } from './catalog'
 import { elemWorld, exposedList, postureFactor } from './elements'
@@ -237,6 +237,70 @@ export function destroyUnit(u: Unit): void {
   for (const el of u.elements) applyElementLoss(u, el, true)
   u.dmgAcc = 0
   deriveStrength(u)
+}
+
+// --- survivors dismount -----------------------------------------------------
+// A mounted carrier platoon whose last vehicle dies is NOT deleted while its
+// dismounts are alive — the survivors bail out and fight on foot (shaken:
+// BREAK posture, they run from contact). Cuts the "instant platoon deletion"
+// wipes; the remnant can still go DUSTWUN later. Both sides.
+export function remnantCheck(u: Unit): void {
+  const type = UNIT_TYPES[u.type]
+  if (!type.carrier || !u.mounted) return
+  if (u.vehicles.some(v => v.status === 'OK')) return
+  if (!u.soldiers.some(s => s.vehId === null && s.status === 'FIT')) return
+  u.mounted = false
+  u.autoDismounted = false // deliberate: they have nothing to remount
+  u.roe = 'break'
+  deriveElements(u)
+  deriveStrength(u)
+  if (u.side === 'friend') radio(u.label, 'damage', 'ALL VICS DOWN — SURVIVORS DISMOUNTING, BREAKING CONTACT', u.x, u.y)
+}
+
+// --- DUSTWUN ----------------------------------------------------------------
+// A downed friendly platoon: fates are NOT rolled — the TOC only knows the
+// signal dropped. The site keeps the unresolved roster at the LKP; securing
+// the area resolves the truth (recovery.ts drives the clock).
+export function downUnit(u: Unit): void {
+  for (const v of u.vehicles) if (v.status === 'DAMAGED') v.status = 'DESTROYED' // abandoned hulks
+  S.downed.push({
+    id: (S.counters.nextId++), unitId: u.id, side: u.side, type: u.type,
+    label: u.label, lineage: u.lineage, x: u.x, y: u.y, t: S.t,
+    soldiers: u.soldiers, vehicles: u.vehicles, secureT: 0,
+  })
+}
+
+// The ground truth, rolled when the site is finally secured (or written off).
+// Elapsed time decays WIA survival (the golden hour); an enemy-held site turns
+// survivors into prisoners; a MED element on the recovery saves more wounded.
+export function resolveDownedSite(
+  site: DownedSite, opts: { medBonus?: boolean; writeOff?: boolean } = {},
+): { fit: number; wia: number; kia: number; mia: number } {
+  site.resolved = true
+  const elapsed = S.t - site.t
+  const enemyHeld = site.capturedT != null
+  // WIA survival odds: full inside ~5 min, decaying to a floor by ~30 min
+  const survive = Math.max(0.15, Math.min(1, 1.15 - elapsed / 1500)) + (opts.medBonus ? 0.15 : 0)
+  const r = (tag: string, sid: number): number =>
+    (hashStr(`${site.id}:${tag}:${sid}`) >>> 8) % 10000 / 10000
+  const out = { fit: 0, wia: 0, kia: 0, mia: 0 }
+  for (const s of site.soldiers) {
+    if (s.status === 'KIA' || s.status === 'MIA' || s.evac) continue
+    if (opts.writeOff) {
+      // never secured: unaccounted — MIA-heavy, some confirmed KIA later
+      if (r('wo', s.id) < 0.35) { s.status = 'KIA'; grantAward(s, 'PURPLE_HEART'); out.kia++ }
+      else { s.status = 'MIA'; out.mia++ }
+      continue
+    }
+    if (enemyHeld && r('pow', s.id) < 0.75) { s.status = 'MIA'; out.mia++; continue } // captured
+    if (s.status === 'WIA') {
+      if (r('gh', s.id) < survive) { s.evac = true; out.wia++ } // recovered → medical chain
+      else { s.status = 'KIA'; out.kia++ }                      // didn't make it (PH already held)
+    } else {
+      out.fit++ // E&E'd or held out — walks home to the slot as cadre
+    }
+  }
+  return out
 }
 
 // --- end states -------------------------------------------------------------

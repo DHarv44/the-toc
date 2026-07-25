@@ -322,17 +322,19 @@ export default function S1Console() {
     const key = `slot:${sl.id}`
     const a = slotAggs.get(sl.id)!
     const u = sl.unitId != null ? S.units.find(x => x.id === sl.unitId) : undefined
+    const down = sl.unitId != null && !u ? S.downed.find(d => d.unitId === sl.unitId && !d.resolved) : undefined
     const lost = sl.unitId != null && !u
     const ldr = sl.soldiers.find(s => (s.pos === 'Platoon Leader' || s.pos === 'Battalion Commander'
       || s.pos === 'Flight Lead' || s.pos === 'Commanding General') && s.status === 'FIT')
       ?? sl.soldiers.find(s => s.status === 'FIT') ?? sl.soldiers[0]
     const status = u ? `FIELDED · ${u.label} · ${Math.max(0, Math.round(u.strength))}%`
-      : lost ? 'COMBAT LOSS' : slotLocation(sl)
+      : down ? 'DUSTWUN — STATUS UNKNOWN, SECURE THE LKP'
+        : lost ? 'COMBAT LOSS' : slotLocation(sl)
     return (
       <div key={sl.id} ref={sl.unitId === ui.rosterId ? focusRef : undefined}>
         <NodeRow depth={depth} open={open.has(key)} onToggle={() => toggle(key)}
           label={<Text span fz="md" fw={sl.type ? 700 : 500}
-            c={lost ? COL.kia : u ? '#7ec8ff' : sl.tf ? '#9fd0f5' : '#7d95aa'}>
+            c={down ? COL.mia : lost ? COL.kia : u ? '#7ec8ff' : sl.tf ? '#9fd0f5' : '#7d95aa'}>
             {sl.name}
           </Text>}
           att={sl.from ?? null}

@@ -14,7 +14,10 @@ import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { stowageMax } from './composition'
 import { effStats } from './elements'
-import { deriveElements, deriveStrength, medicalUpdate, processCapture, processWipe } from './casualties'
+import {
+  deriveElements, deriveStrength, downUnit, medicalUpdate,
+  processCapture, processWipe, remnantCheck,
+} from './casualties'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -384,8 +387,10 @@ export function surrenderUpdate(): void {
 // coherence pass (P2.5 inversion): elements and strength DERIVE from the
 // roster every tick — casualties were already rolled at damage time, and any
 // recovery (RTD, repairs) shows up here as revived elements/rising strength.
+// remnantCheck first: a mounted platoon whose last vic just died dismounts its
+// survivors instead of being deleted at the derive.
 export function attritionSync(): void {
-  for (const u of S.units) { deriveElements(u); deriveStrength(u) }
+  for (const u of S.units) { remnantCheck(u); deriveElements(u); deriveStrength(u) }
 }
 
 // deaths: units (per-element wrecks were already spawned as elements died)
@@ -394,17 +399,17 @@ export function unitDeaths(): void {
     const u = S.units[i]!
     if (u.strength <= 0) {
       S.contacts.delete(u.id)
-      // overrun: roll final fates for everyone still on the books. MIA is rare —
-      // and unaccounted personnel are a rescue-mission hook for the campaign.
-      const { mia } = processWipe(u)
       if (u.side === 'friend') {
-        radio('NET', 'loss', `${u.label} SIGNAL LOST — LKP GRID ${grid(u.x, u.y)}`, u.x, u.y)
-        toast(u.label + ' DESTROYED')
-        if (mia > 0) {
-          radio('NET', 'loss', `${u.label} — ${mia} PERSONNEL UNACCOUNTED FOR, POSSIBLE MIA`, u.x, u.y)
-        }
+        // DUSTWUN: the TOC only knows the signal dropped. No fates roll here —
+        // the site holds the unresolved roster at the LKP until somebody
+        // secures the ground (recovery.ts) or the operation writes it off.
+        downUnit(u)
+        radio('NET', 'loss', `${u.label} SIGNAL LOST — LKP GRID ${grid(u.x, u.y)}, STATUS UNKNOWN`, u.x, u.y)
+        toast(u.label + ' — SIGNAL LOST, STATUS UNKNOWN')
         S.stats.lost++
       } else {
+        // enemy wipes resolve on the spot (we don't model their recovery)
+        processWipe(u)
         S.stats.enemyDestroyed++
       }
       S.units.splice(i, 1)
