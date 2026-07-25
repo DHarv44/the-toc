@@ -13,6 +13,7 @@ import { useEffect, type CSSProperties } from 'react'
 import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { nearestLand } from '../world/place'
+import { T_WATER } from '../world/WorldMap'
 import { activeCampaign } from '../engine/campaign'
 import { resolvePlace } from '../engine/missions/places'
 import type { TutAnchor, TutCondition, TutHint, TutReactive, TutStep } from '../packs/types'
@@ -45,12 +46,13 @@ let _reactive: TutReactive[] = []
 let _moveTarget: { x: number; y: number } | null = null
 let _exposeMarker: { x: number; y: number } | null = null
 let _m2Road: { x: number; y: number } | null = null
+let _atkPos: { x: number; y: number } | null = null
 let _centeredKey = ''   // one auto-center per step/cue (the player can pan after)
 
 function refresh(): void {
   if (_campStamp === (S.campaign as object | null)) return
   _campStamp = S.campaign
-  _moveTarget = _exposeMarker = _m2Road = null
+  _moveTarget = _exposeMarker = _m2Road = _atkPos = null
   _centeredKey = ''
   _dwellAt.clear()
   _nextDone.clear()
@@ -117,6 +119,32 @@ function exposeMarker(): { x: number; y: number } | null {
   const px = e.x + (dx / L) * 650, py = e.y + (dy / L) * 650
   _exposeMarker = nearestRoad(m, px, py, 260) || nearestLand(m, px, py)
   return _exposeMarker
+}
+
+// ATTACK POSITION: the ground the assault force shakes out on before it goes
+// in. Hung off the SCREEN marker — the point the scouts were sent to, which is
+// already proven ground on the near side of the objective — and set 200 m back
+// from it, out of the scouts' own position.
+//
+// It is an AREA, not a dot: 300 m of frontage by 100 m of depth. The force fans
+// out into it side by side, which is the whole lesson — the shape says it
+// before the text does.
+const ATK_BACK = 200                      // metres BEHIND the screen point (south = +y here)
+const ATK_HALF = { w: 150, h: 50 }        // 300 m wide × 100 m deep
+function attackPos(): { x: number; y: number } | null {
+  if (_atkPos) return _atkPos
+  const s = exposeMarker()
+  if (!s) return null
+  _atkPos = { x: s.x, y: s.y + ATK_BACK }
+  return _atkPos
+}
+function attackBox(): { x0: number; y0: number; x1: number; y1: number } | null {
+  const p = attackPos()
+  if (!p) return null
+  return {
+    x0: p.x - ATK_HALF.w, y0: p.y - ATK_HALF.h,
+    x1: p.x + ATK_HALF.w, y1: p.y + ATK_HALF.h,
+  }
 }
 
 // road point partway to the strongpoint (the waypoint lesson's first marker)
@@ -246,6 +274,32 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
       return !S.units.some(u => u.side === 'hostile' && u.strength > 0
         && Math.hypot(u.x - p.x, u.y - p.y) <= cond.r)
     }
+    case 'force-at-marker': {
+      // the whole force closed on a COMPUTED marker. The attack position is an
+      // AREA (units fan out into it), so it is judged as the box that is drawn
+      // on the map — what the commander was shown is what is being asked for.
+      //
+      // `routed` grades the ORDER, not the arrival: the lesson is giving the
+      // move, and a commander should not have to sit and watch the drive to be
+      // told they got it right.
+      const force = friends().filter(u => !(cond.exclude ?? []).includes(u.type))
+      if (!force.length) return false
+      const at = (u: Unit) => (cond.routed ? routeEnd(u) : { x: u.x, y: u.y })
+      if (cond.marker === 'attack-pos') {
+        const b = attackBox()
+        if (!b) return false
+        return force.every(u => {
+          const p = at(u)
+          return p.x >= b.x0 && p.x <= b.x1 && p.y >= b.y0 && p.y <= b.y1
+        })
+      }
+      const m = cond.marker === 'screen-marker' ? exposeMarker() : m2RoadPoint()
+      if (!m) return false
+      return force.every(u => {
+        const p = at(u)
+        return Math.hypot(p.x - m.x, p.y - m.y) <= cond.r
+      })
+    }
     case 'force-holding': {
       const p = resolvePlace(S, cond.place)
       const force = friends().filter(u => !(cond.exclude ?? []).includes(u.type))
@@ -317,6 +371,7 @@ function applyAnchor(h: TutorialHint, a: TutAnchor | undefined): TutorialHint {
     }
     case 'screen-marker': h.targetPoint = exposeMarker() ?? undefined; break
     case 'road-marker': h.targetPoint = m2RoadPoint() ?? undefined; break
+    case 'attack-pos': h.targetBox = attackBox() ?? undefined; break
   }
   return h
 }

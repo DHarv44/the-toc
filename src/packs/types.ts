@@ -271,6 +271,12 @@ export type TutCondition =
   | { kind: 'column-at'; types: UnitTypeKey[]; place: PlaceRef; r: number }     // ARRIVED
   | { kind: 'area-clear'; place: PlaceRef; r: number }
   | { kind: 'force-holding'; place: PlaceRef; r: number; spread?: number; exclude?: UnitTypeKey[] }
+  // the force closed on a COMPUTED marker — the engine works the point out from
+  // the ground (roads, the objective, where the enemy actually is), so a
+  // mission never has to author a coordinate that the terrain may not honour
+  // `routed` grades the ORDER rather than the arrival — the lesson is the move
+  // the commander gives, not the minutes the platoons spend driving it
+  | { kind: 'force-at-marker'; marker: 'attack-pos' | 'screen-marker' | 'road-marker'; r: number; routed?: boolean; exclude?: UnitTypeKey[] }
   | { kind: 'dug-in'; place: PlaceRef; r: number; exclude?: UnitTypeKey[] }
   | { kind: 'structure-built'; struct: StructureTypeKey }
   | { kind: 'convoy-running' }
@@ -290,6 +296,7 @@ export type TutAnchor =
   | { kind: 'force-box'; exclude?: UnitTypeKey[]; pad?: number }
   | { kind: 'screen-marker' }                        // computed: standoff point toward the nearest known enemy
   | { kind: 'road-marker' }                          // computed: road waypoint partway to the strongpoint
+  | { kind: 'attack-pos' }                           // computed: attack position short of the objective, on the road
   // teach a CAMERA move, not an order: an edge arrow marking which way the place
   // lies plus an animated middle-drag glyph. Unlike every other anchor this one
   // does NOT centre the view — the whole lesson is the player doing that.

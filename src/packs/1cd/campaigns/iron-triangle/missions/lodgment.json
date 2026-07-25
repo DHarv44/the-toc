@@ -218,16 +218,34 @@
         "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
       },
       {
-        "id": "attack-enemy",
+        "id": "stage-forward",
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] } },
+            "text": "KEEP THE GROUP TOGETHER — an assault is one order to one force, not four platoons doing their own arithmetic. Select them together and RIGHT-CLICK-DRAG a line to fan them out; a single click stacks them on one point.",
+            "action": "SELECT your battle group again.",
+            "anchor": { "kind": "force-box", "exclude": ["SCT"] } },
+          { "text": "OCCUPY THE ATTACK POSITION — the boxed ground short of the objective. Nobody assaults a town off the line of march: the force comes up the MSR in column, and a column fights with one vehicle — the one at the front.\n\nThe attack position is where you SHAKE OUT. Last covered ground before the objective, outside what the garrison can reach, where the group stops being a convoy and becomes a line. It is GROUND, not a dot — 300 metres of frontage, and your platoons fan out into it side by side, facing the town.\n\nDRAG the order instead of clicking it: a right-click DRAG lays a line and gives every platoon its own slot along it. One click stacks four platoons on one grid square, and one shell answers all four.",
+            "action": "RIGHT-CLICK and DRAG a line across the box.",
+            "anchor": { "kind": "attack-pos" } }
+        ],
+        "done": { "kind": "force-at-marker", "marker": "attack-pos", "r": 500,
+          "routed": true, "exclude": ["SCT"] }
+      },
+      {
+        "id": "assault-town",
         "gate": true,
         "hints": [
+          { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] } },
+            "text": "SET FOR THE ASSAULT — the whole group goes in on one order.",
+            "action": "SELECT your battle group.",
+            "anchor": { "kind": "force-box", "exclude": ["SCT"] } },
           { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "attack" } },
             "text": "SET ATTACK POSTURE — attack orders send your battle group in to close with and destroy, instead of just moving.",
             "action": "CLICK ATTACK in the bottom tray (or press E).",
             "anchor": { "kind": "ui", "sel": "attack-mode" } },
-          { "text": "ASSAULT — your battle group will advance on the highlighted enemy and clear the position.",
-            "action": "RIGHT-CLICK the highlighted enemy.",
-            "anchor": { "kind": "spotted-enemy" } }
+          { "text": "ASSAULT ON A LINE — they cross the bridge in column because they must, and they must NOT stay in one. RIGHT-CLICK and DRAG a line across the town: the platoons fan out along it as they come off the far bank, each taking its own piece of the objective.\n\nSpread is protection. One shell cannot catch a force on a line, and every platoon goes in with its own frontage.",
+            "action": "RIGHT-CLICK and DRAG a line across the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
         ],
         "done": { "kind": "attack-ordered", "exclude": ["SCT"] }
       },
@@ -239,15 +257,11 @@
       {
         "id": "occupy-town",
         "hints": [
-          { "when": { "kind": "force-holding", "place": "strongpoint", "r": 260, "exclude": ["SCT"] },
-            "text": "SPREAD OUT — your platoons are stacked: one artillery shell can catch a bunched-up position.",
-            "action": "SELECT them, then RIGHT-CLICK and DRAG a line through the buildings.",
-            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } },
-          { "text": "TAKE THE TOWN — urban cover protects your platoons, and a spread line can't be caught by a single shell.",
-            "action": "SELECT your platoons, then RIGHT-CLICK and DRAG a line across the town.",
+          { "text": "TAKE THE GROUND — the town is clear, so OWN it: platoons inside the buildings hold ground that platoons in the open cannot. Urban cover is the reason the counterattack breaks on you instead of through you.",
+            "action": "MOVE any platoon still outside into the town.",
             "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
         ],
-        "done": { "kind": "force-holding", "place": "strongpoint", "r": 260, "spread": 100, "exclude": ["SCT"] }
+        "done": { "kind": "force-holding", "place": "strongpoint", "r": 260, "exclude": ["SCT"] }
       },
       {
         "id": "dig-in",
