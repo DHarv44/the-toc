@@ -227,12 +227,18 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       },
       hint: () => ({ text: '', hidden: true }),
     },
-    // 8) occupy the town — urban terrain shields the platoons. Non-gated (they walk in).
+    // 8) occupy the town — urban terrain shields the platoons. Non-gated (they
+    //    walk in). Requires the WHOLE surviving assault force consolidated in
+    //    the town, not just the lead platoon — otherwise the dig prompt fires
+    //    while stragglers sit exposed outside (playtest 2026-07-24: a platoon
+    //    dug in at the river crossing 600 m short and got defeated in detail).
     {
       id: 'occupy-town',
       done: () => {
         const t = S.campaign?.strongpoint
-        return !!t && S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0 && Math.hypot(u.x - t.x, u.y - t.y) <= 230)
+        if (!t) return false
+        const fighters = S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0)
+        return fighters.length > 0 && fighters.every(u => Math.hypot(u.x - t.x, u.y - t.y) <= 260)
       },
       hint: () => {
         const t = S.campaign?.strongpoint
@@ -244,10 +250,16 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       },
     },
     // 9) dig in — prepared fighting positions for even more protection. Gated.
+    //    Only positions dug IN THE TOWN count — digging where a platoon happens
+    //    to stand outside teaches exactly the wrong lesson.
     {
       id: 'dig-in',
       gate: true,
-      done: () => S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && u.posture === 'dig'),
+      done: () => {
+        const t = S.campaign?.strongpoint
+        return !!t && S.units.some(u => u.side === 'friend' && u.type !== 'SCT'
+          && u.posture === 'dig' && Math.hypot(u.x - t.x, u.y - t.y) <= 260)
+      },
       hint: () => ({
         text: 'DIG IN — with your platoons in the town selected, click DIG IN. Prepared fighting positions stack with the urban cover for even more protection — hold here and defeat the counterattack.',
         targetSel: 'dig-in',
