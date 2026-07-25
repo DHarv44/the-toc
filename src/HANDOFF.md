@@ -1,4 +1,29 @@
-# HANDOFF — session end 2026-07-25 (Fable 5 → Opus)
+# HANDOFF — 2026-07-25 (compact anchor; Fable 5 → next session)
+
+## ⚓ COMPACT ANCHOR — state as of commit `45fc459` (all pushed, tree clean)
+
+Everything below "VERIFIED" is DONE and green. Late-session additions past the
+original handoff, all verified (tsc clean · golden 3077619369 · campaign 37/37):
+
+- **#29 verify** ✅ — JSON packs proven (golden ×2, six-harness battery, boot:
+  234 org slots, Dave's names live, OPFOR pools separate).
+- **#30 QRF** ✅ — palette toggle at HQ/FOB (garrisoned only), auto-launch on
+  IDF/attack, knowledge-honest targeting (live track vs shell back-azimuth
+  bounded move), 120 s stand-down. Verified live (bearing response + radio).
+- **#31 S-shops** ✅ — S2 INTSUM / S3 OPSUM / S4 LOGSTAT consoles; PARALLEL
+  reports pipeline (one pending per shop, all four desks auto post-mission,
+  per-shop badges); **Pack.staff** section (label/name/full/report/desc/
+  detail) drives tabs, tooltips, headers, report names; shared proud
+  battalion header (BnHeader.tsx). S6 described in pack data, console
+  deferred to the EW layer.
+
+**Open tasks:** #26 attack aviation (design settled in ROADMAP/#26) ·
+#28 hardcode audit (ammo natures item 0 first — golden-affecting, own gated
+step) · #10 P4 OPFOR faction pack (JSON loader ready for it) · #15
+architecture pass. **Owed to Dave:** the sandbox show-off demo / playtest
+session (PLAYTEST.md is the script). Eyes-only checks pending: female-name
+portraits, mute-mid-alarm, S2/S3/S4 visual pass (rendered but only
+text-probed).
 
 > Dave's directive: no more test runs this session — MARK what needs testing.
 > This doc is the jump start: exact state, unverified work, and fleshed-out
