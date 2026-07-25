@@ -317,27 +317,9 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     }
   }
 
-  // --- 10. urban blocks ---
-  // cells the stamp skips still get their woods cleared — a town's footprint
-  // is yards and lots, not forest (rng draw order preserved: one draw per
-  // dx,dy exactly as before)
-  for (const t of towns) {
-    const size = t.stamp ?? (4 + Math.floor(rng() * 4))
-    for (let dy = -size; dy <= size; dy++) {
-      for (let dx = -size; dx <= size; dx++) {
-        const r = rng()
-        const inTown = Math.hypot(dx, dy) < size
-        const x = t.gx + dx, y = t.gy + dy
-        if (x < 1 || y < 1 || x >= GRID - 1 || y >= GRID - 1) continue
-        const i = idx(x, y)
-        if (r < 0.65 && inTown) {
-          if (terr[i] !== T_WATER && slope[i]! < 8) terr[i] = T_URBAN
-        } else if (inTown && terr[i] === T_FOREST) {
-          terr[i] = T_FIELD
-        }
-      }
-    }
-  }
+  // (urban stamping moved AFTER the road pass — see step 11.5 — so towns can
+  // grow organically along the roads that run through them. The road pass
+  // consumes no rng, so the draw sequence is byte-identical to the old order.)
 
   // --- 11. roads: a hierarchical network, slope-averse, bridge at narrows ---
   // MST over strongpoints = the paved net. The trunk from friendly base to
@@ -464,6 +446,52 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
   }
   edges.forEach(([a, b], k) => lay(nodes[a]!, nodes[b]!, trunk.has(k) ? R_HIGHWAY : R_ROAD))
   for (const [a, b] of pathEdges) lay(nodes[a]!, nodes[b]!, R_PATH)
+
+  // --- 11.5. urban blocks: ORGANIC town footprints, grown with the ground ---
+  // Not circles: each town's boundary is a NOISE-LOBED radius (bays and
+  // promontories), density falls from a hard core to a loose fringe, RIBBON
+  // development hugs the roads running through (the road pass has already
+  // stamped the raster), and steep slopes push the edge in — so a valley town
+  // stretches along its road and a hillside town wraps the contour. Cells the
+  // stamp skips still get their woods cleared (yards and lots, not forest).
+  // rng draw order preserved for PROCGEN towns: one draw per dx,dy in the same
+  // -size..size box as before (authored towns may use a wider box — layouts
+  // only exist in campaign, outside the golden path).
+  for (const t of towns) {
+    const size = t.stamp ?? (4 + Math.floor(rng() * 4))
+    const box = t.stamp ? Math.ceil(size * 1.35) : size
+    for (let dy = -box; dy <= box; dy++) {
+      for (let dx = -box; dx <= box; dx++) {
+        const r = rng()
+        const x = t.gx + dx, y = t.gy + dy
+        if (x < 1 || y < 1 || x >= GRID - 1 || y >= GRID - 1) continue
+        const i = idx(x, y)
+        const d = Math.hypot(dx, dy)
+        // lobed boundary: the town's radius varies with bearing (stable noise,
+        // no rng draws) — bays, promontories, no perfect circles. Authored
+        // towns/cities lobe harder (their box is wider); procgen lobes are
+        // clamped to the draw-preserving box.
+        const ang = Math.atan2(dy, dx)
+        const lobe = 0.78 + (t.stamp ? 0.5 : 0.22) * Math.abs(n3(
+          t.gx * 1.7 + Math.cos(ang) * 1.4, t.gy * 1.7 + Math.sin(ang) * 1.4))
+        // slope pushes the boundary in — towns thin out against the hills
+        const rl = size * lobe * (1 - Math.min(0.35, Math.max(0, slope[i]! - 4) * 0.07))
+        // ribbon: near a road inside the box, the town reaches further out
+        const onRoad = road[i]! > 0
+        const nearRoad = onRoad
+          || road[idx(Math.max(0, x - 1), y)]! > 0 || road[idx(Math.min(GRID - 1, x + 1), y)]! > 0
+          || road[idx(x, Math.max(0, y - 1))]! > 0 || road[idx(x, Math.min(GRID - 1, y + 1))]! > 0
+        const inCore = d < rl * 0.55
+        const inTown = d < rl || (nearRoad && d < size * 1.3)
+        const fillP = inCore ? 0.9 : nearRoad ? 0.8 : 0.62
+        if (r < fillP && inTown) {
+          if (terr[i] !== T_WATER && slope[i]! < 8 && !onRoad) terr[i] = T_URBAN
+        } else if (inTown && terr[i] === T_FOREST) {
+          terr[i] = T_FIELD
+        }
+      }
+    }
+  }
 
   // --- 12. hamlets: small settlements strung along the paved network ---
   // Real culture follows the road, not the noise field: every so often along a

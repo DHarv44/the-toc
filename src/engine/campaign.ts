@@ -40,14 +40,14 @@ export const CAMPAIGN_LAYOUT: MapLayout = {
   // VALEMONT is the big city in the enemy's northwest — a later-campaign prize;
   // FALKE and GARWICK flesh out the west and the northern approaches.
   towns: [
-    { gx: 130, gy: 170, name: 'ASHFORD' },
-    { gx: 104, gy: 143, name: 'BREVIK' },
-    { gx: 130, gy: 104, name: 'CALDER' },
-    { gx: 158, gy: 60, name: 'DORAN' },
-    { gx: 62, gy: 132, name: 'ELMSTED' },
+    { gx: 130, gy: 170, name: 'ASHFORD', size: 7 },
+    { gx: 104, gy: 143, name: 'BREVIK', size: 6 },
+    { gx: 130, gy: 104, name: 'CALDER', size: 7 },
+    { gx: 158, gy: 60, name: 'DORAN', size: 6 },
+    { gx: 62, gy: 132, name: 'ELMSTED', size: 5 },
     { gx: 52, gy: 44, name: 'VALEMONT', size: 11 },
-    { gx: 38, gy: 92, name: 'FALKE' },
-    { gx: 96, gy: 26, name: 'GARWICK' },
+    { gx: 38, gy: 92, name: 'FALKE', size: 5 },
+    { gx: 96, gy: 26, name: 'GARWICK', size: 6 },
   ],
   // the MSR is AUTHORED: HQ → ASHFORD → BREVIK → CALDER → DORAN → enemy base.
   // (Node ids: 0 = fob, 1.. = towns in order, last = enemy base.) Without this
