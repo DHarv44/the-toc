@@ -207,12 +207,14 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
       const facItems: PaletteItem[] = (Object.keys(FACILITIES) as FacilityKey[]).map(k => {
         const spec = FACILITIES[k]
         const owned = st.facilities?.includes(k)
+        // the HQ carries MOTORPOOL/AID organically; C-RAM is a deliberate buy anywhere
+        const hqOrganic = st.kind === 'HQ' && k !== 'CRAM'
         return {
-          mode: 'fac:' + k, key: k, installFac: !owned && st.kind === 'FOB',
+          mode: 'fac:' + k, key: k, installFac: !owned && !hqOrganic,
           label: spec.name, tag: spec.desc,
-          cost: owned || st.kind === 'HQ' ? null : spec.cost,
-          note: owned ? '✓ OPERATIONAL' : st.kind === 'HQ' ? '—' : null,
-          disabled: !!owned || st.kind === 'HQ',
+          cost: owned || hqOrganic ? null : spec.cost,
+          note: owned ? '✓ OPERATIONAL' : hqOrganic ? '—' : null,
+          disabled: !!owned || hqOrganic,
         }
       })
       return {

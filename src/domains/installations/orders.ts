@@ -46,7 +46,11 @@ export function installFacility(structId: number, key: FacilityKey): void {
   const st = S.structures.find(s => s.id === structId && s.side === 'friend')
   if (!st) return
   if (st.buildT > 0) { toast(`${st.label} STILL UNDER CONSTRUCTION`); return }
-  if (st.kind !== 'FOB') { toast('BUILD-OUTS ARE FOR FORWARD BASES'); return }
+  // FOBs buy any build-out; the HQ carries MOTORPOOL/AID organically but a
+  // C-RAM battery is a deliberate purchase anywhere
+  if (st.kind !== 'FOB' && !(st.kind === 'HQ' && key === 'CRAM')) {
+    toast('BUILD-OUTS ARE FOR FORWARD BASES'); return
+  }
   if (st.facilities?.includes(key)) { toast(`${st.label} ALREADY HAS A ${FACILITIES[key].name.toUpperCase()}`); return }
   const spec = FACILITIES[key]
   if (S.resources < spec.cost) { toast('INSUFFICIENT SUPPLY'); return }

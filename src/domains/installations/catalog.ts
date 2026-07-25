@@ -63,6 +63,13 @@ const FACILITIES_LITERAL = {
     key: 'AID', name: 'Aid Station', cost: 300, radius: 450,
     desc: 'Returns casualties to duty for units resting in radius',
   },
+  CRAM: {
+    // counter-rocket/artillery/mortar: NOT organic anywhere — a deliberate
+    // base-defense buy (HQ or FOB). Engages incoming indirect rounds aimed
+    // inside its radius; each round has an intercept chance.
+    key: 'CRAM', name: 'C-RAM Battery', cost: 600, radius: 700,
+    desc: 'Intercepts incoming artillery and mortar rounds over the base',
+  },
 } as const satisfies Record<string, FacilityType>
 
 export type FacilityKey = keyof typeof FACILITIES_LITERAL
