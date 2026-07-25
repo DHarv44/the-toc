@@ -39,5 +39,60 @@
             "text": "2ABCT RELEASES A C-RAM SECTION TO THE DIVISION POOL" } }
       ]
     }
-  ]
+  ],
+  "tutorial": {
+    "steps": [
+      {
+        "id": "move-up",
+        "hints": [
+          { "when": { "kind": "column-routed", "types": ["ENG", "LOG"], "place": "strongpoint", "r": 520 },
+            "hide": true },
+          { "when": { "kind": "not", "of": { "kind": "column-has-orders", "types": ["ENG", "LOG"] } },
+            "text": "BRING UP THE SUSTAINMENT — your engineer and logistics platoons are pushing up from the rear. Columns move much faster on ROADS.",
+            "action": "SELECT them both, then RIGHT-CLICK the highlighted road point.",
+            "anchor": { "kind": "road-marker" } },
+          { "text": "QUEUE THE NEXT WAYPOINT — they will follow the road, then push up to the FOB site in the town.",
+            "action": "HOLD SHIFT and RIGHT-CLICK the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
+        ],
+        "done": { "kind": "column-at", "types": ["ENG", "LOG"], "place": "strongpoint", "r": 420 }
+      },
+      {
+        "id": "build-fob",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "ENG" } },
+            "text": "ESTABLISH THE FOB — your engineer platoon does the building.",
+            "action": "LEFT-CLICK your engineer platoon.",
+            "anchor": { "kind": "unit", "type": "ENG" } },
+          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "build:FOB" } },
+            "text": "ESTABLISH THE FOB — with the engineers selected, installations are built from the COMMAND rail.",
+            "action": "CLICK Forward Op. Base in the rail on the left.",
+            "anchor": { "kind": "ui", "sel": "build-fob" } },
+          { "text": "PLACE IT — the engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.",
+            "action": "CLICK a spot inside the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
+        ],
+        "done": { "kind": "structure-built", "struct": "FOB" }
+      },
+      {
+        "id": "supply-run",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "LOG" } },
+            "text": "OPEN THE SUPPLY LINE — your logistics platoon runs standing convoys.",
+            "action": "LEFT-CLICK your logistics platoon.",
+            "anchor": { "kind": "unit", "type": "LOG" } },
+          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "convoy:" } },
+            "text": "OPEN THE SUPPLY LINE — a standing run keeps the FOB stocked without further orders.",
+            "action": "CLICK SUPPLY RUN in the bottom tray.",
+            "anchor": { "kind": "ui", "sel": "supply-run" } },
+          { "text": "SET THE ROUTE — the trucks will loop HQ → FOB on their own, delivering supply every run.",
+            "action": "CLICK the FOB.",
+            "anchor": { "kind": "struct", "struct": "FOB" } }
+        ],
+        "done": { "kind": "convoy-running" }
+      }
+    ]
+  }
 }

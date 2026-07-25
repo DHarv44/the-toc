@@ -1,42 +1,63 @@
-// Campaign tutorial: guided, gated teaching steps that live entirely in the UI.
-// The engine only stores two plain fields (S.campaign.tutorial / tutStep); the
-// step DEFINITIONS, advancement, pause handling and the on-screen cues all live
-// here. Each step has a sim-observable `done(S)` and an adaptive `hint(S, ui)`
-// that changes as the player makes progress. Gated steps pause the sim (speed 0)
-// until done, then resume — so the player can't skip past an unlearned action.
+// Campaign tutorial — the INTERPRETER. The curriculum (step order, every word,
+// what each step gates on, what it points at) is MISSION content and lives in
+// the pack (missions/*.json `tutorial` section — see src/PACK-MISSIONS.md S3).
+// This file ships the vocabulary: condition kinds (some read UI state —
+// tutorial-only; sim triggers never see the UI), anchor kinds (published
+// `data-tut` ids + map anchors + computed teaching markers), the reactive
+// verbs (break-drill), and the overlay machinery (pulsing ring + callout).
 //
-// A hint can point at a DOM element (a rail item, via `data-tut`) OR at a unit on
-// the map (via `targetUnit`) — the overlay draws the same pulsing ring on either
-// and floats the callout beside it.
+// Gated steps pause the sim (speed 0) until done, then resume — the player
+// can't skip past an unlearned action. Hint variants: first whose `when`
+// matches (or has none) renders; `hide` shows no cue this frame.
 import { useEffect } from 'react'
 import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { nearestLand } from '../world/place'
+import { activeCampaign } from '../engine/campaign'
+import { resolvePlace } from '../engine/missions/places'
+import type { TutAnchor, TutCondition, TutHint, TutReactive, TutStep } from '../packs/types'
+import type { Unit } from '../engine/GameState'
 import { useUI, type UIState } from './store'
 
-export interface TutorialHint {
-  text: string                         // the WHY — context/teaching, no action verbs
-  action?: string                      // the DO — one imperative line, rendered standout at the callout's bottom
-  targetSel?: string                   // data-tut key to ring-highlight (a rail/menu item)
-  targetUnit?: number                  // unit id to ring-highlight on the map
-  targetPoint?: { x: number; y: number } // world point to ring-highlight (e.g. a move destination)
-  targetBox?: { x0: number; y0: number; x1: number; y1: number } // world bbox to ring-highlight (a group)
-  hidden?: boolean                     // show no cue this frame (e.g. waiting for a move to finish)
+// the resolved on-screen cue for one frame
+interface TutorialHint {
+  text: string
+  action?: string
+  targetSel?: string
+  targetUnit?: number
+  targetPoint?: { x: number; y: number }
+  targetBox?: { x0: number; y0: number; x1: number; y1: number }
+  hidden?: boolean
 }
 
-export interface TutorialStep {
-  id: string
-  gate?: boolean                              // pause the sim until done
-  done: (S: typeof import('../engine/state').S, ui: UIState) => boolean
-  hint: (S: typeof import('../engine/state').S, ui: UIState) => TutorialHint
-}
-
-// the campaign's recon platoon — the scout section that leads the advance
-const recon = () => S.units.find(u => u.side === 'friend' && u.type === 'SCT')
-
-// The move-tutorial destination: a road point a short bound up the axis toward the
-// objective town — cached for the (fixed) campaign map.
+// ---------------------------------------------------------------------------
+// Curriculum: the mainline missions' tutorial steps, flattened in order (same
+// shape as the objective stream). Cached per campaign.
+// ---------------------------------------------------------------------------
+let _campStamp: object | null = null
+let _steps: TutStep[] = []
+let _reactive: TutReactive[] = []
 let _moveTarget: { x: number; y: number } | null = null
+let _exposeMarker: { x: number; y: number } | null = null
+let _m2Road: { x: number; y: number } | null = null
+
+function refresh(): void {
+  if (_campStamp === (S.campaign as object | null)) return
+  _campStamp = S.campaign
+  _moveTarget = _exposeMarker = _m2Road = null
+  _steps = []
+  _reactive = []
+  if (!S.campaign) return
+  const spec = activeCampaign()
+  for (const mid of spec.manifest.mainline) {
+    const t = spec.missions[mid]?.tutorial
+    if (t) { _steps.push(...t.steps); _reactive.push(...(t.reactive ?? [])) }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Computed teaching markers (engine verbs — the pack references them by kind)
+// ---------------------------------------------------------------------------
 function nearestRoad(m: NonNullable<typeof S.map>, x: number, y: number, maxR: number): { x: number; y: number } | null {
   const gx0 = Math.floor(x / m.CELL), gy0 = Math.floor(y / m.CELL), maxC = Math.ceil(maxR / m.CELL)
   for (let r = 0; r <= maxC; r++) {
@@ -49,6 +70,8 @@ function nearestRoad(m: NonNullable<typeof S.map>, x: number, y: number, maxR: n
   }
   return null
 }
+
+// a road point a short bound up the axis toward the objective town
 function moveTarget(): { x: number; y: number } | null {
   if (_moveTarget) return _moveTarget
   const m = S.map, c = S.campaign
@@ -63,11 +86,10 @@ function moveTarget(): { x: number; y: number } | null {
   return _moveTarget
 }
 
-// nearest hostile to the HQ — the town garrison the recon is sent to scout
-function nearestEnemyUnit() {
+function nearestEnemyUnit(): Unit | null {
   const hq = S.map?.fob
   if (!hq) return null
-  let best = null, bd = Infinity
+  let best: Unit | null = null, bd = Infinity
   for (const u of S.units) {
     if (u.side !== 'hostile' || u.strength <= 0) continue
     const d = Math.hypot(u.x - hq.x, u.y - hq.y)
@@ -75,37 +97,20 @@ function nearestEnemyUnit() {
   }
   return best
 }
-function nearestEnemy(): { x: number; y: number } | null {
-  const u = nearestEnemyUnit()
-  return u ? { x: u.x, y: u.y } : null
-}
 
-// step-2 move marker: a standoff point ~650 m short of the nearest enemy on the
-// HQ side, so advancing the recon there brings the enemy inside its sight (and
-// under its Raven) without walking into rifle range. Snapped toward a road where
-// one is close. Cached for the fixed campaign map (garrison doesn't move).
-let _exposeMarker: { x: number; y: number } | null = null
+// standoff point ~650 m short of the nearest enemy on the HQ side — inside
+// scout spotting range, outside the garrison's trigger range
 function exposeMarker(): { x: number; y: number } | null {
   if (_exposeMarker) return _exposeMarker
-  const m = S.map, hq = m?.fob, e = nearestEnemy()
-  if (!m || !hq || !e) return moveTarget() // fallback: road point toward the town
+  const m = S.map, hq = m?.fob, e = nearestEnemyUnit()
+  if (!m || !hq || !e) return moveTarget()
   const dx = hq.x - e.x, dy = hq.y - e.y, L = Math.hypot(dx, dy) || 1
   const px = e.x + (dx / L) * 650, py = e.y + (dy / L) * 650
   _exposeMarker = nearestRoad(m, px, py, 260) || nearestLand(m, px, py)
   return _exposeMarker
 }
 
-// a live enemy contact on the common picture (recon has eyes on)
-const enemySpotted = () => { for (const c of S.contacts.values()) if (c.live) return true; return false }
-
-// M2 principals: the sustainment element and the FOB it stands up
-const m2eng = () => S.units.find(u => u.side === 'friend' && u.type === 'ENG' && u.strength > 0)
-const m2log = () => S.units.find(u => u.side === 'friend' && u.type === 'LOG' && u.strength > 0)
-const m2fob = () => S.structures.find(s => s.side === 'friend' && s.kind === 'FOB')
-
-// the waypoint lesson's first marker: a road point partway to the town, so the
-// column takes the (faster) road before pushing to its destination
-let _m2Road: { x: number; y: number } | null = null
+// road point partway to the strongpoint (the waypoint lesson's first marker)
 function m2RoadPoint(): { x: number; y: number } | null {
   if (_m2Road) return _m2Road
   const m = S.map, t = S.campaign?.strongpoint, hq = m?.fob
@@ -114,11 +119,10 @@ function m2RoadPoint(): { x: number; y: number } | null {
   return _m2Road
 }
 
-// the spotted enemy the recon has eyes on — the one to attack (nearest live
-// contact to the recon platoon)
-function spottedEnemy() {
-  const r = recon()
-  let best = null, bd = Infinity
+// the spotted enemy nearest the recon (a live contact) — the one to attack
+function spottedEnemy(): Unit | null {
+  const r = S.units.find(u => u.side === 'friend' && u.type === 'SCT')
+  let best: Unit | null = null, bd = Infinity
   for (const u of S.units) {
     if (u.side !== 'hostile' || u.strength <= 0) continue
     const c = S.contacts.get(u.id)
@@ -129,330 +133,173 @@ function spottedEnemy() {
   return best
 }
 
-// Curriculum: ONE continuous step stream over the whole operation — steps whose
-// principals don't exist yet (the sustainment column before its FRAGO) simply
-// evaluate false / hide until the objective stream brings them on. Grouped by
-// the tasking they teach, purely for readability.
-export const TUTORIALS: Record<string, TutorialStep[]> = {
-  lodgment: [
-    // 1) select the recon platoon — and teach WHY scouts lead: the garrison is
-    //    concealed, and the scouts are pre-set to BREAK if it springs on them.
-    {
-      id: 'select-recon',
-      done: (_S, ui) => {
-        const r = recon()
-        return !!r && ui.selectedIds.length === 1 && ui.selectedIds[0] === r.id
-      },
-      hint: () => ({
-        text: 'SCOUTS LEAD — intel reports UNKNOWN enemy contacts in the town (the "?" marker), but they are CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest, and it is set to BREAK contact automatically if engaged.',
-        action: 'LEFT-CLICK your recon platoon.',
-        targetUnit: recon()?.id,
-      }),
-    },
-    // 2) screen forward to the standoff marker (≈650 m out — inside scout
-    //    spotting range through urban concealment, outside the garrison's
-    //    trigger range). Non-gated; the cue clears the instant the order is
-    //    set. Completes at HALF A KLICK from the HQ, where the drone prompts.
-    {
-      id: 'move-recon',
-      done: () => {
-        const r = recon()
-        return !!r && !!S.map && Math.hypot(r.x - S.map.fob.x, r.y - S.map.fob.y) >= 500
-      },
-      hint: () => {
-        const r = recon(), t = exposeMarker()
-        const dest = r && r.legs.length ? r.legs[r.legs.length - 1] : null
-        if (dest && t && Math.hypot(dest.x - t.x, dest.y - t.y) <= 200) return { text: '', hidden: true }
-        return {
-          text: 'SCREEN FORWARD — push your scouts toward the town. From the highlighted point they can spot the hidden garrison at standoff; if it opens fire on them, they will break away on their own.',
-          action: 'RIGHT-CLICK the highlighted point.',
-          targetPoint: t ?? undefined,
-        }
-      },
-    },
-    // 3) eyes forward at half a klick — launch the recon platoon's Raven. Gated.
-    {
-      id: 'deploy-drone',
-      gate: true,
-      done: () => S.drones.length > 0,
-      hint: (_S, ui) => {
-        const sel = ui.selectedIds.length === 1
-          ? S.units.find(u => u.id === ui.selectedIds[0]) : undefined
-        const isCarrier = !!sel && sel.side === 'friend'
-          && (UNIT_TYPES[sel.type].carries?.length ?? 0) > 0
-        if (!isCarrier) {
-          return {
-            text: 'EYES FORWARD — your recon platoon carries a hand-launched Raven UAV.',
-            action: 'LEFT-CLICK your recon platoon.',
-            targetUnit: recon()?.id,
-          }
-        }
-        return {
-          text: 'LAUNCH THE RAVEN — its drone goes up right over the platoon and gives you a live feed of the ground ahead.',
-          action: 'CLICK the ⊕ on the Raven row, in the COMMAND rail on the left.',
-          targetSel: 'uas-raven',
-        }
-      },
-    },
-    // 4) silent hold: let the recon keep advancing until it makes contact.
-    {
-      id: 'await-contact',
-      done: () => enemySpotted(),
-      hint: () => ({ text: '', hidden: true }),
-    },
-    // 5) contact — TASK-ORGANIZE. The mission does NOT hand the player a formed
-    //    battle group: which platoons fight together is the commander's call.
-    //    The step teaches the MECHANIC (multi-select = a battle group) and gates
-    //    on the player grouping ANY two-plus line platoons of their choosing —
-    //    no box drawn around "the right answer".
-    {
-      id: 'task-organize',
-      gate: true,
-      done: (_S, ui) => ui.selectedIds.filter(id => {
-        const u = S.units.find(x => x.id === id)
-        return !!u && u.side === 'friend' && u.type !== 'SCT'
-      }).length >= 2,
-      hint: () => {
-        // narrate whichever way the contact came: a clean standoff spot, or the
-        // garrison springing its ambush and the scouts' BREAK drill kicking in
-        const sct = recon()
-        const ambushed = !!sct && (sct.breaking || S.t - (sct.underFireT ?? -999) < 20)
-        const lead = ambushed
-          ? 'AMBUSH SPRUNG — the hidden garrison opened up on your scouts, and they are breaking contact on their own (their BREAK drill). The enemy is fixed on the map. '
-          : 'CONTACT — your scouts spotted the garrison from standoff without being engaged. '
-        return {
-          text: lead + 'TASK-ORGANIZE — how you fight this is YOUR call. Platoons selected '
-            + 'together move and fight as one BATTLE GROUP (it shows up in the BATTLE '
-            + 'GROUPS rail on the left). Pick the platoons you want on the assault.',
-          action: 'DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons.',
-        }
-      },
-    },
-    // 6) attack — switch the chosen group to ATTACK mode, then right-click the enemy.
-    {
-      id: 'attack-enemy',
-      gate: true,
-      done: () => S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && (u.attackId != null || u.attackMove)),
-      hint: (_S, ui) => {
-        if (ui.cmdMode !== 'attack') {
-          return {
-            text: 'SET ATTACK POSTURE — attack orders send your battle group in to close with and destroy, instead of just moving.',
-            action: 'CLICK ATTACK in the bottom tray (or press E).',
-            targetSel: 'attack-mode',
-          }
-        }
-        // circle the enemy the recon has eyes on (a live contact), so the player
-        // knows which unit to right-click
-        const e = spottedEnemy()
-        return {
-          text: 'ASSAULT — your battle group will advance on the highlighted enemy and clear the position.',
-          action: 'RIGHT-CLICK the highlighted enemy.',
-          targetUnit: e?.id,
-        }
-      },
-    },
-    // 7) silent hold: let the assault finish clearing the town's defenders.
-    {
-      id: 'await-clear',
-      done: () => {
-        const t = S.campaign?.strongpoint
-        return !!t && !S.units.some(u => u.side === 'hostile' && u.strength > 0 && Math.hypot(u.x - t.x, u.y - t.y) <= 420)
-      },
-      hint: () => ({ text: '', hidden: true }),
-    },
-    // 8) occupy the town ON LINE — teaches the formation drag as the natural
-    //    way to take ground. Non-gated (they walk in). Completion is OUTCOME-
-    //    based: the WHOLE surviving assault force inside the town AND actually
-    //    spread out (pairwise ≥100 m) — a player who stacks the platoons on
-    //    one point gets a nudge explaining why that gets people killed (one
-    //    artillery shell can catch a stacked position; blasts resolve against
-    //    every element in radius).
-    {
-      id: 'occupy-town',
-      done: () => {
-        const t = S.campaign?.strongpoint
-        if (!t) return false
-        const fighters = S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0)
-        if (!fighters.length) return false
-        if (!fighters.every(u => Math.hypot(u.x - t.x, u.y - t.y) <= 260)) return false
-        for (let i = 0; i < fighters.length; i++) {
-          for (let j = i + 1; j < fighters.length; j++) {
-            if (Math.hypot(fighters[i]!.x - fighters[j]!.x, fighters[i]!.y - fighters[j]!.y) < 100) return false
-          }
-        }
-        return true
-      },
-      hint: () => {
-        const t = S.campaign?.strongpoint
-        const targetBox = t ? { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 } : undefined
-        // if they're already in the town but bunched up, the nudge takes over
-        const fighters = t ? S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0) : []
-        const inTown = fighters.length > 0 && fighters.every(u => Math.hypot(u.x - t!.x, u.y - t!.y) <= 260)
-        if (inTown) {
-          return {
-            text: 'SPREAD OUT — your platoons are stacked: one artillery shell can catch a bunched-up position.',
-            action: 'SELECT them, then RIGHT-CLICK and DRAG a line through the buildings.',
-            targetBox,
-          }
-        }
-        return {
-          text: 'TAKE THE TOWN — urban cover protects your platoons, and a spread line can\'t be caught by a single shell.',
-          action: 'SELECT your platoons, then RIGHT-CLICK and DRAG a line across the town.',
-          targetBox,
-        }
-      },
-    },
-    // 9) dig in — prepared fighting positions for even more protection. Gated.
-    //    Only positions dug IN THE TOWN count — digging where a platoon happens
-    //    to stand outside teaches exactly the wrong lesson.
-    {
-      id: 'dig-in',
-      gate: true,
-      done: () => {
-        const t = S.campaign?.strongpoint
-        return !!t && S.units.some(u => u.side === 'friend' && u.type !== 'SCT'
-          && u.posture === 'dig' && Math.hypot(u.x - t.x, u.y - t.y) <= 260)
-      },
-      hint: () => ({
-        text: 'DIG IN — prepared fighting positions stack with the urban cover for even more protection. Hold here and defeat the counterattack.',
-        action: 'With your platoons in the town selected, CLICK ⛨ DIG IN in the bottom tray.',
-        targetSel: 'dig-in',
-      }),
-    },
-  ],
+// ---------------------------------------------------------------------------
+// Condition evaluation — pure reads of S + UI state
+// ---------------------------------------------------------------------------
+const friends = () => S.units.filter(u => u.side === 'friend' && u.strength > 0)
+const firstOf = (type: string) => S.units.find(u => u.side === 'friend' && u.type === type)
+const routeEnd = (u: Unit) => u.legs.length ? u.legs[u.legs.length - 1]! : { x: u.x, y: u.y }
 
-  'lines-of-supply': [
-    // 1) bring the sustainment element forward — the WAYPOINT lesson. Two
-    //    phases: put them on the road first (roads are faster), then SHIFT+
-    //    RIGHT-click queues the final waypoint into the town. Non-gated (they
-    //    have to drive); the cue hides once their route ends at the town. A
-    //    player who right-clicks the town directly skips the lesson — fine.
-    {
-      id: 'move-up',
-      done: () => {
-        const t = S.campaign?.strongpoint, e = m2eng(), l = m2log()
-        return !!t && !!e && !!l
-          && Math.hypot(e.x - t.x, e.y - t.y) <= 420 && Math.hypot(l.x - t.x, l.y - t.y) <= 420
-      },
-      hint: () => {
-        const t = S.campaign?.strongpoint, e = m2eng(), l = m2log()
-        if (!t || !e || !l) return { text: '', hidden: true }
-        // "handled": routed to the town, or already arrived there (no legs left)
-        const endsAtTown = (u: NonNullable<ReturnType<typeof m2eng>>) => u.legs.length > 0
-          ? Math.hypot(u.legs[u.legs.length - 1]!.x - t.x, u.legs[u.legs.length - 1]!.y - t.y) <= 520
-          : Math.hypot(u.x - t.x, u.y - t.y) <= 520
-        if (endsAtTown(e) && endsAtTown(l)) return { text: '', hidden: true }
-        // phase 1: no orders yet — put the column on the road
-        if (!e.legs.length && !l.legs.length) {
-          return {
-            text: 'BRING UP THE SUSTAINMENT — your engineer and logistics platoons are pushing up from the rear. Columns move much faster on ROADS.',
-            action: 'SELECT them both, then RIGHT-CLICK the highlighted road point.',
-            targetPoint: m2RoadPoint() ?? undefined,
+function evalCond(cond: TutCondition, ui: UIState): boolean {
+  switch (cond.kind) {
+    case 'fielded': {
+      const list = friends().filter(u =>
+        (!cond.type || u.type === cond.type) && !(cond.exclude ?? []).includes(u.type))
+      return list.length >= cond.min
+    }
+    case 'selected-only': {
+      if (ui.selectedIds.length !== 1) return false
+      const u = S.units.find(x => x.id === ui.selectedIds[0])
+      return !!u && u.side === 'friend' && u.type === cond.type
+    }
+    case 'selected-struct': {
+      if (ui.selectedIds.length !== 1) return false
+      return S.structures.some(st => st.id === ui.selectedIds[0]
+        && st.side === 'friend' && st.kind === cond.struct)
+    }
+    case 'selected-carrier': {
+      if (ui.selectedIds.length !== 1) return false
+      const u = S.units.find(x => x.id === ui.selectedIds[0])
+      return !!u && u.side === 'friend' && (UNIT_TYPES[u.type].carries?.length ?? 0) > 0
+    }
+    case 'group-selected':
+      return ui.selectedIds.filter(id => {
+        const u = S.units.find(x => x.id === id)
+        return !!u && u.side === 'friend' && !(cond.exclude ?? []).includes(u.type)
+      }).length >= cond.min
+    case 'roe-set': {
+      const u = firstOf(cond.type)
+      return !!u && u.roe === cond.roe
+    }
+    case 'mode-is':
+      return ui.cmdMode === cond.mode || String(ui.mode).startsWith(cond.mode)
+    case 'drone-aloft':
+      return S.drones.length > 0
+    case 'unit-beyond': {
+      const u = firstOf(cond.type)
+      return !!u && !!S.map && Math.hypot(u.x - S.map.fob.x, u.y - S.map.fob.y) >= cond.dist
+    }
+    case 'enemy-spotted': {
+      for (const c of S.contacts.values()) if (c.live) return true
+      return false
+    }
+    case 'attack-ordered':
+      return S.units.some(u => u.side === 'friend' && !(cond.exclude ?? []).includes(u.type)
+        && (u.attackId != null || u.attackMove))
+    case 'routed-to-marker': {
+      const u = firstOf(cond.type), t = exposeMarker()
+      if (!u || !u.legs.length || !t) return false
+      const dest = u.legs[u.legs.length - 1]!
+      return Math.hypot(dest.x - t.x, dest.y - t.y) <= 200
+    }
+    case 'column-has-orders':
+      return cond.types.some(k => (firstOf(k)?.legs.length ?? 0) > 0)
+    case 'column-routed': {
+      const p = resolvePlace(S, cond.place)
+      return cond.types.every(k => {
+        const u = firstOf(k)
+        if (!u) return false
+        const e = routeEnd(u)
+        return Math.hypot(e.x - p.x, e.y - p.y) <= cond.r
+      })
+    }
+    case 'column-at': {
+      const p = resolvePlace(S, cond.place)
+      return cond.types.every(k => {
+        const u = firstOf(k)
+        return !!u && Math.hypot(u.x - p.x, u.y - p.y) <= cond.r
+      })
+    }
+    case 'area-clear': {
+      const p = resolvePlace(S, cond.place)
+      return !S.units.some(u => u.side === 'hostile' && u.strength > 0
+        && Math.hypot(u.x - p.x, u.y - p.y) <= cond.r)
+    }
+    case 'force-holding': {
+      const p = resolvePlace(S, cond.place)
+      const force = friends().filter(u => !(cond.exclude ?? []).includes(u.type))
+      if (!force.length) return false
+      if (!force.every(u => Math.hypot(u.x - p.x, u.y - p.y) <= cond.r)) return false
+      if (cond.spread) {
+        for (let i = 0; i < force.length; i++) {
+          for (let j = i + 1; j < force.length; j++) {
+            if (Math.hypot(force[i]!.x - force[j]!.x, force[i]!.y - force[j]!.y) < cond.spread) return false
           }
         }
-        // phase 2: on the road — queue the final waypoint into the town
-        return {
-          text: 'QUEUE THE NEXT WAYPOINT — they will follow the road, then push up to the FOB site in the town.',
-          action: 'HOLD SHIFT and RIGHT-CLICK the town.',
-          targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
-        }
-      },
-    },
-    // 2) establish the FOB — engineer + palette + placement. Gated.
-    {
-      id: 'build-fob',
-      gate: true,
-      done: () => !!m2fob(),
-      hint: (_S, ui) => {
-        const e = m2eng()
-        if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === e?.id)) {
-          return {
-            text: 'ESTABLISH THE FOB — your engineer platoon does the building.',
-            action: 'LEFT-CLICK your engineer platoon.',
-            targetUnit: e?.id,
-          }
-        }
-        if (!ui.mode.startsWith('build:FOB')) {
-          return {
-            text: 'ESTABLISH THE FOB — with the engineers selected, installations are built from the COMMAND rail.',
-            action: 'CLICK Forward Op. Base in the rail on the left.',
-            targetSel: 'build-fob',
-          }
-        }
-        const t = S.campaign!.strongpoint
-        return {
-          text: 'PLACE IT — the engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.',
-          action: 'CLICK a spot inside the town.',
-          targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
-        }
-      },
-    },
-    // 3) open the supply line — logistics platoon on a standing HQ→FOB run. Gated.
-    {
-      id: 'supply-run',
-      gate: true,
-      done: () => !!m2log()?.convoy,
-      hint: (_S, ui) => {
-        const l = m2log(), fob = m2fob()
-        if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === l?.id)) {
-          return {
-            text: 'OPEN THE SUPPLY LINE — your logistics platoon runs standing convoys.',
-            action: 'LEFT-CLICK your logistics platoon.',
-            targetUnit: l?.id,
-          }
-        }
-        if (!String(ui.mode).startsWith('convoy:')) {
-          return {
-            text: 'OPEN THE SUPPLY LINE — a standing run keeps the FOB stocked without further orders.',
-            action: 'CLICK SUPPLY RUN in the bottom tray.',
-            targetSel: 'supply-run',
-          }
-        }
-        return {
-          text: 'SET THE ROUTE — the trucks will loop HQ → FOB on their own, delivering supply every run.',
-          action: 'CLICK the FOB.',
-          targetPoint: fob ? { x: fob.x, y: fob.y } : undefined,
-        }
-      },
-    },
-  ],
+      }
+      return true
+    }
+    case 'dug-in': {
+      const p = resolvePlace(S, cond.place)
+      return S.units.some(u => u.side === 'friend' && !(cond.exclude ?? []).includes(u.type)
+        && u.posture === 'dig' && Math.hypot(u.x - p.x, u.y - p.y) <= cond.r)
+    }
+    case 'structure-built':
+      return S.structures.some(st => st.side === 'friend' && st.kind === cond.struct)
+    case 'convoy-running':
+      return S.units.some(u => u.side === 'friend' && !!u.convoy)
+    case 'not':
+      return !evalCond(cond.of, ui)
+    case 'all':
+      return cond.of.every(c => evalCond(c, ui))
+  }
 }
 
-// the operation's full curriculum, in objective-stream order
-const CAMPAIGN_STEPS: TutorialStep[] = [
-  ...TUTORIALS.lodgment!,
-  ...TUTORIALS['lines-of-supply']!,
-]
+// ---------------------------------------------------------------------------
+// Anchor resolution → the frame's cue fields
+// ---------------------------------------------------------------------------
+function applyAnchor(h: TutorialHint, a: TutAnchor | undefined): TutorialHint {
+  if (!a) return h
+  switch (a.kind) {
+    case 'ui': h.targetSel = a.sel; break
+    case 'unit': h.targetUnit = firstOf(a.type)?.id; break
+    case 'spotted-enemy': h.targetUnit = spottedEnemy()?.id; break
+    case 'struct': {
+      const st = S.structures.find(s => s.side === 'friend' && s.kind === a.struct)
+      if (st) h.targetPoint = { x: st.x, y: st.y }
+      break
+    }
+    case 'point': h.targetPoint = resolvePlace(S, a.place); break
+    case 'box': {
+      const p = resolvePlace(S, a.place)
+      h.targetBox = { x0: p.x - a.r, y0: p.y - a.r, x1: p.x + a.r, y1: p.y + a.r }
+      break
+    }
+    case 'screen-marker': h.targetPoint = exposeMarker() ?? undefined; break
+    case 'road-marker': h.targetPoint = m2RoadPoint() ?? undefined; break
+  }
+  return h
+}
+
+function hintFor(step: TutStep, ui: UIState): TutorialHint {
+  for (const v of step.hints) {
+    if (v.when && !evalCond(v.when, ui)) continue
+    if (v.hide) return { text: '', hidden: true }
+    return applyAnchor({ text: v.text ?? '', action: v.action }, v.anchor)
+  }
+  return { text: '', hidden: true }
+}
 
 // ---------------------------------------------------------------------------
-// Reactive tip: the first time a line platoon falls below HALF strength,
-// pause and teach the BREAK drill. Not a sequenced step — it fires WHENEVER the
-// casualties happen (mid-assault, during the counterattack, even after the
-// scripted steps are done) and overrides the current cue until acted on.
-// One-shot per campaign (CampaignState.tutBreakShown). Scouts are excluded —
-// they already start on BREAK, and step 1 teaches that.
+// Reactive verb: break-drill — the first time a line platoon falls below HALF
+// strength, pause and teach the BREAK drill. Fires WHENEVER the casualties
+// happen and overrides the step cue until acted on. One-shot per campaign
+// (CampaignState.tutBreakShown). The WORDS come from the pack.
 // ---------------------------------------------------------------------------
-function hurtUnit() {
+function hurtUnit(): Unit | undefined {
   return S.units.find(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0 && u.strength < 50)
 }
 function breakTip(ui: UIState): TutorialHint | null {
   const c = S.campaign
-  if (!c || c.tutBreakShown) return null
+  const spec = _reactive.find(r => r.verb === 'break-drill')
+  if (!c || c.tutBreakShown || !spec) return null
   const u = hurtUnit()
   if (!u) return null
   if (u.roe === 'break') return null // acted on; the effect latches tutBreakShown
   if (!ui.selectedIds.includes(u.id)) {
-    return {
-      text: 'CASUALTIES — the flashing platoon is below HALF strength. A mauled platoon fights at a fraction of its power; pull it out before it is destroyed.',
-      action: 'LEFT-CLICK the flashing platoon.',
-      targetUnit: u.id,
-    }
+    return { text: spec.seek.text, action: spec.seek.action, targetUnit: u.id }
   }
-  return {
-    text: 'BREAK CONTACT — the BREAK drill makes this platoon disengage and fall back on its own whenever it comes under fire. You can set it on any unit, any time.',
-    action: 'CLICK BREAK in the bottom tray.',
-    targetSel: 'roe-break',
-  }
+  return applyAnchor({ text: spec.act.text, action: spec.act.action }, spec.act.anchor)
 }
 
 const ACCENT = '#7ec8ff'   // callout chrome (matches the campaign UI)
@@ -482,14 +329,15 @@ export default function TutorialOverlay() {
   const tick = useUI(s => s.tick)
   const ui = useUI()
   const c = S.campaign
+  refresh()
 
-  // advance / pause: runs each 10 Hz tick. Sim-observable done() only; the sim
-  // stays paused while a gated step is unfinished, then resumes.
+  // advance / pause: runs each 10 Hz tick. The sim stays paused while a gated
+  // step is unfinished, then resumes.
   useEffect(() => {
     if (!c || !c.tutorial || c.complete || !c.briefed) return
-    // reactive BREAK tip: pauses like a gate until the drill is set on the
-    // hurt platoon, then latches one-shot and hands back to the step flow
-    if (!c.tutBreakShown) {
+    // reactive BREAK drill: pauses like a gate until set on the hurt platoon,
+    // then latches one-shot and hands back to the step flow
+    if (!c.tutBreakShown && _reactive.some(r => r.verb === 'break-drill')) {
       const u = hurtUnit()
       if (u) {
         if (u.roe === 'break') {
@@ -501,12 +349,11 @@ export default function TutorialOverlay() {
         }
       }
     }
-    const steps = CAMPAIGN_STEPS
-    if (c.tutStep >= steps.length) return
-    const step = steps[c.tutStep]!
-    if (step.done(S, ui)) {
+    if (c.tutStep >= _steps.length) return
+    const step = _steps[c.tutStep]!
+    if (evalCond(step.done, ui)) {
       c.tutStep++
-      const next = steps[c.tutStep]
+      const next = _steps[c.tutStep]
       // hold for the next gated step; on resume, only lift a pause — never
       // stomp the player's chosen speed (they may be running 4×)
       if (next?.gate) S.speed = 0
@@ -533,13 +380,12 @@ export default function TutorialOverlay() {
   if (!c || !c.tutorial || c.complete || !c.briefed) return null
   if (ui.console) return null // a staff console owns the column; cues point at the map
   if (c.frago != null) return null // an order window (call or review) is up — sim's paused anyway
-  const steps = CAMPAIGN_STEPS
   // the reactive BREAK tip overrides the step cue — and still renders after the
   // scripted steps are exhausted (casualties often come with the counterattack)
   const tip = breakTip(ui)
-  if (!tip && c.tutStep >= steps.length) return null
-  const hint = tip ?? steps[c.tutStep]!.hint(S, ui)
-  if (hint.hidden) return null // no cue this frame (e.g. platoon is en route to its waypoint)
+  if (!tip && c.tutStep >= _steps.length) return null
+  const hint = tip ?? hintFor(_steps[c.tutStep]!, ui)
+  if (hint.hidden) return null // no cue this frame (e.g. platoon is en route)
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.
   // `lift` bottom-anchors the callout (translateY(-100%)) so a box pointing

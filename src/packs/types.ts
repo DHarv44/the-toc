@@ -219,6 +219,59 @@ export interface MissionTrigger {
   do: MissionEffect[]
 }
 
+// --- tutorial curriculum (S3 of PACK-MISSIONS.md) ---------------------------
+// The curriculum is MISSION content — every word the player reads, the step
+// order, and what each step gates on. The engine ships the vocabulary: the
+// condition kinds (some read UI state — tutorial-only; sim triggers never
+// see the UI), the anchor kinds (published `data-tut` ids + map anchors),
+// and the overlay machinery (ui/tutorial.tsx).
+export type TutCondition =
+  | { kind: 'fielded'; type?: UnitTypeKey; exclude?: UnitTypeKey[]; min: number }
+  | { kind: 'selected-only'; type: UnitTypeKey }     // exactly one unit selected, of type
+  | { kind: 'selected-struct'; struct: StructureTypeKey }
+  | { kind: 'selected-carrier' }                     // selected unit carries a drone
+  | { kind: 'group-selected'; min: number; exclude?: UnitTypeKey[] }
+  | { kind: 'roe-set'; type: UnitTypeKey; roe: string }
+  | { kind: 'mode-is'; mode: string }                // ui command mode (prefix match)
+  | { kind: 'drone-aloft' }
+  | { kind: 'unit-beyond'; type: UnitTypeKey; dist: number }  // ... of the player HQ
+  | { kind: 'enemy-spotted' }                        // any live contact on the COP
+  | { kind: 'attack-ordered'; exclude?: UnitTypeKey[] } // a line unit has an attack order
+  | { kind: 'routed-to-marker'; type: UnitTypeKey }  // unit's route ends at the screen marker
+  | { kind: 'column-has-orders'; types: UnitTypeKey[] }
+  | { kind: 'column-routed'; types: UnitTypeKey[]; place: PlaceRef; r: number } // routed toward OR arrived
+  | { kind: 'column-at'; types: UnitTypeKey[]; place: PlaceRef; r: number }     // ARRIVED
+  | { kind: 'area-clear'; place: PlaceRef; r: number }
+  | { kind: 'force-holding'; place: PlaceRef; r: number; spread?: number; exclude?: UnitTypeKey[] }
+  | { kind: 'dug-in'; place: PlaceRef; r: number; exclude?: UnitTypeKey[] }
+  | { kind: 'structure-built'; struct: StructureTypeKey }
+  | { kind: 'convoy-running' }
+  | { kind: 'not'; of: TutCondition }
+  | { kind: 'all'; of: TutCondition[] }
+
+export type TutAnchor =
+  | { kind: 'ui'; sel: string }                      // a published data-tut id
+  | { kind: 'unit'; type: UnitTypeKey }              // first friendly unit of type (map ring)
+  | { kind: 'spotted-enemy' }                        // the live contact nearest the scouts
+  | { kind: 'struct'; struct: StructureTypeKey }     // a friendly structure (map ring)
+  | { kind: 'point'; place: PlaceRef }
+  | { kind: 'box'; place: PlaceRef; r: number }
+  | { kind: 'screen-marker' }                        // computed: standoff point toward the nearest known enemy
+  | { kind: 'road-marker' }                          // computed: road waypoint partway to the strongpoint
+
+// ordered hint variants: first one whose `when` matches (or has none) renders;
+// `hide` shows no cue this frame (e.g. platoon en route)
+export interface TutHint { when?: TutCondition; hide?: boolean; text?: string; action?: string; anchor?: TutAnchor }
+export interface TutStep { id: string; gate?: boolean; done: TutCondition; hints: TutHint[] }
+// reactive tips fire on engine VERBS (bespoke trigger logic), pack words:
+// 'break-drill' = first line platoon below half strength; seek→act hint pair
+export interface TutReactive {
+  verb: 'break-drill'
+  seek: { text: string; action: string }             // shown until the hurt unit is selected
+  act: { text: string; action: string; anchor: TutAnchor } // shown until the drill is set
+}
+export interface TutorialSpec { steps: TutStep[]; reactive?: TutReactive[] }
+
 export interface MissionSpec {
   id: string
   name: string
@@ -226,8 +279,7 @@ export interface MissionSpec {
   frago?: { title: string; text: string } // tasking card dropped when the mission activates
   objectives: MissionObjective[]
   triggers: MissionTrigger[]
-  // tutorial curriculum rides with the mission (S3 of PACK-MISSIONS.md)
-  tutorial?: unknown
+  tutorial?: TutorialSpec // curriculum rides with the mission
 }
 
 export interface CampaignMapSpec {

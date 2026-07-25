@@ -1566,6 +1566,31 @@ only reporting the failure.
 
 ## Later / Deferred
 
+### VTC shows real troop avatars ⬜ *(user 2026-07-25)*
+The VTC cam tiles show stylized silhouettes — they should show the ACTUAL
+soldier's avatar (the Portrait factory already renders deterministic faces for
+every roster soldier). Speaker tile = the staff officer's real portrait
+(shopOfficer resolves the person); attendee tiles (XO/S3/CSM/NCOIC) = their
+portraits from the org; the player tile = the commander's. The CG needs a
+generated division-commander identity (MG + portrait) instead of the generic
+'CG · 1CD' tile — that name should come from pack/campaign config, not code.
+
+### DIV HQ product headers — the header goes ON the PPT ⬜ *(user 2026-07-25)*
+*(Interim step shipped same day: the big masthead ABOVE the deck was removed;
+a concise identity — patch + "1CD DIV HQ — SECURE VTC" — sits in the VTC
+window bar until product headers land.)*
+The current DIV HQ masthead sits ABOVE the VTC slide deck as chrome — that
+misses the point. The header belongs **on the product itself**: every staff
+product (slide, document) is something a SHOP produced, and shops love putting
+their headers on their products. Rework: the deck slides and review documents
+carry the producing shop's letterhead as part of the product — for division
+products that's the **G-shop** (G1/G2/G3… depending on context: an OPORD deck
+is a G3 product, a personnel annex G1, an intel annex G2). Needs: a `gstaff`
+section in pack config (like `staff` but division-echelon), product→shop
+attribution on FRAGOs/decks/documents, and the header rendered into the slide
+(canvas) / document body rather than as window chrome. Pack config drives all
+of it (motto fixed to "First Team" in pack.json already).
+
 ### Pack-driven UI theme ⬜ *(proposed by the user 2026-07-25)*
 The UI theme could OPTIONALLY come from the pack: accent palette (the blues,
 the gold, alert reds), header typography weights, maybe console chrome — so a

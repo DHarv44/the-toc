@@ -21,6 +21,7 @@ import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/aud
 import { playerPack } from '../packs'
 import type { StaffShop } from '../engine/GameState'
 import BnHeader from './BnHeader'
+import { PatchIcon } from './insignia'
 
 const AMBER = '#e8b34a'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
@@ -477,9 +478,13 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
           background: review ? '#54708a' : phase === 'live' ? '#d43a3a' : '#666',
           animation: !review && phase === 'live' ? 'vtcBlink 1.2s step-end infinite' : 'none',
         }} />
+        {/* concise DIV HQ identity in the window bar (the PRODUCT carries the
+            producing shop's full header — see ROADMAP: DIV HQ product headers) */}
+        {!review && !entry.speaker && <PatchIcon id={playerPack().patch} h={15} />}
         <span style={{ fontSize: 10, letterSpacing: 2.5, color: '#9ab8d0' }}>
           {review ? (entry.speaker ? 'REPORT — REVIEW COPY' : 'ORDER — REVIEW COPY')
-            : entry.speaker ? `${entry.speaker.title} — SECURE VTC` : 'DIV HQ — SECURE VTC'}
+            : entry.speaker ? `${entry.speaker.title} — SECURE VTC`
+            : `${playerPack().abbr} DIV HQ — SECURE VTC`}
         </span>
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
           {review ? 'FROM THE ORDERS LOG' : phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
@@ -556,9 +561,6 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
             </div>
           ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
-            {/* DIV HQ's masthead over their own deck — division identity, not the battalion's */}
-            <BnHeader division plate="DIV HQ"
-              sub={`DIVISION MAIN · ${playerPack().name.toUpperCase()}`} />
             <canvas ref={slideRef} width={1180} height={756}
               style={{ width: '100%', borderRadius: 2 }} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>

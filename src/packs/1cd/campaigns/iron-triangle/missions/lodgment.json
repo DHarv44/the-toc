@@ -1,8 +1,8 @@
 {
-  "_doc": "M1 — the lodgment fight: clear OBJ KEATON (the strongpoint town), defeat the counterattack. Trigger effects execute in declaration order (determinism law). Force re-scoped 2026-07-25: 2-8 CAV organic slice, nothing borrowed — scouts screen, two Bradley platoons clear, the mortars support the hold; fielding OPEN from H-hour. Town garrison is second-line troops with Javelins stripped (AT4s only, tuned after the Phase 3 playtest). The wider theater is NOT empty: garrisons sit on the infrastructure, known to intel only as UNKNOWN contacts.",
+  "_doc": "M1 — the lodgment fight: clear OBJ KEATON (the strongpoint town), defeat the counterattack. Trigger effects execute in declaration order (determinism law). COLD START (2026-07-25): NOTHING is fielded at H-hour — the commander calls the force up from garrison and forms the first battle group; the tutorial teaches it. Town garrison is second-line troops with Javelins stripped (AT4s only, tuned after the Phase 3 playtest). The wider theater is NOT empty: garrisons sit on the infrastructure, known to intel only as UNKNOWN contacts.",
   "id": "lodgment",
   "name": "LODGMENT",
-  "brief": "TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and seize the crossroads town to your front, designated OBJECTIVE KEATON — it owns the road net. Intel has marked UNKNOWN enemy contacts in the town, but they are CONCEALED in the buildings: you will not see them until your scouts find them or they open fire. Scouts screen forward — they are set to break contact if engaged. Expect a counterattack once you take the town. Your lead elements are 2-8 CAV: scouts, two Bradley platoons and the mortars. The rest of the task force is yours to call up from garrison as you see fit — no fires support yet. Follow-on taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.",
+  "brief": "TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and seize the crossroads town to your front, designated OBJECTIVE KEATON — it owns the road net. Intel has marked UNKNOWN enemy contacts in the town, but they are CONCEALED in the buildings: you will not see them until your scouts find them or they open fire. Nothing is fielded at H-hour: your battalion stages from CP GARRYOWEN — call up your scouts and your assault force from garrison and task-organize them as you see fit. Scouts screen forward; put them on BREAK before they step off. Expect a counterattack once you take the town. No fires support yet. Follow-on taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.",
   "objectives": [
     {
       "id": "clear", "label": "CLEAR OBJ KEATON", "kind": "clear-area",
@@ -23,9 +23,6 @@
         { "kind": "spawn-garrison", "at": { "place": "strongpoint", "offsetY": -80 },
           "units": ["INF"], "spreadX": 160, "strip": ["M_JAVELIN"],
           "contact": { "scatter": 380, "unknown": true } },
-        { "kind": "place-force", "at": "player-hq", "radius": 260,
-          "units": ["SCT", "MECH", "MECH", "MOR"] },
-        { "kind": "set-roe", "type": "SCT", "roe": "break" },
         { "kind": "opfor-objective", "place": "strongpoint" },
         { "kind": "spawn-garrison", "at": { "place": "NORTH RAILHEAD", "offsetY": 90 },
           "units": ["MECH", "INF"], "spreadX": 140, "contact": { "scatter": 500, "unknown": true } },
@@ -55,5 +52,154 @@
             "text": "1ACB RELEASES A SHADOW ORBIT — ASSET AVAILABLE FOR TASKING" } }
       ]
     }
-  ]
+  ],
+  "tutorial": {
+    "steps": [
+      {
+        "id": "select-hq",
+        "hints": [
+          { "text": "YOUR BATTALION IS IN GARRISON — nothing is fielded yet. Everything you commit stages out of CP GARRYOWEN, your command post. Selecting it opens the COMMAND rail with every element the task force can give you.",
+            "action": "LEFT-CLICK CP GARRYOWEN (the HQ symbol).",
+            "anchor": { "kind": "struct", "struct": "HQ" } }
+        ],
+        "done": { "kind": "selected-struct", "struct": "HQ" }
+      },
+      {
+        "id": "field-scouts",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-struct", "struct": "HQ" } },
+            "text": "CALL UP YOUR SCOUTS — fielding happens from the CP.",
+            "action": "LEFT-CLICK CP GARRYOWEN.",
+            "anchor": { "kind": "struct", "struct": "HQ" } },
+          { "text": "SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest — it goes first, before anything else rolls.",
+            "action": "CLICK the ⊕ on the Scout Section row in the COMMAND rail.",
+            "anchor": { "kind": "ui", "sel": "field-SCT" } }
+        ],
+        "done": { "kind": "fielded", "type": "SCT", "min": 1 }
+      },
+      {
+        "id": "scouts-break",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "SCT" } },
+            "text": "SET THE SCOUT SOP — scouts screen, they don't slug. The BREAK drill makes them disengage and fall back on their own if the hidden garrison springs on them.",
+            "action": "LEFT-CLICK your scout platoon.",
+            "anchor": { "kind": "unit", "type": "SCT" } },
+          { "text": "SET THE SCOUT SOP — with the scouts selected, put them on BREAK: if they take fire, they break contact automatically instead of standing and fighting.",
+            "action": "CLICK BREAK in the bottom tray.",
+            "anchor": { "kind": "ui", "sel": "roe-break" } }
+        ],
+        "done": { "kind": "roe-set", "type": "SCT", "roe": "break" }
+      },
+      {
+        "id": "field-force",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-struct", "struct": "HQ" } },
+            "text": "BUILD YOUR ASSAULT FORCE — the rest of the task force is still in garrison. Call up the force YOU want for clearing a town: Bradley platoons hit hard, mortars support the hold.",
+            "action": "LEFT-CLICK CP GARRYOWEN to open the COMMAND rail.",
+            "anchor": { "kind": "struct", "struct": "HQ" } },
+          { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements. The mix is your call as commander: two Bradley platoons and the mortars is a solid start for clearing a town.",
+            "action": "CLICK ⊕ on the rows you want (three or more).",
+            "anchor": { "kind": "ui", "sel": "field-MECH" } }
+        ],
+        "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }
+      },
+      {
+        "id": "move-recon",
+        "hints": [
+          { "when": { "kind": "routed-to-marker", "type": "SCT" }, "hide": true },
+          { "text": "SCREEN FORWARD — push your scouts toward the town. From the highlighted point they can spot the hidden garrison at standoff; if it opens fire on them, they will break away on their own.",
+            "action": "SELECT the scouts, then RIGHT-CLICK the highlighted point.",
+            "anchor": { "kind": "screen-marker" } }
+        ],
+        "done": { "kind": "unit-beyond", "type": "SCT", "dist": 500 }
+      },
+      {
+        "id": "deploy-drone",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-carrier" } },
+            "text": "EYES FORWARD — your recon platoon carries a hand-launched Raven UAV.",
+            "action": "LEFT-CLICK your recon platoon.",
+            "anchor": { "kind": "unit", "type": "SCT" } },
+          { "text": "LAUNCH THE RAVEN — its drone goes up right over the platoon and gives you a live feed of the ground ahead.",
+            "action": "CLICK the ⊕ on the Raven row, in the COMMAND rail on the left.",
+            "anchor": { "kind": "ui", "sel": "uas-raven" } }
+        ],
+        "done": { "kind": "drone-aloft" }
+      },
+      {
+        "id": "await-contact",
+        "hints": [ { "hide": true } ],
+        "done": { "kind": "enemy-spotted" }
+      },
+      {
+        "id": "task-organize",
+        "gate": true,
+        "hints": [
+          { "text": "CONTACT — the garrison is fixed on the map. TASK-ORGANIZE: how you fight this is YOUR call. Platoons selected together move and fight as one BATTLE GROUP (it shows up in the BATTLE GROUPS rail on the left). Pick the platoons you want on the assault.",
+            "action": "DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons." }
+        ],
+        "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
+      },
+      {
+        "id": "attack-enemy",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "attack" } },
+            "text": "SET ATTACK POSTURE — attack orders send your battle group in to close with and destroy, instead of just moving.",
+            "action": "CLICK ATTACK in the bottom tray (or press E).",
+            "anchor": { "kind": "ui", "sel": "attack-mode" } },
+          { "text": "ASSAULT — your battle group will advance on the highlighted enemy and clear the position.",
+            "action": "RIGHT-CLICK the highlighted enemy.",
+            "anchor": { "kind": "spotted-enemy" } }
+        ],
+        "done": { "kind": "attack-ordered", "exclude": ["SCT"] }
+      },
+      {
+        "id": "await-clear",
+        "hints": [ { "hide": true } ],
+        "done": { "kind": "area-clear", "place": "strongpoint", "r": 420 }
+      },
+      {
+        "id": "occupy-town",
+        "hints": [
+          { "when": { "kind": "force-holding", "place": "strongpoint", "r": 260, "exclude": ["SCT"] },
+            "text": "SPREAD OUT — your platoons are stacked: one artillery shell can catch a bunched-up position.",
+            "action": "SELECT them, then RIGHT-CLICK and DRAG a line through the buildings.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } },
+          { "text": "TAKE THE TOWN — urban cover protects your platoons, and a spread line can't be caught by a single shell.",
+            "action": "SELECT your platoons, then RIGHT-CLICK and DRAG a line across the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
+        ],
+        "done": { "kind": "force-holding", "place": "strongpoint", "r": 260, "spread": 100, "exclude": ["SCT"] }
+      },
+      {
+        "id": "dig-in",
+        "gate": true,
+        "hints": [
+          { "text": "DIG IN — prepared fighting positions stack with the urban cover for even more protection. Hold here and defeat the counterattack.",
+            "action": "With your platoons in the town selected, CLICK ⛨ DIG IN in the bottom tray.",
+            "anchor": { "kind": "ui", "sel": "dig-in" } }
+        ],
+        "done": { "kind": "dug-in", "place": "strongpoint", "r": 260, "exclude": ["SCT"] }
+      }
+    ],
+    "reactive": [
+      {
+        "verb": "break-drill",
+        "seek": {
+          "text": "CASUALTIES — the flashing platoon is below HALF strength. A mauled platoon fights at a fraction of its power; pull it out before it is destroyed.",
+          "action": "LEFT-CLICK the flashing platoon."
+        },
+        "act": {
+          "text": "BREAK CONTACT — the BREAK drill makes this platoon disengage and fall back on its own whenever it comes under fire. You can set it on any unit, any time.",
+          "action": "CLICK BREAK in the bottom tray.",
+          "anchor": { "kind": "ui", "sel": "roe-break" }
+        }
+      }
+    ]
+  }
 }

@@ -183,8 +183,12 @@ function DeploySection() {
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fire() : pick(it.mode))} />
             )
-            // tag rows the campaign tutorial highlights (Raven launch, FOB build)
-            const tutTag = it.key === 'RAVEN' ? 'uas-raven' : it.mode === 'build:FOB' ? 'build-fob' : null
+            // tag rows the campaign tutorial highlights: every FIELD row gets a
+            // generic `field-<TYPE>` anchor (published tutorial vocabulary),
+            // plus the Raven launch and FOB build rows
+            const tutTag = it.key === 'RAVEN' ? 'uas-raven'
+              : it.mode === 'build:FOB' ? 'build-fob'
+              : it.field && it.key ? `field-${it.key}` : null
             return tutTag
               ? <div key={it.mode} data-tut={tutTag}>{row}</div>
               : row
