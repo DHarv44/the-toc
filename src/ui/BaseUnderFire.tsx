@@ -6,10 +6,38 @@
 import { useEffect, useRef, useState } from 'react'
 import { bus } from '../engine/state'
 
+// the INCOMING banner: an overlay across the TOP OF THE MAP/CONSOLE PANE
+// (not the app header) — mounted inside the map column in App. Subscribes to
+// the radar pings itself; visible while the alarm is live (+10 s tail).
+export function IncomingBanner() {
+  const [alarm, setAlarm] = useState(false)
+  const off = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const unsub = bus.on('incoming', () => {
+      setAlarm(true)
+      if (off.current) clearTimeout(off.current)
+      off.current = setTimeout(() => setAlarm(false), 10000)
+    })
+    return () => { unsub(); if (off.current) clearTimeout(off.current) }
+  }, [])
+  if (!alarm) return null
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
+      pointerEvents: 'none', background: '#a3121b',
+      borderBottom: '1px solid #ff8a7e', padding: '3px 0',
+      textAlign: 'center', fontFamily: 'Consolas, monospace',
+      color: '#ffffff', fontSize: 13, fontWeight: 700, letterSpacing: 4,
+      animation: 'bufBlink 0.9s step-end infinite',
+    }}>
+      ⚠ INCOMING · INCOMING · INCOMING — TAKE COVER, GET TO THE NEAREST BUNKER ⚠
+      <style>{'@keyframes bufBlink { 0% { opacity: 1 } 55% { opacity: 1 } 60% { opacity: 0.35 } 100% { opacity: 0.35 } }'}</style>
+    </div>
+  )
+}
+
 export default function BaseUnderFire({ shakeRef }: { shakeRef: React.RefObject<HTMLDivElement | null> }) {
   const flashRef = useRef<HTMLDivElement>(null)
-  const [alarm, setAlarm] = useState(false)   // drives the INCOMING banner
-  const alarmOff = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let raf = 0
@@ -28,9 +56,6 @@ export default function BaseUnderFire({ shakeRef }: { shakeRef: React.RefObject<
     const offIncoming = bus.on('incoming', () => {
       lastPing = performance.now()
       if (!strobeRaf) strobeRaf = requestAnimationFrame(strobe)
-      setAlarm(true)
-      if (alarmOff.current) clearTimeout(alarmOff.current)
-      alarmOff.current = setTimeout(() => setAlarm(false), TAIL)
     })
     let flickering = false
     const offImpact = bus.on('baseimpact', (e: { prox: number }) => {
@@ -68,25 +93,10 @@ export default function BaseUnderFire({ shakeRef }: { shakeRef: React.RefObject<
   }, [shakeRef])
 
   return (
-    <>
-      <div ref={flashRef} style={{
-        position: 'fixed', inset: 0, zIndex: 2000, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at center, rgba(220,40,30,0.35) 0%, rgba(220,40,30,0.65) 100%)',
-        opacity: 0,
-      }} />
-      {alarm && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2001,
-          pointerEvents: 'none', background: '#a3121b',
-          borderBottom: '1px solid #ff8a7e', padding: '3px 0',
-          textAlign: 'center', fontFamily: 'Consolas, monospace',
-          color: '#ffffff', fontSize: 13, fontWeight: 700, letterSpacing: 4,
-          animation: 'bufBlink 0.9s step-end infinite',
-        }}>
-          ⚠ INCOMING · INCOMING · INCOMING — TAKE COVER, GET TO THE NEAREST BUNKER ⚠
-          <style>{'@keyframes bufBlink { 0% { opacity: 1 } 55% { opacity: 1 } 60% { opacity: 0.35 } 100% { opacity: 0.35 } }'}</style>
-        </div>
-      )}
-    </>
+    <div ref={flashRef} style={{
+      position: 'fixed', inset: 0, zIndex: 2000, pointerEvents: 'none',
+      background: 'radial-gradient(ellipse at center, rgba(220,40,30,0.35) 0%, rgba(220,40,30,0.65) 100%)',
+      opacity: 0,
+    }} />
   )
 }

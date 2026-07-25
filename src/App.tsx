@@ -1,7 +1,7 @@
 // App shell: splash → top bar over a three-column body (command rail | map |
 // net rail). Ported verbatim from src/App.jsx.
 import { useRef, useState } from 'react'
-import BaseUnderFire from './ui/BaseUnderFire'
+import BaseUnderFire, { IncomingBanner } from './ui/BaseUnderFire'
 import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
 import TopBar from './ui/TopBar'
@@ -81,6 +81,8 @@ export default function App() {
             <S1Console />
             <CommandDashboard />
             <PackViewer />
+            {/* base-under-fire INCOMING banner: top of the map/console pane */}
+            <IncomingBanner />
           </div>
           <SelectionTray />
         </div>
