@@ -1674,3 +1674,12 @@ are called out here *and* stubbed in the active sections above where they matter
   supplies consumed, timeline of key events (contacts, FRAGOs, objectives),
   awards earned (Purple Hearts now, valor awards later). The P2.5 roster model
   already records most of this — the AAR is largely a presentation layer.
+
+## E&E evac / LZ pickup (DUSTWUN extension)
+- When no ground unit can reach a DUSTWUN site, call an air evac instead: the
+  player designates an LZ in a relatively safe zone; survivors attempt escape &
+  evasion overland to it (movement risk vs enemy positions, time pressure vs
+  the golden-hour decay), and a 3-227 GSAB bird (the org's MEDEVAC/lift
+  flights are real airframes with crews) makes the pickup. Enemy near the LZ
+  or the route degrades the odds; a hot LZ can abort. Ties air cav gameplay,
+  DUSTWUN recovery, and CASEVAC v3 together.
