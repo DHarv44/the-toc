@@ -269,6 +269,14 @@ function slotLocation(sl: OrgSlot): string {
   return `${sl.bde} AO`
 }
 
+// The donor a battalion ROW should show. A slice the brigade task-organized to
+// us carries its own battalion in `from` (that mark belongs on the ELEMENT —
+// "1st PLT · A CO · ATT 91 BEB"); the parent row is that battalion, and nothing
+// is attached from itself. A cross-division attachment names a real donor
+// ("5-20 IN · 2ID") and reads correctly.
+const donorOf = (sl: OrgSlot, bn: string): string | null =>
+  sl.from && sl.from !== bn ? sl.from : null
+
 type S1Tab = 'div' | 'tf' | 'bn' | 'shop' | 'perstats'
 
 // small red unread bubble (tab corners, TopBar button)
@@ -506,7 +514,7 @@ export default function S1Console() {
               const bnSlots = bdeSlots.filter(sl => sl.bn === bn)
               const bnKey = `bn:${bn}`
               const bnAgg = aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))
-              const att = bnSlots[0]!.from ?? null
+              const att = donorOf(bnSlots[0]!, bn)
               const mine = bn === playerBn
               return (
                 <div key={bn}>
@@ -535,7 +543,7 @@ export default function S1Console() {
           {open.has('tfroot') && tfBns.map(bn => {
             const bnSlots = tfSlots.filter(sl => sl.bn === bn)
             const bnKey = `bn:${bn}`
-            const att = bnSlots[0]!.from ?? null
+            const att = donorOf(bnSlots[0]!, bn)
             const mine = bn === playerBn
             return (
               <div key={bn}>

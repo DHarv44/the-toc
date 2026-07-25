@@ -225,9 +225,16 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
         const lin = 'type' in spec && co.co.endsWith('BTRY')
           ? `${co.co}, ${bn.desig}`
           : `${spec.name}, ${co.co}, ${bn.desig}`
+        const fieldable = tf && 'type' in spec
         const base: OrgSlot = {
           id, bde, bn: bn.desig, co: co.co, name: spec.name, lin,
-          from, tf: tf && 'type' in spec, unitId: null, soldiers: [], vehicles: [],
+          // A task-organized slice from a SISTER battalion is an ATTACHMENT: it
+          // fights for us, it belongs to them. Marking it puts "ATT 91 BEB" on
+          // the call-up row and on the fielded unit — the same treatment a
+          // cross-division attachment gets. playerBn's own elements are
+          // organic and stay unmarked.
+          from: from ?? (fieldable && !allTf ? bn.desig : undefined),
+          tf: fieldable, unitId: null, soldiers: [], vehicles: [],
         }
         if ('type' in spec) {
           base.type = spec.type
@@ -311,6 +318,26 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
 // the crew slot backing a pooled asset instance ('CRAM-2' → 'ASSET:CRAM-2')
 export function assetCrewSlot(org: DivOrg | null, instId: string): OrgSlot | null {
   return org?.slots.find(sl => sl.id === `ASSET:${instId}`) ?? null
+}
+
+// GARRISON STRENGTH — what the call-up and the S1 both brief. A slot has no map
+// elements until it is fielded, so its strength is its FILL: people fit for duty
+// over billets assigned, with vehicle readiness alongside. A backfilled casualty
+// still holds their billet, so they count as assigned (PERSTAT's rule) — the
+// replacement shows up as FIT and the number climbs back on its own.
+export interface SlotStr { pct: number; fit: number; asg: number; vOk: number; vTot: number }
+export function slotStrength(slots: OrgSlot | OrgSlot[]): SlotStr {
+  const list = Array.isArray(slots) ? slots : [slots]
+  let fit = 0, asg = 0, vOk = 0, vTot = 0
+  for (const sl of list) {
+    for (const s of sl.soldiers) {
+      if (!s.replaced) asg++
+      if (s.status === 'FIT') fit++
+    }
+    vTot += sl.vehicles.length
+    vOk += sl.vehicles.filter(v => v.status === 'OK').length
+  }
+  return { pct: asg ? (fit / asg) * 100 : 0, fit, asg, vOk, vTot }
 }
 
 // first free TF slot of a type — the fielding draw

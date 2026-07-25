@@ -235,12 +235,22 @@ export type TutCondition =
   | { kind: 'selected-only'; type: UnitTypeKey }     // exactly one unit selected, of type
   | { kind: 'selected-struct'; struct: StructureTypeKey }
   | { kind: 'selected-carrier' }                     // selected unit carries a drone
-  | { kind: 'callup-open' }                          // the FORCES rail's CALL UP picker is open
+  | { kind: 'briefed' }                              // the opening VTC has been acknowledged
+  | { kind: 'vtc-paged' }                            // player paged the deck by hand
+  | { kind: 'rail-open'; rail: 'forces' | 'command' | 'net' | 'feeds' } // side rail expanded
+  // the CALL UP picker, rung by rung: open at all, a GARRISON picked, a
+  // CAPABILITY open. The curriculum has to teach the drill-down one rung at a
+  // time, so it needs to see each rung.
+  | { kind: 'callup-open' }
+  | { kind: 'callup-base' }
+  | { kind: 'callup-cat'; cat: string }
+  | { kind: 'callup-co'; cat: string }               // a COMPANY under that capability
   | { kind: 'group-selected'; min: number; exclude?: UnitTypeKey[] }
   | { kind: 'roe-set'; type: UnitTypeKey; roe: string }
   | { kind: 'mode-is'; mode: string }                // ui command mode (prefix match)
   | { kind: 'drone-aloft' }
   | { kind: 'unit-beyond'; type: UnitTypeKey; dist: number }  // ... of the player HQ
+  | { kind: 'view-near-hq'; dist: number }           // map centred within dist of the HQ
   | { kind: 'enemy-spotted' }                        // any live contact on the COP
   | { kind: 'attack-ordered'; exclude?: UnitTypeKey[] } // a line unit has an attack order
   | { kind: 'routed-to-marker'; type: UnitTypeKey }  // unit's route ends at the screen marker
@@ -262,12 +272,34 @@ export type TutAnchor =
   | { kind: 'struct'; struct: StructureTypeKey }     // a friendly structure (map ring)
   | { kind: 'point'; place: PlaceRef }
   | { kind: 'box'; place: PlaceRef; r: number }
+  // computed: a rectangle bounding the FIELDED FORCE (what the player actually
+  // has on the ground), padded. `exclude` drops types that aren't part of the
+  // lesson — e.g. the scouts already forward when the line platoons are taught.
+  | { kind: 'force-box'; exclude?: UnitTypeKey[]; pad?: number }
   | { kind: 'screen-marker' }                        // computed: standoff point toward the nearest known enemy
   | { kind: 'road-marker' }                          // computed: road waypoint partway to the strongpoint
+  // teach a CAMERA move, not an order: an edge arrow marking which way the place
+  // lies plus an animated middle-drag glyph. Unlike every other anchor this one
+  // does NOT centre the view — the whole lesson is the player doing that.
+  | { kind: 'pan-to'; place: string; label?: string }
 
 // ordered hint variants: first one whose `when` matches (or has none) renders;
-// `hide` shows no cue this frame (e.g. platoon en route)
-export interface TutHint { when?: TutCondition; hide?: boolean; text?: string; action?: string; anchor?: TutAnchor }
+// `hide` shows no cue this frame (e.g. platoon en route).
+// `dwell` holds a hint on screen for N SECONDS and then falls through to the
+// next one — for beats that teach by pointing rather than by asking ("this
+// whole window is the VTC"), where there is no player action to wait on.
+// `next` does the same but on the PLAYER's clock: the card grows a NEXT button
+// and holds until it is clicked. Prefer it for anything the player has to READ —
+// a timer either rushes a slow reader or bores a fast one.
+export interface TutHint {
+  when?: TutCondition
+  dwell?: number
+  next?: boolean
+  hide?: boolean
+  text?: string
+  action?: string
+  anchor?: TutAnchor
+}
 export interface TutStep { id: string; gate?: boolean; done: TutCondition; hints: TutHint[] }
 // reactive tips fire on engine VERBS (bespoke trigger logic), pack words:
 // 'break-drill' = first line platoon below half strength; seek→act hint pair
@@ -322,6 +354,12 @@ export interface Pack {
   motto?: string          // formation motto: 'America's First Team' (division-level heraldry)
   side: 'friend' | 'hostile'
   catalogs: PackCatalogs  // the platforms this pack's world is made of
+  // The capability groups the CALL UP drills through, in briefing order. Each
+  // one answers a question a commander asks under contact ("what kills that
+  // tank?", "who clears the buildings?"), so the list is CONTENT: a pack with
+  // no armor ships no ARMOR group. Unit types point at these with `cat`; a cat
+  // a platform declares but this list forgets still renders, at the end.
+  cats?: string[]
   names?: NamePools       // personnel name generation inputs
   people?: PeoplePins     // explicit roster pins (override generation)
   staff?: Record<string, StaffSection> // the shops (falls back to 1CD's)

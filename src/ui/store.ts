@@ -84,11 +84,20 @@ export interface UIState {
   leftOpen: boolean         // side rails: collapse to their own edge, independently
   bgOpen: boolean           // FORCES rail (left, beside Command)
   // CALL UP picker state (FORCES rail): lives in the store so the tutorial's
-  // UI conditions can see it. base = garrison filter (null = all bases),
-  // type = unit-type filter (null = all types)
+  // UI conditions can see it — the curriculum has to teach the drill-down, and
+  // it can only teach what it can read. The tree is an accordion, one rung open
+  // at a time: base = the open GARRISON, cat = the open CAPABILITY inside it.
+  // null at either level means that rung is shut (nothing below it is showing).
+  // Companies are the exception — several can stand open at once, so that rung
+  // is a list of `${cat}|${bn}:${co}` keys (namespaced by category because one
+  // HHC owns platoons under three different capabilities).
   callupOpen: boolean
   callupBase: number | null
-  callupType: string | null
+  callupCat: string | null
+  callupCos: string[]
+  // has the player paged the VTC deck THEMSELVES this call? The deck walks
+  // itself on a timer, so only a manual page proves the habit was learned.
+  vtcPaged: boolean
   qrfWarnOff: boolean       // "don't warn me again" for deploying a dedicated QRF
   netOpen: boolean
   feedsOpen: boolean        // FEEDS rail (right, inboard of the net) — feeds stack here
@@ -143,12 +152,16 @@ export const useUI = create<UIState>()((set, get) => ({
   overlayAlpha: 1,
   cycleOverlayAlpha: () => set((s) => ({ overlayAlpha: s.overlayAlpha > 0.85 ? 0.7 : s.overlayAlpha > 0.6 ? 0.45 : 1 })),
   rangeUnits: {},
-  // default rail state: everything tucked away except the fielded force
+  // default rail state: EVERYTHING tucked away. A TOC comes up with a clean
+  // map — the commander opens the rail they need, they don't clear the ones
+  // they don't. (The tutorial teaches which rail answers which question.)
   leftOpen: false,
-  bgOpen: true,
+  bgOpen: false,
   callupOpen: false,
   callupBase: null,
-  callupType: null,
+  callupCat: null,
+  callupCos: [],
+  vtcPaged: false,
   qrfWarnOff: false,
   netOpen: false,
   feedsOpen: false,

@@ -13,11 +13,21 @@ import {
 import { fmtCooldown } from '../lib/format'
 import { UNIT_TYPES, type UnitType, type UnitTypeKey } from '../domains/forces/catalog'
 import { playerPack } from '../packs'
+import { slotStrength } from '../packs/org'
 import { STRUCTURES, FACILITIES, type StructureType, type StructureTypeKey, type FacilityKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols'
 
-const CATS = ['MANEUVER', 'RECON', 'FIRES', 'SUPPORT'] as const
+// The call-up's top level: the question a commander actually asks under contact
+// ("what kills that tank?", "who clears the buildings?") — not a flat list of
+// platforms. The GROUPS are pack content, in the pack's briefing order; a group
+// a platform claims but the pack never ordered still shows, at the end, so a
+// half-finished pack loses nothing.
+export function unitCats(): string[] {
+  const declared = playerPack().cats ?? []
+  const present = [...new Set(Object.values(UNIT_TYPES).map(t => t.cat))]
+  return [...declared.filter(c => present.includes(c)), ...present.filter(c => !declared.includes(c))]
+}
 
 // One symbol drawn on a canvas, sized to the row it sits in. Same art as the map,
 // so the palette doubles as the symbol key.
@@ -191,10 +201,14 @@ export const organicDroneItem = (dt: DroneType, unitId: number): PaletteItem => 
 // by company — the player calls up "1st PLT, A CO", not "a rifle platoon".
 // Only the CP fields the garrison; a FOB is a forward base, not a motor pool.
 // Slot state rides on the row: fielded, fit strength, type refit turnaround.
-const slotItem = (sl: OrgSlot): PaletteItem => {
+// `terse` is for the CALL UP tree, where the garrison, the capability and the
+// owning company are the rows ABOVE this one — repeating them costs three
+// wrapped lines in a 250 px rail and tells the commander nothing new.
+const slotItem = (sl: OrgSlot, terse = false): PaletteItem => {
   const t = UNIT_TYPES[sl.type as UnitTypeKey]
   const a = unitAvailability(sl.type as UnitTypeKey)
-  const fit = sl.soldiers.filter(s => s.status === 'FIT').length
+  const str = slotStrength(sl)
+  const fit = str.fit
   const fielded = sl.unitId != null
   const noneFit = fit === 0
   const base = S.structures.find(s => s.id === sl.garrisonAt && s.side === 'friend')
@@ -203,13 +217,22 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
     mode: 'slot:' + sl.id, key: sl.id, fieldSlot: true,
     // the element's real lineage leads ("1st PLT · A CO"); tag carries the
     // platform + WHERE it is garrisoned (its assigned home base)
-    label: `${sl.name} · ${sl.co}`,
-    tag: [t.name, base?.label, sl.from ? `ATT ${sl.from}` : null].filter(Boolean).join(' · '),
-    cost: null, icon: <PaletteIcon unit={t} />,
+    label: terse ? sl.name : `${sl.name} · ${sl.co}`,
+    tag: terse
+      ? t.name
+      : [t.name, `${str.fit}/${str.asg} PAX`, base?.label, sl.from ? `ATT ${sl.from}` : null]
+        .filter(Boolean).join(' · '),
+    // the leaf of the tree gets a BIGGER symbol: it is the only rung that
+    // shows one, and at 2525 scale it should read at a glance, not squint
+    cost: null, icon: terse
+      ? <PaletteIcon unit={t} w={38} h={34} scale={1.45} />
+      : <PaletteIcon unit={t} />,
+    // readiness first when it BLOCKS the call-up, strength otherwise — the row
+    // always answers "what am I getting?"
     note: fielded ? '✓ FIELDED'
       : noneFit ? 'NO FIT PAX'
       : a.capped ? `${a.used}/${a.max}`
-      : `${fit} PAX`,
+      : `STR ${Math.round(str.pct)}%`,
     disabled: fielded || noneFit || !a.ready,
     // the tutorial's published anchor family: field-<TYPE> rings the first
     // callable row of that type
@@ -218,20 +241,21 @@ const slotItem = (sl: OrgSlot): PaletteItem => {
 }
 // The GARRISON (echelon-real fielding): surfaced by the FORCES rail's CALL UP
 // picker, not Command — Command manages BASES, Forces manages the FORCE
-// (deep dive = S1). Only what the player commander OWNS — their battalion and
-// attachments; sister formations' elements come by REQUEST to division.
-export const garrisonSlots = (hideFielded = false): OrgSlot[] => {
-  const playerBn = playerPack().formation?.playerBn
-  return (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
-    && (sl.bn === playerBn || sl.bde === 'ATT')
+// (deep dive = S1). The pool is the TASK FORCE, not the battalion: `tf` marks
+// every element the player commands — all of playerBn, PLUS the slices the
+// brigade task-organized to us (the BEB engineer platoon, the BSB distro
+// platoon, the FA firing battery) and the cross-division attachments. Anything
+// NOT on the task org comes by REQUEST to division. (S1 keeps both views: the
+// TASK FORCE tab is this set, the battalion tab is 2-8 CAV alone.)
+export const garrisonSlots = (hideFielded = false): OrgSlot[] =>
+  (S.org?.slots ?? []).filter(sl => sl.tf && sl.type
     && (!hideFielded || sl.unitId == null))
-}
 export { slotItem }
 export const garrisonSections = (hideFielded = false): DeploySection[] => {
   const slots = garrisonSlots(hideFielded)
-  return CATS.map(cat => ({
+  return unitCats().map(cat => ({
     header: cat,
-    items: slots.filter(sl => UNIT_TYPES[sl.type as UnitTypeKey].cat === cat).map(slotItem),
+    items: slots.filter(sl => UNIT_TYPES[sl.type as UnitTypeKey].cat === cat).map(sl => slotItem(sl)),
   })).filter(sec => sec.items.length > 0)
 }
 

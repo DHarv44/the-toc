@@ -211,7 +211,10 @@ whether it runs. The engine/UI ships the vocabulary:
 - **Anchor IDs** — the published `data-tut` set (`uas-raven`, `attack-mode`,
   `dig-in`, `roe-break`, `build-fob`, `supply-run`, + new `field-unit:<TYPE>`,
   `palette-section:<ID>`…) and map anchors (`unit-of-type`, `place`, a world
-  box). A pack points at anchors by ID; new UI = new engine anchor.
+  box, `force-box` = a rectangle bounding the fielded force, `exclude`-filtered).
+  A pack points at anchors by ID; new UI = new engine anchor. A map anchor also
+  drives the CAMERA: the overlay centers on it once per cue, and a BOX zooms to
+  fit its span so the whole group the cue names is on screen.
 - **Steps**: `{ id, gate?, done: <condition>, hints: [ { when?, text, action,
   anchor } ] }` — ordered hint variants, first matching `when` wins (replaces
   today's adaptive hint functions). `{place:NAME}` templates in text.

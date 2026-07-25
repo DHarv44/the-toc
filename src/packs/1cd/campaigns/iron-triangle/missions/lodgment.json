@@ -68,11 +68,8 @@
         { "kind": "set-allow", "field": true, "support": false, "drone": true },
         { "kind": "opfor-objective", "place": null },
         { "kind": "front-line", "place": "strongpoint", "offsetY": -1400 },
-        { "kind": "deploy-column", "units": ["ENG", "LOG"], "edge": "south", "margin": 120,
-          "spacing": 90,
-          "moveTo": { "anchor": "player-hq", "offsets": [[-140, 220], [140, 220]] } },
         { "kind": "frago", "title": "LINES OF SUPPLY",
-          "text": "GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics platoon are pushing up to you from the rear — bring them forward and establish FOB KEATON in the town, then run a supply line up to it. Field whatever the task force can give you if you need it. ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE." }
+          "text": "GOOD WORK ON THE CROSSROADS. Make it stick. You have an engineer platoon and a logistics platoon in the task force, still in garrison — call them up, bring them forward, and establish FOB KEATON in the town, then run a supply line up to it. Field whatever else the task force can give you if you need it. ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE." }
       ]
     },
     {
@@ -92,15 +89,51 @@
   "tutorial": {
     "steps": [
       {
+        "id": "read-the-order",
+        "gate": true,
+        "hints": [
+          { "next": true,
+            "text": "VTC · VIDEO TELECONFERENCE\nThis whole window is the secure call to higher — and it is the only way an order reaches you.\n\nThe CG is on the line reading the OPORD. Every call runs this way: division tasks you, your staff shops brief you, and each one stays on file in the NET rail for recall.",
+            "anchor": { "kind": "ui", "sel": "vtc-window" } },
+          { "next": true,
+            "text": "THE DECK IS THE ORDER\nThose slides are the operation graphic — one page per phase of the fight, the same product your staff works from.\n\nIt walks itself while the CG talks, but it is yours to drive.",
+            "anchor": { "kind": "ui", "sel": "vtc-deck" } },
+          { "when": { "kind": "not", "of": { "kind": "vtc-paged" } },
+            "text": "DRIVE IT YOURSELF\nThe arrows step the deck a page at a time; the previews down the side jump straight to any page. Take it off the timer and read at your own pace.",
+            "action": "CLICK an arrow or a slide preview.",
+            "anchor": { "kind": "ui", "sel": "vtc-nav" } },
+          { "text": "ACKNOWLEDGE RELEASES THE NET\nThe war is HELD while a call is up — nothing moves until you are off the line.\n\nAcknowledging tells higher you have the order and hands you the map.",
+            "action": "CLICK ACKNOWLEDGE.",
+            "anchor": { "kind": "ui", "sel": "vtc-ack" } }
+        ],
+        "done": { "kind": "briefed" }
+      },
+      {
         "id": "field-scouts",
         "gate": true,
         "hints": [
+          { "when": { "kind": "not", "of": { "kind": "rail-open", "rail": "forces" } },
+            "text": "YOUR BATTALION IS IN GARRISON — nothing is fielded yet, and an empty map is what that looks like. Your force lives in the FORCES rail, tucked against the left edge.",
+            "action": "CLICK the FORCES tab on the left edge.",
+            "anchor": { "kind": "ui", "sel": "rail-forces" } },
           { "when": { "kind": "not", "of": { "kind": "callup-open" } },
-            "text": "YOUR BATTALION IS IN GARRISON — nothing is fielded yet. Your force lives in the FORCES rail on the left edge; CALL UP opens the garrison.",
-            "action": "CLICK ＋ CALL UP in the FORCES rail (open the rail from the left edge if it's tucked away).",
+            "text": "THE RAIL IS YOUR FIELDED FORCE — right now it is empty, because nothing has come out of garrison. CALL UP is how you order an element forward.",
+            "action": "CLICK ＋ CALL UP at the bottom of the FORCES rail.",
             "anchor": { "kind": "ui", "sel": "call-up" } },
-          { "text": "SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest — it goes first, before anything else rolls.",
-            "action": "CLICK the ⊕ on the SCT PLT row (filter by type with the icon tabs).",
+          { "when": { "kind": "not", "of": { "kind": "callup-base" } },
+            "text": "WHERE, THEN WHAT, THEN WHO — a call-up starts with the garrison holding the troops. At H-hour that is your command post; a FOB joins this list once you build one.",
+            "action": "CLICK your garrison to open it.",
+            "anchor": { "kind": "ui", "sel": "callup-base-HQ" } },
+          { "when": { "kind": "not", "of": { "kind": "callup-cat", "cat": "RECON" } },
+            "text": "SCOUTS LEAD — the town's garrison is CONCEALED: nobody SEES them until they are found, or they fire. Your recon platoon sees farthest, so it goes first, before anything else rolls.",
+            "action": "OPEN RECON in the garrison list.",
+            "anchor": { "kind": "ui", "sel": "callup-cat-RECON" } },
+          { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "RECON" } },
+            "text": "WHO OWNS THEM — platoons hang off the company that owns them, not off a flat list. Your scouts belong to the headquarters company of your own battalion.",
+            "action": "CLICK the HHC · 2-8 CAV row.",
+            "anchor": { "kind": "ui", "sel": "callup-co-RECON-HHC" } },
+          { "text": "THERE THEY ARE — the platoon itself is the last rung, and the row IS the order. Click it and the scouts roll out of the gate on your command post.",
+            "action": "CLICK the SCT PLT row.",
             "anchor": { "kind": "ui", "sel": "field-SCT" } }
         ],
         "done": { "kind": "fielded", "type": "SCT", "min": 1 }
@@ -127,7 +160,16 @@
             "action": "SELECT the scouts, then RIGHT-CLICK the highlighted point.",
             "anchor": { "kind": "screen-marker" } }
         ],
-        "done": { "kind": "unit-beyond", "type": "SCT", "dist": 500 }
+        "done": { "kind": "routed-to-marker", "type": "SCT" }
+      },
+      {
+        "id": "pan-the-map",
+        "hints": [
+          { "text": "MIND THE WHOLE FIGHT — the order is out and your scouts are rolling north; the view followed them up the axis. They will take a while to get there, and a TOC watches its own ground too. HOLD THE MIDDLE MOUSE BUTTON and drag to pan the map — WASD does the same, and the wheel zooms. Nothing is selected or ordered while you pan; you are only moving your eyes.",
+            "action": "MIDDLE-DRAG back to your command post — follow the arrow.",
+            "anchor": { "kind": "pan-to", "place": "player-hq", "label": "COMMAND POST" } }
+        ],
+        "done": { "kind": "view-near-hq", "dist": 1200 }
       },
       {
         "id": "field-force",
@@ -137,7 +179,7 @@
             "action": "CLICK ＋ CALL UP in the FORCES rail.",
             "anchor": { "kind": "ui", "sel": "call-up" } },
           { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements while the scouts are moving. The mix is your call: two Bradley platoons and the mortars is a solid start for clearing a town.",
-            "action": "CLICK ⊕ on the platoons you want (three or more).",
+            "action": "DRILL the garrison — capability, then company — and CLICK the platoons you want (three or more).",
             "anchor": { "kind": "ui", "sel": "garrison-list" } }
         ],
         "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }
@@ -165,7 +207,8 @@
         "gate": true,
         "hints": [
           { "text": "CONTACT — the garrison is fixed on the map. TASK-ORGANIZE: how you fight this is YOUR call. Platoons selected together move and fight as one BATTLE GROUP (it shows up in the BATTLE GROUPS rail on the left). Pick the platoons you want on the assault.",
-            "action": "DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons." }
+            "action": "DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons.",
+            "anchor": { "kind": "force-box", "exclude": ["SCT"] } }
         ],
         "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
       },
@@ -212,12 +255,44 @@
         "done": { "kind": "dug-in", "place": "strongpoint", "r": 260, "exclude": ["SCT"] }
       },
       {
+        "id": "field-sustainment",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "callup-open" } },
+            "text": "CALL UP THE SUSTAINMENT — engineers build the FOB and the logistics platoon runs the supply line. Both are sitting in garrison; they come out of the same rail as everything else.",
+            "action": "CLICK ＋ CALL UP in the FORCES rail.",
+            "anchor": { "kind": "ui", "sel": "call-up" } },
+          { "when": { "kind": "all", "of": [
+              { "kind": "not", "of": { "kind": "fielded", "type": "ENG", "min": 1 } },
+              { "kind": "not", "of": { "kind": "callup-cat", "cat": "ENGINEER" } }
+            ] },
+            "text": "ENGINEERS FIRST — the engineer platoon does the building. Nothing goes up without them, and they live under their own capability.",
+            "action": "OPEN ENGINEER in the garrison list.",
+            "anchor": { "kind": "ui", "sel": "callup-cat-ENGINEER" } },
+          { "when": { "kind": "not", "of": { "kind": "fielded", "type": "ENG", "min": 1 } },
+            "text": "ENGINEERS FIRST — the engineer platoon does the building. Nothing goes up without them.",
+            "action": "CLICK the ENG PLT row.",
+            "anchor": { "kind": "ui", "sel": "field-ENG" } },
+          { "when": { "kind": "not", "of": { "kind": "callup-cat", "cat": "SUSTAINMENT" } },
+            "text": "NOW THE TRUCKS — the logistics platoon hauls the stores forward and keeps the FOB stocked. It sits under SUSTAINMENT, not with the engineers.",
+            "action": "OPEN SUSTAINMENT in the garrison list.",
+            "anchor": { "kind": "ui", "sel": "callup-cat-SUSTAINMENT" } },
+          { "text": "NOW THE TRUCKS — the logistics platoon hauls the stores forward and keeps the FOB stocked.",
+            "action": "CLICK the LOG PLT row.",
+            "anchor": { "kind": "ui", "sel": "field-LOG" } }
+        ],
+        "done": { "kind": "all", "of": [
+          { "kind": "fielded", "type": "ENG", "min": 1 },
+          { "kind": "fielded", "type": "LOG", "min": 1 }
+        ] }
+      },
+      {
         "id": "move-up",
         "hints": [
           { "when": { "kind": "column-routed", "types": ["ENG", "LOG"], "place": "strongpoint", "r": 520 },
             "hide": true },
           { "when": { "kind": "not", "of": { "kind": "column-has-orders", "types": ["ENG", "LOG"] } },
-            "text": "BRING UP THE SUSTAINMENT — your engineer and logistics platoons are pushing up from the rear. Columns move much faster on ROADS.",
+            "text": "BRING UP THE SUSTAINMENT — your engineer and logistics platoons are staged at the CP, well behind the town. Columns move much faster on ROADS.",
             "action": "SELECT them both, then RIGHT-CLICK the highlighted road point.",
             "anchor": { "kind": "road-marker" } },
           { "text": "QUEUE THE NEXT WAYPOINT — they will follow the road, then push up to the FOB site in the town.",

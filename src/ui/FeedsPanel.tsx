@@ -39,6 +39,7 @@ export default function FeedsPanel() {
 
   return (
     <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
+      {strip}
       <Box w={ui.feedsW} style={{
         flex: '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         background: 'var(--mantine-color-dark-7)', borderLeft: '1px solid var(--mantine-color-dark-4)',
@@ -73,7 +74,6 @@ export default function FeedsPanel() {
           {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} docked />)}
         </Box>
       </Box>
-      {strip}
     </Box>
   )
 }

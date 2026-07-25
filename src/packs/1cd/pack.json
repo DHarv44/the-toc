@@ -38,6 +38,7 @@
       "detail": "The S6 shop owns the network: retrans coverage, net health and (when the systems exist) jamming and electronic protection. Stands up with the EW layer."
     }
   },
+  "cats": ["ARMOR", "INFANTRY", "RECON", "FIRES", "ENGINEER", "SUSTAINMENT", "SIGNAL"],
   "organic": {
     "MECH": { "bn": "2-8 CAV" },
     "ARM": { "bn": "1-12 CAV" },

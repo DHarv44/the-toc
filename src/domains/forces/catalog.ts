@@ -13,7 +13,9 @@
 // cost is a world concept, not a unit one.
 import type { Mobility, TerrainName } from '../../world/mobility'
 
-export type UnitCategory = 'MANEUVER' | 'RECON' | 'FIRES' | 'SUPPORT'
+// A capability group for the CALL UP drill. The engine only knows that types
+// GROUP; which groups exist, and in what order, is pack content (pack.cats).
+export type UnitCategory = string
 
 // The 2525 glyph set stays ENGINE-side: the symbol renderer is a standard, not
 // content. A pack picks a glyph per unit type; a genuinely new symbol is an

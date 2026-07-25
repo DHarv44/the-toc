@@ -11,7 +11,9 @@ import { releaseQrf } from '../domains/defense/qrf'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { useUI } from './store'
 import Rail, { RailSection } from './Rail'
-import { PaletteIcon, PaletteRow, garrisonSections, garrisonSlots, slotItem } from './palette'
+import { unitCats, PaletteIcon, PaletteRow, garrisonSections, garrisonSlots, slotItem } from './palette'
+import type { PaletteItem } from './palette'
+import { slotStrength, type SlotStr } from '../packs/org'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -75,6 +77,7 @@ export default function ForcesRail() {
       {/* the CALL UP picker flies out to the LEFT of the Forces panel */}
       {ui.bgOpen && ui.callupOpen && <CallUpFlyout />}
       <Rail side="left" title="FORCES" width={270} open={ui.bgOpen} onToggle={ui.toggleBg}
+        tut="rail-forces"
         footer={
           // CALL UP is a BUTTON pinned to the rail's bottom — the picker is a
           // flyout panel to the right; the rail's body belongs to the force
@@ -184,38 +187,135 @@ function BattleGroups() {
   )
 }
 
-// CALL UP: the garrison stays out of sight until the commander reaches for it
-// (deep dive = S1). The picker is IN-RAIL (no popouts): choose the garrison
-// to pull from (chips — only when more than one base holds troops), filter by
-// unit type (small icon tabs), click ⊕ to field. Stays open for multiple
-// call-ups; DONE closes it. State lives in the UI store so the tutorial's
-// conditions can see it.
+// STR as the S1 briefs it — fit over assigned, colored by how much of the
+// element is actually there. The same number at every level of the drill, so a
+// company and a platoon can be compared without doing arithmetic.
+function Str({ s }: { s: SlotStr }) {
+  const pct = Math.round(s.pct)
+  const c = pct >= 95 ? '#7ec87e' : pct >= 85 ? '#e8c547' : '#e8524a'
+  return (
+    <Text span fz={11} fw={600} c={c} style={{ flex: '0 0 auto', letterSpacing: 0.5 }}>
+      STR {pct}%
+    </Text>
+  )
+}
+
+// The CALL UP tree reads like the S1's org tree — same grammar, narrower rail:
+// depth is INDENT, the toggle sits in a fixed cell so labels line up, hairline
+// rules separate rows, and nothing is filled. `TREE_PAD` is S1's 10 + depth*24
+// scaled to the flyout's width.
+const TREE_PAD = (depth: number) => 8 + depth * 12
+
+// One rung of the drill. Everything starts SHUT — the commander picks the
+// GARRISON (0), then the capability (1), then the company (2) that owns it.
+// Sized to be READ ACROSS THE ROOM: this is a call the commander makes under
+// contact, not a spreadsheet to lean into.
+const RUNG = [
+  { fz: 14, ls: 1.4, c: '#9fd0f5' },  // 0 GARRISON — a place, S1's section accent
+  { fz: 14, ls: 0.8, c: '#dceeff' },  // 1 CAPABILITY
+  { fz: 13, ls: 0.6, c: '#9ab8d0' },  // 2 COMPANY
+] as const
+function DrillRow({ label, n, str, open, depth = 0, onClick, tut }: {
+  label: string
+  n: number
+  str: SlotStr
+  open: boolean
+  depth?: 0 | 1 | 2
+  onClick: () => void
+  tut?: string
+}) {
+  const r = RUNG[depth]!
+  return (
+    <Box data-tut={tut} onClick={onClick} pr="xs" py={4} pl={TREE_PAD(depth)}
+      style={{
+        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        borderTop: '1px solid #141e28',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#101a24' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+      <Text span fz={11} c="dark.3" style={{ flex: '0 0 auto', width: 12 }}>
+        {open ? '▾' : '▸'}
+      </Text>
+      <Text fz={r.fz} fw={600} c={r.c} truncate
+        style={{ flex: 1, minWidth: 0, letterSpacing: r.ls }}>{label}</Text>
+      <Text span fz={10} c="dark.3" style={{ flex: '0 0 auto' }}>{n} ELM</Text>
+      <Str s={str} />
+    </Box>
+  )
+}
+
+// The LEAF of the tree — the element itself, and the only rung that fields
+// anything. Symbol and name ride one line with readiness on the right; the
+// platform sits on its own line beneath, right-aligned under the readiness it
+// qualifies, so the rail never squeezes two facts onto one line. The row IS
+// the button — no ⊕, nothing to aim at but the row.
+function CallUpLeaf({ it, tag, onCall }: {
+  it: PaletteItem
+  tag?: string | null
+  onCall: () => void
+}) {
+  const off = it.disabled
+  return (
+    <Box data-tut={it.tutSel} onClick={off ? undefined : onCall}
+      pl={TREE_PAD(3)} pr="xs" py={4}
+      style={{
+        borderTop: '1px solid #141e28', opacity: off ? 0.45 : 1,
+        cursor: off ? 'not-allowed' : 'pointer',
+      }}
+      onMouseEnter={e => { if (!off) e.currentTarget.style.background = '#101a24' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+      <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {it.icon}
+        <Text fz={14} lh={1.2} c="dark.0" truncate style={{ flex: 1, minWidth: 0 }}>{it.label}</Text>
+        {it.note && (
+          <Text span fz={10} c={off ? 'orange.5' : 'dark.2'}
+            style={{ flex: '0 0 auto', letterSpacing: 0.5 }}>{it.note}</Text>
+        )}
+      </Box>
+      {tag && (
+        <Text fz={10} c="dark.3" truncate ta="right" style={{ letterSpacing: 0.5 }}>{tag}</Text>
+      )}
+    </Box>
+  )
+}
+
 // The CALL UP picker: a FLYOUT PANEL to the right of the FORCES rail (the
-// rail's body belongs to active units). Choose the garrison to pull from
-// (chips — only when more than one base holds troops), filter by unit type
-// (small icon tabs), click ⊕ to field. Stays open for multiple call-ups.
+// rail's body belongs to active units). It drills the way the question is
+// actually asked — WHERE (which garrison holds troops), then WHAT (the
+// capability under contact), then WHO (the company that owns the platoon).
+// Everything starts shut; the panel stays open for multiple call-ups.
 function CallUpFlyout() {
   const ui = useUI()
   const [qrfPending, setQrfPending] = useState<string | null>(null)
   const slots = garrisonSlots(true)
-  const close = () => useUI.setState({ callupOpen: false, callupBase: null, callupType: null })
+  const close = () => useUI.setState({
+    callupOpen: false, callupBase: null, callupCat: null, callupCos: [],
+  })
   const hqId = S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')?.id ?? null
   const baseOf = (sl: OrgSlot) =>
     S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend') ? sl.garrisonAt! : hqId
+  // WHERE the force sits: every friendly base holding callable troops, HQ
+  // first (a FOB only appears once it is built and has soldiers in it)
   const bases = [...new Set(slots.map(baseOf))]
     .map(id => S.structures.find(s => s.id === id))
     .filter((s): s is NonNullable<typeof s> => !!s)
-  const inBase = ui.callupBase != null ? slots.filter(sl => baseOf(sl) === ui.callupBase) : slots
-  const types = [...new Set(inBase.map(sl => sl.type as UnitTypeKey))]
-  const list = ui.callupType ? inBase.filter(sl => sl.type === ui.callupType) : inBase
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '2px 7px', borderRadius: 2, fontSize: 9, letterSpacing: 1, cursor: 'pointer',
-    border: `1px solid ${active ? '#3d5a75' : '#22303d'}`,
-    background: active ? '#101c28' : 'transparent',
-    color: active ? '#7ec8ff' : '#54708a',
-  })
+    .map(b => ({ b, list: slots.filter(sl => baseOf(sl) === b.id) }))
+  const catOf = (sl: OrgSlot) => UNIT_TYPES[sl.type as UnitTypeKey].cat
+  const cat = ui.callupCat
+  // group a category's elements the way the force is actually organized: by the
+  // COMPANY that owns the platoons (order follows the org, not the alphabet)
+  const cosOf = (list: OrgSlot[]) => {
+    const cos: { key: string; co: string; bn: string; list: OrgSlot[] }[] = []
+    for (const sl of list) {
+      const key = `${sl.bn}:${sl.co}`
+      const e = cos.find(c => c.key === key)
+      if (e) e.list.push(sl)
+      else cos.push({ key, co: sl.co, bn: sl.bn, list: [sl] })
+    }
+    return cos
+  }
   return (
-    <Box w={250} style={{
+    <Box w={340} style={{
       flex: '0 0 auto', display: 'flex', flexDirection: 'column', minHeight: 0,
       background: 'var(--mantine-color-dark-7)',
       borderRight: '1px solid var(--mantine-color-dark-4)',
@@ -225,40 +325,10 @@ function CallUpFlyout() {
         flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
         borderBottom: '1px solid var(--mantine-color-dark-5)', background: 'var(--mantine-color-dark-8)',
       }}>
-        <Text span fz={10} fw={700} c="toc.3" style={{ letterSpacing: 1.8, flex: 1 }}>
+        <Text span fz={12} fw={700} c="toc.3" style={{ letterSpacing: 1.8, flex: 1 }}>
           GARRISON — CALL UP
         </Text>
-        <Text span fz={12} c="dark.2" style={{ cursor: 'pointer' }} onClick={close}>✕</Text>
-      </Box>
-      <Box px="xs" pt={6} style={{ flex: '0 0 auto' }}>
-        {bases.length > 1 && (
-          <Box pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            <div style={chip(ui.callupBase == null)}
-              onClick={() => useUI.setState({ callupBase: null })}>ALL BASES</div>
-            {bases.map(b => (
-              <div key={b.id} style={chip(ui.callupBase === b.id)}
-                onClick={() => useUI.setState({ callupBase: b.id })}>{b.label}</div>
-            ))}
-          </Box>
-        )}
-        {/* unit-type filter: one small icon tab per type present in the garrison */}
-        <Box pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={chip(ui.callupType == null)}
-            onClick={() => useUI.setState({ callupType: null })}>ALL</div>
-          {types.map(t => {
-            const spec = UNIT_TYPES[t]
-            const n = inBase.filter(sl => sl.type === t).length
-            const active = ui.callupType === t
-            return (
-              <div key={t} title={`${spec.name} (${n})`}
-                style={{ ...chip(active), display: 'flex', alignItems: 'center', gap: 3, padding: '1px 5px' }}
-                onClick={() => useUI.setState({ callupType: active ? null : t })}>
-                <PaletteIcon unit={spec} w={26} h={18} scale={0.7} />
-                <span>{n}</span>
-              </div>
-            )
-          })}
-        </Box>
+        <Text span fz={14} c="dark.2" style={{ cursor: 'pointer' }} onClick={close}>✕</Text>
       </Box>
       {qrfPending && (
         <QrfWarning slotId={qrfPending}
@@ -271,19 +341,66 @@ function CallUpFlyout() {
           instead of swallowing the panel's empty space. */}
       <Box style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div data-tut="garrison-list">
-        {list.map(sl => {
-          const it = slotItem(sl)
-          const call = () => { if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending) }
-          const row = (
-            <PaletteRow key={it.key} icon={it.icon} label={it.label}
-              tag={sl.qrf ? `✓ QRF · ${it.tag ?? ''}` : it.tag}
-              note={it.note} cost="" disabled={it.disabled}
-              onPlus={it.disabled ? undefined : call}
-              onClick={call} />
+        {/* GARRISON — you cannot call up a force without saying where it is
+            standing to. HQ at H-hour; a FOB joins the list once it is built. */}
+        {bases.map(({ b, list: inBase }) => {
+          const baseOpen = ui.callupBase === b.id
+          return (
+            <div key={b.id}>
+              <DrillRow tut={`callup-base-${b.kind}`} label={b.label}
+                n={inBase.length} str={slotStrength(inBase)} open={baseOpen}
+                onClick={() => useUI.setState({
+                  callupBase: baseOpen ? null : b.id, callupCat: null,
+                })} />
+              {/* CAPABILITY — the question under contact, one open at a time
+                  (an accordion: opening ARMOR shuts whatever was open) */}
+              {baseOpen && unitCats().map(c => {
+                const list = inBase.filter(sl => catOf(sl) === c)
+                if (!list.length) return null
+                const open = cat === c
+                return (
+                  <div key={c}>
+                    <DrillRow depth={1} tut={`callup-cat-${c}`} label={c}
+                      n={list.length} str={slotStrength(list)} open={open}
+                      onClick={() => useUI.setState({ callupCat: open ? null : c })} />
+                    {/* COMPANY — how the force is actually organized */}
+                    {open && cosOf(list).map(co => {
+                      // keyed by CATEGORY too: 2-8 CAV's HHC owns scouts,
+                      // mortars and medics, and opening one must not open the rest
+                      const ck = `${c}|${co.key}`
+                      const coOpen = ui.callupCos.includes(ck)
+                      return (
+                        <div key={ck}>
+                          <DrillRow depth={2} tut={`callup-co-${c}-${co.co}`}
+                            label={`${co.co} · ${co.bn}`} n={co.list.length}
+                            str={slotStrength(co.list)} open={coOpen}
+                            onClick={() => useUI.setState(s => ({
+                              callupCos: coOpen
+                                ? s.callupCos.filter(k => k !== ck)
+                                : [...s.callupCos, ck],
+                            }))} />
+                          {coOpen && co.list.map(sl => {
+                            const it = slotItem(sl, true)
+                            const call = () => {
+                              if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending)
+                            }
+                            return (
+                              <CallUpLeaf key={it.key} it={it} onCall={call}
+                                tag={sl.qrf ? `✓ QRF · ${it.tag ?? ''}` : it.tag} />
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
           )
-          return it.tutSel ? <div key={it.key} data-tut={it.tutSel}>{row}</div> : row
         })}
-        {list.length === 0 && <Text fz={10} c="dark.3" px="xs" py={6}>NONE AVAILABLE HERE</Text>}
+        {bases.length === 0 && (
+          <Text fz={10} c="dark.3" px="xs" py={6}>NONE AVAILABLE HERE</Text>
+        )}
       </div>
       </Box>
     </Box>

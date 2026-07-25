@@ -9,7 +9,7 @@
 // Gated steps pause the sim (speed 0) until done, then resume — the player
 // can't skip past an unlearned action. Hint variants: first whose `when`
 // matches (or has none) renders; `hide` shows no cue this frame.
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { nearestLand } from '../world/place'
@@ -30,6 +30,9 @@ interface TutorialHint {
   targetPoint?: { x: number; y: number }
   targetBox?: { x0: number; y0: number; x1: number; y1: number }
   hidden?: boolean
+  nextKey?: string   // a read-and-continue beat: the card shows NEXT, keyed here
+  panTo?: { x: number; y: number }  // camera lesson: point the player's EYES here
+  panLabel?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +52,8 @@ function refresh(): void {
   _campStamp = S.campaign
   _moveTarget = _exposeMarker = _m2Road = null
   _centeredKey = ''
+  _dwellAt.clear()
+  _nextDone.clear()
   _steps = []
   _reactive = []
   if (!S.campaign) return
@@ -177,13 +182,33 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
     }
     case 'mode-is':
       return ui.cmdMode === cond.mode || String(ui.mode).startsWith(cond.mode)
+    case 'briefed':
+      return !!S.campaign?.briefed
+    case 'vtc-paged':
+      return ui.vtcPaged
+    case 'rail-open':
+      return cond.rail === 'forces' ? ui.bgOpen
+        : cond.rail === 'command' ? ui.leftOpen
+          : cond.rail === 'net' ? ui.netOpen : ui.feedsOpen
     case 'callup-open':
       return ui.callupOpen
+    case 'callup-base':
+      return ui.callupBase != null
+    case 'callup-cat':
+      return ui.callupCat === cond.cat
+    case 'callup-co':
+      return ui.callupCos.some(k => k.startsWith(`${cond.cat}|`))
     case 'drone-aloft':
       return S.drones.length > 0
     case 'unit-beyond': {
       const u = firstOf(cond.type)
       return !!u && !!S.map && Math.hypot(u.x - S.map.fob.x, u.y - S.map.fob.y) >= cond.dist
+    }
+    case 'view-near-hq': {
+      // where the COMMANDER is looking, not where anything is. MapView keeps the
+      // live view on window.__view (same hook worldToViewport reads).
+      const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
+      return !!v && !!S.map && Math.hypot(v.cx - S.map.fob.x, v.cy - S.map.fob.y) <= cond.dist
     }
     case 'enemy-spotted': {
       for (const c of S.contacts.values()) if (c.live) return true
@@ -271,17 +296,58 @@ function applyAnchor(h: TutorialHint, a: TutAnchor | undefined): TutorialHint {
       h.targetBox = { x0: p.x - a.r, y0: p.y - a.r, x1: p.x + a.r, y1: p.y + a.r }
       break
     }
+    case 'force-box': {
+      const force = friends().filter(u => !(a.exclude ?? []).includes(u.type))
+      if (!force.length) break
+      const pad = a.pad ?? 140
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      for (const u of force) {
+        x0 = Math.min(x0, u.x); y0 = Math.min(y0, u.y)
+        x1 = Math.max(x1, u.x); y1 = Math.max(y1, u.y)
+      }
+      h.targetBox = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }
+      break
+    }
+    case 'pan-to': {
+      // NOT targetPoint — that would centre the view, which is the one thing
+      // this lesson has to leave to the player.
+      h.panTo = resolvePlace(S, a.place)
+      h.panLabel = a.label ?? a.place.toUpperCase()
+      break
+    }
     case 'screen-marker': h.targetPoint = exposeMarker() ?? undefined; break
     case 'road-marker': h.targetPoint = m2RoadPoint() ?? undefined; break
   }
   return h
 }
 
+// A dwelling hint's clock starts the first time the chain actually REACHES it —
+// not when the step began. So a "look at this for 5 s" beat that sits behind a
+// `when` gate still gets its full 5 s once it comes up. Keyed by step id + index
+// so a re-entered step (HMR, restart) re-arms rather than reading as expired.
+const _dwellAt = new Map<string, number>()
+function dwellExpired(key: string, secs: number): boolean {
+  const t0 = _dwellAt.get(key)
+  if (t0 == null) { _dwellAt.set(key, performance.now()); return false }
+  return performance.now() - t0 >= secs * 1000
+}
+
+// …and the same idea on the player's clock: a `next` hint holds until its NEXT
+// button is clicked, then this remembers it so the chain falls through. Same
+// key shape as the dwell clock, cleared with it on a new campaign.
+const _nextDone = new Set<string>()
+
 function hintFor(step: TutStep, ui: UIState): TutorialHint {
-  for (const v of step.hints) {
+  for (let i = 0; i < step.hints.length; i++) {
+    const v = step.hints[i]!
+    const key = `${step.id}:${i}`
     if (v.when && !evalCond(v.when, ui)) continue
+    if (v.dwell && dwellExpired(key, v.dwell)) continue
+    if (v.next && _nextDone.has(key)) continue
     if (v.hide) return { text: '', hidden: true }
-    return applyAnchor({ text: v.text ?? '', action: v.action }, v.anchor)
+    const h = applyAnchor({ text: v.text ?? '', action: v.action }, v.anchor)
+    if (v.next) h.nextKey = key
+    return h
   }
   return { text: '', hidden: true }
 }
@@ -340,7 +406,9 @@ export default function TutorialOverlay() {
   // advance / pause: runs each 10 Hz tick. The sim stays paused while a gated
   // step is unfinished, then resumes.
   useEffect(() => {
-    if (!c || !c.tutorial || c.complete || !c.briefed) return
+    // NOT gated on `briefed`: the opening VTC is itself the first lesson, so the
+    // step flow has to be live while that call is still up.
+    if (!c || !c.tutorial || c.complete) return
     // reactive BREAK drill: pauses like a gate until set on the hurt platoon,
     // then latches one-shot and hands back to the step flow
     if (!c.tutBreakShown && _reactive.some(r => r.verb === 'break-drill')) {
@@ -379,13 +447,25 @@ export default function TutorialOverlay() {
     st.textContent = `@keyframes tutPulse {
       0%,100% { border-color: ${RING_A}; box-shadow: 0 0 0 2px ${RING_A}66, 0 0 10px 3px ${RING_A}33; opacity: .8; }
       50%     { border-color: ${RING_B}; box-shadow: 0 0 0 4px ${RING_B}, 0 0 30px 10px ${RING_B}99; opacity: 1; }
-    }`
+    }
+    /* the pan lesson: the hand stroke, replayed. --tdx/--tdy are the drag
+       vector, set inline per frame (the camera can be pointed anywhere). */
+    @keyframes tutDrag {
+      0%      { transform: translate(0,0); opacity: 0; }
+      18%     { opacity: 1; }
+      78%     { opacity: 1; }
+      100%    { transform: translate(var(--tdx), var(--tdy)); opacity: 0; }
+    }
+    @keyframes tutBlink { 0%,100% { opacity: .35; } 50% { opacity: 1; } }`
     document.head.appendChild(st)
   }, [])
 
-  if (!c || !c.tutorial || c.complete || !c.briefed) return null
+  if (!c || !c.tutorial || c.complete) return null
   if (ui.console) return null // a staff console owns the column; cues point at the map
-  if (c.frago != null) return null // an order window (call or review) is up — sim's paused anyway
+  // The OPENING VTC is the curriculum's first classroom — the overlay rides over
+  // it (z 108/109 clears the call's 105). Every LATER order window owns the
+  // screen alone: by then the player knows what a call is.
+  if (c.briefed && c.frago != null) return null
   // the reactive BREAK tip overrides the step cue — and still renders after the
   // scripted steps are exhausted (casualties often come with the counterattack)
   const tip = breakTip(ui)
@@ -403,14 +483,24 @@ export default function TutorialOverlay() {
   if (centerKey !== _centeredKey) {
     _centeredKey = centerKey
     tutorialCue() // a new instruction popped — soft chime (master mute respects it)
-    if (mapTarget) centerView(mapTarget, { minZoom: zoomFor(4200) })
+    // a BOX frames a group: fit its whole span (with air around it) so every
+    // unit the cue is talking about is on screen. A point/unit gets the
+    // generic close-up. Either way `minZoom` only zooms IN — never back out.
+    const span = hint.targetBox
+      ? Math.max(1800, Math.max(hint.targetBox.x1 - hint.targetBox.x0, hint.targetBox.y1 - hint.targetBox.y0) * 1.9)
+      : 4200
+    if (mapTarget) centerView(mapTarget, { minZoom: zoomFor(span) })
   }
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.
   // `lift` bottom-anchors the callout (translateY(-100%)) so a box pointing
   // down at a bottom-tray control stacks ABOVE it, never clipped off-screen.
   let ring: { left: number; top: number; width: number; height: number } | null = null
-  let callout: { left: number; top: number; width: number; pointer?: 'left' | 'right' | 'up' | 'down'; lift?: boolean } | null = null
+  // a `data-tut` tag may sit on SEVERAL elements (the deck's thumbnails and its
+  // arrows are one lesson in two places): ring them all, hang the callout off
+  // the first. Their bounding box is no good — it would swallow the slide.
+  const extraRings: { left: number; top: number; width: number; height: number }[] = []
+  let callout: { left: number; top: number; width: number; pointer?: 'left' | 'right' | 'up' | 'down'; lift?: boolean; overlap?: boolean } | null = null
 
   // a ring + right-side callout anchored to a world point on the map
   const mapAnchor = (wx: number, wy: number, R: number) => {
@@ -427,13 +517,26 @@ export default function TutorialOverlay() {
   }
 
   if (hint.targetSel) {
-    const el = document.querySelector(`[data-tut="${hint.targetSel}"]`)
+    const els = Array.from(document.querySelectorAll(`[data-tut="${hint.targetSel}"]`))
+    const el = els[0]
+    for (const other of els.slice(1)) {
+      const o = other.getBoundingClientRect()
+      extraRings.push({ left: o.left - 5, top: o.top - 5, width: o.width + 10, height: o.height + 10 })
+    }
     if (el) {
       const r = el.getBoundingClientRect()
       ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
       const vw = window.innerWidth, vh = window.innerHeight
       const short = r.height < 90 // a button/row — TALL boxes (a whole list) always get a side callout
-      if (short && r.bottom + 140 > vh) {
+      // A WHOLE WINDOW (the VTC) leaves no room beside it, and a cue jammed
+      // against the screen edge reads as unrelated to it. Sit the card on the
+      // window's bottom edge instead, centred and wide, with its top 40%
+      // lapping over the frame so the two clearly belong together.
+      if (r.width > vw * 0.6 && r.height > vh * 0.5) {
+        const w = 620
+        const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8)
+        callout = { left, top: r.bottom, width: w, overlap: true }
+      } else if (short && r.bottom + 140 > vh) {
         // a SHORT control near the bottom (the selection tray): stack the
         // callout ABOVE it, bottom-anchored and wide, pointing down — on top
         // of the toolbar, never clipped by the screen edge
@@ -477,6 +580,37 @@ export default function TutorialOverlay() {
       }
     }
   }
+  // PAN cue: the map is the only control with no button to ring, so the lesson
+  // has to be drawn. An arrow rides the map edge on the bearing to the place,
+  // and a mouse glyph strokes the gesture that gets you there. The stroke runs
+  // the OPPOSITE way to the bearing — you drag the ground, not the camera
+  // (MapView: view.cx -= dx), the same as dragging a paper map across a table.
+  let panCue: {
+    ex: number; ey: number; deg: number; km: string
+    cx: number; cy: number; dx: number; dy: number; label: string
+  } | null = null
+  if (hint.panTo) {
+    const p = worldToViewport(hint.panTo.x, hint.panTo.y)
+    const v = (window as unknown as { __view?: { cx: number; cy: number } }).__view
+    if (p && v) {
+      const cx0 = p.rect.left + p.rect.width / 2, cy0 = p.rect.top + p.rect.height / 2
+      const L = Math.hypot(p.x - cx0, p.y - cy0) || 1
+      const ux = (p.x - cx0) / L, uy = (p.y - cy0) / L
+      // where that bearing leaves the map box (kept inboard so the label fits)
+      const hw = p.rect.width / 2 - 80, hh = p.rect.height / 2 - 80
+      const t = Math.min(Math.abs(ux) > 1e-3 ? hw / Math.abs(ux) : Infinity,
+        Math.abs(uy) > 1e-3 ? hh / Math.abs(uy) : Infinity)
+      const d = Math.hypot(hint.panTo.x - v.cx, hint.panTo.y - v.cy)
+      panCue = {
+        ex: cx0 + ux * Math.min(t, L), ey: cy0 + uy * Math.min(t, L),
+        deg: Math.atan2(uy, ux) * 180 / Math.PI + 90,  // a CSS triangle points -Y
+        km: d >= 1000 ? `${(d / 1000).toFixed(1)} KM` : `${Math.round(d)} M`,
+        cx: cx0, cy: cy0, dx: -ux * 54, dy: -uy * 54,
+        label: hint.panLabel ?? '',
+      }
+    }
+  }
+
   // fallback: no anchor found → a plain callout at the map bottom
   if (!callout) callout = { left: -1, top: -1, width: 440 }
   const isMapCircle = hint.targetUnit != null || hint.targetPoint != null
@@ -488,13 +622,51 @@ export default function TutorialOverlay() {
     <>
       {/* the slow-pulsing highlight ring over the target (DOM element or map unit).
           Stable key so React never remounts it (which would restart the pulse). */}
-      {ring && (
-        <div key="tut-ring" style={{
+      {(ring ? [ring, ...extraRings] : []).map((r, i) => (
+        <div key={`tut-ring-${i}`} style={{
           position: 'fixed', zIndex: 108, pointerEvents: 'none',
-          left: ring.left, top: ring.top, width: ring.width, height: ring.height,
+          left: r.left, top: r.top, width: r.width, height: r.height,
           border: `2px solid ${RING_A}`, borderRadius: isMapCircle ? '50%' : 5,
           animation: 'tutPulse 1.4s ease-in-out infinite',
         }} />
+      ))}
+
+      {/* PAN lesson: bearing arrow at the map edge + the middle-drag stroke */}
+      {panCue && (
+        <div key="tut-pan" style={{ position: 'fixed', zIndex: 108, pointerEvents: 'none', inset: 0 }}>
+          <div style={{ position: 'absolute', left: panCue.ex, top: panCue.ey, transform: 'translate(-50%,-50%)' }}>
+            <div style={{
+              margin: '0 auto', width: 0, height: 0,
+              borderLeft: '15px solid transparent', borderRight: '15px solid transparent',
+              borderBottom: `24px solid ${RING_A}`, transform: `rotate(${panCue.deg}deg)`,
+              animation: 'tutBlink 1.2s ease-in-out infinite',
+            }} />
+            <div style={{
+              marginTop: 7, textAlign: 'center', fontFamily: 'Consolas, monospace',
+              fontSize: 10, fontWeight: 'bold', letterSpacing: 1.6, color: RING_A,
+              textShadow: '0 1px 4px #000, 0 0 8px #000',
+            }}>{panCue.label} · {panCue.km}</div>
+          </div>
+          {/* the hand: a mouse with its WHEEL lit, stroking the drag over and over */}
+          <div style={{ position: 'absolute', left: panCue.cx, top: panCue.cy, transform: 'translate(-50%,-50%)' }}>
+            <div style={{
+              ['--tdx' as string]: `${panCue.dx}px`, ['--tdy' as string]: `${panCue.dy}px`,
+              animation: 'tutDrag 1.9s ease-in-out infinite',
+            } as CSSProperties}>
+              <svg width="38" height="56" viewBox="0 0 38 56" style={{ filter: 'drop-shadow(0 2px 6px #000)' }}>
+                <rect x="3" y="3" width="32" height="50" rx="16"
+                  fill="rgba(10,16,22,0.9)" stroke="#dceeff" strokeWidth="2" />
+                <rect x="15" y="10" width="8" height="15" rx="4" fill={RING_A} />
+              </svg>
+            </div>
+            <div style={{
+              marginTop: 4, textAlign: 'center', fontFamily: 'Consolas, monospace',
+              fontSize: 9.5, fontWeight: 'bold', letterSpacing: 1.4, color: '#dceeff',
+              textShadow: '0 1px 4px #000, 0 0 8px #000', whiteSpace: 'nowrap',
+              transform: 'translateX(-50%)', marginLeft: 19,
+            }}>HOLD THE WHEEL · DRAG</div>
+          </div>
+        </div>
       )}
 
       {/* the callout: beside/above the ring, or centered at the map bottom.
@@ -502,7 +674,10 @@ export default function TutorialOverlay() {
       <div style={bottom
         ? { position: 'fixed', zIndex: 109, left: '50%', bottom: 96, transform: 'translateX(-50%)', width: callout.width, maxWidth: '80vw' }
         : { position: 'fixed', zIndex: 109, left: callout.left, top: callout.top, width: callout.width,
-            ...(callout.lift ? { transform: 'translateY(-100%)' } : {}) }
+            // `lift` clears a bottom-tray control; `overlap` laps the card's top
+            // 40% back over the window it is talking about
+            ...(callout.lift ? { transform: 'translateY(-100%)' }
+              : callout.overlap ? { transform: 'translateY(-40%)' } : {}) }
       }>
         <div style={{
           position: 'relative',
@@ -528,7 +703,9 @@ export default function TutorialOverlay() {
               borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${ACCENT}` }} />
           )}
           <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f9fd0', marginBottom: 4 }}>▸ TRAINING</div>
-          <div style={{ fontSize: 12, lineHeight: 1.5 }}>{hint.text}</div>
+          {/* pre-wrap so a mission can paragraph a long lesson with blank lines
+              — a wall of monospace is the one thing nobody reads under contact */}
+          <div style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{hint.text}</div>
           {/* the DO line: every step ends with one standout imperative — the
               amber ties it to the pulsing ring it points at */}
           {hint.action && (
@@ -537,11 +714,29 @@ export default function TutorialOverlay() {
               fontSize: 12.5, fontWeight: 'bold', letterSpacing: 0.6, color: RING_A,
             }}>▶ {hint.action}</div>
           )}
-          <button onClick={skip}
-            onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
-            style={{ marginTop: 8, background: 'none', border: 'none', cursor: 'pointer',
-              color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0 }}>SKIP TUTORIAL</button>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={skip}
+              onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer',
+                color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0 }}>SKIP TUTORIAL</button>
+            {/* a read-and-continue beat: nothing to DO but understand it, so the
+                player says when they are done reading. Bumping the UI tick makes
+                the chain fall through this frame instead of on the next pump. */}
+            {hint.nextKey && (
+              <button onClick={() => {
+                _nextDone.add(hint.nextKey!)
+                useUI.setState(s => ({ tick: s.tick + 1 }))
+              }}
+                style={{ marginLeft: 'auto', background: 'rgba(255,198,63,0.12)',
+                  // same pulse as the ring: the ONE thing to click on this card,
+                  // beating in time with the thing it is pointing at
+                  border: `2px solid ${RING_A}`, borderRadius: 3, cursor: 'pointer',
+                  animation: 'tutPulse 1.4s ease-in-out infinite',
+                  color: '#ffe9b0', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 'bold',
+                  letterSpacing: 1.5, padding: '4px 12px' }}>NEXT ▶</button>
+            )}
+          </div>
         </div>
       </div>
     </>

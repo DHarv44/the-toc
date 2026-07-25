@@ -472,6 +472,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
   // A REVIEW skips all of it — it's a document, not a call.
   useEffect(() => {
     setSlide(startSlide)
+    useUI.setState({ vtcPaged: false }) // each call starts unread
     if (review) { setPhase('live'); return }
     setPhase('link')
     const t1 = setTimeout(() => {
@@ -506,8 +507,17 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
     ? [staffTile('S1 NCOIC', 'S1 NCOIC'), staffTile('CSM', 'Command Sergeant Major'), staffTile('XO', 'Executive Officer')]
     : [staffTile('XO', 'Executive Officer'), staffTile('S3', 'S3 — Operations'), staffTile('CSM', 'Command Sergeant Major')]
 
+  // The deck walks itself on a 10 s timer, so "reached slide 3" proves nothing.
+  // What the tutorial wants to see is the player taking the deck OFF the rails
+  // and paging it themselves — that is the habit the lesson is teaching.
+  const page = (n: number | ((s: number) => number)) => {
+    useUI.setState({ vtcPaged: true })
+    setSlide(n)
+  }
+
   const navBtn = (dir: -1 | 1, label: string) => (
-    <button onClick={() => setSlide(s => Math.max(0, Math.min(DECK.length - 1, s + dir)))}
+    <button data-tut={dir > 0 ? 'vtc-next' : undefined}
+      onClick={() => page(s => Math.max(0, Math.min(DECK.length - 1, s + dir)))}
       style={{
         padding: '2px 10px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
         background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
@@ -516,7 +526,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
   )
 
   const win = (
-    <div style={{
+    <div data-tut="vtc-window" style={{
       width: 1760, maxWidth: '96vw',
       background: 'rgba(10,14,19,0.97)', border: '1px solid #2a3a48', borderTop: `3px solid ${AMBER}`,
       borderRadius: 4, fontFamily: 'Consolas, monospace', boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
@@ -543,7 +553,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
           {review ? 'FROM THE ORDERS LOG' : phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
         </span>
-        {!review && <button onClick={() => {
+        {!review && <button data-tut="vtc-voice" onClick={() => {
           const next = !voiceOff
           setBriefMuted(next)
           setVoiceOff(next)
@@ -633,20 +643,22 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               </div>
             </div>
           ) : (
-          <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
-            {/* the deck's preview rail — every page, click to jump */}
-            <div style={{
+          <div data-tut="vtc-deck" style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
+            {/* the deck's preview rail — every page, click to jump.
+                shares the `vtc-nav` tutorial tag with the arrow row below: they
+                are the two ways to drive the deck, so a cue rings both */}
+            <div data-tut="vtc-nav" style={{
               width: 128, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6,
               overflowY: 'auto', paddingRight: 2,
             }}>
               {DECK.map((_, i) => (
-                <SlideThumb key={i} idx={i} active={i === slide} onClick={() => setSlide(i)} />
+                <SlideThumb key={i} idx={i} active={i === slide} onClick={() => page(i)} />
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
               <canvas ref={slideRef} width={1180} height={756}
                 style={{ width: '100%', borderRadius: 2 }} />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <div data-tut="vtc-nav" style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
                 {navBtn(-1, '◀')}
                 <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#54708a' }}>
                   SLIDE {slide + 1} / {DECK.length}
@@ -668,7 +680,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginRight: 'auto' }}>
           {review ? 'REVIEW — NO ACKNOWLEDGEMENT REQUIRED' : 'ACKNOWLEDGE TO RELEASE THE NET'}
         </span>
-        <button onClick={() => { stopBrief(); onClose(); bump() }}
+        <button data-tut="vtc-ack" onClick={() => { stopBrief(); onClose(); bump() }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = AMBER }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3a48' }}
           style={{

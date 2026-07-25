@@ -124,6 +124,9 @@ function buildPack(
     patch: man.patch,
     rankStyle: man.rankStyle,
     catalogs: resolveCatalogs(m, fallback),
+    // capability groups follow the catalog: a pack that inherits 1CD's
+    // platforms inherits the briefing order they were grouped in
+    cats: man.cats ?? fallback?.cats,
     organic: man.organic ?? {},
     attached: man.attached ?? {},
     formation: man.formation,

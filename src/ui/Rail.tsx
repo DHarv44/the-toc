@@ -9,17 +9,18 @@ import { Box, Group, Stack, Text, ScrollArea, UnstyledButton, Tooltip } from '@m
 import { RAIL_W } from './styles'
 
 // The tab itself — exported so FeedsPanel (custom width/resize) can share it.
-export function RailStrip({ side, title, open, onToggle }: {
+export function RailStrip({ side, title, open, onToggle, tut }: {
   side: 'left' | 'right'
   title: string
   open: boolean
   onToggle: () => void
-}) {
+  tut?: string    // the strip is ALWAYS on screen, so it is the tutorial's
+}) {             // only reliable handle on a rail that is tucked away
   const icon = side === 'left' ? (open ? '◀' : '▶') : (open ? '▶' : '◀')
   return (
     <Tooltip label={`${open ? 'Hide' : 'Show'} ${title.toLowerCase()}`}
       position={side === 'left' ? 'right' : 'left'} withArrow>
-      <UnstyledButton onClick={onToggle} w={RAIL_W.strip}
+      <UnstyledButton data-tut={tut} onClick={onToggle} w={RAIL_W.strip}
         style={{
           flex: '0 0 auto',
           background: open ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-dark-7)',
@@ -37,16 +38,17 @@ export function RailStrip({ side, title, open, onToggle }: {
   )
 }
 
-export default function Rail({ side, title, width, open, onToggle, footer, children }: {
+export default function Rail({ side, title, width, open, onToggle, footer, tut, children }: {
   side: 'left' | 'right'
   title: string
   width: number
   open: boolean
   onToggle: () => void
   footer?: ReactNode
+  tut?: string
   children?: ReactNode
 }) {
-  const strip = <RailStrip side={side} title={title} open={open} onToggle={onToggle} />
+  const strip = <RailStrip side={side} title={title} open={open} onToggle={onToggle} tut={tut} />
   if (!open) return strip
 
   const panel = (
@@ -68,11 +70,13 @@ export default function Rail({ side, title, width, open, onToggle, footer, child
     </Box>
   )
 
-  // the tab rides the panel's RIGHT edge — a drawer handle: left rails push it
-  // out toward the map, right rails keep it on the screen edge
+  // the tab rides the panel's INBOARD edge — the handle you grabbed to pull the
+  // drawer out stays on the hand that pulled it, so left rails put the strip on
+  // the panel's right and right rails put it on the panel's left. Either way the
+  // tabs read against the map, not against the screen edge behind the panel.
   return (
     <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
-      {panel}{strip}
+      {side === 'left' ? <>{panel}{strip}</> : <>{strip}{panel}</>}
     </Box>
   )
 }
