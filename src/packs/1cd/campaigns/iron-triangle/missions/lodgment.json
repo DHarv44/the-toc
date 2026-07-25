@@ -233,12 +233,7 @@
       },
       {
         "id": "await-clear",
-        "hints": [
-          { "next": true,
-            "text": "CLEAR AND HOLD OBJ KEATON\nThat is the whole task, and everything you need is already on the board: scouts screening, a Raven overhead, your battle group in the attack.\n\nFrom here it is YOUR fight. Let the assault run the order you gave it, or take the platoons back and maneuver them yourself — bound by bound, into cover, around a flank. The objective does not change.",
-            "anchor": { "kind": "box", "place": "strongpoint", "r": 420 } },
-          { "hide": true }
-        ],
+        "hints": [ { "hide": true } ],
         "done": { "kind": "area-clear", "place": "strongpoint", "r": 420 }
       },
       {
