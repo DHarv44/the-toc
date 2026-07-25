@@ -227,24 +227,42 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       },
       hint: () => ({ text: '', hidden: true }),
     },
-    // 8) occupy the town — urban terrain shields the platoons. Non-gated (they
-    //    walk in). Requires the WHOLE surviving assault force consolidated in
-    //    the town, not just the lead platoon — otherwise the dig prompt fires
-    //    while stragglers sit exposed outside (playtest 2026-07-24: a platoon
-    //    dug in at the river crossing 600 m short and got defeated in detail).
+    // 8) occupy the town ON LINE — teaches the formation drag as the natural
+    //    way to take ground. Non-gated (they walk in). Completion is OUTCOME-
+    //    based: the WHOLE surviving assault force inside the town AND actually
+    //    spread out (pairwise ≥100 m) — a player who stacks the platoons on
+    //    one point gets a nudge explaining why that gets people killed (one
+    //    artillery shell can catch a stacked position; blasts resolve against
+    //    every element in radius).
     {
       id: 'occupy-town',
       done: () => {
         const t = S.campaign?.strongpoint
         if (!t) return false
         const fighters = S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0)
-        return fighters.length > 0 && fighters.every(u => Math.hypot(u.x - t.x, u.y - t.y) <= 260)
+        if (!fighters.length) return false
+        if (!fighters.every(u => Math.hypot(u.x - t.x, u.y - t.y) <= 260)) return false
+        for (let i = 0; i < fighters.length; i++) {
+          for (let j = i + 1; j < fighters.length; j++) {
+            if (Math.hypot(fighters[i]!.x - fighters[j]!.x, fighters[i]!.y - fighters[j]!.y) < 100) return false
+          }
+        }
+        return true
       },
       hint: () => {
         const t = S.campaign?.strongpoint
         const targetBox = t ? { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 } : undefined
+        // if they're already in the town but bunched up, the nudge takes over
+        const fighters = t ? S.units.filter(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0) : []
+        const inTown = fighters.length > 0 && fighters.every(u => Math.hypot(u.x - t!.x, u.y - t!.y) <= 260)
+        if (inTown) {
+          return {
+            text: 'SPREAD OUT — your platoons are stacked. Select them, then RIGHT-click and DRAG to lay them on line through the buildings: one artillery shell can catch a bunched-up position.',
+            targetBox,
+          }
+        }
         return {
-          text: 'TAKE THE TOWN — move your platoons into the built-up area. Urban terrain gives them cover, so they take far fewer casualties when the enemy counterattacks.',
+          text: 'TAKE THE TOWN — select your platoons, then RIGHT-click and DRAG a line across the town to spread them through the buildings. Urban cover protects them, and a spread line can\'t be caught by a single shell.',
           targetBox,
         }
       },

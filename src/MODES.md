@@ -151,8 +151,12 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   whichever way contact came: clean standoff spot, or "AMBUSH SPRUNG" + the scouts'
   automatic break-contact if the player strayed inside the trigger range (reads
   sct.breaking/underFireT); (6) gated ATTACK — set ATTACK posture, right-click the
-  spotted enemy; (7) silent hold until cleared; (8) OCCUPY THE TOWN (urban cover);
-  (9) gated DIG IN before the counterattack. The M1 briefing sells the same story
+  spotted enemy; (7) silent hold until cleared; (8) TAKE THE TOWN ON LINE — teaches the
+  formation drag (RIGHT-click-DRAG a line across the town); completion is OUTCOME-based:
+  every surviving platoon inside the town AND spread ≥100 m pairwise — a player who
+  stacks them gets a SPREAD OUT nudge ("one shell can catch a bunched-up position");
+  (9) gated DIG IN before the counterattack — only positions dug IN the town count.
+  The M1 briefing sells the same story
   (concealed garrison · scouts screen · FIND THEM). Curriculum front-loaded to be
   empty by M4.
 - **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
