@@ -103,7 +103,7 @@ function BattleGroups() {
     const active = ui.selectedIds.includes(u.id)
     return (
       <PaletteRow key={u.id} active={active}
-        icon={<PaletteIcon unit={type} w={34} h={24} scale={0.82} />}
+        icon={<PaletteIcon unit={type} w={56} h={38} scale={1.55} />}
         label={`${u.label} · ${type.abbr}`}
         tag={`${u.lineage ?? ''}${u.attFrom ? ` · ATT ${u.attFrom}` : ''}`}
         note={`${Math.max(0, Math.round(u.strength))}%`}
