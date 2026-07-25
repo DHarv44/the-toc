@@ -1683,3 +1683,9 @@ are called out here *and* stubbed in the active sections above where they matter
   flights are real airframes with crews) makes the pickup. Enemy near the LZ
   or the route degrades the odds; a hot LZ can abort. Ties air cav gameplay,
   DUSTWUN recovery, and CASEVAC v3 together.
+
+## Staff-report competence
+- PERSTAT (and future LOGSTAT/INTSUM/OPSUM) prep delay should scale with the
+  producing OIC's experience/competence — a green S1 takes longer and maybe
+  misses details; a seasoned one is fast and sharp. Hook: the org has real
+  officers with XP records; report quality/turnaround becomes one of them.

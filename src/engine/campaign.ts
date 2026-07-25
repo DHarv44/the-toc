@@ -9,7 +9,7 @@
 // a `kind` plus flat params — evaluated by the pure `evalObjective` switch. That
 // keeps campaign state fully serializable for the (deferred) Save/Continue.
 import { S } from './state'
-import type { GameState, CampaignState, Structure } from './GameState'
+import type { GameState, CampaignState, Soldier, Structure } from './GameState'
 
 // The campaign is always fought on the SAME ground: one baked real-world theater
 // (Chorwon Valley — the Iron Triangle), Large size, one fixed seed → an identical,
@@ -95,6 +95,8 @@ import { radio, toast } from '../domains/comms/radio'
 import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { locRef } from '../world/ref'
+import { hashStr } from '../lib/math'
+import { pipelineBacklog } from '../domains/forces/pipeline'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -418,6 +420,7 @@ export function startCampaign(S: GameState): void {
     // as a place on the map (inert: it does nothing, it is simply THERE)
     divHq: nearestLand(S.map!, S.map!.WORLD * 0.08, S.map!.WORLD * 0.94),
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false, dustwunSeen: [],
+    reports: { pending: null, log: [] },
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
@@ -453,6 +456,112 @@ export function recallFrago(S: GameState, idx: number): void {
   const c = S.campaign
   const e = c?.fragoLog[idx]
   if (c && e) c.frago = { title: e.title, text: e.text, review: true }
+}
+
+// ---------------------------------------------------------------------------
+// Staff reports (P3 follow-on). Each shop produces ITS report — the S1's is
+// the PERSTAT. Request (or post-mission auto) → prep delay → alert; the FIRST
+// open is a VTC with the S1 on the line reading it, afterwards it's just the
+// document. ROADMAP: the prep delay scales with the OIC's experience.
+// ---------------------------------------------------------------------------
+const dtgOf = (t: number): string =>
+  `${String(Math.floor(t / 3600)).padStart(2, '0')}${String(Math.floor(t / 60) % 60).padStart(2, '0')}Z`
+
+// the S1 in charge — CPT McBride (or whoever holds the billet when he doesn't)
+export function s1Officer(S: GameState): Soldier | null {
+  const bn = playerPack().formation?.playerBn
+  for (const sl of S.org?.slots ?? []) {
+    if (sl.bn !== bn) continue
+    const s = sl.soldiers.find(x => x.pos === 'S1 — Personnel' && x.status === 'FIT')
+      ?? sl.soldiers.find(x => x.pos === 'S1 NCOIC' && x.status === 'FIT')
+    if (s) return s
+  }
+  return null
+}
+
+export function queueReport(S: GameState, auto = false): void {
+  const c = S.campaign
+  if (!c || c.reports.pending) return
+  const delay = 20 + (Math.abs(hashStr(`perstat:${S.t.toFixed(1)}`)) % 100) / 10 // 20–30 s
+  c.reports.pending = { shop: 's1', readyT: S.t + delay, auto }
+  if (!auto) {
+    const s1 = s1Officer(S)
+    radio(s1 ? `${s1.rank} ${(s1.name ?? '').split(' ').pop()}` : 'S1', 'request',
+      'ROGER — PERSTAT IN PREP, FIGURES TO FOLLOW', undefined, undefined)
+  }
+}
+
+// The PERSTAT: personnel ONLY (vics belong to the S4's LOGSTAT). Composed from
+// the live roster the moment it lands.
+function composePerstat(S: GameState): string {
+  let asg = 0, fit = 0, wiaRtd = 0, wiaEvac = 0, kia = 0, mia = 0, repl = 0, ph = 0
+  const tally = (list: Soldier[]) => {
+    for (const s of list) {
+      if (!s.replaced) asg++
+      if (s.status === 'FIT') fit++
+      else if (s.status === 'WIA') { if (s.evac) wiaEvac++; else wiaRtd++ }
+      else if (s.status === 'KIA') kia++
+      else if (s.status === 'MIA') mia++
+      if (s.repl) repl++
+      if ((s.awards ?? []).includes('PURPLE_HEART')) ph++
+    }
+  }
+  for (const u of S.units) if (u.side === 'friend') tally(u.soldiers)
+  for (const sl of S.org?.slots ?? []) if (sl.tf && sl.type && sl.unitId == null) tally(sl.soldiers)
+  const backlog = pipelineBacklog()
+  const nextPkt = Math.max(0, Math.ceil((S.replT - S.t) / 60))
+  const dustwun = S.downed.filter(d => d.side === 'friend' && !d.resolved)
+  const promos = S.stats.promotions ?? 0
+  const s1 = s1Officer(S)
+  const pct = asg ? Math.round(fit / asg * 100) : 100
+  return (
+    `PERSTAT AS OF ${dtgOf(S.t)}.\n\n`
+    + `1. STRENGTH. Task force assigned ${asg}, fit for duty ${fit} — ${pct} percent.\n\n`
+    + `2. LOSSES. ${kia} KIA. ${wiaRtd + wiaEvac} WIA — ${wiaRtd} under care expected to return, `
+    + `${wiaEvac} evacuated out of theater. ${mia} MIA.\n\n`
+    + `3. DUSTWUN. ${dustwun.length ? dustwun.map(d => `${d.label} unresolved, LKP ${locRef(S.map!, d.x, d.y)}`).join('; ') + '. Recovery is the fastest thing we can do for those soldiers.'
+      : 'No open cases.'}\n\n`
+    + `4. REPLACEMENTS. ${backlog} billets requested with rear detachment. `
+    + `${repl} replacements integrated to date. Next packet estimated ${nextPkt} minutes. `
+    + 'Units absorb at a friendly base only.\n\n'
+    + `5. PERSONNEL ACTIONS. ${promos} battlefield promotion${promos === 1 ? '' : 's'} processed. `
+    + `${ph} Purple Heart${ph === 1 ? '' : 's'} awarded to date.\n\n`
+    + `S1 SENDS. ${s1 ? `${(s1.name ?? '').split(' ').pop()}, ${s1.rank}.` : ''}`
+  )
+}
+
+function deliverReports(S: GameState, c: NonNullable<GameState['campaign']>): void {
+  const p = c.reports.pending
+  if (!p || S.t < p.readyT) return
+  c.reports.pending = null
+  const entry = {
+    id: S.counters.nextId++, shop: p.shop, title: `PERSTAT ${dtgOf(S.t)}`,
+    t: S.t, text: composePerstat(S), read: false,
+  }
+  c.reports.log.push(entry)
+  const s1 = s1Officer(S)
+  radio(s1 ? `${s1.rank} ${(s1.name ?? '').split(' ').pop()}` : 'S1', 'arrive',
+    `PERSTAT COMPLETE — ${p.auto ? 'POST-MISSION FIGURES' : 'AS REQUESTED'}, STANDING BY TO BRIEF`,
+    undefined, undefined)
+  toast('S1 PERSTAT READY')
+}
+
+// Open a report: first time is the CALL (the S1 on the line, no operation
+// deck), afterwards just the document. Never stomps a live FRAGO window.
+export function openReport(S: GameState, id: number): void {
+  const c = S.campaign
+  const e = c?.reports.log.find(x => x.id === id)
+  if (!c || !e || c.frago) return
+  const s1 = s1Officer(S)
+  const speaker = s1
+    ? { name: `${s1.rank} ${s1.name ?? ''}`.trim(), title: 'S1 — PERSONNEL' }
+    : { name: 'S1', title: 'S1 — PERSONNEL' }
+  c.frago = { title: e.title, text: e.text, speaker, docOnly: true, review: e.read }
+  e.read = true
+}
+
+export function unreadReports(S: GameState): number {
+  return S.campaign?.reports.log.filter(e => !e.read).length ?? 0
 }
 
 // Acknowledge the opening briefing (UI ACKNOWLEDGE) and resume the sim.
@@ -491,6 +600,9 @@ export function runCampaign(S: GameState, _dt: number): void {
     if (!c.frago) c.frago = { title: `PERSONNEL RECOVERY — ${site.label}`, text }
     radio('NET', 'request', `PERSONNEL RECOVERY TASKED — ${site.label} LKP, SECURE AND SWEEP`, site.x, site.y)
   }
+  // staff reports: a pending PERSTAT lands after its prep delay
+  deliverReports(S, c)
+
   const obj = OPERATION.objectives[c.objIdx]
   if (!obj) return
   const { done } = evalObjective(obj, S, c)
@@ -499,6 +611,7 @@ export function runCampaign(S: GameState, _dt: number): void {
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
   obj.onComplete?.(S)
+  queueReport(S, true) // the shop drafts its post-mission PERSTAT unprompted
   c.objIdx++
 
   if (c.objIdx >= OPERATION.objectives.length) {

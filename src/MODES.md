@@ -557,3 +557,16 @@ says "your battle group". The M2 sustainment steps still direct ENG+LOG to the
 town — that's a mission task, not task organization. (The campaign engine never
 scripted friendly groupIds; the tutorial was the only place a battle group was
 formed FOR the commander.)
+
+**Staff reports — S1 PERSTAT (2026-07-25):** each shop produces ITS report,
+named what it is (S1 = PERSTAT; S4 LOGSTAT / S2 INTSUM / S3 OPSUM later —
+vehicles/motorpool are S4's LOGSTAT, NOT the PERSTAT). Request from the S1
+tab's crew header (or automatic after every objective) → 20–30 s prep
+(`CampaignState.reports`; ROADMAP: delay scales with the OIC) → radio + toast,
+red unread badges (TopBar S1 button routes straight to the PERSTATS tab;
+PERSTATS tab counts unread), and a STAFF REPORTS card under the operation
+tracker. FIRST open = a VTC with the S1 officer on the line (speaker plate +
+distinct voice seed, document as the visual — no operation deck); afterwards
+just the document. VTC attendee tiles are now the PROPER people from the org:
+CG calls seat XO/S3/CSM, report calls seat the shop chain (S1 NCOIC/CSM/XO).
+The S1 tab's division tree is collapsed by default. campaign-check 37/37.

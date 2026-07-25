@@ -51,6 +51,7 @@ function promotionUpdate(u: Unit): void {
     const oldRank = pick.rank
     pick.pos = earned ? b.pos : `${b.pos} (Acting)`
     if (earned) pick.rank = b.rank
+    if (u.side === 'friend') S.stats.promotions = (S.stats.promotions ?? 0) + 1
     if (b.pos === 'Platoon Leader') pick.cs = `${u.label}-6`
     else if (b.pos === 'Platoon Sergeant') pick.cs = `${u.label}-7`
     if (u.side === 'friend' && (b.pos === 'Platoon Leader' || b.pos === 'Platoon Sergeant')) {

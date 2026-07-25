@@ -13,6 +13,7 @@ import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composi
 import type { OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
+import { openReport, queueReport, unreadReports } from '../engine/campaign'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { BnCrest, BnDui, RankIcon, RibbonIcon } from './insignia'
@@ -267,7 +268,16 @@ function slotLocation(sl: OrgSlot): string {
   return `${sl.bde} AO`
 }
 
-type S1Tab = 'div' | 'tf' | 'bn' | 'shop'
+type S1Tab = 'div' | 'tf' | 'bn' | 'shop' | 'perstats'
+
+// small red unread bubble (tab corners, TopBar button)
+export const UnreadDot = ({ n }: { n: number }) => n > 0 ? (
+  <span style={{
+    position: 'absolute', top: -6, right: -8, minWidth: 15, height: 15, borderRadius: 8,
+    background: '#d43a3a', color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: '15px',
+    textAlign: 'center', padding: '0 3px', pointerEvents: 'none',
+  }}>{n}</span>
+) : null
 
 // rank seniority for the S1-shop tree (higher = more senior)
 const RANK_W: Record<string, number> = {
@@ -288,6 +298,15 @@ export default function S1Console() {
     ['div', 'bde:1ABCT', playerBn ? `bn:${playerBn}` : 'bn:'],
   ))
   const focusRef = useRef<HTMLDivElement>(null)
+
+  // external tab routing (TopBar badge click → PERSTATS, etc.)
+  useEffect(() => {
+    if (ui.console === 's1' && ui.s1Nav) {
+      setTab(ui.s1Nav as S1Tab)
+      ui.clearS1Nav()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.console, ui.s1Nav])
 
   // a map-side "PERSONNEL ROSTER…" jump: expand down to the fielded slot and
   // scroll it into view, then clear the request
@@ -460,9 +479,10 @@ export default function S1Console() {
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
       <Group gap={6} pt={12}>
-        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION'], ['shop', 'S1']] as [S1Tab, string][]).map(([t, label]) => (
+        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION'], ['shop', 'S1'], ['perstats', 'PERSTATS']] as [S1Tab, string][]).map(([t, label]) => (
           <UnstyledButton key={t} onClick={() => switchTab(t)} px={16} py={6}
             style={{
+              position: 'relative',
               border: `1px solid ${tab === t ? '#3d5a75' : '#22303d'}`,
               background: tab === t ? '#101c28' : 'transparent',
               borderRadius: '3px 3px 0 0',
@@ -470,6 +490,7 @@ export default function S1Console() {
             <Text span fz="sm" fw={700} c={tab === t ? '#7ec8ff' : '#54708a'} style={{ letterSpacing: 1.5 }}>
               {label}
             </Text>
+            {t === 'perstats' && <UnreadDot n={unreadReports(S)} />}
           </UnstyledButton>
         ))}
       </Group>
@@ -607,9 +628,22 @@ export default function S1Console() {
           .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
         // the commander's OWN crew leads, as quick-read cards
         const mine = playerBn ? bnS1(playerBn).sort((a, b) => rankW(b.rank) - rankW(a.rank)) : []
+        const pending = S.campaign?.reports.pending
         return (
           <>
-            {secHeader(`YOUR S1 SECTION — ${playerBn}`, 'THE SHOP RUNNING THIS CONSOLE', 0)}
+            <Group gap={10} wrap="nowrap" px={10} py={7} justify="space-between"
+              style={{ borderTop: '1px solid #141e28' }}>
+              <Group gap={10} wrap="nowrap">
+                <Text span fz="md" fw={600} c="#9fd0f5">YOUR S1 SECTION — {playerBn}</Text>
+                <Text span fz="xs" c="dark.3">THE SHOP RUNNING THIS CONSOLE</Text>
+              </Group>
+              {S.campaign && (
+                <Button size="xs" variant="default" disabled={!!pending}
+                  onClick={() => queueReport(S)}>
+                  {pending ? `PERSTAT INBOUND ~${Math.max(0, Math.ceil(pending.readyT - S.t))}S` : 'REQUEST PERSTAT'}
+                </Button>
+              )}
+            </Group>
             <Group gap="md" px={12} py={10} align="stretch" wrap="wrap">
               {mine.map(s => (
                 <Group key={s.pid ?? s.id} gap={12} wrap="nowrap" p={12}
@@ -636,27 +670,69 @@ export default function S1Console() {
               ))}
             </Group>
 
-            <Group gap={10} align="center" mt="md" mb={4} mx={12}>
-              <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-              <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>PERSONNEL SERVICES — REST OF THE DIVISION</Text>
-              <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-            </Group>
+            {/* the division-wide chain, COLLAPSED by default — click to open */}
+            <UnstyledButton onClick={() => toggle('shopdiv')} w="100%">
+              <Group gap={10} align="center" mt="md" mb={4} mx={12}>
+                <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+                <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>
+                  {open.has('shopdiv') ? '▾' : '▸'} PERSONNEL SERVICES — REST OF THE DIVISION
+                </Text>
+                <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+              </Group>
+            </UnstyledButton>
 
-            {g1 && (
+            {open.has('shopdiv') && (
               <>
-                {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
-                {rankTree(g1.soldiers, 1)}
+                {g1 && (
+                  <>
+                    {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
+                    {rankTree(g1.soldiers, 1)}
+                  </>
+                )}
+                {bns.map(bn => (
+                  <div key={bn}>
+                    {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
+                    {rankTree(bnS1(bn), 1)}
+                  </div>
+                ))}
               </>
             )}
-            {bns.map(bn => (
-              <div key={bn}>
-                {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
-                {rankTree(bnS1(bn), 1)}
-              </div>
-            ))}
           </>
         )
       })()}
+
+      {/* PERSTATS: the S1's report history — newest first, unread flagged.
+          Click to open (first open is the VTC, afterwards the document). */}
+      {tab === 'perstats' && (
+        <>
+          {!S.campaign && (
+            <Text fz="sm" c="dark.3" p="md">STAFF REPORTS RUN IN THE CAMPAIGN.</Text>
+          )}
+          {S.campaign && S.campaign.reports.log.length === 0 && (
+            <Text fz="sm" c="dark.3" p="md">
+              NO PERSTATS ON FILE — REQUEST ONE FROM THE S1 TAB, OR COMPLETE A MISSION.
+            </Text>
+          )}
+          {S.campaign && [...S.campaign.reports.log].reverse().map(e => (
+            <UnstyledButton key={e.id} w="100%" onClick={() => openReport(S, e.id)}>
+              <Group gap={10} wrap="nowrap" px={12} py={8}
+                style={{ borderTop: '1px solid #141e28' }}
+                onMouseEnter={(ev) => { ev.currentTarget.style.background = '#101a24' }}
+                onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent' }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: 4, flex: '0 0 auto',
+                  background: e.read ? '#22303d' : '#d43a3a',
+                }} />
+                <Text span fz="md" fw={e.read ? 500 : 700} c={e.read ? '#9ab8d0' : '#dceeff'}>
+                  {e.title}
+                </Text>
+                <Text span fz="xs" c="dark.3">S1 · PERSONNEL STATUS REPORT</Text>
+                <Text span fz="xs" c="dark.3" ml="auto">{e.read ? 'READ' : 'UNREAD'}</Text>
+              </Group>
+            </UnstyledButton>
+          ))}
+        </>
+      )}
 
       <Text fz="xs" c="dark.3" mt="md" pt={8} style={{ borderTop: '1px solid #17222c', letterSpacing: 1 }}>
         REPLACEMENT PIPELINE — {pipelineBacklog() > 0

@@ -483,7 +483,14 @@ export type ObjStatus = 'pending' | 'active' | 'done'
 export interface CampaignState {
   objIdx: number             // current objective in the operation (sequential)
   briefed: boolean           // opening briefing acknowledged (false = paused on it)
-  frago: { title: string; text: string; review?: boolean } | null // open VTC (new tasking) or order REVIEW (recalled doc — no call)
+  // open VTC (new tasking) or REVIEW (recalled doc — no call). `speaker` puts a
+  // staff officer on the call instead of the CG (e.g. the S1 delivering a
+  // PERSTAT); `docOnly` calls skip the operation slide deck.
+  frago: {
+    title: string; text: string; review?: boolean
+    speaker?: { name: string; title: string }
+    docOnly?: boolean
+  } | null
   fragoLog: Array<{ title: string; text: string; t: number }> // every order received (recallable VTCs)
   complete: boolean          // whole campaign won (checkEnd reads this)
   status: ObjStatus[]        // per-objective UI state across the WHOLE operation
@@ -500,6 +507,13 @@ export interface CampaignState {
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties
   dustwunSeen: number[]      // DUSTWUN site ids already raised as PERSONNEL RECOVERY taskings
+  // staff reports (P3 follow-on): each shop produces ITS report — S1 = PERSTAT
+  // (S4 LOGSTAT, S2 INTSUM later). Request → delay → alert; first open is the
+  // VTC (speaker + document), afterwards just the document.
+  reports: {
+    pending: { shop: 's1'; readyT: number; auto?: boolean } | null
+    log: Array<{ id: number; shop: 's1'; title: string; t: number; text: string; read: boolean }>
+  }
   strongpoint: Vec2          // mission 1 objective town — the campaign's anchor
   crossing: Vec2 | null      // river/bridge point for SEIZE THE CROSSING (null = no water on seed)
   centerTown: Vec2 | null    // central belt town for BREAK THE BELT
@@ -551,7 +565,7 @@ export interface GameState {
   won: boolean
   lost: boolean
   endT: number | null        // sim time the match ended (the end screen's mission clock)
-  stats: RunStats
+  stats: RunStats & { promotions?: number } // promotions: battlefield promos processed (P3)
   hill: HillState | null     // King of the Hill objective (null in other modes)
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)

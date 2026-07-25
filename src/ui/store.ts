@@ -93,6 +93,9 @@ export interface UIState {
   closeRoster: () => void
   console: 's1' | null      // staff-shop console replacing the map column (null = map)
   setConsole: (c: 's1' | null) => void
+  s1Nav: string | null      // one-shot tab request for the S1 console ('perstats'…)
+  openS1: (tab: string) => void
+  clearS1Nav: () => void
   setDroneMode: (droneId: number, mode: string) => void
   setFireOpts: (patch: Partial<FireOpts>) => void
   select: (id: number | null) => void
@@ -146,6 +149,9 @@ export const useUI = create<UIState>()((set, get) => ({
   closeRoster: () => set({ rosterId: null }),
   console: null,
   setConsole: (c) => set({ console: c }),
+  s1Nav: null,
+  openS1: (tab) => set({ console: 's1', s1Nav: tab }),
+  clearS1Nav: () => set({ s1Nav: null }),
   setDroneMode: (droneId, mode) => set((s) => ({ droneModes: { ...s.droneModes, [droneId]: mode } })),
   setFireOpts: (patch) => set((s) => ({ fireOpts: { ...s.fireOpts, ...patch } })),
   select: (id) => set({ selectedIds: id == null ? [] : [id], mode: 'select' }),

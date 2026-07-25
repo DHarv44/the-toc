@@ -18,6 +18,7 @@ import { renderTerrainLayer, TERRAIN_PX } from '../map/mapRender'
 import { CELL } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
 import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/audio'
+import { playerPack } from '../packs'
 
 const AMBER = '#e8b34a'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
@@ -375,10 +376,30 @@ function CamTile({ label, sub, h, speaking, bars }: {
 // ---------------------------------------------------------------------------
 // The window
 // ---------------------------------------------------------------------------
+// find a FIT staff officer of the player battalion by billet (the org has the
+// real people — VTCs put the PROPER attendees on the line)
+function bnStaff(pos: string) {
+  const bn = playerPack().formation?.playerBn
+  for (const sl of S.org?.slots ?? []) {
+    if (sl.bn !== bn) continue
+    const s = sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
+    if (s) return s
+  }
+  return undefined
+}
+const staffTile = (short: string, pos: string) => {
+  const s = bnStaff(pos)
+  return { label: short, sub: s ? `${s.rank} ${(s.name ?? '').split(' ').pop()}` : undefined }
+}
+
 export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: {
-  entry: { title: string; text: string }
+  entry: {
+    title: string; text: string
+    speaker?: { name: string; title: string } // a staff officer on the line instead of the CG
+    docOnly?: boolean                          // no operation deck — the document is the visual
+  }
   blocking?: boolean
-  review?: boolean       // recalled order: the DOCUMENT for review — no call, no voice
+  review?: boolean       // recalled order/report: the DOCUMENT for review — no call, no voice
   startSlide?: number
   onClose: () => void
 }) {
@@ -397,7 +418,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
     setPhase('link')
     const t1 = setTimeout(() => {
       setPhase('live')
-      const dur = radioBrief(entry.text)
+      const dur = radioBrief(entry.text, entry.speaker?.name)
       if (dur > 0) {
         setSpeaking(true)
         const t2 = setTimeout(() => setSpeaking(false), dur * 1000)
@@ -411,20 +432,21 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
   // the deck auto-advances like a briefing being walked: 10 s a page, wrapping.
   // Manual ◀ ▶ clicks restart the timer (this effect re-runs on any change).
   useEffect(() => {
-    if (phase !== 'live') return
+    if (phase !== 'live' || entry.docOnly) return
     const t = setTimeout(() => setSlide(s => (s + 1) % DECK.length), 10000)
     return () => clearTimeout(t)
-  }, [phase, slide])
+  }, [phase, slide, entry.docOnly])
 
   useEffect(() => {
-    if (phase === 'live' && slideRef.current) drawSlide(slideRef.current, slide)
+    if (phase === 'live' && !entry.docOnly && slideRef.current) drawSlide(slideRef.current, slide)
   }, [phase, slide, entry])
 
-  // attendee tiles: the task force's platoon leaders on the call (3 + your own
-  // preview tile = a clean 2×2 grid)
-  const attendees = S.units
-    .filter(u => u.side === 'friend' && u.strength > 0)
-    .slice(0, 3)
+  // attendee tiles: the PROPER people for the meeting. A CG operations call
+  // seats the battalion command team (XO, S3, CSM); a staff report call seats
+  // that shop's chain (NCOIC) plus the XO and CSM.
+  const attendees = entry.speaker
+    ? [staffTile('S1 NCOIC', 'S1 NCOIC'), staffTile('CSM', 'Command Sergeant Major'), staffTile('XO', 'Executive Officer')]
+    : [staffTile('XO', 'Executive Officer'), staffTile('S3', 'S3 — Operations'), staffTile('CSM', 'Command Sergeant Major')]
 
   const navBtn = (dir: -1 | 1, label: string) => (
     <button onClick={() => setSlide(s => Math.max(0, Math.min(DECK.length - 1, s + dir)))}
@@ -453,7 +475,8 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
           animation: !review && phase === 'live' ? 'vtcBlink 1.2s step-end infinite' : 'none',
         }} />
         <span style={{ fontSize: 10, letterSpacing: 2.5, color: '#9ab8d0' }}>
-          {review ? 'ORDER — REVIEW COPY' : 'DIV HQ — SECURE VTC'}
+          {review ? (entry.speaker ? 'REPORT — REVIEW COPY' : 'ORDER — REVIEW COPY')
+            : entry.speaker ? `${entry.speaker.title} — SECURE VTC` : 'DIV HQ — SECURE VTC'}
         </span>
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
           {review ? 'FROM THE ORDERS LOG' : phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
@@ -485,22 +508,40 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
           {/* roster column: the CG + attendees — a CALL thing; a review is just the document */}
           {!review && (
           <div style={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <CamTile label="CG · 1CD" h={390} bars speaking={speaking} />
+            <CamTile label={entry.speaker ? entry.speaker.name : 'CG · 1CD'}
+              sub={entry.speaker?.title} h={390} bars speaking={speaking} />
             <div style={{ fontSize: 9, letterSpacing: 2, color: '#54708a' }}>
-              {speaking ? '— CG TRANSMITTING —' : 'CG STANDING BY'}
+              {(() => {
+                const who = entry.speaker ? entry.speaker.title.split(' —')[0] : 'CG'
+                return speaking ? `— ${who} TRANSMITTING —` : `${who} STANDING BY`
+              })()}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {/* your own preview tile, like any real VTC client — you are COBALT 6 */}
               <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="COBALT 6" h={124} />
-              {attendees.map(u => {
-                const pl = u.soldiers.find(s => s.pos === 'Platoon Leader' && s.status === 'FIT')
-                const sub = pl ? `${pl.rank} ${(pl.name ?? '').split(' ').pop()}` : undefined
-                return <CamTile key={u.id} label={u.label} sub={sub} h={124} />
-              })}
+              {attendees.map(a => <CamTile key={a.label} label={a.label} sub={a.sub} h={124} />)}
             </div>
           </div>
           )}
-          {/* the deck */}
+          {/* the visual: the operation deck, or the report DOCUMENT itself */}
+          {entry.docOnly ? (
+            <div style={{
+              flex: 1, minWidth: 0, height: 790, overflowY: 'auto', borderRadius: 2,
+              background: '#e8e4da', color: '#1a1a18', padding: '34px 44px',
+              fontFamily: 'Consolas, monospace',
+            }}>
+              <div style={{ textAlign: 'center', fontSize: 11, letterSpacing: 3, color: '#7a1f1f', fontWeight: 'bold' }}>
+                SECRET//NOFORN
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: 2, margin: '18px 0 14px' }}>
+                {entry.title}
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{entry.text}</div>
+              <div style={{ textAlign: 'center', fontSize: 11, letterSpacing: 3, color: '#7a1f1f', fontWeight: 'bold', marginTop: 26 }}>
+                SECRET//NOFORN
+              </div>
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
             <canvas ref={slideRef} width={1180} height={756}
               style={{ width: '100%', borderRadius: 2 }} />
@@ -512,6 +553,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               {navBtn(1, '▶')}
             </div>
           </div>
+          )}
         </div>
       )}
 

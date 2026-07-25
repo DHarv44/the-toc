@@ -5,6 +5,8 @@ import { Box, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
 import { incomePerMin, upkeepPerMin, UPKEEP_DIVISOR } from '../domains/economy/economy'
 import { setMuted as audioSetMuted } from '../audio/audio'
+import { unreadReports } from '../engine/campaign'
+import { UnreadDot } from './S1Console'
 import { useUI } from './store'
 import { fmtClock, TOPBAR_H } from './styles'
 
@@ -89,7 +91,15 @@ export default function TopBar() {
         <Button.Group>
           <Tooltip label="S1 — Personnel (PERSTAT, rosters, replacements)" withArrow>
             <Button variant={ui.console === 's1' ? 'filled' : 'default'}
-              onClick={() => ui.setConsole(ui.console === 's1' ? null : 's1')}>S1</Button>
+              style={{ position: 'relative', overflow: 'visible' }}
+              onClick={() => {
+                // unread traffic routes straight to what the alert is for
+                if (unreadReports(S) > 0) ui.openS1('perstats')
+                else ui.setConsole(ui.console === 's1' ? null : 's1')
+              }}>
+              S1
+              <UnreadDot n={unreadReports(S)} />
+            </Button>
           </Tooltip>
           <Tooltip label="S2 — Intelligence (soon)" withArrow><Button variant="default" disabled>S2</Button></Tooltip>
           <Tooltip label="S3 — Operations (soon)" withArrow><Button variant="default" disabled>S3</Button></Tooltip>

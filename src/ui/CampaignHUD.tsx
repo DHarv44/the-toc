@@ -4,7 +4,7 @@
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  OPERATION, evalObjective, recallFrago, type ObjectiveSpec,
+  OPERATION, evalObjective, openReport, recallFrago, type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
@@ -41,8 +41,8 @@ export function CampaignObjectives() {
   if (!c || c.complete) return null
 
   return (
+    <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 30, width: 258, display: 'flex', flexDirection: 'column', gap: 8 }}>
     <div style={{
-      position: 'absolute', top: 10, left: 10, zIndex: 30, width: 258,
       background: 'rgba(9,14,19,0.9)', border: '1px solid #24343f', borderLeft: `3px solid ${ACCENT}`,
       borderRadius: 3, padding: '9px 12px', fontFamily: 'Consolas, monospace', userSelect: 'none',
       pointerEvents: 'none',
@@ -94,6 +94,34 @@ export function CampaignObjectives() {
           </div>
         </>
       )}
+    </div>
+
+    {/* staff-report traffic: reports land here as they complete — click to
+        take the brief (first open = the S1 on a VTC, afterwards the document) */}
+    {c.briefed && c.reports.log.length > 0 && (
+      <div style={{
+        background: 'rgba(9,14,19,0.9)', border: '1px solid #24343f', borderLeft: '3px solid #d4b23a',
+        borderRadius: 3, padding: '8px 12px', fontFamily: 'Consolas, monospace', userSelect: 'none',
+      }}>
+        <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f7d95' }}>STAFF REPORTS</div>
+        {[...c.reports.log].reverse().slice(0, 4).map(e => (
+          <button key={e.id} onClick={() => { openReport(S, e.id); bump() }}
+            onMouseEnter={(ev) => { ev.currentTarget.style.color = '#f2ddb0' }}
+            onMouseLeave={(ev) => { ev.currentTarget.style.color = e.read ? '#9ab8d0' : '#dceeff' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%', margin: '4px 0 0',
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+              color: e.read ? '#9ab8d0' : '#dceeff', fontSize: 10, letterSpacing: 0.5, textAlign: 'left',
+            }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: 4, flexShrink: 0,
+              background: e.read ? '#22303d' : '#d43a3a',
+            }} />
+            <span style={{ fontWeight: e.read ? 400 : 700 }}>{e.title}</span>
+          </button>
+        ))}
+      </div>
+    )}
     </div>
   )
 }
