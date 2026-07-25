@@ -17,7 +17,12 @@ const FRIEND_CALLS = [
   'SIERRA', 'TANGO',
 ]
 
-export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number): Unit {
+export function newUnit(
+  typeKey: UnitTypeKey, side: Side, x: number, y: number,
+  // noSlot: a unit that is NOT task-force troops (division asset delivery
+  // convoys) — never draws an org slot, never burns pack lineage
+  opts?: { noSlot?: boolean },
+): Unit {
   const type = UNIT_TYPES[typeKey]
   S.counters.designators[side]++
   const label = side === 'friend'
@@ -29,11 +34,11 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   // Slot-exhausted overflow (dev sandbox spamming) falls back to the old
   // counter lineage with a fresh provisional roster.
   let lineage: string | undefined, attFrom: string | undefined
-  const slot = side === 'friend' && S.org ? drawSlot(S.org, typeKey) : null
+  const slot = side === 'friend' && S.org && !opts?.noSlot ? drawSlot(S.org, typeKey) : null
   if (slot) {
     lineage = slot.lin
     attFrom = slot.from
-  } else if (side === 'friend') {
+  } else if (side === 'friend' && !opts?.noSlot) {
     const n = S.counters.lineage[typeKey] ?? 0
     S.counters.lineage[typeKey] = n + 1
     const lin = lineageFor(playerPack(), typeKey, n)
@@ -73,7 +78,7 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   } else {
     assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
   }
-  if (side === 'friend') S.stats.fielded++ // after-action counter
+  if (side === 'friend' && !opts?.noSlot) S.stats.fielded++ // after-action counter
   return u
 }
 

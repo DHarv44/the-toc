@@ -254,6 +254,9 @@ export interface Unit {
   // P2.5 strength inversion: casualties happen to PEOPLE, strength is derived
   dmgAcc?: number            // sub-element damage accumulator (strength points)
   repT?: number              // motorpool repair progress toward the next DAMAGED vic
+  // division asset delivery convoy (ASSET-REQUESTS.md): not TF force — no org
+  // slot, no force-cap seat, no fielded stat; the asset service owns its fate
+  divAsset?: boolean
 }
 
 // --- installations --------------------------------------------------------

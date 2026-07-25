@@ -7,6 +7,7 @@
 import type { Pack } from './types'
 import { US_UNITS } from './lib/units'
 import { US_AMMO, US_WEAPONS, US_TROOPS, US_VEHICLES, US_COMPS } from './lib/composition'
+import { US_FACILITIES } from './lib/facilities'
 
 // the subset of shared platforms the OPFOR actually fields
 const pick = <T,>(table: Record<string, T>, keys: readonly string[]): Record<string, T> =>
@@ -29,8 +30,10 @@ export const PACK_OPFOR: Pack = {
     units: pick(US_UNITS, OPFOR_TYPES),
     comps: pick(US_COMPS, OPFOR_TYPES),
     // support tables ride along whole — entries are shared by identity, so
-    // this adds nothing beyond what the player pack installs
+    // this adds nothing beyond what the player pack installs. (OPFOR bases run
+    // an implicit MOTORPOOL/AID set — the specs must exist for their side too.)
     ammo: US_AMMO, weapons: US_WEAPONS, troops: US_TROOPS, vehicles: US_VEHICLES,
+    facilities: US_FACILITIES,
   },
   names: { first: FIRST, last: LAST },
   organic: {},

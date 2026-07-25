@@ -22,6 +22,7 @@ import { spawnEnemy } from '../domains/forces/factory'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { playerPack, installActivePacks } from '../packs'
 import { buildDivisionOrg } from '../packs/org'
+import { buildAssetRegistry } from '../domains/assets/registry'
 
 export function initGame(
   seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
@@ -96,6 +97,9 @@ export function initGame(
   // the player pack's whole division, people and all — built BEFORE any friendly
   // unit spawns so the starter force draws real garrison slots (rng-free)
   S.org = buildDivisionOrg(playerPack())
+  // the division asset pool the TOC can request from (ASSET-REQUESTS.md);
+  // campaign scripting pre-allocates pieces to sister brigades in startCampaign
+  S.assets = buildAssetRegistry(playerPack())
 
   // starting installations: the single command post, plus its airstrip
   addStructure('friend', 'HQ', S.map.fob.x, S.map.fob.y, 'HQ COBALT', true)

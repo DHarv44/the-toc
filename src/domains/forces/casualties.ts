@@ -219,12 +219,13 @@ export function medicalUpdate(u: Unit, dt: number, rate: number): void {
 
 // Motorpool repairs: one DAMAGED vic at a time, ~90 s each, only while at a
 // base with a MOTORPOOL. DESTROYED stays destroyed.
-const REPAIR_SEC = 90
-export function repairUpdate(u: Unit, dt: number): void {
+// secsPerVic comes from the serving facility's SPEC (pack data) — the old
+// hard-coded 90 s survives only as the fallback for spec-less callers
+export function repairUpdate(u: Unit, dt: number, secsPerVic = 90): void {
   if (!u.vehicles.some(v => v.status === 'DAMAGED')) { u.repT = 0; return }
   u.repT = (u.repT ?? 0) + dt
-  if (u.repT < REPAIR_SEC) return
-  u.repT -= REPAIR_SEC
+  if (u.repT < secsPerVic) return
+  u.repT -= secsPerVic
   const v = u.vehicles.find(x => x.status === 'DAMAGED')
   if (!v) return
   v.status = 'OK'

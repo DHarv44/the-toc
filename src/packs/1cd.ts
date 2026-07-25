@@ -11,6 +11,7 @@ import type { Pack } from './types'
 import { US_UNITS } from './lib/units'
 import { US_AMMO, US_WEAPONS, US_TROOPS, US_VEHICLES, US_COMPS } from './lib/composition'
 import { US_DRONES } from './lib/drones'
+import { US_FACILITIES } from './lib/facilities'
 
 // The US name pools (moved verbatim from personnel.ts — same lists, same
 // order, so every generated name in existing saves/rosters is unchanged).
@@ -37,7 +38,7 @@ export const PACK_1CD: Pack = {
   catalogs: {
     units: US_UNITS, ammo: US_AMMO, weapons: US_WEAPONS,
     troops: US_TROOPS, vehicles: US_VEHICLES, comps: US_COMPS,
-    drones: US_DRONES,
+    drones: US_DRONES, facilities: US_FACILITIES,
   },
   names: { first: FIRST, last: LAST },
   // Requestable division/corps/USAF assets (ASSET-REQUESTS.md): what the TOC
@@ -46,6 +47,7 @@ export const PACK_1CD: Pack = {
   assets: {
     CRAM: {
       name: 'C-RAM Section', from: '2-44 ADA', echelon: 'CORPS', count: 3,
+      setupTime: 120, refitTime: 2400, // a lost intercept battery is a LONG replacement
       delivers: { facility: 'CRAM' },
       crew: {
         billets: [
@@ -57,6 +59,7 @@ export const PACK_1CD: Pack = {
     },
     AEROSTAT: {
       name: 'PGSS Aerostat Det', from: 'PM Aerostats', echelon: 'DIV', count: 1,
+      setupTime: 90,
       delivers: { tether: 'AEROSTAT' },
       crew: { billets: [['SSG', 'Site Lead']], civ: 4 }, // PGSS is contractor-run
     },
@@ -74,12 +77,14 @@ export const PACK_1CD: Pack = {
     },
     ALO: {
       name: 'ALO Team', from: '3 ASOS', echelon: 'USAF', count: 1,
+      setupTime: 30,
       delivers: { unlock: 'CAS' },
       crew: { billets: [['CPT', 'Air Liaison Officer'], ['SSG', 'TACP JTAC']] },
     },
     SPECTRE: {
       name: 'AC-130 CAS Window', from: '4 SOS', echelon: 'USAF', sortie: true,
       callsigns: ['SPOOKY', 'GHOST'],
+      windowLen: 900, atoLead: 180, // one long on-station block per grant
       delivers: { window: 'SPECTRE' },
     },
     AIRLIFT: {

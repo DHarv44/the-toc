@@ -17,6 +17,7 @@ import {
   type AmmoType, type WeaponType, type TroopKind, type VehicleType, type UnitComposition,
 } from '../domains/forces/composition'
 import { DRONE_TYPES, type DroneType } from '../domains/air/catalog'
+import { FACILITIES, type FacilityType } from '../domains/installations/catalog'
 
 // the registries are exported Readonly for consumers; the installer is the one
 // writer and holds the mutable view
@@ -28,6 +29,7 @@ const mTroops = TROOP_KINDS as Mut<TroopKind>
 const mVehicles = VEHICLES as Mut<VehicleType>
 const mComps = COMPOSITIONS as Mut<UnitComposition>
 const mDrones = DRONE_TYPES as Mut<DroneType>
+const mFacilities = FACILITIES as Mut<FacilityType>
 
 function wipe(reg: Mut<unknown>): void {
   for (const k of Object.keys(reg)) delete reg[k]
@@ -56,7 +58,7 @@ export function installedPacks(): readonly Pack[] {
 }
 
 export function installPacks(packs: Pack[]): void {
-  for (const reg of [mUnits, mAmmo, mWeapons, mTroops, mVehicles, mComps, mDrones]) wipe(reg)
+  for (const reg of [mUnits, mAmmo, mWeapons, mTroops, mVehicles, mComps, mDrones, mFacilities]) wipe(reg)
   clearCompositionCaches()
   for (const p of packs) {
     const c = p.catalogs
@@ -67,6 +69,7 @@ export function installPacks(packs: Pack[]): void {
     merge(mVehicles, c.vehicles, 'vehicles', p.id)
     merge(mComps, c.comps, 'comps', p.id)
     merge(mDrones, c.drones, 'drones', p.id)
+    merge(mFacilities, c.facilities, 'facilities', p.id)
   }
   installed = packs
 }

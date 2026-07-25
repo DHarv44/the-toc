@@ -621,3 +621,30 @@ support unrequested (AT/ARM/MED/ARTY) during staging with net traffic.
 Asset pushes hook in when the request service lands. Golden RE-BASELINED
 2402375581 (×2; world byte-identical, only money accounting moved); all
 checks green (37/22/12/8/14).
+
+**Division asset requests SHIPPED (2026-07-25, task #21 step 1+3):** the
+request-up-the-chain system per ASSET-REQUESTS.md. S.assets registry built
+from Pack.assets (3× C-RAM/2-44 ADA w/ FSR contractors, PGSS aerostat det,
+Shadow/Sentinel/Viper orbits, ALO team, AC-130 + C-130 ATO lines). Pipeline:
+request (radio to DIV G3/CORPS G3/ASOC) → 15-25 s staff decision (hash) →
+relevance (JTAC-first for CAS, target picture for strike air, held ground
+for the aerostat, MSR state for airdrop; intercept asks fast-track under
+recent IDF — keyed off the facility's INTERCEPT effect, never a name) →
+availability → approve / deny(reason) / FIFO queue. IRON deliveries are a
+REAL convoy (LOG trucks, divAsset flag: no org slot, no cap seat) from
+DIVISION MAIN (campaign) or the map edge — watchable, ambushable; destroyed
+= CL VII refit clock (pack refitTime). Arrival → EMPLACEMENT dwell (pack
+setupTime) → effect live (facility installed / balloon raised / CAS unlock).
+Orbit/window authority is paperwork: no convoy. deployDrone now enforces
+granted orbit counts + open ATO windows (dev sandbox exempt); the aerostat
+flies only where its det is emplaced. Palette rows ARE the request surface
+(avail/pending/on-list/convoy/emplacing states); C-RAM left the build-out
+path entirely. Campaign pre-allocates CRAM×2/SHADOW/SENTINEL to sister
+formations; objectives 2-3 release them with net traffic. Facilities are now
+EFFECT SPECS in pack catalogs (repair/aid/intercept params incl. synth sound
+— packs/lib/facilities.ts); the engine runs the verbs and never knows a
+system's name. asset-check 22/22 (denials, convoy, emplacement, queue,
+release, authority, ALO→CAS chain, ATO window, determinism). GOLDEN
+RE-BASELINED 3077619369 ×2: the old script's free drone launch is now
+correctly REFUSED without orbit authority — the doctrine reaching skirmish
+is the change. All other checks green (37/22/12/8/14).

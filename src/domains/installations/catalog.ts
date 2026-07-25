@@ -39,41 +39,46 @@ const STRUCTURES_LITERAL = {
 
 export type StructureTypeKey = keyof typeof STRUCTURES_LITERAL
 
-// --- facilities (P5) --------------------------------------------------------
-// FUNCTIONAL base services, not decorations: each works on friendly units
-// RESTING in radius (out of contact). The motorpool puts destroyed vehicles
-// back in the fight; the aid station returns casualties to duty — both revive
-// the unit's ELEMENTS, so derived firepower genuinely comes back. HQs carry
-// the full set by default; FOBs buy them as build-outs (structures and
-// facilities still cost supply — units don't).
+// --- facilities (P5, stage 2) -----------------------------------------------
+// FUNCTIONAL base services described as EFFECT SPECS: the engine implements
+// the VERBS (repair vics, treat wounded, intercept inbound rounds) and reads
+// the parameters from whatever spec the active pack installed — it never
+// knows a system's name. A pack ships its facility specs in
+// pack.catalogs.facilities; asset-delivered systems (e.g. an intercept
+// battery) arrive via the request pipeline, the rest are FOB build-outs.
+export interface RepairEffect {
+  secsPerVic: number // motorpool time to return one DAMAGED vic
+  radius: number     // service radius around the installation (m)
+}
+
+export interface AidEffect {
+  careRate: number   // care-seconds per second for LIGHT wounds (aid station)
+  radius: number
+}
+
+// point defense: engages inbound rounds whose impact falls inside `radius`
+export interface InterceptEffect {
+  targets: readonly string[]  // ammo CLASSES it can engage ('INDIRECT', later 'ROCKET'…)
+  radius: number
+  pk: number         // per-round kill probability (deterministic hash roll)
+  rof: number        // engagements per second — saturation is real
+  sound?: { burstRof: number; burstLen: number; pitch: number } // audio synth params
+}
+
 export interface FacilityType {
   key: string
   name: string
-  cost: number       // FOB build-out price (HQ has it organically)
-  radius: number     // service radius around the installation (m)
   desc: string
+  effects: {
+    repair?: RepairEffect
+    aid?: AidEffect
+    intercept?: InterceptEffect
+  }
 }
 
-const FACILITIES_LITERAL = {
-  MOTORPOOL: {
-    key: 'MOTORPOOL', name: 'Motorpool', cost: 400, radius: 450,
-    desc: 'Repairs destroyed vehicles for units resting in radius',
-  },
-  AID: {
-    key: 'AID', name: 'Aid Station', cost: 300, radius: 450,
-    desc: 'Returns casualties to duty for units resting in radius',
-  },
-  CRAM: {
-    // counter-rocket/artillery/mortar: NOT organic anywhere — a deliberate
-    // base-defense buy (HQ or FOB). Engages incoming indirect rounds aimed
-    // inside its radius; each round has an intercept chance.
-    key: 'CRAM', name: 'C-RAM Battery', cost: 600, radius: 700,
-    desc: 'Intercepts incoming artillery and mortar rounds over the base',
-  },
-} as const satisfies Record<string, FacilityType>
-
-export type FacilityKey = keyof typeof FACILITIES_LITERAL
-export const FACILITIES: Readonly<Record<FacilityKey, FacilityType>> = FACILITIES_LITERAL
+export type FacilityKey = string
+// registry: EMPTY until packs/install.ts populates it from the active packs
+export const FACILITIES: Readonly<Record<string, FacilityType>> = {}
 // the table viewed through the interface: sim code accesses specs by a generic
 // key (STRUCTURES[s.kind]), which needs the optional fields visible on every member
 export const STRUCTURES: Readonly<Record<StructureTypeKey, StructureType>> = STRUCTURES_LITERAL

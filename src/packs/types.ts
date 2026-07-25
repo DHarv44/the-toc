@@ -16,6 +16,7 @@ import type {
   AmmoType, WeaponType, TroopKind, VehicleType, UnitComposition,
 } from '../domains/forces/composition'
 import type { DroneType } from '../domains/air/catalog'
+import type { FacilityType } from '../domains/installations/catalog'
 
 // how a unit type's parent element is designated inside its battalion:
 //  - 'plt'  — numbered platoon in a lettered company ("1st PLT, A CO, 2-8 CAV")
@@ -73,6 +74,7 @@ export interface PackCatalogs {
   vehicles: Record<string, VehicleType>
   comps: Record<string, UnitComposition>
   drones?: Record<string, DroneType>
+  facilities?: Record<string, FacilityType>
 }
 
 // Name pools the engine draws from when generating this pack's personnel.
@@ -120,6 +122,10 @@ export interface PackAsset {
   count?: number          // pooled instances division can allocate
   sortie?: boolean        // ATO-cycle sortie windows instead of a pool
   callsigns?: readonly string[]  // sortie assets: radio identities ('REACH')
+  setupTime?: number      // seconds to EMPLACE after the convoy arrives
+  windowLen?: number      // sortie window duration once open (s)
+  atoLead?: number        // max lead time to the next ATO slot (s)
+  refitTime?: number      // CL VII clock when an instance is destroyed (s)
   delivers: AssetDelivery
   crew?: AssetCrewRecipe  // attach-and-live-here assets: real ATT org slots
 }

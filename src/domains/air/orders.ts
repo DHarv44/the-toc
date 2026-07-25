@@ -11,6 +11,10 @@ import { targetPoint } from './targeting'
 import { gunshipHowitzerFire } from './gunship'
 import { UNIT_TYPES } from '../forces/catalog'
 import { campaignAllows } from '../../engine/campaign'
+import {
+  orbitAuthority, windowOpen, tfInstance,
+  orbitAssetKind, windowAssetKind, tetherAssetKind,
+} from '../assets/service'
 import { toast, radio } from '../comms/radio'
 import { grid, fmtCooldown } from '../../lib/format'
 
@@ -21,6 +25,19 @@ export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone 
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const spec = DRONE_TYPES[typeKey]
   if (!spec) return null
+  // division/corps/USAF airframes fly on GRANTED AUTHORITY, not ownership
+  // (ASSET-REQUESTS.md): airfield birds need an allocated orbit or an open
+  // sortie window; unit-carried (field) UAS are organic kit and fly free.
+  if (spec.src === 'airfield') {
+    if (windowAssetKind(typeKey)) {
+      if (!windowOpen(typeKey)) return toast(`${spec.abbr} NOT ON THE ATO — REQUEST A SORTIE WINDOW`)
+    } else if (orbitAssetKind(typeKey)) {
+      const auth = orbitAuthority(typeKey)
+      if (auth === 0) return toast(`NO ${spec.abbr} ORBIT AUTHORITY — REQUEST FROM DIVISION`)
+      const active = S.drones.filter(d => d.type === typeKey).length
+      if (active >= auth) return toast(`${spec.abbr} ORBIT AUTHORITY IN USE — ${active}/${auth}`)
+    }
+  }
   // structural scarcity: concurrent cap, then turnaround from the last sortie
   const avail = airAvailability(typeKey)
   if (avail.capped) {
@@ -40,6 +57,14 @@ export function deployDrone(typeKey: DroneTypeKey, x: number, y: number): Drone 
       .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
     if (!site) return toast('MUST TETHER AT A FOB OR HQ')
     if (S.drones.some(d => d.tether === site.id)) return toast(site.label + ' ALREADY FLIES AN AEROSTAT')
+    // the balloon flies where its det is EMPLACED: an allocated tether asset
+    // at this site (delivered by convoy + setup), unless dev sandbox
+    const tKind = S.devMode ? null : tetherAssetKind(typeKey)
+    if (tKind) {
+      const inst = tfInstance(tKind)
+      if (!inst || inst.state !== 'allocated') return toast(`NO ${spec.abbr} DET — REQUEST FROM DIVISION`)
+      if (inst.structId !== site.id) return toast(`${spec.abbr} DET IS EMPLACED ELSEWHERE — RELEASE TO RELOCATE`)
+    }
     tether = site
     // stand the mast off to the side of the base rather than on top of its symbol, on a
     // bearing away from the map interior (behind the base) and on passable ground

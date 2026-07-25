@@ -14,6 +14,7 @@ import { effStats } from '../forces/elements'
 import { orderMove } from '../forces/orders'
 import { unitAvailability, stampFieldCooldown } from '../economy/economy'
 import { campaignAllows } from '../../engine/campaign'
+import { facilityAssetKind } from '../assets/service'
 import { fmtCooldown } from '../../lib/format'
 import { toast, radio, netRadio } from '../comms/radio'
 
@@ -42,13 +43,14 @@ export function addStructure(
 
 // FOB build-out: stand up a facility at an established forward base. NOTHING
 // is purchased — a motorpool/aid station is the battalion's own people and
-// gear relocating forward. C-RAM is NOT establishable here at all: it arrives
-// only by division request (ASSET-REQUESTS.md), delivered by convoy.
+// gear relocating forward. A facility that some division asset DELIVERS
+// (e.g. an intercept battery) is never a build-out: it arrives only through
+// the request pipeline, by convoy (ASSET-REQUESTS.md). No system names here.
 export function installFacility(structId: number, key: FacilityKey): void {
   const st = S.structures.find(s => s.id === structId && s.side === 'friend')
   if (!st) return
   if (st.buildT > 0) { toast(`${st.label} STILL UNDER CONSTRUCTION`); return }
-  if (key === 'CRAM') { toast('C-RAM COMES BY DIVISION REQUEST, NOT BUILD-OUT'); return }
+  if (facilityAssetKind(key)) { toast(`${FACILITIES[key]?.name.toUpperCase() ?? key} COMES BY DIVISION REQUEST, NOT BUILD-OUT`); return }
   if (st.kind !== 'FOB') { toast('BUILD-OUTS ARE FOR FORWARD BASES'); return }
   if (st.facilities?.includes(key)) { toast(`${st.label} ALREADY HAS A ${FACILITIES[key].name.toUpperCase()}`); return }
   const spec = FACILITIES[key]

@@ -3,6 +3,7 @@
 // Ported verbatim from src/game/sim.js tick().
 import { S } from '../../engine/state'
 import type { Structure } from '../../engine/GameState'
+import { FACILITIES, type AidEffect, type RepairEffect } from './catalog'
 import { medicalUpdate, repairUpdate } from '../forces/casualties'
 import { endSortie } from '../economy/economy'
 import { radio, toast } from '../comms/radio'
@@ -29,18 +30,27 @@ export function constructionUpdate(dt: number): void {
 
   for (const s of S.structures) {
     if (s.buildT > 0 || (s.kind !== 'FOB' && s.kind !== 'HQ')) continue
+    // the engine runs the VERBS; the parameters come from the installed
+    // facility SPECS (pack data) — rates and radii are never hard-coded here
     const fac = s.side === 'friend' ? (s.facilities ?? []) : ['MOTORPOOL', 'AID']
-    const hasAid = fac.includes('AID') && medPresent(s)
-    const hasMotor = fac.includes('MOTORPOOL')
+    let aid: AidEffect | null = null
+    let rep: RepairEffect | null = null
+    for (const k of fac) {
+      const fx = FACILITIES[k]?.effects
+      if (fx?.aid && !aid) aid = fx.aid
+      if (fx?.repair && !rep) rep = fx.repair
+    }
+    if (aid && !medPresent(s)) aid = null
     let garrisoned = false
     for (const u of S.units) {
       if (u.side !== s.side) continue
-      if (Math.hypot(u.x - s.x, u.y - s.y) > 450) continue
+      const d = Math.hypot(u.x - s.x, u.y - s.y)
+      if (d > 450) continue
       garrisoned = true
       if (u.strength > 0 && !u.targetId && S.t - u.lastCombatT > 15) {
         const before = u.strength
-        if (hasAid) medicalUpdate(u, dt, 1.0)
-        if (hasMotor) repairUpdate(u, dt)
+        if (aid && d <= aid.radius) medicalUpdate(u, dt, aid.careRate)
+        if (rep && d <= rep.radius) repairUpdate(u, dt, rep.secsPerVic)
         u.strMark = Math.max(u.strMark, u.strength)
         if (before < 100 && u.strength >= 100 && u.side === 'friend') {
           radio(u.label, 'arrive', 'RECONSTITUTED — FULL STRENGTH', u.x, u.y)

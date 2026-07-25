@@ -97,6 +97,7 @@ import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
+import { preAllocate, releaseFromFormation } from '../domains/assets/registry'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -312,6 +313,12 @@ export const OPERATION: Operation = {
         radio('NET', 'contact', 'COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE TOWN', from.x, from.y)
         toast('COUNTERATTACK INBOUND')
       },
+      onComplete(S) {
+        // the fight moving forward frees division ISR for the task force
+        if (releaseFromFormation(S.assets, 'SHADOW', '1ACB')) {
+          radio('DIV G3', 'arrive', '1ACB RELEASES A SHADOW ORBIT — ASSET AVAILABLE FOR TASKING', undefined, undefined)
+        }
+      },
     },
     {
       id: 'fob', label: 'ESTABLISH FOB KEATON', kind: 'build', structKind: 'FOB',
@@ -353,6 +360,10 @@ export const OPERATION: Operation = {
           && Math.hypot(st.x - c.strongpoint.x, st.y - c.strongpoint.y) <= 520)
         if (fob) fob.label = 'FOB KEATON'
         radio('NET', 'arrive', 'FOB KEATON IS OPEN FOR BUSINESS', fob?.x, fob?.y)
+        // a base worth defending exists — 2ABCT gives its C-RAM section back
+        if (releaseFromFormation(S.assets, 'CRAM', '2ABCT')) {
+          radio('DIV G3', 'arrive', '2ABCT RELEASES A C-RAM SECTION TO THE DIVISION POOL', undefined, undefined)
+        }
       },
     },
     { id: 'route', label: 'OPEN THE SUPPLY LINE', kind: 'deliver', amount: 200 },
@@ -410,6 +421,13 @@ export function startCampaign(S: GameState): void {
   S.enemyResources = 0
   S.enemySupplyLift = 0
   S.opforCmd.posture = 'attack'
+  // scarcity is real from mission one: sister formations hold most of the
+  // division's assets at H-hour; the operation's progress frees them
+  // (objective onComplete hooks release with net traffic)
+  preAllocate(S.assets, 'CRAM', '2ABCT')
+  preAllocate(S.assets, 'CRAM', '3ABCT')
+  preAllocate(S.assets, 'SHADOW', '1ACB')
+  preAllocate(S.assets, 'SENTINEL', 'CORPS MAIN')
 
   const town = pickAnchorTown(S)
   S.campaign = {

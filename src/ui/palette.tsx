@@ -5,6 +5,10 @@ import { useRef, useEffect, type ReactNode } from 'react'
 import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
 import { unitAvailability, airAvailability } from '../domains/economy/economy'
+import {
+  availableCount, poolOf, tfInstance, orbitAuthority, windowOpen, assetDef,
+  orbitAssetKind, windowAssetKind, tetherAssetKind,
+} from '../domains/assets/service'
 import { fmtCooldown } from '../lib/format'
 import { UNIT_TYPES, type UnitType, type UnitTypeKey } from '../domains/forces/catalog'
 import { playerPack } from '../packs'
@@ -111,6 +115,7 @@ export interface PaletteItem {
   fieldAero?: boolean
   fieldDrone?: boolean   // organic UAS: one-click launch over the carrying unit
   installFac?: boolean   // FOB facility build-out: one-click install at the site
+  reqAsset?: boolean     // division asset: one-click REQUEST up the chain (key = asset kind)
   label: string
   tag?: string | null
   cost?: number | string | null
@@ -183,6 +188,30 @@ const groundSections = (): DeploySection[] => CATS.map(cat => ({
   items: Object.values(UNIT_TYPES).filter(t => t.cat === cat).map(unitItem),
 }))
 
+// --- division asset request rows (ASSET-REQUESTS.md) ------------------------
+// One line of truth about where the ask stands: pool availability, a pending
+// staff decision, the waiting list, the convoy, the emplacement.
+function assetNote(kind: string): { note: string; busy: boolean } {
+  const inst = tfInstance(kind)
+  if (inst?.state === 'enroute') return { note: 'CONVOY ENROUTE', busy: true }
+  if (inst?.state === 'setup') return { note: 'EMPLACING', busy: true }
+  if (S.assets.pending.some(p => p.kind === kind)) return { note: 'REQ WITH HIGHER', busy: true }
+  if (S.assets.queue.some(q => q.kind === kind)) return { note: 'ON THE LIST', busy: true }
+  const total = poolOf(kind).length
+  return total ? { note: `${availableCount(kind)}/${total} AVAIL`, busy: false } : { note: 'ATO', busy: false }
+}
+
+const requestItem = (kind: string, icon?: ReactNode): PaletteItem | null => {
+  const def = assetDef(kind)
+  if (!def) return null
+  const { note, busy } = assetNote(kind)
+  return {
+    mode: 'req:' + kind, key: kind, reqAsset: true,
+    label: def.name, tag: `REQUEST — ${def.from}`, cost: null,
+    icon, note, disabled: busy,
+  }
+}
+
 // what a given selection can field, or null if nothing deployable is selected
 export function deployContext(selectedIds: number[]): DeployContext | null {
   if (selectedIds.length !== 1) return null
@@ -191,18 +220,44 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
   if (st) {
     if (st.buildT > 0) return null
     if (st.kind === 'AFLD') {
-      const air = Object.values(DRONE_TYPES).filter(dt => dt.src === 'airfield').map(droneItem)
+      // division/corps/USAF birds fly on GRANTED authority: without an orbit
+      // allocation (or an open ATO window) the row is the REQUEST itself
+      const air: PaletteItem[] = []
+      for (const dt of Object.values(DRONE_TYPES).filter(d => d.src === 'airfield')) {
+        const oKind = orbitAssetKind(dt.key)
+        const wKind = windowAssetKind(dt.key)
+        const needsOrbit = !!oKind && orbitAuthority(dt.key) === 0
+        const needsWindow = !!wKind && !windowOpen(dt.key)
+        if (needsOrbit || needsWindow) {
+          const r = requestItem((oKind ?? wKind)!, <PaletteIcon drone={dt} />)
+          if (r) { air.push(r); continue }
+        }
+        air.push(droneItem(dt))
+      }
       return { title: `${st.label} — AIRFIELD`, sections: [{ header: 'FIXED-WING & UAS', items: air }] }
     }
     if (st.kind === 'HQ' || st.kind === 'FOB') {
-      // the aerostat tethers at this very site, so it's a one-click field like the ground
-      // units (⊕) — no map placement. One per site: greyed out when this site flies one.
+      // tethered ISR rows — one per tether-src platform in the installed
+      // catalogs. A balloon flies only where its det is EMPLACED: no det =
+      // the row IS the division request; det at another base = locked out.
       const taken = S.drones.some(d => d.tether === st.id)
-      const aerostat: DeploySection = {
-        header: 'TETHERED ISR',
-        items: [{ ...droneItem(DRONE_TYPES.AEROSTAT), key: 'AEROSTAT', fieldAero: true,
-          disabled: taken, note: taken ? '1/1' : null }],
+      const aeroItems: PaletteItem[] = []
+      for (const dt of Object.values(DRONE_TYPES).filter(d => d.src === 'tether')) {
+        const kind = tetherAssetKind(dt.key)
+        const inst = kind ? tfInstance(kind) : null
+        const here = !kind || S.devMode
+          || (inst?.state === 'allocated' && inst.structId === st.id)
+        if (here) {
+          aeroItems.push({ ...droneItem(dt), key: dt.key, fieldAero: true,
+            disabled: taken, note: taken ? '1/1' : null })
+        } else if (inst?.state === 'allocated') {
+          aeroItems.push({ ...droneItem(dt), disabled: true, note: 'DET EMPLACED ELSEWHERE' })
+        } else {
+          const r = requestItem(kind!, <PaletteIcon drone={dt} />)
+          if (r) aeroItems.push(r)
+        }
       }
+      const aerostat: DeploySection = { header: 'TETHERED ISR', items: aeroItems }
       // facilities: what the base RUNS. The HQ's organic set reads as
       // operational; a FOB shows what it has and can still stand up. C-RAM is
       // never a build-out — it arrives only by division request (task #21
@@ -211,13 +266,18 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
         const spec = FACILITIES[k]
         const owned = st.facilities?.includes(k)
         const hqOrganic = st.kind === 'HQ' && k !== 'CRAM'
-        const reqOnly = k === 'CRAM' && !owned
+        // C-RAM is never a build-out: the row IS the division request, and it
+        // tracks the whole pipeline (avail → pending → convoy → emplacing)
+        if (k === 'CRAM' && !owned) {
+          const r = requestItem('CRAM')
+          if (r) return { ...r, tag: spec.desc }
+        }
         return {
-          mode: 'fac:' + k, key: k, installFac: !owned && !hqOrganic && !reqOnly,
+          mode: 'fac:' + k, key: k, installFac: !owned && !hqOrganic && k !== 'CRAM',
           label: spec.name, tag: spec.desc,
           cost: null,
-          note: owned ? '✓ OPERATIONAL' : hqOrganic ? '—' : reqOnly ? 'BY DIV REQUEST' : null,
-          disabled: !!owned || hqOrganic || reqOnly,
+          note: owned ? '✓ OPERATIONAL' : hqOrganic ? '—' : null,
+          disabled: !!owned || hqOrganic || k === 'CRAM',
         }
       })
       return {
