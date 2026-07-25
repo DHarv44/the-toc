@@ -180,7 +180,10 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   `__view` + the map canvas rect) OR a **map point** (`targetPoint`, e.g. a move
   destination snapped to a road) — plus a pointer callout to the right, with a SKIP escape.
   `done(S, ui)` can read selection. **Gated** steps pause the sim (speed 0) until done, then
-  resume. M1 (9 steps, recon-screen flow — reworked 2026-07-24 with the tuned garrison):
+  resume. Hint format (2026-07-24): every hint is `text` (the WHY — context only, no
+  action verbs) + `action` (the DO — one imperative line rendered standout in amber at
+  the callout's bottom, e.g. "▶ LEFT-CLICK your recon platoon."); the ring pulses
+  YELLOW→RED (`RING_A`/`RING_B`), matching the action line's color. M1 (9 steps, recon-screen flow — reworked 2026-07-24 with the tuned garrison):
   (1) SCOUTS LEAD — teaches that the garrison is CONCEALED and the scouts are pre-set to
   BREAK (M1 setup sets the SCT's ROE); done on selecting the recon platoon; (2) SCREEN
   FORWARD — standoff marker ~650 m short of the garrison (inside scout spotting range

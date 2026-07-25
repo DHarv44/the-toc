@@ -16,7 +16,8 @@ import { nearestLand } from '../world/place'
 import { useUI, type UIState } from './store'
 
 export interface TutorialHint {
-  text: string
+  text: string                         // the WHY — context/teaching, no action verbs
+  action?: string                      // the DO — one imperative line, rendered standout at the callout's bottom
   targetSel?: string                   // data-tut key to ring-highlight (a rail/menu item)
   targetUnit?: number                  // unit id to ring-highlight on the map
   targetPoint?: { x: number; y: number } // world point to ring-highlight (e.g. a move destination)
@@ -141,7 +142,8 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         return !!r && ui.selectedIds.length === 1 && ui.selectedIds[0] === r.id
       },
       hint: () => ({
-        text: 'SCOUTS LEAD — the garrison in the town is CONCEALED: nobody sees them until they are found, or they fire. Left-click your recon platoon: it sees farthest, and it is set to BREAK contact automatically if engaged.',
+        text: 'SCOUTS LEAD — the garrison in the town is CONCEALED: nobody sees them until they are found, or they fire. Your recon platoon sees farthest, and it is set to BREAK contact automatically if engaged.',
+        action: 'LEFT-CLICK your recon platoon.',
         targetUnit: recon()?.id,
       }),
     },
@@ -160,7 +162,8 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         const dest = r && r.legs.length ? r.legs[r.legs.length - 1] : null
         if (dest && t && Math.hypot(dest.x - t.x, dest.y - t.y) <= 200) return { text: '', hidden: true }
         return {
-          text: 'SCREEN FORWARD — RIGHT-click the highlighted point to push your scouts toward the town. From there they can spot the hidden garrison at standoff; if it opens fire on them, they will break away on their own.',
+          text: 'SCREEN FORWARD — push your scouts toward the town. From the highlighted point they can spot the hidden garrison at standoff; if it opens fire on them, they will break away on their own.',
+          action: 'RIGHT-CLICK the highlighted point.',
           targetPoint: t ?? undefined,
         }
       },
@@ -176,9 +179,17 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         const isCarrier = !!sel && sel.side === 'friend'
           && (UNIT_TYPES[sel.type].carries?.length ?? 0) > 0
         if (!isCarrier) {
-          return { text: 'EYES FORWARD — left-click your recon platoon to select it. It carries a hand-launched Raven UAV.', targetUnit: recon()?.id }
+          return {
+            text: 'EYES FORWARD — your recon platoon carries a hand-launched Raven UAV.',
+            action: 'LEFT-CLICK your recon platoon.',
+            targetUnit: recon()?.id,
+          }
         }
-        return { text: 'LAUNCH THE RAVEN — in the COMMAND rail on the left, under ORGANIC UAS, click the ⊕ to send its drone up over the platoon.', targetSel: 'uas-raven' }
+        return {
+          text: 'LAUNCH THE RAVEN — its drone goes up right over the platoon and gives you a live feed of the ground ahead.',
+          action: 'CLICK the ⊕ on the Raven row, in the COMMAND rail on the left.',
+          targetSel: 'uas-raven',
+        }
       },
     },
     // 4) silent hold: let the recon keep advancing until it makes contact.
@@ -214,7 +225,8 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
           ? 'AMBUSH SPRUNG — the hidden garrison opened up on your scouts, and they are breaking contact on their own (their BREAK drill). The enemy is fixed on the map. '
           : 'CONTACT — your scouts spotted the garrison from standoff without being engaged. '
         return {
-          text: lead + 'GROUP YOUR FORCE: drag a selection box around your remaining platoons (or Shift-click each) to select them all together.',
+          text: lead + 'GROUP YOUR FORCE — your line platoons fight together now.',
+          action: 'DRAG a selection box around your platoons (or SHIFT-CLICK each).',
           targetBox,
         }
       },
@@ -226,12 +238,20 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       done: () => S.units.some(u => u.side === 'friend' && u.type !== 'SCT' && (u.attackId != null || u.attackMove)),
       hint: (_S, ui) => {
         if (ui.cmdMode !== 'attack') {
-          return { text: 'SET ATTACK POSTURE — in the selection tray at the bottom, click ATTACK (or press E).', targetSel: 'attack-mode' }
+          return {
+            text: 'SET ATTACK POSTURE — attack orders send the group in to close with and destroy, instead of just moving.',
+            action: 'CLICK ATTACK in the bottom tray (or press E).',
+            targetSel: 'attack-mode',
+          }
         }
         // circle the enemy the recon has eyes on (a live contact), so the player
         // knows which unit to right-click
         const e = spottedEnemy()
-        return { text: 'ASSAULT — RIGHT-click the highlighted enemy to send your group in.', targetUnit: e?.id }
+        return {
+          text: 'ASSAULT — your group will advance on the highlighted enemy and clear the position.',
+          action: 'RIGHT-CLICK the highlighted enemy.',
+          targetUnit: e?.id,
+        }
       },
     },
     // 7) silent hold: let the assault finish clearing the town's defenders.
@@ -273,12 +293,14 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         const inTown = fighters.length > 0 && fighters.every(u => Math.hypot(u.x - t!.x, u.y - t!.y) <= 260)
         if (inTown) {
           return {
-            text: 'SPREAD OUT — your platoons are stacked. Select them, then RIGHT-click and DRAG to lay them on line through the buildings: one artillery shell can catch a bunched-up position.',
+            text: 'SPREAD OUT — your platoons are stacked: one artillery shell can catch a bunched-up position.',
+            action: 'SELECT them, then RIGHT-CLICK and DRAG a line through the buildings.',
             targetBox,
           }
         }
         return {
-          text: 'TAKE THE TOWN — select your platoons, then RIGHT-click and DRAG a line across the town to spread them through the buildings. Urban cover protects them, and a spread line can\'t be caught by a single shell.',
+          text: 'TAKE THE TOWN — urban cover protects your platoons, and a spread line can\'t be caught by a single shell.',
+          action: 'SELECT your platoons, then RIGHT-CLICK and DRAG a line across the town.',
           targetBox,
         }
       },
@@ -295,7 +317,8 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
           && u.posture === 'dig' && Math.hypot(u.x - t.x, u.y - t.y) <= 260)
       },
       hint: () => ({
-        text: 'DIG IN — with your platoons in the town selected, click DIG IN. Prepared fighting positions stack with the urban cover for even more protection — hold here and defeat the counterattack.',
+        text: 'DIG IN — prepared fighting positions stack with the urban cover for even more protection. Hold here and defeat the counterattack.',
+        action: 'With your platoons in the town selected, CLICK ⛨ DIG IN in the bottom tray.',
         targetSel: 'dig-in',
       }),
     },
@@ -325,13 +348,15 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         // phase 1: no orders yet — put the column on the road
         if (!e.legs.length && !l.legs.length) {
           return {
-            text: 'BRING UP THE SUSTAINMENT — your engineer and logistics platoons arrived at the HQ. Select them both, then RIGHT-click the highlighted point to put them on the ROAD — columns move much faster on roads.',
+            text: 'BRING UP THE SUSTAINMENT — your engineer and logistics platoons are pushing up from the rear. Columns move much faster on ROADS.',
+            action: 'SELECT them both, then RIGHT-CLICK the highlighted road point.',
             targetPoint: m2RoadPoint() ?? undefined,
           }
         }
         // phase 2: on the road — queue the final waypoint into the town
         return {
-          text: 'QUEUE THE NEXT WAYPOINT — hold SHIFT and RIGHT-click the town to add their final destination. They will follow the road, then push up to the FOB site.',
+          text: 'QUEUE THE NEXT WAYPOINT — they will follow the road, then push up to the FOB site in the town.',
+          action: 'HOLD SHIFT and RIGHT-CLICK the town.',
           targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
         }
       },
@@ -344,14 +369,23 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       hint: (_S, ui) => {
         const e = m2eng()
         if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === e?.id)) {
-          return { text: 'ESTABLISH THE FOB — left-click your engineer platoon to select it.', targetUnit: e?.id }
+          return {
+            text: 'ESTABLISH THE FOB — your engineer platoon does the building.',
+            action: 'LEFT-CLICK your engineer platoon.',
+            targetUnit: e?.id,
+          }
         }
         if (!ui.mode.startsWith('build:FOB')) {
-          return { text: 'ESTABLISH THE FOB — in the COMMAND rail on the left, under INSTALLATIONS, click Forward Op. Base.', targetSel: 'build-fob' }
+          return {
+            text: 'ESTABLISH THE FOB — with the engineers selected, installations are built from the COMMAND rail.',
+            action: 'CLICK Forward Op. Base in the rail on the left.',
+            targetSel: 'build-fob',
+          }
         }
         const t = S.campaign!.strongpoint
         return {
-          text: 'PLACE IT — click a spot inside the town. The engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.',
+          text: 'PLACE IT — the engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.',
+          action: 'CLICK a spot inside the town.',
           targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
         }
       },
@@ -364,13 +398,22 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
       hint: (_S, ui) => {
         const l = m2log(), fob = m2fob()
         if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === l?.id)) {
-          return { text: 'OPEN THE SUPPLY LINE — left-click your logistics platoon to select it.', targetUnit: l?.id }
+          return {
+            text: 'OPEN THE SUPPLY LINE — your logistics platoon runs standing convoys.',
+            action: 'LEFT-CLICK your logistics platoon.',
+            targetUnit: l?.id,
+          }
         }
         if (!String(ui.mode).startsWith('convoy:')) {
-          return { text: 'OPEN THE SUPPLY LINE — click SUPPLY RUN in the selection tray at the bottom.', targetSel: 'supply-run' }
+          return {
+            text: 'OPEN THE SUPPLY LINE — a standing run keeps the FOB stocked without further orders.',
+            action: 'CLICK SUPPLY RUN in the bottom tray.',
+            targetSel: 'supply-run',
+          }
         }
         return {
-          text: 'SET THE ROUTE — click the FOB. The trucks will loop HQ → FOB on their own, delivering supply every run.',
+          text: 'SET THE ROUTE — the trucks will loop HQ → FOB on their own, delivering supply every run.',
+          action: 'CLICK the FOB.',
           targetPoint: fob ? { x: fob.x, y: fob.y } : undefined,
         }
       },
@@ -378,7 +421,9 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
   ],
 }
 
-const ACCENT = '#7ec8ff'
+const ACCENT = '#7ec8ff'   // callout chrome (matches the campaign UI)
+const RING_A = '#ffc63f'   // attention ring: pulses yellow…
+const RING_B = '#ff4a3c'   // …to red — reads as "look HERE" against the map blues
 
 // the map canvas is the largest <canvas> in the document; use its rect + __view
 // (exposed by MapView) to convert a world point to a viewport pixel position
@@ -431,8 +476,8 @@ export default function TutorialOverlay() {
     const st = document.createElement('style')
     st.id = 'tut-keyframes'
     st.textContent = `@keyframes tutPulse {
-      0%,100% { box-shadow: 0 0 0 2px ${ACCENT}55, 0 0 8px 2px ${ACCENT}22; opacity: .6; }
-      50%     { box-shadow: 0 0 0 4px ${ACCENT}, 0 0 30px 10px ${ACCENT}99; opacity: 1; }
+      0%,100% { border-color: ${RING_A}; box-shadow: 0 0 0 2px ${RING_A}66, 0 0 10px 3px ${RING_A}33; opacity: .8; }
+      50%     { border-color: ${RING_B}; box-shadow: 0 0 0 4px ${RING_B}, 0 0 30px 10px ${RING_B}99; opacity: 1; }
     }`
     document.head.appendChild(st)
   }, [])
@@ -523,7 +568,7 @@ export default function TutorialOverlay() {
         <div key="tut-ring" style={{
           position: 'fixed', zIndex: 108, pointerEvents: 'none',
           left: ring.left, top: ring.top, width: ring.width, height: ring.height,
-          border: `2px solid ${ACCENT}`, borderRadius: isMapCircle ? '50%' : 5,
+          border: `2px solid ${RING_A}`, borderRadius: isMapCircle ? '50%' : 5,
           animation: 'tutPulse 1.4s ease-in-out infinite',
         }} />
       )}
@@ -560,6 +605,14 @@ export default function TutorialOverlay() {
           )}
           <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#5f9fd0', marginBottom: 4 }}>▸ TRAINING</div>
           <div style={{ fontSize: 12, lineHeight: 1.5 }}>{hint.text}</div>
+          {/* the DO line: every step ends with one standout imperative — the
+              amber ties it to the pulsing ring it points at */}
+          {hint.action && (
+            <div style={{
+              marginTop: 8, paddingTop: 7, borderTop: '1px solid #2a3a48',
+              fontSize: 12.5, fontWeight: 'bold', letterSpacing: 0.6, color: RING_A,
+            }}>▶ {hint.action}</div>
+          )}
           <button onClick={skip}
             onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
             onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
