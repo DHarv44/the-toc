@@ -21,6 +21,8 @@ export const PACK_1CD: Pack = {
     CAV: { bn: '1-7 CAV' },                                   // armored recon squadron
     SCT: { bn: '2-8 CAV', style: 'hhc', hhcName: 'SCT PLT' }, // battalion scouts
     MOR: { bn: '2-8 CAV', style: 'hhc', hhcName: 'MORT PLT' },// battalion mortars
+    MED: { bn: '2-8 CAV', style: 'hhc', hhcName: 'MED PLT' }, // battalion aid station
+
     ARTY: { bn: '1-82 FA', style: 'btry' },                   // Paladin battalion
     ENG: { bn: '91 BEB' },                                    // brigade engineer bn
     SIG: { bn: '13 SIG BN' },

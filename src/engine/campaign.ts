@@ -189,7 +189,10 @@ export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState):
 // ---------------------------------------------------------------------------
 // Mission content — M1 (CLEAR & HOLD) and M2 (SET UP THE FOB). More land later.
 // ---------------------------------------------------------------------------
-const M1_FORCE: readonly UnitTypeKey[] = ['MECH', 'INF', 'INF', 'SCT'] // carries drones; enough to clear + hold
+// 2-8 CAV organic slice, nothing borrowed (re-scoped 2026-07-25): the scouts
+// screen, two Bradley platoons clear, the mortars support the hold. Fielding
+// is OPEN from H-hour — the commander may call up any TF asset at any time.
+const M1_FORCE: readonly UnitTypeKey[] = ['SCT', 'MECH', 'MECH', 'MOR']
 // One second-line rifle platoon holds the town (tuned 2026-07-24 after the
 // Phase 3 playtest: a full-AT urban garrison beats even proper tactics — see
 // play-test_Mission1.md). Its Javelins are stripped in setup (AT4s only).
@@ -230,17 +233,19 @@ export const OPERATION: Operation = {
     + 'town, but they are CONCEALED in the buildings: you will not see them '
     + 'until your scouts find them or they open fire. Scouts screen forward — '
     + 'they are set to break contact if engaged. Expect a counterattack once '
-    + 'you take the town. No fielding, no fires to start; your platoons and '
-    + 'their organic UAS are what you have. Follow-on taskings will come by '
-    + 'FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.',
+    + 'you take the town. Your lead elements are 2-8 CAV: scouts, two Bradley '
+    + 'platoons and the mortars. The rest of the task force is yours to call '
+    + 'up from garrison as you see fit — no fires support yet. Follow-on '
+    + 'taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.',
   objectives: [
     {
       id: 'clear', label: 'CLEAR OBJ KEATON', kind: 'clear-area',
       onActivate(S) {
         const c = S.campaign!
         const town = c.strongpoint
-        // opening posture: no fielding, no support; organic drones only
-        c.allow = { field: false, support: false, drone: true }
+        // opening posture: fielding OPEN (the TF is yours to commit), no fires
+        // support yet; organic drones fly free
+        c.allow = { field: true, support: false, drone: true }
         // COP baseline at H-hour: the objective town itself is assessed enemy —
         // the line runs just south of it, everything north shades red
         c.frontY = town.y + 500
@@ -405,7 +410,7 @@ export function startCampaign(S: GameState): void {
     fragoLog: [{ title: OPERATION.name, text: OPERATION.brief, t: 0 }],
     status: OPERATION.objectives.map(() => 'pending'),
     hold: 0, delivered: 0, deliverBase: 0, eventT: null,
-    opforObj: null, allow: { field: false, support: false, drone: true },
+    opforObj: null, allow: { field: true, support: false, drone: true },
     frontY: town.y + 500, // provisional; objective activations re-anchor it
     commander: _commanderPending,
     // DIVISION MAIN sits in the deep rear, bottom-left — higher headquarters

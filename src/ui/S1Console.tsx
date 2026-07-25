@@ -12,8 +12,9 @@ import { useUI } from './store'
 import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
 import type { OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { playerPack } from '../packs'
+import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
-import { PatchIcon, RankIcon } from './insignia'
+import { PatchIcon, RankIcon, RibbonIcon } from './insignia'
 
 const COL = { fit: '#7ec87e', wia: '#e8c547', kia: '#e8524a', mia: '#9a7ec8', dim: '#54708a' }
 const STATUS_COL: Record<string, string> = { FIT: COL.fit, WIA: COL.wia, KIA: COL.kia, MIA: COL.mia }
@@ -170,19 +171,35 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
           }} />
       ) : (
         <Text span fz="sm" onClick={() => setEditing(true)} title="Rename" truncate
-          c={s.status === 'KIA' ? 'dark.2' : '#dceeff'}
+          c={s.status === 'KIA' ? 'dark.2' : s.evac ? '#8098ac' : '#dceeff'}
           td={s.status === 'KIA' ? 'line-through' : undefined}
           style={{ flex: 1, minWidth: 0, cursor: 'text', letterSpacing: 0.5 }}>
           {s.name}
         </Text>
       )}
+      {/* decorations — Purple Heart lands automatically on every wound */}
+      <Group gap={3} wrap="nowrap" style={{ flex: '0 0 auto' }}>
+        {(s.awards ?? []).map(k => {
+          const a = AWARDS[k as AwardKey]
+          return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
+        })}
+      </Group>
       <Text span fz="xs" w={190} c="dark.3" style={{ flex: '0 0 auto' }}>{s.pos}</Text>
       {/* loadout: weapon chips + kit glyphs */}
       <Group gap={3} wrap="nowrap" w={170} style={{ flex: '0 0 auto', overflow: 'hidden' }}>
         {loadoutOf(s).chips.map(c => <Chip key={c} label={c} />)}
         {loadoutOf(s).kit && <Text span fz={10} style={{ flex: '0 0 auto' }}>{loadoutOf(s).kit}</Text>}
       </Group>
-      <Text span fz="xs" w={100} c="#c8a25f" style={{ flex: '0 0 auto' }}>{s.cs ?? ''}</Text>
+      {/* injury report takes the callsign column while wounded */}
+      {s.status === 'WIA' && s.wound ? (
+        <Text span fz="xs" w={100} c={s.evac ? COL.mia : COL.wia} truncate
+          title={`${s.wound.kind} — ${s.wound.sev}${s.evac ? ' · EVACUATED' : ''}`}
+          style={{ flex: '0 0 auto' }}>
+          {s.wound.kind} · {s.wound.sev[0]}{s.evac ? ' · EVAC' : ''}
+        </Text>
+      ) : (
+        <Text span fz="xs" w={100} c="#c8a25f" style={{ flex: '0 0 auto' }}>{s.cs ?? ''}</Text>
+      )}
       <Text span fz="xs" fw={700} w={36} ta="right" c={STATUS_COL[s.status] ?? '#9ab8d0'} style={{ flex: '0 0 auto' }}>
         {s.status}
       </Text>
@@ -206,9 +223,9 @@ function SlotRoster({ sl, depth, open, toggle }: {
           <div key={v.id}>
             <NodeRow depth={depth} open={open.has(vKey)} onToggle={() => toggle(vKey)}
               label={<Group gap={5} wrap="nowrap">
-                <Text span fz="sm" c={v.status === 'DESTROYED' ? COL.kia : '#b8cede'}>
+                <Text span fz="sm" c={v.status === 'DESTROYED' ? COL.kia : v.status === 'DAMAGED' ? COL.wia : '#b8cede'}>
                   {(VEHICLES[v.type]?.name ?? v.type).toUpperCase()} #{v.id}
-                  {v.status === 'DESTROYED' ? ' — DESTROYED' : ''}
+                  {v.status === 'DESTROYED' ? ' — DESTROYED' : v.status === 'DAMAGED' ? ' — DAMAGED (REPAIRABLE)' : ''}
                 </Text>
                 {VEHICLES[v.type]?.weapons.map(w => <Chip key={w} label={WPN_SHORT[w] ?? w} />)}
               </Group>}

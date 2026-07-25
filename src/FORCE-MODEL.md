@@ -192,3 +192,16 @@ honest. Every bold drift is a deliberate Phase 3 decision, not noise:
   through Phase 3, then folds into the weapon/ammo layer.
 - AT basic loads (rough): rifle plt ~4×AT4 + 2 Javelin gunners ×3 msl;
   ATGM team 4×TOW×8; tank 40×120mm. Tune in Phase 3 playtests.
+
+## P2.5 — strength inversion LANDED (2026-07-25)
+
+Decision 4 is real: casualties happen to individuals
+(`domains/forces/casualties.ts`), strength derives. WIA/KIA mixes with injury
+severities + evac, DAMAGED/DESTROYED vehicles, manned-aid RTD, motorpool
+repairs, wipe/capture end-states (MIA rare), Purple Hearts (packs/awards.ts).
+Golden UNCHANGED at 84143052 (derivation is value-preserving on the damage
+path; no new rng draws). Harnesses: casualty-check (new), roster-check +
+phase3-check modernized — scripted tests must use `damageUnit`/`destroyUnit`,
+manual `u.strength =` writes are overwritten by derivation within a tick.
+Next: Phase 4 roster surfaces → P3 replacement pipeline (billet backfill,
+battlefield promotions), AAR presentation.

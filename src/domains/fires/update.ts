@@ -9,7 +9,8 @@ import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES, COVER_DEF } from '../forces/catalog'
-import { effStats, postureFactor, precisionBlast, syncElements } from '../forces/elements'
+import { effStats, postureFactor } from '../forces/elements'
+import { damageUnit, deriveElements, precisionBlast } from '../forces/casualties'
 import { unitFirepower, consumeAmmo } from '../forces/firepower'
 import { canEngage, concealment, firingDetected, observedByDrone, SMOKE_DURATION } from '../intel/sensing'
 import { netRadio, radio } from '../comms/radio'
@@ -43,7 +44,7 @@ export function directFireUpdate(dt: number): void {
       if (type.carrier && u.mounted && tdist < 900 && roe === 'halt') {
         u.mounted = false
         u.autoDismounted = true
-        syncElements(u, true)
+        deriveElements(u)
         netRadio(u, 'contact', `IN CONTACT — DISMOUNTING`, u.x, u.y)
       }
       if (roe === 'halt') {
@@ -104,7 +105,7 @@ export function directFireUpdate(dt: number): void {
       // every friendly gun on that target hits ~30% harder. Drones are friendly
       // only, so this is a player edge for now (OPFOR UAS is future work).
       if (u.side === 'friend' && observedByDrone(tgt.x, tgt.y)) dps *= OBSERVED_FIRE_MUL
-      tgt.strength -= dps * dt * (S.damageMul ?? 1)
+      damageUnit(tgt, dps * dt * (S.damageMul ?? 1), 'GSW')
       consumeAmmo(u, fp.consumers, dt)
       // the victim is in contact too, even if it can't answer
       tgt.underFireT = S.t

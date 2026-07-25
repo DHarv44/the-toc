@@ -468,3 +468,31 @@ tree), TASK FORCE (how TF COBALT is task-organized: the player battalion
 complete, incl. its staff/TOC slots, plus each enabler's attached slice and the
 donor attachments), and the player-battalion tab (the entire 2-8 CAV roster).
 Expansion keys are shared across tabs; switching a tab pre-expands its tree.
+
+**P2.5 — strength inversion + honest recovery (2026-07-25):** the roster is
+now the SOURCE OF TRUTH (`domains/forces/casualties.ts`, a dedicated service —
+elements.ts is back to pure spatial/exposure geometry). Damage kills ELEMENTS
+(front-first, `damageUnit` accumulator), element losses roll PEOPLE fates
+(deterministic hashes, `CasualtyDials` per difficulty — REGULAR anchors real
+numbers: ~3:1 WIA:KIA, half of vehicle kills DAMAGED not DESTROYED), and
+strength/elements DERIVE (`deriveStrength`/`deriveElements`, run as the
+attritionSync coherence pass). Every WIA carries an INJURY REPORT
+(GSW/SHRAPNEL/… × LIGHT/SERIOUS/CRITICAL) — LIGHT return to duty under medical
+care, SERIOUS/CRITICAL evac out (P3 replaces them); every casualty gets an
+automatic PURPLE HEART (`packs/awards.ts` — the medals framework, valor awards
+later). Recovery is honest: AID facility works only when MANNED (v2 — the 2-8
+MED PLT garrisoned at the HQ, or a fielded **MED detachment** — new fieldable
+unit type, 2 ambulances + 6 medics, treats forward within 300 m at 0.7×; own
+platoon medic dug-in buddy-aid at 0.35×); MOTORPOOL repairs DAMAGED vics
+(~90 s each); KIA never return. Wipes roll final fates (MIA rare ~6%, radioed
+as a rescue-mission hook); surrenders are MIA/POW. Campaign: fielding OPEN from
+H-hour, M1 force re-scoped to a pure 2-8 slice (SCT + 2×MECH + MOR). Golden
+UNCHANGED at 84143052 — deriveStrength reconstructs the exact continuous value
+on the damage path (alive/total·100 − remainder), and no rng draws were added;
+only recovery behavior actually changed. Checks: casualty-check 19/19 (NEW),
+roster-check 8/8 + phase3-check 14/14 (modernized to the P2.5 idiom — the old
+lone-MECH D-case was re-attributed via stash bisect to the organic-town urban
+changes, and A's old pass was a surrender fluke; both documented in the entry
+files), campaign-check 29/29. Known readout quirk: a mounted unit's strength
+reads its EXPOSED set — remounting healthy carriers over dismount casualties
+raises the bar (PERSTAT in S1 tells the truth).

@@ -7,7 +7,7 @@ import { AEROSTAT_SCAN_RATE } from './orders'
 import { updateGunship } from './gunship'
 import { targetPoint } from './targeting'
 import { endSortie } from '../economy/economy'
-import { precisionBlast } from '../forces/elements'
+import { precisionBlast } from '../forces/casualties'
 import { radio } from '../comms/radio'
 import { grid } from '../../lib/format'
 

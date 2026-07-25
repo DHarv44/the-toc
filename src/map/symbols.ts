@@ -233,6 +233,13 @@ function drawGlyph(ctx: Ctx2D, glyph: UnitGlyph, color: string, w: number, h: nu
       ctx.moveTo(-hw, 0); ctx.lineTo(hw, 0)
       ctx.stroke()
       break
+    case 'med':
+      // medical: 2525 cross
+      ctx.beginPath()
+      ctx.moveTo(0, -hh); ctx.lineTo(0, hh)
+      ctx.moveTo(-hw * 0.7, 0); ctx.lineTo(hw * 0.7, 0)
+      ctx.stroke()
+      break
   }
 }
 

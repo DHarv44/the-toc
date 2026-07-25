@@ -255,6 +255,11 @@ const COMPOSITIONS_LITERAL = {
     vehicles: [{ type: 'FMTV', n: 5 }],
     dismounts: [], // catalog "troops 8" ≈ the truck crews (5×2), see FORCE-MODEL.md
   },
+  MED: {
+    unit: 'MED',
+    vehicles: [{ type: 'HMMWV', n: 2 }], // field-litter ambulances
+    dismounts: [{ kind: 'MEDIC', n: 5 }, { kind: 'LEADER', n: 1 }],
+  },
 } as const satisfies Record<UnitTypeKey, UnitComposition>
 
 export const COMPOSITIONS: Readonly<Record<UnitTypeKey, UnitComposition>> = COMPOSITIONS_LITERAL

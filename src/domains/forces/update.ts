@@ -13,7 +13,8 @@ import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { stowageMax } from './composition'
-import { effStats, healUnit, rosterSync, syncElements } from './elements'
+import { effStats } from './elements'
+import { deriveElements, deriveStrength, medicalUpdate, processCapture, processWipe } from './casualties'
 import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -77,10 +78,17 @@ export function movementUpdate(dt: number): void {
         radio(u.label, 'arrive', `DEFENSE SET — ${type.def.name}`, u.x, u.y)
       }
     }
-    // rest and buddy-aid in prepared positions: slow recovery, capped at 70%
-    if (u.posture === 'dig' && u.digT >= 1 && u.strength > 0 && u.strength < 70
-        && !u.targetId && S.t - u.lastCombatT > 20) {
-      healUnit(u, 0.15 * dt, 70, false) // buddy-aid patches crews; destroyed vics stay dead
+    // forward medical care, best source wins (P2.5): a MED detachment alongside
+    // treats faster than the platoon's own medic doing buddy-aid in a hole.
+    // Calm only — nobody works casualties under fire.
+    if (u.strength > 0 && !u.targetId && S.t - u.lastCombatT > 20) {
+      const medNear = u.type !== 'MED' && S.units.some(m => m.side === u.side
+        && m.type === 'MED' && m.strength > 0 && Math.hypot(m.x - u.x, m.y - u.y) < 300)
+      if (medNear) medicalUpdate(u, dt, 0.7)
+      else if (u.posture === 'dig' && u.digT >= 1
+        && u.soldiers.some(s => s.kind === 'MEDIC' && s.status === 'FIT')) {
+        medicalUpdate(u, dt, 0.35)
+      }
     }
     // munitions resupply (both sides): trickle near an own-side base, faster
     // with an own-side LOG truck alongside. Calm only — nobody cross-loads
@@ -309,7 +317,7 @@ export function drillsUpdate(dt: number): void {
         // remount applies whether or not the unit ever fully halted
         if (u.autoDismounted && UNIT_TYPES[u.type].carrier && !u.mounted) {
           u.mounted = true
-          syncElements(u, true)
+          deriveElements(u)
           netRadio(u, 'move', 'REMOUNTING', u.x, u.y)
         }
         u.autoDismounted = false
@@ -359,6 +367,7 @@ export function surrenderUpdate(): void {
     const p = 0.01 + rng() * 0.04 // 1–5%
     if (rng() < p) {
       S.contacts.delete(u.id)
+      processCapture(u) // everyone still standing walks into captivity — MIA/POW
       if (u.side === 'friend') {
         radio(u.label, 'loss', 'ELEMENTS SURRENDERING — WE ARE COMBAT INEFFECTIVE', u.x, u.y)
         toast(u.label + ' SURRENDERED')
@@ -372,12 +381,11 @@ export function surrenderUpdate(): void {
   }
 }
 
-// element attrition: bring each unit's vics/troops in line with its strength,
-// spawning individual wrecks/explosions as they're picked off by direct fire.
-// The composition roster mirrors the result (FORCE-MODEL Phase 2: elements
-// stay authoritative; Phase 3 inverts this).
+// coherence pass (P2.5 inversion): elements and strength DERIVE from the
+// roster every tick — casualties were already rolled at damage time, and any
+// recovery (RTD, repairs) shows up here as revived elements/rising strength.
 export function attritionSync(): void {
-  for (const u of S.units) { syncElements(u, false); rosterSync(u) }
+  for (const u of S.units) { deriveElements(u); deriveStrength(u) }
 }
 
 // deaths: units (per-element wrecks were already spawned as elements died)
@@ -386,9 +394,15 @@ export function unitDeaths(): void {
     const u = S.units[i]!
     if (u.strength <= 0) {
       S.contacts.delete(u.id)
+      // overrun: roll final fates for everyone still on the books. MIA is rare —
+      // and unaccounted personnel are a rescue-mission hook for the campaign.
+      const { mia } = processWipe(u)
       if (u.side === 'friend') {
         radio('NET', 'loss', `${u.label} SIGNAL LOST — LKP GRID ${grid(u.x, u.y)}`, u.x, u.y)
         toast(u.label + ' DESTROYED')
+        if (mia > 0) {
+          radio('NET', 'loss', `${u.label} — ${mia} PERSONNEL UNACCOUNTED FOR, POSSIBLE MIA`, u.x, u.y)
+        }
         S.stats.lost++
       } else {
         S.stats.enemyDestroyed++

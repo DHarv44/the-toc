@@ -95,7 +95,9 @@ function bnTemplate(kind: BnKind): CoSpec[] {
       { co: 'HHC', slots: [
         { name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF },
         { name: 'SCT PLT', type: 'SCT' }, { name: 'MORT PLT', type: 'MOR' },
-        { name: 'MED PLT', staff: medPlt() },
+        // the battalion aid station: fieldable as a MED detachment (P2.5 v2 —
+        // it mans the HQ AID facility while garrisoned, treats forward when out)
+        { name: 'MED PLT', type: 'MED' },
       ] },
       { co: 'A CO', slots: plts('MECH') },
       { co: 'B CO', slots: plts('MECH') },

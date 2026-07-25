@@ -9,7 +9,8 @@ import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
-import { effStats, syncElements } from './elements'
+import { effStats } from './elements'
+import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
 export const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
@@ -27,7 +28,7 @@ function autoRemount(u: Unit): void {
   if (u.autoDismounted && !u.targetId && !u.mounted && UNIT_TYPES[u.type].carrier) {
     u.mounted = true
     u.autoDismounted = false
-    syncElements(u, true)
+    deriveElements(u)
     netRadio(u, 'move', 'REMOUNTING', u.x, u.y)
   }
 }
@@ -277,7 +278,7 @@ export function orderMount(unitId: number, mounted: boolean): void | null {
   if (mounted && u.targetId) return toast(u.label + ' — CANNOT MOUNT UNDER FIRE')
   u.mounted = mounted
   u.autoDismounted = false // manual posture change overrides the drill
-  syncElements(u, true)    // the newly-exposed set reflects current strength
+  deriveElements(u)        // the newly-exposed set reflects the roster
   if (u.side === 'friend') {
     radio(u.label, 'move', mounted ? 'MOUNTING UP' : 'DISMOUNTING', u.x, u.y)
   }

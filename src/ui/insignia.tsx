@@ -85,6 +85,18 @@ const US_RANKS: Record<string, ReactNode> = {
   MG: <>{starAt(5.4, 8, 0.62)}{starAt(12.6, 8, 0.62)}</>,
 }
 
+// Award ribbon bar (packs/awards): stripe colors left→right, standard ribbon
+// proportions. Tooltip-titled by the caller.
+export function RibbonIcon({ stripes, w = 18, h = 6 }: { stripes: readonly string[]; w?: number; h?: number }) {
+  const sw = w / stripes.length
+  return (
+    <svg width={w} height={h} style={{ flex: '0 0 auto' }}>
+      {stripes.map((c, i) => <rect key={i} x={i * sw} y={0} width={sw + 0.5} height={h} fill={c} />)}
+      <rect x={0.5} y={0.5} width={w - 1} height={h - 1} fill="none" stroke="#0a0e12" strokeWidth={1} />
+    </svg>
+  )
+}
+
 export function RankIcon({ rank, style = 'us', h = 15 }: { rank?: string; style?: string; h?: number }) {
   if (!rank || style !== 'us') return null
   const glyph = US_RANKS[rank]

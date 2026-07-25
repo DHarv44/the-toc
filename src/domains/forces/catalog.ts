@@ -10,7 +10,7 @@ import type { Mobility, TerrainName } from '../../world/mobility'
 export type UnitCategory = 'MANEUVER' | 'RECON' | 'FIRES' | 'SUPPORT'
 export type UnitGlyph =
   | 'inf' | 'mech' | 'arm' | 'at' | 'sct' | 'cav'
-  | 'mor' | 'arty' | 'eng' | 'sig' | 'log'
+  | 'mor' | 'arty' | 'eng' | 'sig' | 'log' | 'med'
   | 'unk' // intel contact of unidentified composition — drawn as a "?"
 
 // UAS types a unit hand-launches from the field. Kept as a literal union here
@@ -153,6 +153,15 @@ const UNIT_TYPES_LITERAL = {
     sight: 600, range: 250, dpsSoft: 0.8, dpsHard: 0.2, soft: 1.0,
     cost: 200, veh: 5, troops: 8, glyph: 'log', logi: { capacity: 400, loadTime: 12 },
     def: { time: 45, factor: 0.75, name: 'DISPERSED & COVERED' },
+  },
+  MED: {
+    // battalion aid-station detachment (P2.5 v2): mans a base's AID facility or
+    // treats forward — LIGHT wounds return to duty near it. Ambulances run, they
+    // don't fight (crew self-defense only).
+    key: 'MED', name: 'Medical Detachment', abbr: 'MD', cat: 'SUPPORT', mob: 'wheeled', speed: 13,
+    sight: 600, range: 200, dpsSoft: 0.3, dpsHard: 0, soft: 1.0,
+    cost: 150, veh: 2, troops: 6, glyph: 'med',
+    def: { time: 45, factor: 0.75, name: 'CCP ESTABLISHED' },
   },
 } as const satisfies Record<string, UnitType>
 

@@ -49,8 +49,20 @@ export interface UnitElement {
 // (casualties happen to individuals, strength/firepower derive) and adds ammo.
 // Phase 4 adds names/bios/WIA/MIA + the S1 view. Ids are unit-local.
 
-export type SoldierStatus = 'FIT' | 'WIA' | 'KIA' | 'MIA' // Phase 2 drives FIT/KIA only
-export type VehicleStatus = 'OK' | 'DESTROYED'
+// MIA is rare: overrun platoon wipes and surrenders only (can spark a rescue mission)
+export type SoldierStatus = 'FIT' | 'WIA' | 'KIA' | 'MIA'
+export type VehicleStatus = 'OK' | 'DAMAGED' | 'DESTROYED' // DAMAGED = repairable at a motorpool
+export type WoundSev = 'LIGHT' | 'SERIOUS' | 'CRITICAL'
+
+// An actual injury report (P2.5): severity decides the soldier's path — LIGHT
+// wounds return to duty after aid-station care, SERIOUS/CRITICAL are evacuated
+// out of the fight (replacements fill the billet, P3).
+export interface Wound {
+  sev: WoundSev
+  kind: string               // 'GSW', 'SHRAPNEL', 'BLAST CONCUSSION'…
+  t: number                  // sim time wounded
+  care: number               // seconds of medical care received (LIGHT → RTD at threshold)
+}
 
 export interface Soldier {
   id: number
@@ -63,6 +75,9 @@ export interface Soldier {
   pos?: string               // billet: "Team Leader", "Gunner", "Platoon Medic"…
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
   pid?: string               // stable personnel identity (portrait seed) — survives fielding
+  wound?: Wound              // current (or last) injury report
+  evac?: boolean             // evacuated out of the mission — billet empty until P3 replaces
+  awards?: string[]          // award keys (packs/awards) — Purple Heart lands automatically
 }
 
 // --- division organization (Packs P3 groundwork) ----------------------------
@@ -169,6 +184,9 @@ export interface Unit {
   coverSought?: boolean      // this contact's cover scan is spent (unit SOP)
   lastBreakT?: number        // when the last break-contact completed (break fatigue)
   _sndFireT?: number         // feed-audio throttle (stamped by DroneView's audio pass)
+  // P2.5 strength inversion: casualties happen to PEOPLE, strength is derived
+  dmgAcc?: number            // sub-element damage accumulator (strength points)
+  repT?: number              // motorpool repair progress toward the next DAMAGED vic
 }
 
 // --- installations --------------------------------------------------------

@@ -16,6 +16,17 @@
 // Ported verbatim from src/game/difficulty.js (values unchanged).
 import type { UnitTypeKey } from '../forces/catalog'
 
+// Casualty-model dials (FORCE-MODEL P2.5): what losing an element means for
+// its PEOPLE. REGULAR is anchored on real-world numbers (~3:1 WIA:KIA, about
+// half of vehicle kills recoverable); easier settings are more forgiving,
+// harder ones grimmer. All rolls are deterministic hashes — no rng draws.
+export interface CasualtyDials {
+  kiaFrac: number       // of dismount casualties, fraction KIA (rest are WIA)
+  vehRepairFrac: number // fraction of vehicle kills that are DAMAGED (repairable), not DESTROYED
+  lightFrac: number     // of WIA, fraction LIGHT (treatable in-mission; rest evac out)
+  rtdMin: number        // minutes of aid-station care for a LIGHT wound to return to duty
+}
+
 export interface Difficulty {
   key: string
   label: string
@@ -26,6 +37,7 @@ export interface Difficulty {
   enemyStart: number
   startForce: readonly UnitTypeKey[]
   damageMul: number
+  casualty: CasualtyDials
 }
 
 export const DIFFICULTIES = {
@@ -38,6 +50,7 @@ export const DIFFICULTIES = {
     enemyStart: 400,         // can't afford a group yet; a few minutes of grace
     startForce: ['SCT', 'INF', 'INF', 'MECH', 'ARM', 'LOG'],
     damageMul: 0.55,
+    casualty: { kiaFrac: 0.15, vehRepairFrac: 0.65, lightFrac: 0.75, rtdMin: 3 },
   },
   regular: {
     key: 'regular', label: 'REGULAR',
@@ -48,6 +61,8 @@ export const DIFFICULTIES = {
     enemyStart: 900,
     startForce: ['SCT', 'INF', 'INF', 'MECH'],
     damageMul: 0.75,
+    // the "realistic" anchor: ~3:1 WIA:KIA, half of vehicle kills recoverable
+    casualty: { kiaFrac: 0.25, vehRepairFrac: 0.5, lightFrac: 0.6, rtdMin: 5 },
   },
   veteran: {
     key: 'veteran', label: 'VETERAN',
@@ -58,6 +73,7 @@ export const DIFFICULTIES = {
     enemyStart: 1400,
     startForce: ['SCT', 'INF'],
     damageMul: 1,
+    casualty: { kiaFrac: 0.3, vehRepairFrac: 0.4, lightFrac: 0.5, rtdMin: 6 },
   },
   elite: {
     key: 'elite', label: 'ELITE',
@@ -68,6 +84,7 @@ export const DIFFICULTIES = {
     enemyStart: 2000,        // a battlegroup on the board almost immediately
     startForce: ['INF'],
     damageMul: 1.35,
+    casualty: { kiaFrac: 0.35, vehRepairFrac: 0.3, lightFrac: 0.45, rtdMin: 8 },
   },
 } as const satisfies Record<string, Difficulty>
 

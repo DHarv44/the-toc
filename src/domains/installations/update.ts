@@ -2,12 +2,26 @@
 // reports, and structure deaths (with win/lose and tethered-aerostat teardown).
 // Ported verbatim from src/game/sim.js tick().
 import { S } from '../../engine/state'
-import { healUnit } from '../forces/elements'
+import type { Structure } from '../../engine/GameState'
+import { medicalUpdate, repairUpdate } from '../forces/casualties'
 import { endSortie } from '../economy/economy'
 import { radio, toast } from '../comms/radio'
 
-// structures: construction, then garrison reconstitution — units resting at a
-// FOB/HQ regain strength; a garrisoned site slowly repairs itself
+// An AID facility is tentage — it treats nobody without medics (v2): either
+// the battalion MED PLT still garrisoned at the HQ (the aid station's default
+// home), or a fielded MED detachment physically at the base. Enemy bases keep
+// their implicit full set — their economy is the lever.
+function medPresent(s: Structure): boolean {
+  if (s.side !== 'friend') return true
+  if (S.units.some(u => u.side === 'friend' && u.type === 'MED' && u.strength > 0
+    && Math.hypot(u.x - s.x, u.y - s.y) < 450)) return true
+  return s.kind === 'HQ' && !!S.org?.slots.some(sl => sl.tf && sl.type === 'MED'
+    && sl.unitId == null && sl.soldiers.some(x => x.status === 'FIT'))
+}
+
+// structures: construction, then garrison reconstitution (P2.5, honest):
+// a manned AID station returns LIGHT wounds to duty, a MOTORPOOL repairs
+// DAMAGED vics. Nothing resurrects — replacements are P3's job.
 export function constructionUpdate(dt: number): void {
   for (const s of S.structures) {
     if (s.buildT > 0) s.buildT = Math.max(0, s.buildT - dt)
@@ -15,20 +29,18 @@ export function constructionUpdate(dt: number): void {
 
   for (const s of S.structures) {
     if (s.buildT > 0 || (s.kind !== 'FOB' && s.kind !== 'HQ')) continue
-    // FACILITIES gate what the base can actually do for a resting unit (P5):
-    // the AID STATION drives casualty recovery, the MOTORPOOL puts destroyed
-    // vehicles back in the fight. A bare FOB only manages slow self-care.
-    // (Enemy bases keep the full implicit set — their economy is the lever.)
     const fac = s.side === 'friend' ? (s.facilities ?? []) : ['MOTORPOOL', 'AID']
-    const hasAid = fac.includes('AID'), hasMotor = fac.includes('MOTORPOOL')
+    const hasAid = fac.includes('AID') && medPresent(s)
+    const hasMotor = fac.includes('MOTORPOOL')
     let garrisoned = false
     for (const u of S.units) {
       if (u.side !== s.side) continue
       if (Math.hypot(u.x - s.x, u.y - s.y) > 450) continue
       garrisoned = true
-      if (u.strength > 0 && u.strength < 100 && !u.targetId && S.t - u.lastCombatT > 15) {
+      if (u.strength > 0 && !u.targetId && S.t - u.lastCombatT > 15) {
         const before = u.strength
-        healUnit(u, (hasAid ? 0.8 : 0.25) * dt, 100, hasMotor)
+        if (hasAid) medicalUpdate(u, dt, 1.0)
+        if (hasMotor) repairUpdate(u, dt)
         u.strMark = Math.max(u.strMark, u.strength)
         if (before < 100 && u.strength >= 100 && u.side === 'friend') {
           radio(u.label, 'arrive', 'RECONSTITUTED — FULL STRENGTH', u.x, u.y)
