@@ -71,11 +71,22 @@ function QrfWarning({ slotId, onProceed, onCancel }: {
 export default function ForcesRail() {
   const ui = useUI()
   return (
-    <Rail side="left" title="FORCES" width={270} open={ui.bgOpen} onToggle={ui.toggleBg}>
-      <BattleGroups />
-      <CallUp />
-      <Box h={8} />
-    </Rail>
+    <>
+      <Rail side="left" title="FORCES" width={270} open={ui.bgOpen} onToggle={ui.toggleBg}
+        footer={
+          // CALL UP is a BUTTON pinned to the rail's bottom — the picker is a
+          // flyout panel to the right; the rail's body belongs to the force
+          <div data-tut="call-up">
+            <PaletteRow label="＋ CALL UP" tag="FIELD AN ELEMENT FROM GARRISON" cost=""
+              active={ui.callupOpen}
+              onClick={() => useUI.setState({ callupOpen: !ui.callupOpen })} />
+          </div>
+        }>
+        <BattleGroups />
+        <Box h={8} />
+      </Rail>
+      {ui.bgOpen && ui.callupOpen && <CallUpFlyout />}
+    </>
   )
 }
 
@@ -115,6 +126,13 @@ function BattleGroups() {
   }
   return (
     <>
+      {/* INDEPENDENT leads; the commander's formed groups follow. (Deliberate
+          NAMED group creation — "＋ NEW GROUP" — is a coming feature; groups
+          currently form from group move orders / box-select.) */}
+      <RailSection label={`Independent (${solo.length})`}>
+        {solo.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE FIELDED</Text>}
+        {solo.map(row)}
+      </RailSection>
       {[...groups.entries()].map(([gid, list]) => (
         <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
           {list.map(row)}
@@ -161,10 +179,6 @@ function BattleGroups() {
           )}
         </RailSection>
       ))}
-      <RailSection label={`Independent (${solo.length})`}>
-        {solo.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE FIELDED</Text>}
-        {solo.map(row)}
-      </RailSection>
     </>
   )
 }
@@ -175,20 +189,15 @@ function BattleGroups() {
 // unit type (small icon tabs), click ⊕ to field. Stays open for multiple
 // call-ups; DONE closes it. State lives in the UI store so the tutorial's
 // conditions can see it.
-function CallUp() {
+// The CALL UP picker: a FLYOUT PANEL to the right of the FORCES rail (the
+// rail's body belongs to active units). Choose the garrison to pull from
+// (chips — only when more than one base holds troops), filter by unit type
+// (small icon tabs), click ⊕ to field. Stays open for multiple call-ups.
+function CallUpFlyout() {
   const ui = useUI()
   const [qrfPending, setQrfPending] = useState<string | null>(null)
   const slots = garrisonSlots(true)
-  if (!ui.callupOpen) {
-    return (
-      <RailSection label="GARRISON">
-        <div data-tut="call-up">
-          <PaletteRow label="＋ CALL UP" tag="FIELD AN ELEMENT FROM GARRISON" cost=""
-            onClick={() => useUI.setState({ callupOpen: true })} />
-        </div>
-      </RailSection>
-    )
-  }
+  const close = () => useUI.setState({ callupOpen: false, callupBase: null, callupType: null })
   const hqId = S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')?.id ?? null
   const baseOf = (sl: OrgSlot) =>
     S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend') ? sl.garrisonAt! : hqId
@@ -205,55 +214,73 @@ function CallUp() {
     color: active ? '#7ec8ff' : '#54708a',
   })
   return (
-    <RailSection label="GARRISON — CALL UP">
-      {bases.length > 1 && (
-        <Box px="xs" pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <div style={chip(ui.callupBase == null)}
-            onClick={() => useUI.setState({ callupBase: null })}>ALL BASES</div>
-          {bases.map(b => (
-            <div key={b.id} style={chip(ui.callupBase === b.id)}
-              onClick={() => useUI.setState({ callupBase: b.id })}>{b.label}</div>
-          ))}
+    <Box w={250} style={{
+      flex: '0 0 auto', display: 'flex', flexDirection: 'column', minHeight: 0,
+      background: 'var(--mantine-color-dark-7)',
+      borderRight: '1px solid var(--mantine-color-dark-4)',
+    }}>
+      {/* flyout header: what this panel is + the way out */}
+      <Box px="xs" py={6} style={{
+        flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
+        borderBottom: '1px solid var(--mantine-color-dark-5)', background: 'var(--mantine-color-dark-8)',
+      }}>
+        <Text span fz={10} fw={700} c="toc.3" style={{ letterSpacing: 1.8, flex: 1 }}>
+          GARRISON — CALL UP
+        </Text>
+        <Text span fz={12} c="dark.2" style={{ cursor: 'pointer' }} onClick={close}>✕</Text>
+      </Box>
+      <Box px="xs" pt={6} style={{ flex: '0 0 auto' }}>
+        {bases.length > 1 && (
+          <Box pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={chip(ui.callupBase == null)}
+              onClick={() => useUI.setState({ callupBase: null })}>ALL BASES</div>
+            {bases.map(b => (
+              <div key={b.id} style={chip(ui.callupBase === b.id)}
+                onClick={() => useUI.setState({ callupBase: b.id })}>{b.label}</div>
+            ))}
+          </Box>
+        )}
+        {/* unit-type filter: one small icon tab per type present in the garrison */}
+        <Box pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={chip(ui.callupType == null)}
+            onClick={() => useUI.setState({ callupType: null })}>ALL</div>
+          {types.map(t => {
+            const spec = UNIT_TYPES[t]
+            const n = inBase.filter(sl => sl.type === t).length
+            const active = ui.callupType === t
+            return (
+              <div key={t} title={`${spec.name} (${n})`}
+                style={{ ...chip(active), display: 'flex', alignItems: 'center', gap: 3, padding: '1px 5px' }}
+                onClick={() => useUI.setState({ callupType: active ? null : t })}>
+                <PaletteIcon unit={spec} w={26} h={18} scale={0.7} />
+                <span>{n}</span>
+              </div>
+            )
+          })}
         </Box>
-      )}
-      {/* unit-type filter: one small icon tab per type present in the garrison */}
-      <Box px="xs" pb={4} style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={chip(ui.callupType == null)}
-          onClick={() => useUI.setState({ callupType: null })}>ALL</div>
-        {types.map(t => {
-          const spec = UNIT_TYPES[t]
-          const n = inBase.filter(sl => sl.type === t).length
-          const active = ui.callupType === t
-          return (
-            <div key={t} title={`${spec.name} (${n})`}
-              style={{ ...chip(active), display: 'flex', alignItems: 'center', gap: 3, padding: '1px 5px' }}
-              onClick={() => useUI.setState({ callupType: active ? null : t })}>
-              <PaletteIcon unit={spec} w={26} h={18} scale={0.7} />
-              <span>{n}</span>
-            </div>
-          )
-        })}
       </Box>
       {qrfPending && (
         <QrfWarning slotId={qrfPending}
           onProceed={() => { proceedFieldSlot(qrfPending); setQrfPending(null) }}
           onCancel={() => setQrfPending(null)} />
       )}
-      {list.map(sl => {
-        const it = slotItem(sl)
-        const call = () => { if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending) }
-        const row = (
-          <PaletteRow key={it.key} icon={it.icon} label={it.label}
-            tag={sl.qrf ? `✓ QRF · ${it.tag ?? ''}` : it.tag}
-            note={it.note} cost="" disabled={it.disabled}
-            onPlus={it.disabled ? undefined : call}
-            onClick={call} />
-        )
-        return it.tutSel ? <div key={it.key} data-tut={it.tutSel}>{row}</div> : row
-      })}
-      {list.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE AVAILABLE HERE</Text>}
-      <PaletteRow label="DONE" cost=""
-        onClick={() => useUI.setState({ callupOpen: false, callupBase: null, callupType: null })} />
-    </RailSection>
+      {/* the callable elements — the tutorial rings the WHOLE list (the pick
+          is the commander's, not one prescribed row) */}
+      <Box data-tut="garrison-list" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {list.map(sl => {
+          const it = slotItem(sl)
+          const call = () => { if (!it.disabled) guardedFieldSlot(it.key!, setQrfPending) }
+          const row = (
+            <PaletteRow key={it.key} icon={it.icon} label={it.label}
+              tag={sl.qrf ? `✓ QRF · ${it.tag ?? ''}` : it.tag}
+              note={it.note} cost="" disabled={it.disabled}
+              onPlus={it.disabled ? undefined : call}
+              onClick={call} />
+          )
+          return it.tutSel ? <div key={it.key} data-tut={it.tutSel}>{row}</div> : row
+        })}
+        {list.length === 0 && <Text fz={10} c="dark.3" px="xs" py={6}>NONE AVAILABLE HERE</Text>}
+      </Box>
+    </Box>
   )
 }

@@ -1566,6 +1566,13 @@ only reporting the failure.
 
 ## Later / Deferred
 
+### Commander-created battle groups ⬜ *(user 2026-07-25)*
+Deliberate, NAMED battle groups the commander creates (＋ NEW GROUP in the
+FORCES rail): pick elements (fielded or straight from garrison), name/number
+the group (TF SABER, TEAM A), and it persists as a task organization — not
+just the implicit group that forms from a shared move order. Groups get
+callsigns on the net, show on S3's board, and survive re-tasking.
+
 ### Force management from the shop pages ⬜ *(user 2026-07-25)*
 The S-shop consoles should be able to MANAGE, not just display: battle groups
 (form/attach/detach from S3's task-force board), garrisons (reassign homes,
