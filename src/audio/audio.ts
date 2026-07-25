@@ -454,9 +454,9 @@ export function incomingAlarm(): void {
   if (muted) return
   alarmLastPing = performance.now()
   if (alarmTimer) return // already sounding — the ping just extends it
-  // the siren is PACK content — a different faction's base, a different Big Voice
-  const src = activePack('friend')?.audio?.incomingAlarm
-  if (!src) return
+  // the siren is PACK content — a different faction's base, a different Big
+  // Voice — with the stock siren as the fallback for packs that ship none
+  const src = activePack('friend')?.audio?.incomingAlarm ?? '/audio/incoming.mp3'
   if (!alarmEl || alarmSrc !== src) { alarmEl = new Audio(src); alarmEl.volume = 0.55; alarmSrc = src }
   alarmEl.loop = true
   alarmEl.currentTime = 0
