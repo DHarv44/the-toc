@@ -12,6 +12,7 @@ import { useUI } from './store'
 import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
 import type { OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { playerPack } from '../packs'
+import { pipelineBacklog } from '../domains/forces/pipeline'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { PatchIcon, RankIcon, RibbonIcon } from './insignia'
@@ -24,7 +25,9 @@ interface Agg { asg: number; fit: number; wia: number; kia: number; vOk: number;
 const zero = (): Agg => ({ asg: 0, fit: 0, wia: 0, kia: 0, vOk: 0, vTot: 0 })
 function aggSoldiers(a: Agg, ss: Soldier[]): void {
   for (const s of ss) {
-    a.asg++
+    // a backfilled casualty leaves ASSIGNED strength (the replacement holds the
+    // billet) but stays on the loss columns — PERSTAT keeps the butcher's bill
+    if (!s.replaced) a.asg++
     if (s.status === 'FIT') a.fit++
     else if (s.status === 'WIA') a.wia++
     else if (s.status === 'KIA') a.kia++
@@ -179,6 +182,7 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
       )}
       {/* decorations — Purple Heart lands automatically on every wound */}
       <Group gap={3} wrap="nowrap" style={{ flex: '0 0 auto' }}>
+        {s.repl && <Chip label="REPL" />}
         {(s.awards ?? []).map(k => {
           const a = AWARDS[k as AwardKey]
           return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
@@ -334,7 +338,8 @@ export default function S1Console() {
       <div key={sl.id} ref={sl.unitId === ui.rosterId ? focusRef : undefined}>
         <NodeRow depth={depth} open={open.has(key)} onToggle={() => toggle(key)}
           label={<Text span fz="md" fw={sl.type ? 700 : 500}
-            c={down ? COL.mia : lost ? COL.kia : u ? '#7ec8ff' : sl.tf ? '#9fd0f5' : '#7d95aa'}>
+            c={down ? COL.mia : lost ? COL.kia : u ? '#7ec8ff' : sl.tf ? '#9fd0f5' : '#7d95aa'}
+            style={down ? { animation: 's1pulse 1.2s ease-in-out infinite' } : undefined}>
             {sl.name}
           </Text>}
           att={sl.from ?? null}
@@ -346,17 +351,29 @@ export default function S1Console() {
     )
   }
 
-  // company rows for a battalion (or a battalion's TF slice) — shared by all tabs
+  // a slot whose platoon is DUSTWUN — awaiting a recovery sweep
+  const slotDown = (sl: OrgSlot): boolean =>
+    sl.unitId != null && S.downed.some(d => d.unitId === sl.unitId && !d.resolved)
+
+  // company rows for a battalion (or a battalion's TF slice) — shared by all
+  // tabs. The company LABEL carries its platoons' state: amber when any platoon
+  // has casualties, pulsing when one needs a recovery sweep.
   const renderCos = (list: OrgSlot[], bn: string, depth: number) => {
     const cos = [...new Set(list.map(sl => sl.co))]
     return cos.map(co => {
       const coSlots = list.filter(sl => sl.co === co)
       const coKey = `co:${bn}:${co}`
       const coAgg = aggSum(coSlots.map(sl => slotAggs.get(sl.id)!))
+      const coCas = coAgg.wia + coAgg.kia > 0
+      const coDown = coSlots.some(slotDown)
       return (
         <div key={co}>
           <NodeRow depth={depth} open={open.has(coKey)} onToggle={() => toggle(coKey)}
-            label={<Text span fz="sm" fw={600} c="#b8cede">{co}</Text>} a={coAgg} />
+            label={<Text span fz="sm" fw={600}
+              c={coDown ? COL.mia : coCas ? COL.wia : '#b8cede'}
+              style={coDown ? { animation: 's1pulse 1.2s ease-in-out infinite' } : undefined}>
+              {co}{coDown ? ' — RECOVERY REQ' : coCas ? ' — CASUALTIES' : ''}
+            </Text>} a={coAgg} />
           {open.has(coKey) && coSlots.map(sl => renderSlot(sl, depth + 1))}
         </div>
       )
@@ -396,6 +413,8 @@ export default function S1Console() {
         zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)',
         fontFamily: 'Consolas, monospace', userSelect: 'none',
       }}>
+      {/* DUSTWUN attention pulse (company + platoon labels) */}
+      <style>{'@keyframes s1pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
         <PatchIcon id={pack.patch} h={38} />
         <Text fz="xl" fw={700} c="#dceeff" style={{ letterSpacing: 3 }}>S1 — PERSONNEL</Text>
@@ -522,7 +541,9 @@ export default function S1Console() {
       })()}
 
       <Text fz="xs" c="dark.3" mt="md" pt={8} style={{ borderTop: '1px solid #17222c', letterSpacing: 1 }}>
-        REPLACEMENT PIPELINE — NO FLOW ESTABLISHED (REAR DETACHMENT NOT YET IN THEATER)
+        REPLACEMENT PIPELINE — {pipelineBacklog() > 0
+          ? `${pipelineBacklog()} BILLET${pipelineBacklog() === 1 ? '' : 'S'} REQUESTED · NEXT PACKET ${Math.max(0, Math.ceil((S.replT - S.t) / 60))} MIN · UNITS ABSORB AT A FRIENDLY BASE`
+          : 'NO BACKLOG — REAR DETACHMENT STANDING BY'}
       </Text>
     </Box>
   )

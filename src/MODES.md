@@ -514,3 +514,23 @@ converts to a foot remnant on BREAK (remnantCheck in attritionSync) instead of
 being deleted; the "wiped too easily" fix. Golden UNCHANGED at 84143052 (×2);
 casualty-check 22/22, campaign-check 29/29, phase3-check 14/14. Roadmapped:
 LZ evac / E&E for unreachable sites (GSAB birds).
+
+**P3 — rear detachment & the pipeline (2026-07-25):** `forces/pipeline.ts`
+(new tick slot after recovery). (1) **Combat XP**: FIT soldiers accrue seconds
+in contact (`Soldier.xp`, digest-invisible). (2) **Battlefield promotions**:
+a vacated leadership billet (PL/PSG/Squad Leader/Vehicle Commander) is filled
+by the most-experienced qualified FIT junior — a real rank bump once they've
+banked ~4 min of combat (else "(Acting)"), leadership callsigns transfer, PL/
+PSG changes go out on the net ("FIELD PROMOTED (WAS SPC), ASSUMING GOLF-7-6").
+(3) **Automatic replacements**: packets land every ~2.5 min; fielded units
+ABSORB ONLY AT A FRIENDLY HQ/FOB (the LTC's lever: pull back to refit) and
+garrisoned TF slots rebuild at the HQ — replacements are real named records
+(flagged REPL in S1), backfilled casualties are marked `replaced` (they leave
+ASSIGNED strength but keep the loss columns honest; the element partition
+domain excludes them so fire-team mapping stays stable). Crew billets wait for
+the vehicle chain (v2). (4) **DUSTWUN release**: a resolved site frees its org
+slot — the platoon keeps its colors and rebuilds on its cadre. S1: live
+pipeline footer (backlog + next packet ETA), company labels roll up state
+(amber "— CASUALTIES", pulsing "— RECOVERY REQ" when a platoon is DUSTWUN,
+platoon label pulses too). Golden UNCHANGED at 84143052 (×2); pipeline-check
+12/12 (NEW), casualty 22/22, campaign 29/29, phase3 14/14, roster 8/8.

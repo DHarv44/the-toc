@@ -55,6 +55,7 @@ export function initGame(
   S.contacts = new Map()
   S.structContacts = new Set()
   S.downed = []
+  S.replT = 0
   S.radio = []
   S.difficulty = diff.key as DifficultyKey // diff came from the table; key is a real preset key
   S.damageMul = diff.damageMul

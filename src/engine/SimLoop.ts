@@ -14,6 +14,7 @@ import {
   attritionSync, unitDeaths,
 } from '../domains/forces/update'
 import { recoveryUpdate } from '../domains/forces/recovery'
+import { pipelineUpdate } from '../domains/forces/pipeline'
 import { directFireUpdate, ballisticsUpdate } from '../domains/fires/update'
 import { airUpdate } from '../domains/air/update'
 import { updateContacts } from '../domains/intel/sensing'
@@ -48,6 +49,7 @@ export function tick(dt: number): void {
   structReports()
   attritionSync()         // elements/strength derive from the roster (P2.5)
   recoveryUpdate(dt)      // DUSTWUN sites: capture, secure-dwell, resolution
+  pipelineUpdate(dt)      // P3: combat XP, battlefield promotions, replacements
   unitDeaths()
   structureDeaths()       // incl. tethered aerostat teardown
   MODES[S.mode].update?.(S, dt) // mode logic (e.g. hill control clocks), pre-checkEnd

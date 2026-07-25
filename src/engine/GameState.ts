@@ -78,6 +78,10 @@ export interface Soldier {
   wound?: Wound              // current (or last) injury report
   evac?: boolean             // evacuated out of the mission — billet empty until P3 replaces
   awards?: string[]          // award keys (packs/awards) — Purple Heart lands automatically
+  // P3 pipeline
+  xp?: number                // combat experience (seconds in contact) — drives battlefield promotions
+  repl?: boolean             // arrived through the replacement pipeline (not an original)
+  replaced?: boolean         // this casualty's billet has been backfilled (don't double-fill)
 }
 
 // --- division organization (Packs P3 groundwork) ----------------------------
@@ -553,6 +557,7 @@ export interface GameState {
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   org: DivOrg | null         // the player pack's full division organization (friend side)
   downed: DownedSite[]       // DUSTWUN sites awaiting recovery (friend wipes)
+  replT: number              // next replacement-packet arrival (P3 pipeline clock)
   enemyFiresOkT: number      // next sim time ANY OPFOR fire mission may launch (rolled window)
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
@@ -605,6 +610,7 @@ export function createInitialState(): GameState {
     campaign: null,
     org: null,
     downed: [],
+    replT: 0,
     enemyFiresOkT: -999,
     nextWave: 60,
     airCooldown: {},

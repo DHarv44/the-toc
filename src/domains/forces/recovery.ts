@@ -6,6 +6,7 @@
 // The tick only watches geometry and time; all fate math lives in casualties.
 import { S } from '../../engine/state'
 import { resolveDownedSite } from './casualties'
+import { releaseSlot } from './pipeline'
 import { radio, toast } from '../comms/radio'
 import { grid } from '../../lib/format'
 
@@ -38,6 +39,7 @@ export function recoveryUpdate(dt: number): void {
     const medBonus = S.units.some(u => u.side === site.side && u.type === 'MED'
       && u.strength > 0 && Math.hypot(u.x - site.x, u.y - site.y) < 450)
     const out = resolveDownedSite(site, { medBonus })
+    releaseSlot(site.unitId) // the platoon keeps its colors — cadre rebuilds in garrison
     if (site.side === 'friend') {
       const bits = [
         out.fit ? `${out.fit} RECOVERED FIT` : '',

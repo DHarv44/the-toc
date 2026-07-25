@@ -59,7 +59,9 @@ function elementSlice(u: Unit, el: UnitElement): { veh: UnitVehicle | null; sold
     const veh = u.vehicles[vi] ?? null
     return { veh, soldiers: veh ? u.soldiers.filter(s => s.vehId === veh.id) : [] }
   }
-  const dismounts = u.soldiers.filter(s => s.vehId === null)
+  // replaced casualty records leave the partition domain — their billet is
+  // held by a pipeline replacement appended later (P3), keeping D authorized
+  const dismounts = u.soldiers.filter(s => s.vehId === null && !s.replaced)
   const troopEls = u.elements.filter(e => e.kind === 'troop')
   const k = troopEls.indexOf(el), T = troopEls.length, D = dismounts.length
   if (k < 0 || !T || !D) return { veh: null, soldiers: [] }
@@ -116,7 +118,7 @@ export function killElement(u: Unit, el: UnitElement): void {
 // or a returned fire team revives its element):
 export function deriveElements(u: Unit): void {
   let vi = 0
-  const dismounts = u.soldiers.filter(s => s.vehId === null)
+  const dismounts = u.soldiers.filter(s => s.vehId === null && !s.replaced)
   const troopEls = u.elements.filter(e => e.kind === 'troop')
   const T = troopEls.length, D = dismounts.length
   for (const el of u.elements) {

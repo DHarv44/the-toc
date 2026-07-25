@@ -38,7 +38,8 @@ const JR = ['PVT', 'PFC', 'PFC', 'SPC', 'SPC', 'SPC']
 const pick = <T,>(arr: readonly T[], h: number): T => arr[Math.abs(h) % arr.length]!
 
 // position + rank for a dismount, by kind and its index within that kind group
-function dismountBillet(kind: TroopKindKey, idx: number, groupN: number, h: number): { pos: string; rank: string } {
+// (exported for the P3 pipeline — replacements arrive with a junior billet)
+export function dismountBillet(kind: TroopKindKey, idx: number, groupN: number, h: number): { pos: string; rank: string } {
   switch (kind) {
     case 'LEADER':
       // casualty order: the LAST leader standing is the PL
