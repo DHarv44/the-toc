@@ -1,11 +1,10 @@
-// Campaign UI: the opening-briefing modal, the non-blocking FRAGO card, and the
-// persistent objectives tracker. All of it reads S.campaign and the campaign
-// runner (engine/campaign); it renders nothing outside campaign mode. Visual
-// language matches EndScreen.
+// Campaign UI: the persistent objectives tracker (with the recallable orders
+// log). Orders themselves arrive over the DIV VTC — see ui/Vtc.tsx. Renders
+// nothing outside campaign mode. Visual language matches EndScreen.
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  OPERATION, evalObjective, ackBriefing, ackFrago, type ObjectiveSpec,
+  OPERATION, evalObjective, recallFrago, type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
@@ -32,7 +31,9 @@ function progressText(o: ObjectiveSpec, c: CampaignState): string {
 }
 
 // ---------------------------------------------------------------------------
-// Persistent tracker — anchored top-left of the map column.
+// Persistent tracker — anchored top-left of the map column. The card itself
+// ignores the pointer so it never blocks map clicks; only the small VTC-recall
+// buttons at the bottom are interactive.
 // ---------------------------------------------------------------------------
 export function CampaignObjectives() {
   useUI((s) => s.tick)
@@ -73,115 +74,26 @@ export function CampaignObjectives() {
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Briefing / debrief full-screen modal — holds the sim (speed 0) until dismissed.
-// ---------------------------------------------------------------------------
-function ModalShell({ tag, title, children, actionLabel, onAction }: {
-  tag: string; title: string; children: React.ReactNode; actionLabel: string; onAction: () => void
-}) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 105,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(circle at 50% 30%, rgba(14,26,36,0.97) 0%, rgba(5,8,11,0.98) 70%)',
-      color: '#c8d8e8', fontFamily: 'Consolas, monospace', userSelect: 'none',
-    }}>
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.12, pointerEvents: 'none',
-        backgroundImage: 'linear-gradient(#2a3a48 1px, transparent 1px), linear-gradient(90deg, #2a3a48 1px, transparent 1px)',
-        backgroundSize: '48px 48px',
-      }} />
-      <div style={{
-        position: 'relative', width: 560, maxWidth: '90vw',
-        background: 'rgba(12,20,28,0.9)', border: '1px solid #2a3a48', borderTop: `3px solid ${ACCENT}`,
-        borderRadius: 3, padding: '26px 30px 22px',
-      }}>
-        <div style={{ fontSize: 10, letterSpacing: 4, color: '#54708a' }}>{tag}</div>
-        <div style={{ fontSize: 26, fontWeight: 'bold', letterSpacing: 5, color: '#dceeff', marginTop: 8 }}>
-          {title}
-        </div>
-        <div style={{ height: 1, background: '#24343f', margin: '16px 0' }} />
-        {children}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-          <button onClick={onAction}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#2a5a8a'; e.currentTarget.style.borderColor = ACCENT }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16,26,36,0.85)'; e.currentTarget.style.borderColor = '#2a3a48' }}
-            style={{
-              padding: '10px 30px', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit',
-              background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48', borderLeft: `3px solid ${ACCENT}`,
-              color: '#e6f0f8', fontSize: 12, letterSpacing: 3, fontWeight: 'bold',
-              transition: 'background 0.12s, border-color 0.12s',
-            }}>{actionLabel}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function CampaignGate() {
-  useUI((s) => s.tick)
-  const c = S.campaign
-  if (!c || c.complete) return null // campaign victory routes through EndScreen
-
-  // the campaign-opening briefing — the one modal left. Lists only the opening
-  // taskings; follow-ons arrive by FRAGO mid-fight.
-  if (!c.briefed) {
-    return (
-      <ModalShell tag="OPERATION — BRIEFING" title={OPERATION.name}
-        actionLabel="ACKNOWLEDGE" onAction={() => { ackBriefing(S); bump() }}>
-        <div style={{ fontSize: 13, lineHeight: 1.65, color: '#b6cce0' }}>{OPERATION.brief}</div>
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 9, letterSpacing: 2.5, color: '#5f7d95', marginBottom: 6 }}>OBJECTIVES</div>
-          {OPERATION.objectives.slice(0, revealedEnd(0)).map((o, i) => (
-            <div key={o.id} style={{ display: 'flex', gap: 8, fontSize: 11.5, color: '#cfe2f2', margin: '3px 0' }}>
-              <span style={{ color: '#5f7d95' }}>{i + 1}.</span>{o.label}
-            </div>
-          ))}
-        </div>
-      </ModalShell>
-    )
-  }
-  return null
-}
-
-// ---------------------------------------------------------------------------
-// FRAGO card — new orders from higher, dropped in while the sim RUNS. Sits
-// under the objectives tracker; reading it is optional, dismissing it is the
-// only interaction. The continuous campaign's replacement for mission modals.
-// ---------------------------------------------------------------------------
-export function FragoCard() {
-  useUI((s) => s.tick)
-  const c = S.campaign
-  if (!c || c.complete || c.frago == null) return null
-
-  return (
-    <div style={{
-      position: 'absolute', top: 10, left: 278, zIndex: 30, width: 300,
-      background: 'rgba(19,15,7,0.93)', border: '1px solid #4a3c1e', borderLeft: '3px solid #e8b34a',
-      borderRadius: 3, padding: '10px 13px', fontFamily: 'Consolas, monospace', userSelect: 'none',
-    }}>
-      <div style={{ fontSize: 8.5, letterSpacing: 2.5, color: '#a8863e' }}>
-        FRAGO — NEW TASKING
-      </div>
-      <div style={{ fontSize: 13.5, letterSpacing: 2, color: '#f2ddb0', fontWeight: 'bold', marginTop: 2 }}>
-        {c.frago.title}
-      </div>
-      <div style={{ height: 1, background: '#4a3c1e', margin: '7px 0' }} />
-      <div style={{ fontSize: 10.5, lineHeight: 1.55, color: '#d8c493' }}>{c.frago.text}</div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 9 }}>
-        <button onClick={() => { ackFrago(S); bump() }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#e8b34a' }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#4a3c1e' }}
-          style={{
-            padding: '5px 14px', borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit',
-            background: 'rgba(30,24,12,0.9)', border: '1px solid #4a3c1e',
-            color: '#f2ddb0', fontSize: 10, letterSpacing: 2, fontWeight: 'bold',
-          }}>ACKNOWLEDGE</button>
-      </div>
+      {/* orders log: reopen any received VTC (interactive island in a
+          pointer-transparent card) */}
+      {c.briefed && c.fragoLog.length > 0 && (
+        <>
+          <div style={{ height: 1, background: '#24343f', margin: '7px 0 5px' }} />
+          <div style={{ fontSize: 8, letterSpacing: 2, color: '#5f7d95', marginBottom: 3 }}>ORDERS — RECALL VTC</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, pointerEvents: 'auto' }}>
+            {c.fragoLog.map((e, i) => (
+              <button key={i} onClick={() => { recallFrago(S, i); bump() }}
+                onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = '#e8b34a'; ev.currentTarget.style.color = '#f2ddb0' }}
+                onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = '#2a3a48'; ev.currentTarget.style.color = '#9ab8d0' }}
+                style={{
+                  padding: '2px 7px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+                  background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
+                  color: '#9ab8d0', fontSize: 8.5, letterSpacing: 1,
+                }}>▸ {e.title}</button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

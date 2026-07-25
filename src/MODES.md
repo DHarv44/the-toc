@@ -121,6 +121,19 @@ stays on the board as a KNOWN installation (structContacts), and the garrison is
 seeded as a SUSPECTED stale contact with ~200 m templating error; scouts still
 have to make it a live track.
 
+**DIV VTC (2026-07-24):** orders arrive over a mock SECURE VTC (`ui/Vtc.tsx`) —
+the CG's "camera" (silhouette + scanlines + speaking bars) beside a staff
+POWERPOINT slide rendered live from world state (terrain-crop map inset, blue
+axis-of-advance arrow HQ→OBJ, red OBJ ellipse, suspected-contact diamonds, FLOT
+trace, task bullets, EXERCISE banners, DTG). The opening OPORD is the first VTC
+(blocking, `VtcOpener`, sim held until ACKNOWLEDGE); FRAGOs are non-blocking
+(`VtcFrago`, END CALL) — the world runs while higher talks. Voice: `radioBrief`
+in audio/audio.ts — the net-chatter syllable engine at conference grade (deep
+command register, sentence pacing, low static, ~22 s cap; the tactical net
+yields while the CG is on). Every order lands in `CampaignState.fragoLog`
+(serializable) and is recallable from the tracker's ORDERS row (`recallFrago`) —
+the slide redraws from CURRENT world state on replay.
+
 **Continuous-campaign rework (2026-07-24, same day as slice v1):**
 - **Authored map layout** — `MapLayout` in `world/mapgen.ts` (campaign passes
   `CAMPAIGN_LAYOUT`, skirmish passes nothing and stays byte-identical): pins the

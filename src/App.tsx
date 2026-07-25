@@ -8,7 +8,8 @@ import CommandPanel from './ui/CommandPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
-import CampaignGate, { CampaignObjectives, FragoCard } from './ui/CampaignHUD'
+import { CampaignObjectives } from './ui/CampaignHUD'
+import { VtcOpener, VtcFrago } from './ui/Vtc'
 import TutorialOverlay from './ui/tutorial'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
@@ -58,14 +59,14 @@ export default function App() {
         <div style={{ flex: 1, position: 'relative', minWidth: 0, overflow: 'hidden' }}>
           <MapView />
           <HUD />
-          {/* campaign objectives tracker + FRAGO card — null outside campaign mode */}
+          {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
           <CampaignObjectives />
-          <FragoCard />
+          <VtcFrago />
         </div>
         <NetPanel />
       </div>
-      {/* campaign opening briefing — holds the sim until acknowledged (M1 only) */}
-      <CampaignGate />
+      {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}
+      <VtcOpener />
       {/* campaign guided-tutorial cues (renders null outside a tutorial campaign) */}
       <TutorialOverlay />
       {/* end-of-match overlay: unmounts with the layout on NEW GAME, so a fresh

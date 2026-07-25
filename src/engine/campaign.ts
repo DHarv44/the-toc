@@ -331,6 +331,8 @@ export function startCampaign(S: GameState): void {
   const town = pickAnchorTown(S)
   S.campaign = {
     objIdx: 0, briefed: false, frago: null, complete: false,
+    // the opening OPORD is the first entry in the recallable orders log
+    fragoLog: [{ title: OPERATION.name, text: OPERATION.brief, t: 0 }],
     status: OPERATION.objectives.map(() => 'pending'),
     hold: 0, delivered: 0, deliverBase: 0, eventT: null,
     opforObj: null, allow: { field: false, support: false, drone: true },
@@ -359,9 +361,17 @@ function activateObjective(S: GameState, c: CampaignState): void {
   }
   if (obj.frago && c.briefed) {
     c.frago = obj.frago
-    radio('NET', 'arrive', `FRAGO — ${obj.frago.title}. NEW TASKING ON THE BOARD.`, undefined, undefined)
+    c.fragoLog.push({ ...obj.frago, t: S.t })
+    radio('NET', 'arrive', `FRAGO — ${obj.frago.title}. DIV HQ ON THE VTC.`, undefined, undefined)
     toast(`FRAGO — ${obj.frago.title}`)
   }
+}
+
+// Reopen a received order from the log (the VTC replays it; sim keeps running).
+export function recallFrago(S: GameState, idx: number): void {
+  const c = S.campaign
+  const e = c?.fragoLog[idx]
+  if (c && e) c.frago = { title: e.title, text: e.text }
 }
 
 // Acknowledge the opening briefing (UI ACKNOWLEDGE) and resume the sim.

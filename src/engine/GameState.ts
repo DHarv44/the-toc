@@ -397,7 +397,8 @@ export type ObjStatus = 'pending' | 'active' | 'done'
 export interface CampaignState {
   objIdx: number             // current objective in the operation (sequential)
   briefed: boolean           // opening briefing acknowledged (false = paused on it)
-  frago: { title: string; text: string } | null // unread FRAGO card (non-blocking, sim runs on)
+  frago: { title: string; text: string } | null // the OPEN VTC (new tasking, or recalled from the log)
+  fragoLog: Array<{ title: string; text: string; t: number }> // every order received (recallable VTCs)
   complete: boolean          // whole campaign won (checkEnd reads this)
   status: ObjStatus[]        // per-objective UI state across the WHOLE operation
   hold: number               // accumulated hold seconds (hold-for-time objectives)

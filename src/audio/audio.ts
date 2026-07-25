@@ -264,6 +264,54 @@ export function radioMsg(text: string, seed = '', priority = 0): void {
   lastRadio = t + 0.05
 }
 
+// Long-form briefing voice — the DIV commander on a SECURE VTC. Same syllable
+// engine as the net chatter, but conference-grade: a deep, measured command
+// register, sentence-paced with real breath pauses, minimal channel noise, and
+// no 3 s transmission cap (bounded ~22 s so a long FRAGO trails off instead of
+// droning). The tactical net yields while the CG talks. Returns the scheduled
+// duration in seconds (0 = audio unavailable) so the UI can animate the
+// "speaking" indicator for exactly that long.
+export function radioBrief(text: string, seed = 'DIV-CG'): number {
+  if (muted) return 0
+  ensureAudio()
+  if (!audioReady() || !radioBus) return 0
+  const v: VoiceProfile = {
+    pitch: 68 + (Math.abs(hashStr(seed)) % 22),   // 68..90 Hz — command register
+    wave: 'sawtooth', q: 2.2, rate: 1,
+    f1: 380, f2: 1050,
+    staticAmt: 0.015,                              // secure link, not a whip antenna
+    growl: true,
+  }
+  let t = ctx!.currentTime + 0.15
+  const t0 = t
+  radioClick(t, 0.3); t += 0.12
+  const sentences = String(text).split(/(?<=[.!?])\s+/).filter(Boolean)
+  const CAP = 22
+  outer:
+  for (const sent of sentences) {
+    const words = sent.replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean)
+    let contour = 0.05
+    for (const w of words) {
+      const n = sylCount(w)
+      for (let k = 0; k < n; k++) {
+        if (t - t0 > CAP) break outer
+        const pitch = v.pitch * (1 + contour) * (0.98 + Math.random() * 0.04)
+        const dur = 0.15 + Math.random() * 0.08    // slower, measured delivery
+        radioSyllable(t, pitch, v, dur)
+        t += dur + 0.07
+        contour += (Math.random() - 0.5) * 0.04
+      }
+      t += 0.14
+      contour = contour * 0.85 - 0.015             // settling statement inflection
+    }
+    t += 0.5                                        // breath between sentences
+  }
+  radioStatic(t0 - 0.02, (t - t0) + 0.06, 0.012)
+  radioSquelch(t + 0.05)
+  lastRadio = t + 0.05 // the net stays quiet while higher is talking
+  return (t - ctx!.currentTime) + 0.2
+}
+
 // --- per-drone-type ambient platform loops (engine/prop/motor) ---
 // Each airframe gets its own signature, played only while its feed is open. `base` = tonal
 // fundamental (Hz, 0 = none), `harm` = harmonic ratios, `cutoff` = lowpass (muffling),
