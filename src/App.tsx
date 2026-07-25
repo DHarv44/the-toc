@@ -13,6 +13,7 @@ import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
 import S1Console from './ui/S1Console'
 import CommandDashboard from './ui/CommandDashboard'
+import PackViewer from './ui/PackViewer'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
@@ -76,6 +77,7 @@ export default function App() {
             {/* consoles replace the map column while open */}
             <S1Console />
             <CommandDashboard />
+            <PackViewer />
           </div>
           <SelectionTray />
         </div>

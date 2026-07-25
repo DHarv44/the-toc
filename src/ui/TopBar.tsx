@@ -109,6 +109,8 @@ export default function TopBar() {
             <Button size="sm" variant={S.fogEnabled ? 'default' : 'filled'}
               onClick={() => { S.fogEnabled = !S.fogEnabled }}>FOG</Button>
             <Button size="sm" variant="default" onClick={() => { S.resources += 10000 }}>+10K</Button>
+            <Button size="sm" variant={ui.console === 'packs' ? 'filled' : 'default'}
+              onClick={() => ui.setConsole(ui.console === 'packs' ? null : 'packs')}>PACK</Button>
           </>
         )}
 
