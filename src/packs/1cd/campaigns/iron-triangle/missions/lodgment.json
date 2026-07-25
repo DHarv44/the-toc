@@ -84,20 +84,6 @@
         "done": { "kind": "roe-set", "type": "SCT", "roe": "break" }
       },
       {
-        "id": "field-force",
-        "gate": true,
-        "hints": [
-          { "when": { "kind": "not", "of": { "kind": "callup-open" } },
-            "text": "BUILD YOUR ASSAULT FORCE — the rest of your battalion is still in garrison. Call up at least THREE more elements: the mix is your call as commander.",
-            "action": "CLICK ＋ CALL UP in the FORCES rail.",
-            "anchor": { "kind": "ui", "sel": "call-up" } },
-          { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements. The mix is your call: two Bradley platoons and the mortars is a solid start for clearing a town.",
-            "action": "CLICK ⊕ on the platoons you want (three or more).",
-            "anchor": { "kind": "ui", "sel": "garrison-list" } }
-        ],
-        "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }
-      },
-      {
         "id": "move-recon",
         "hints": [
           { "when": { "kind": "routed-to-marker", "type": "SCT" }, "hide": true },
@@ -106,6 +92,19 @@
             "anchor": { "kind": "screen-marker" } }
         ],
         "done": { "kind": "unit-beyond", "type": "SCT", "dist": 500 }
+      },
+      {
+        "id": "field-force",
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "callup-open" } },
+            "text": "BUILD YOUR ASSAULT FORCE — while the scouts screen forward, call up the rest of your force. At least THREE more elements: the mix is your call as commander.",
+            "action": "CLICK ＋ CALL UP in the FORCES rail.",
+            "anchor": { "kind": "ui", "sel": "call-up" } },
+          { "text": "BUILD YOUR ASSAULT FORCE — call up at least THREE more elements while the scouts are moving. The mix is your call: two Bradley platoons and the mortars is a solid start for clearing a town.",
+            "action": "CLICK ⊕ on the platoons you want (three or more).",
+            "anchor": { "kind": "ui", "sel": "garrison-list" } }
+        ],
+        "done": { "kind": "fielded", "exclude": ["SCT"], "min": 3 }
       },
       {
         "id": "deploy-drone",

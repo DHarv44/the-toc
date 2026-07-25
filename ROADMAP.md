@@ -1581,14 +1581,15 @@ rows). Same services the rails use (fieldSlot / orderReturnToGarrison /
 toggleQrf / group assignment) — the shop pages just get the buttons. Keeps the
 "two surfaces, one truth" pattern: rails = quick actions, shops = staff depth.
 
-### VTC shows real troop avatars ⬜ *(user 2026-07-25)*
-The VTC cam tiles show stylized silhouettes — they should show the ACTUAL
-soldier's avatar (the Portrait factory already renders deterministic faces for
-every roster soldier). Speaker tile = the staff officer's real portrait
-(shopOfficer resolves the person); attendee tiles (XO/S3/CSM/NCOIC) = their
-portraits from the org; the player tile = the commander's. The CG needs a
-generated division-commander identity (MG + portrait) instead of the generic
-'CG · 1CD' tile — that name should come from pack/campaign config, not code.
+### VTC shows real troop avatars ✅ *(user 2026-07-25 — SHIPPED same day)*
+Every tile on the VTC is a REAL person's DA photo (Portrait factory, framed
+as a cameras-off avatar): the CG (the actual Commanding General the org
+generates — MG on the division roster, named on the tile), report-call
+speakers (the shop officer via the report's shop), attendees (XO/S3/CSM/
+NCOIC from the org), and the player's own tile (the battalion commander
+soldier). Silhouette remains only as the no-person fallback. Principle
+settled: anyone on the division roster has an avatar — anything that puts a
+person on screen resolves the real soldier.
 
 ### DIV HQ product headers — the header goes ON the PPT ⬜ *(user 2026-07-25)*
 *(Interim step shipped same day: the big masthead ABOVE the deck was removed;

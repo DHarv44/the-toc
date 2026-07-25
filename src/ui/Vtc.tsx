@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import { useUI } from './store'
-import { ackBriefing, ackFrago } from '../engine/campaign'
+import { ackBriefing, ackFrago, shopOfficer } from '../engine/campaign'
 import { renderTerrainLayer, TERRAIN_PX } from '../map/mapRender'
 import { CELL } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
@@ -22,6 +22,7 @@ import { playerPack } from '../packs'
 import type { StaffShop } from '../engine/GameState'
 import BnHeader from './BnHeader'
 import { PatchIcon } from './insignia'
+import { Portrait } from './portrait'
 
 const AMBER = '#e8b34a'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
@@ -335,20 +336,34 @@ function drawSlide(cv: HTMLCanvasElement, idx: number): void {
 // ---------------------------------------------------------------------------
 // Camera tiles
 // ---------------------------------------------------------------------------
-function CamTile({ label, sub, h, speaking, bars }: {
+function CamTile({ label, sub, h, speaking, bars, seed }: {
   label: string; sub?: string; h: number; speaking?: boolean; bars?: boolean
+  seed?: string   // the REAL person's portrait seed — cameras-off VTC shows the DA photo
 }) {
+  const photoH = Math.min(Math.round(h * 0.62), 150)
   return (
     <div style={{
       position: 'relative', height: h, borderRadius: 3, overflow: 'hidden',
       background: 'radial-gradient(circle at 50% 42%, #22303c 0%, #101820 70%)',
       border: '1px solid #24343f',
     }}>
-      <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="xMidYMax meet">
-        <ellipse cx="50" cy="40" rx="15" ry="18" fill="#060a0e" />
-        <path d="M 18 100 Q 22 64 50 62 Q 78 64 82 100 Z" fill="#060a0e" />
-        <rect x="44" y="68" width="12" height="5" fill="#3a4a34" />
-      </svg>
+      {seed ? (
+        // the actual soldier's DA photo, framed like a cameras-off avatar
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ border: '1px solid #33454f', borderRadius: 3, padding: 3, background: '#0c1218' }}>
+            <Portrait seed={seed} w={Math.round(photoH * 28 / 34)} h={photoH} />
+          </div>
+        </div>
+      ) : (
+        <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="xMidYMax meet">
+          <ellipse cx="50" cy="40" rx="15" ry="18" fill="#060a0e" />
+          <path d="M 18 100 Q 22 64 50 62 Q 78 64 82 100 Z" fill="#060a0e" />
+          <rect x="44" y="68" width="12" height="5" fill="#3a4a34" />
+        </svg>
+      )}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px)',
@@ -390,9 +405,23 @@ function bnStaff(pos: string) {
   }
   return undefined
 }
+const seedOf = (s?: { pid?: string; id: number }) => s ? (s.pid ?? `s:${s.id}`) : undefined
+// division-wide billet lookup: the CG is a REAL person on the division roster
+// (org.ts generates the Commanding General with the rest of the formation)
+function divStaff(pos: string) {
+  for (const sl of S.org?.slots ?? []) {
+    const s = sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
+    if (s) return s
+  }
+  return undefined
+}
 const staffTile = (short: string, pos: string) => {
   const s = bnStaff(pos)
-  return { label: short, sub: s ? `${s.rank} ${(s.name ?? '').split(' ').pop()}` : undefined }
+  return {
+    label: short,
+    sub: s ? `${s.rank} ${(s.name ?? '').split(' ').pop()}` : undefined,
+    seed: seedOf(s), // the real person's DA photo on the tile
+  }
 }
 
 export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: {
@@ -516,8 +545,21 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
           {/* roster column: the CG + attendees — a CALL thing; a review is just the document */}
           {!review && (
           <div style={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <CamTile label={entry.speaker ? entry.speaker.name : 'CG · 1CD'}
-              sub={entry.speaker?.title} h={390} bars speaking={speaking} />
+            {/* the speaker: a staff report call puts the REAL shop officer's
+                photo up (resolved from the org via the report's shop); a CG
+                call puts up the ACTUAL Commanding General from the division
+                roster — everyone on the net is a real person */}
+            {(() => {
+              const cg = entry.speaker ? undefined : divStaff('Commanding General')
+              return (
+                <CamTile
+                  label={entry.speaker ? entry.speaker.name
+                    : cg ? `${cg.rank} ${(cg.name ?? '').split(' ').pop()}` : 'CG'}
+                  sub={entry.speaker?.title ?? `CG · ${playerPack().abbr}`}
+                  h={390} bars speaking={speaking}
+                  seed={entry.shop ? seedOf(shopOfficer(S, entry.shop) ?? undefined) : seedOf(cg)} />
+              )
+            })()}
             <div style={{ fontSize: 9, letterSpacing: 2, color: '#54708a' }}>
               {(() => {
                 const who = entry.speaker ? entry.speaker.title.split(' —')[0] : 'CG'
@@ -525,9 +567,11 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               })()}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {/* your own preview tile, like any real VTC client — you are COBALT 6 */}
-              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="COBALT 6" h={124} />
-              {attendees.map(a => <CamTile key={a.label} label={a.label} sub={a.sub} h={124} />)}
+              {/* your own preview tile, like any real VTC client — you are COBALT 6,
+                  and your soldier exists in the org (the battalion commander) */}
+              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="COBALT 6" h={124}
+                seed={seedOf(bnStaff('Battalion Commander'))} />
+              {attendees.map(a => <CamTile key={a.label} label={a.label} sub={a.sub} seed={a.seed} h={124} />)}
             </div>
           </div>
           )}

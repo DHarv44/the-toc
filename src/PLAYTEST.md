@@ -113,3 +113,10 @@
       AGAIN checkbox holds for the session)
 - [x] Unit cooldowns REMOVED (org roster is the limiter; force cap stays;
       C-130/drone/asset turnarounds untouched on the air side)
+
+## VTC real avatars (2026-07-25 latest)
+- [x] Opener VTC: CG tile = the ACTUAL Commanding General (MG, named) with
+      his DA photo; attendees XO/S3/CSM + COBALT 6 (you) all real portraits
+      — VERIFIED live
+- [ ] EYES ONLY: report call (open a PERSTAT first time) — the S1 officer's
+      photo on the speaker tile
