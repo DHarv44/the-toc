@@ -128,3 +128,13 @@
       any showing instruction completes) — sequencing verified by flow
 - [ ] BY EAR: soft two-note chime when each new TRAINING instruction pops
       (respects master mute)
+
+## Unit assets in the tray + VTC chrome (2026-07-25 final Fable batch)
+- [x] Raven/Switchblade launch = TRAY buttons (unit assets live with unit
+      actions; Command rail's ORGANIC UAS section removed) — VERIFIED ref
+      probe (⊕ RQ-11 RAVEN / ⊕ SWITCHBLADE LM beside RTB)
+- [ ] EYES ONLY: Raven feed pops on launch; tutorial deploy-drone step rings
+      the tray button mid-drive
+- [x] VTC: roster|deck divider, slide-sorter thumbnails (click-to-jump
+      verified), footer bar w/ ACKNOWLEDGE, presenter avatar larger than
+      attendees — all VERIFIED live

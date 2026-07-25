@@ -390,10 +390,8 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
       sections.push({ header: 'INSTALLATIONS',
         items: Object.values(STRUCTURES).filter(st => !(S.campaign && st.key === 'AFLD')).map(structItem) })
     }
-    if (t.carries && t.carries.length) {
-      // organic UAS field one-click over the unit — sourceId carries the unit id
-      sections.push({ header: 'ORGANIC UAS', items: t.carries.map(k => DRONE_TYPES[k]).filter(Boolean).map(dt => organicDroneItem(dt, u.id)) })
-    }
+    // (organic UAS moved to the bottom tray — a unit ASSET launches with the
+    // unit's ACTIONS, not from the Command rail)
     if (!sections.length) return null
     return { title: `${u.label} — ${t.name.toUpperCase()}`, sourceId: u.id, sections }
   }

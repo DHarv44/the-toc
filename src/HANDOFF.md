@@ -1,4 +1,43 @@
-# HANDOFF — 2026-07-25 (compact anchor; Fable 5 → Opus)
+# HANDOFF — 2026-07-25 (FINAL Fable 5 anchor → Opus takes over here)
+
+## ⚓ OPUS START HERE — state as of the last Fable commit (all pushed, tree clean)
+
+**FINAL FABLE BATCH (past f02fffa) — all verified live in browser, tsc clean:**
+- **FORCES rail final shape**: body = ACTIVE force (INDEPENDENT first, then
+  formed groups); ＋ CALL UP is a footer BUTTON; the picker is a FLYOUT PANEL
+  to the LEFT of the Forces panel (base chips, unit-type icon tabs, ✕/DONE);
+  garrison hidden until called for (S1 = deep dive).
+- **Unit assets live in the BOTTOM TRAY** (user: "this is a unit asset. the
+  bottom menu is unit and group actions"): ⊕ RAVEN / ⊕ SWITCHBLADE launch
+  buttons render for carrier units beside RTB/GARRISON →; the Command rail's
+  ORGANIC UAS section was REMOVED (that's what had silently broken Raven
+  launch). Tutorial anchor `uas-raven` rides the tray button now.
+- **VTC**: real avatars everywhere (CG = the actual MG from the div roster;
+  presenter portrait scales larger than attendees), roster|deck divider,
+  slide-sorter thumbnail rail (click-to-jump), footer bar with ACKNOWLEDGE.
+- **Tutorial**: sequence = call up scouts → BREAK → SCREEN FORWARD →
+  build-the-force + Raven WHILE the scouts drive (both un-gated); instruction
+  chime (tutorialCue, mute-gated — BY-EAR check pending); tall ring targets
+  get side callouts (right), ring hugs the unit rows; auto-center+zoom via
+  map/view.ts centerView.
+
+**OPUS PRIORITY QUEUE (user-ordered):**
+1. **Bottom menu (selection tray) UI rework** — see ROADMAP "Bottom menu
+   (selection tray) UI rework": grouping, visual language, room to grow.
+2. **Unit/attachment REQUESTS from division** (asset pipeline's sibling —
+   design in this file, build it).
+3. **Full tutorial playtest run** (cold start → dig-in → M2) and fix what it
+   exposes; PLAYTEST.md is the script.
+4. S4 side missions (#33, PACK-MISSIONS.md) · commander-created NAMED battle
+   groups · force management from shop pages · G-shop product headers ·
+   #26 attack aviation · #28 hardcode audit · #10 P4 · #15 architecture pass.
+
+Gates to respect: golden 3077619369 (skirmish) · campaign-check 37/37 ·
+tsc clean · packs are SELF-CONTAINED (packs/README.md) · no unit cooldowns ·
+the user is NOT named Dave (no names).
+
+---
+(previous anchor below for context)
 
 ## ⚓ COMPACT ANCHOR — state as of commit `f02fffa` (all pushed, tree clean)
 

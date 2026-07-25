@@ -16,7 +16,7 @@ import {
 import { convertToHq, orderReturnToGarrison } from '../domains/installations/orders'
 import {
   droneFollow, droneLock, droneSensorMode, droneFire, droneToggleTarget,
-  droneClearTargets, droneSet, droneRTB,
+  droneClearTargets, droneSet, droneRTB, fieldUnitDrone,
 } from '../domains/air/orders'
 import { gunshipSelectWeapon, gunshipSetMode } from '../domains/air/gunship'
 import { revealContact } from '../domains/intel/sensing'
@@ -313,6 +313,27 @@ export function SelectionTray() {
             PONTOON BRIDGE
           </button>
         )}
+        {/* UNIT ASSETS: organic UAS the selected unit carries — launching is a
+            unit action, so it lives here with the rest of them (the Raven goes
+            up right over the platoon and pops its feed) */}
+        {(() => {
+          const carrier = units.find(u => (UNIT_TYPES[u.type].carries?.length ?? 0) > 0)
+          if (!carrier) return null
+          return UNIT_TYPES[carrier.type].carries!.map(k => {
+            const dt = DRONE_TYPES[k]
+            if (!dt) return null
+            return (
+              <button key={k} data-tut={k === 'RAVEN' ? 'uas-raven' : undefined} style={btn(false)}
+                title={`Launch the ${dt.name} over ${carrier.label} — live feed of the ground ahead`}
+                onClick={() => {
+                  const d = fieldUnitDrone(carrier.id, k)
+                  if (d && d.id != null) ui.showDrone(d.id)
+                }}>
+                ⊕ {dt.name.toUpperCase()}
+              </button>
+            )
+          })
+        })()}
         {/* Garrison flows: RTB = return to the element's ASSIGNED garrison
             (every element carries one, even deployed — CP by default);
             GARRISON → = reassign: click a friendly base, they drive there,

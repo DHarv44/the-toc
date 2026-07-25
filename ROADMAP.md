@@ -1566,6 +1566,15 @@ only reporting the failure.
 
 ## Later / Deferred
 
+### Bottom menu (selection tray) UI rework ⬜ *(user 2026-07-25 — for Opus)*
+The tray has grown organically and needs a deliberate UI pass: it now holds
+HOLD/RANGE/MOUNT/DISMOUNT/FIRE MISSION/PONTOON BRIDGE/unit-asset launches
+(⊕ RAVEN / ⊕ SWITCHBLADE — moved here 2026-07-25, they're UNIT assets so they
+live with unit actions)/RTB/GARRISON →/SUPPLY RUN/CLEAR plus the CMD/ROUTE/
+ON CONTACT/WPNS/DIG IN row. Needs grouping (actions vs assets vs garrison vs
+SOPs), consistent visual language, and room to grow (attack aviation adds
+more). Design it as a real control surface, not a button pile.
+
 ### Commander-created battle groups ⬜ *(user 2026-07-25)*
 Deliberate, NAMED battle groups the commander creates (＋ NEW GROUP in the
 FORCES rail): pick elements (fielded or straight from garrison), name/number

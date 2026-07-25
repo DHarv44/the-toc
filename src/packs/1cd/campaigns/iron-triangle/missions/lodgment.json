@@ -114,7 +114,7 @@
             "action": "LEFT-CLICK your recon platoon.",
             "anchor": { "kind": "unit", "type": "SCT" } },
           { "text": "LAUNCH THE RAVEN — its drone goes up right over the platoon and gives you a live feed of the ground ahead.",
-            "action": "CLICK the ⊕ on the Raven row, in the COMMAND rail on the left.",
+            "action": "CLICK ⊕ RAVEN in the bottom tray.",
             "anchor": { "kind": "ui", "sel": "uas-raven" } }
         ],
         "done": { "kind": "drone-aloft" }
