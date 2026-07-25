@@ -437,11 +437,6 @@ export default function S1Console() {
             <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
               {playerBn ?? pack.abbr}
             </Text>
-            {playerBn && pack.mottos?.[playerBn] && (
-              <Text fz="md" fw={600} c="#c8a83c" style={{ letterSpacing: 1.5 }}>
-                “{pack.mottos[playerBn]}”
-              </Text>
-            )}
             {playerBn && pack.nicks?.[playerBn] && (
               <Text fz="md" fw={700} c="#d8b84a" style={{ letterSpacing: 2 }}>
                 {pack.nicks[playerBn]}
@@ -452,11 +447,14 @@ export default function S1Console() {
             PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : tab === 'shop' ? 'S1 SECTION — PERSONNEL SERVICES' : 'BATTALION PERSTAT'} · AS OF {dtg}
           </Text>
         </Box>
+        {playerBn && pack.mottos?.[playerBn] && (
+          <Text ml="auto" fz={54} fw={600} c="#c8a83c" lh={1} style={{ letterSpacing: 1.5, whiteSpace: 'nowrap' }}>
+            “{pack.mottos[playerBn]}”
+          </Text>
+        )}
         {playerBn && (
-          <Box ml="auto">
-            <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
-              kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
-          </Box>
+          <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
+            kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
         )}
       </Group>
 
