@@ -247,16 +247,20 @@ export default function MapView() {
             const app = e.shiftKey // shift-drag appends the fan-out as the next waypoint
             // A spread is a formation SHAPE, not a road order — spread slots route
             // cross-country (mild road damping) unless a route mode is explicit.
+            const transitOpts = ROUTE_OPTS[ui.routeMode] || {}
             const spreadOpts = ui.routeMode === 'auto'
               ? { crossCountry: true }
-              : { ...(ROUTE_OPTS[ui.routeMode] || {}) }
-            // appending a new formation collapses the previous terminal fan to
-            // its centre first (units only, drones don't fan)
+              : { ...transitOpts }
+            // Appending a new formation collapses the previous terminal fan to
+            // its centre first (units only, drones don't fan). That leg is
+            // TRANSIT, so it is re-cut on the player's route mode — NOT on the
+            // fan's cross-country policy, which would throw the whole march to
+            // the attack position off the MSR and scatter the column.
             if (app) {
               const us = sorted.filter(o => !(S.drones as Array<Unit | Drone>).includes(o)) as Unit[]
               let cx = 0, cy = 0, n = 0
               for (const u of us) { const l = u.legs[u.legs.length - 1]; if (l) { cx += l.x; cy += l.y; n++ } }
-              if (n) { cx /= n; cy /= n; for (const u of us) convergeLastLeg(u.id, cx, cy, spreadOpts) }
+              if (n) { cx /= n; cy /= n; for (const u of us) convergeLastLeg(u.id, cx, cy, transitOpts) }
             }
             sorted.forEach((o, i) => {
               const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
