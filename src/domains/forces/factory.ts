@@ -7,6 +7,7 @@ import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
+import { playerPack, lineageFor } from '../../packs'
 
 const FRIEND_CALLS = [
   'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA',
@@ -20,8 +21,18 @@ export function newUnit(typeKey: UnitTypeKey, side: Side, x: number, y: number):
   const label = side === 'friend'
     ? FRIEND_CALLS[(S.counters.designators.friend - 1) % FRIEND_CALLS.length] + '-' + S.counters.designators.friend
     : 'E' + String(S.counters.designators.hostile).padStart(2, '0')
+  // formal lineage: the nth fielded platoon of a type takes the next slot in
+  // its parent battalion (pack-defined; plain counter, no rng — golden-safe)
+  let lineage: string | undefined, attFrom: string | undefined
+  if (side === 'friend') {
+    const n = S.counters.lineage[typeKey] ?? 0
+    S.counters.lineage[typeKey] = n + 1
+    const lin = lineageFor(playerPack(), typeKey, n)
+    lineage = lin.text
+    attFrom = lin.from ?? undefined
+  }
   const u: Unit = {
-    id: S.counters.nextId++, side, type: typeKey, label,
+    id: S.counters.nextId++, side, type: typeKey, label, lineage, attFrom,
     x, y, heading: side === 'friend' ? -Math.PI / 2 : Math.PI / 2,
     strength: 100, path: [], legs: [], state: 'hold',
     mounted: !!type.carrier,

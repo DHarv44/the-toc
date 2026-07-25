@@ -23,9 +23,17 @@ export interface ControlField {
   res: number
   cellM: number                 // meters per control cell
   ctl: Float32Array             // res² — >0 friendly, <0 enemy (normalized ±1)
-  paths: Vec2[][]               // FLOT trace: chained, Chaikin-smoothed polylines (world m)
-  tint: HTMLCanvasElement       // res² enemy-territory wash
+  // TWO traces, like a real battle map: the friendly forward line and the
+  // enemy line, with UNCONTESTED ground between them (nobody's flood owns it
+  // decisively). Chained, Chaikin-smoothed polylines in world meters.
+  blue: Vec2[][]                // friendly forward trace (ctl = +CONTEST)
+  red: Vec2[][]                 // enemy trace (ctl = −CONTEST)
+  tint: HTMLCanvasElement       // res² enemy-territory wash (beyond the red line)
 }
+
+// how decisively a flood must win a cell before the ground counts as HELD —
+// the band between the two isolines is the uncontested gap on the map
+const CONTEST = 0.22
 
 let cache: { t: number; mapRef: unknown; field: ControlField } | null = null
 
@@ -159,11 +167,11 @@ export function controlField(S: GameState): ControlField | null {
     ctl[i] = Math.max(-1, Math.min(1, (e - f) / 1200))
   }
 
-  // --- FLOT trace: marching squares on the zero contour, then chained into
-  // polylines and Chaikin-smoothed so it reads hand-drawn, not gridded --------
-  const segs: Array<{ a: Vec2; b: Vec2 }> = []
-  {
-    const at = (gx: number, gy: number) => ctl[gy * RES + gx]!
+  // --- the two traces: marching squares at ±CONTEST, chained into polylines
+  // and Chaikin-smoothed so they read hand-drawn, not gridded ----------------
+  const marchAt = (iso: number): Array<{ a: Vec2; b: Vec2 }> => {
+    const segs: Array<{ a: Vec2; b: Vec2 }> = []
+    const at = (gx: number, gy: number) => ctl[gy * RES + gx]! - iso
     const lerp = (a: number, b: number) => (a === b ? 0.5 : a / (a - b))
     for (let gy = 0; gy < RES - 1; gy++) {
       for (let gx = 0; gx < RES - 1; gx++) {
@@ -188,8 +196,10 @@ export function controlField(S: GameState): ControlField | null {
         }
       }
     }
+    return segs
   }
-  const paths = smoothPaths(chainSegs(segs))
+  const blue = smoothPaths(chainSegs(marchAt(CONTEST)))
+  const red = smoothPaths(chainSegs(marchAt(-CONTEST)))
 
   // --- enemy-territory wash, painted once per recompute at field resolution ---
   const tint = document.createElement('canvas')
@@ -198,14 +208,14 @@ export function controlField(S: GameState): ControlField | null {
   const img = tctx.createImageData(RES, RES)
   for (let i = 0; i < N; i++) {
     const v = ctl[i]!
-    if (v >= 0) continue
-    const a = Math.min(0.30, 0.10 + Math.min(1, -v) * 0.20)
+    if (v >= -CONTEST) continue // held decisively by the enemy — the gap stays clean
+    const a = Math.min(0.30, 0.08 + Math.min(1, -v) * 0.20)
     const o = i * 4
     img.data[o] = 205; img.data[o + 1] = 46; img.data[o + 2] = 46; img.data[o + 3] = a * 255
   }
   tctx.putImageData(img, 0, 0)
 
-  const field: ControlField = { res: RES, cellM, ctl, paths, tint }
+  const field: ControlField = { res: RES, cellM, ctl, blue, red, tint }
   cache = { t: S.t, mapRef: S.map, field }
   return field
 }

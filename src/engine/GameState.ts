@@ -76,7 +76,9 @@ export interface Unit {
   id: number
   side: Side
   type: UnitTypeKey
-  label: string
+  label: string           // radio callsign designator (e.g. "ECHO-5")
+  lineage?: string        // formal parent-formation line (e.g. "1st PLT, A CO, 2-8 CAV")
+  attFrom?: string        // donor formation if this type is an attachment (e.g. "2ID")
   x: number
   y: number
   heading: number
@@ -359,6 +361,7 @@ export interface Counters {
   nextId: number
   designators: Record<Side, number>
   groupSeq: number
+  lineage: Record<string, number> // fielded-slot counter per unit type (pack lineage assignment)
 }
 
 // King-of-the-Hill objective: one control zone on the map's dominant terrain.
@@ -410,6 +413,7 @@ export interface CampaignState {
   opforObj: Vec2 | null      // steer campaign OPFOR battlegroups to this point (null = none)
   allow: { field: boolean; support: boolean; drone: boolean } // palette gates for this mission
   frontY: number             // authored phase line (world y) — COP baseline: enemy-assessed north of it
+  commander: string          // the player's name — the task force CO (VTC roster, reports)
   tutorial: boolean          // guided tutorial enabled for this campaign
   tutStep: number            // current tutorial step index within the mission (steps in ui/tutorial)
   tutBreakShown: boolean     // one-shot reactive tip: BREAK drill taught after a unit takes 50% casualties
@@ -525,6 +529,6 @@ export function createInitialState(): GameState {
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
     version: 0,
-    counters: { nextId: 1, designators: { friend: 0, hostile: 0 }, groupSeq: 1 },
+    counters: { nextId: 1, designators: { friend: 0, hostile: 0 }, groupSeq: 1, lineage: {} },
   }
 }

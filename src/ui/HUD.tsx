@@ -205,7 +205,14 @@ function SelectionTray() {
                 background: '#12202e', border: '1px solid #35506a', borderRadius: 2,
                 padding: '3px 7px', cursor: 'pointer', minWidth: 78,
               }}>
-              <div style={{ color: '#7ec8ff', fontSize: 10 }}>{u.label}</div>
+              <div style={{ color: '#7ec8ff', fontSize: 10 }}>
+                {u.label}{u.attFrom ? <span style={{ color: '#c8a25f', fontSize: 8 }}> ATT</span> : null}
+              </div>
+              {u.lineage && (
+                <div style={{ fontSize: 7.5, color: '#54708a', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
+                  {u.lineage}{u.attFrom ? ` · ${u.attFrom}` : ''}
+                </div>
+              )}
               <div style={{ fontSize: 9, color: '#9ab8d0' }}>
                 {type.carrier ? (u.mounted ? 'MTD · ' : 'DSM · ') : ''}
                 {u.posture === 'dig' ? `DUG ${Math.round(u.digT * 100)}% · ` : ''}
@@ -378,6 +385,11 @@ function ContextMenu() {
               ? <span style={{ color: '#7ea87e' }}> · {p.cover ? p.terr.toUpperCase() : 'PREPARED'} −{p.total}%</span>
               : null
           })()}
+          {u.lineage && (
+            <div style={{ fontSize: 8.5, color: '#54708a', letterSpacing: 0.4 }}>
+              {u.lineage}{u.attFrom ? ` · ATT ${u.attFrom}` : ''}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', padding: '4px 10px', borderBottom: '1px solid rgba(40,58,72,0.5)' }}>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>DRILL</span>

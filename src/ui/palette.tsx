@@ -7,6 +7,7 @@ import { S } from '../engine/state'
 import { unitAvailability, airAvailability } from '../domains/economy/economy'
 import { fmtCooldown } from '../lib/format'
 import { UNIT_TYPES, type UnitType, type UnitTypeKey } from '../domains/forces/catalog'
+import { playerPack } from '../packs'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols'
@@ -135,9 +136,13 @@ export interface DeployContext {
 // repeated it.
 export const unitItem = (t: UnitType): PaletteItem => {
   const a = unitAvailability(t.key as UnitTypeKey)
+  // attachments read as what they are: another formation's unit under our
+  // control — the row carries the donor tag (organic rows stay clean)
+  const att = playerPack().attached[t.key as UnitTypeKey]
   return {
     mode: 'deploy:' + t.key, key: t.key, field: true,
     label: t.name, cost: t.cost, icon: <PaletteIcon unit={t} />,
+    tag: att ? `ATT — ${att.from}` : null,
     note: a.cooldown > 0 ? `⟳ ${fmtCooldown(a.cooldown)}` : a.capped ? `${a.used}/${a.max}` : null,
     disabled: !a.ready,
   }

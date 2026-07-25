@@ -59,16 +59,20 @@ function drawFlot(i: Inset): void {
   const cf = controlField(S)
   if (!cf) return
   const { ctx } = i
-  ctx.strokeStyle = 'rgba(170,30,30,0.9)'
-  ctx.lineWidth = 1.6
-  ctx.setLineDash([5, 4])
-  ctx.beginPath()
-  for (const p of cf.paths) {
-    ctx.moveTo(i.x(p[0]!.x), i.y(p[0]!.y))
-    for (let k = 1; k < p.length; k++) ctx.lineTo(i.x(p[k]!.x), i.y(p[k]!.y))
+  const trace = (paths: typeof cf.blue, color: string) => {
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1.6
+    ctx.setLineDash([5, 4])
+    ctx.beginPath()
+    for (const p of paths) {
+      ctx.moveTo(i.x(p[0]!.x), i.y(p[0]!.y))
+      for (let k = 1; k < p.length; k++) ctx.lineTo(i.x(p[k]!.x), i.y(p[k]!.y))
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
   }
-  ctx.stroke()
-  ctx.setLineDash([])
+  trace(cf.red, 'rgba(170,30,30,0.9)')
+  trace(cf.blue, 'rgba(25,80,170,0.9)')
 }
 
 function drawObjective(i: Inset, label: string): void {
@@ -413,10 +417,11 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
     if (phase === 'live' && slideRef.current) drawSlide(slideRef.current, slide)
   }, [phase, slide, entry])
 
-  // attendee tiles: the task force's platoon leaders on the call
+  // attendee tiles: the task force's platoon leaders on the call (3 + your own
+  // preview tile = a clean 2×2 grid)
   const attendees = S.units
     .filter(u => u.side === 'friend' && u.strength > 0)
-    .slice(0, 4)
+    .slice(0, 3)
 
   const navBtn = (dir: -1 | 1, label: string) => (
     <button onClick={() => setSlide(s => Math.max(0, Math.min(DECK.length - 1, s + dir)))}
@@ -478,6 +483,8 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
               {speaking ? '— CG TRANSMITTING —' : 'CG STANDING BY'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {/* your own preview tile, like any real VTC client */}
+              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="YOU" h={124} />
               {attendees.map(u => (
                 <CamTile key={u.id} label={u.label} h={124} />
               ))}
@@ -535,15 +542,31 @@ export function VtcWindow({ entry, blocking, startSlide = 0, onClose }: {
   )
 }
 
-// Non-blocking VTC host: mounts whenever a FRAGO is open (new tasking or a
-// recall from the log). The sim keeps running underneath. The LINES OF SUPPLY
-// call opens on the FOB slide; everything else starts at slide 1.
+// While ANY VTC is up, the war holds: attention is on the call. Pause on
+// mount, hand the player's chosen speed back on close (a pending tutorial
+// gate will re-pause itself on the next tick if it needs to).
+function usePauseWhileOpen(): void {
+  useEffect(() => {
+    const prev = S.speed > 0 ? S.speed : 1
+    S.speed = 0
+    return () => { if (S.speed === 0) S.speed = prev }
+  }, [])
+}
+
+// FRAGO VTC host: mounts whenever a FRAGO is open (new tasking or a recall
+// from the log). Holds the sim while the call is up. The LINES OF SUPPLY call
+// opens on the FOB slide; everything else starts at slide 1.
+function FragoCall({ entry }: { entry: { title: string; text: string } }) {
+  usePauseWhileOpen()
+  const start = entry.title === 'LINES OF SUPPLY' ? 2 : 0
+  return <VtcWindow entry={entry} startSlide={start} onClose={() => ackFrago(S)} />
+}
+
 export function VtcFrago() {
   useUI((s) => s.tick)
   const c = S.campaign
   if (!c || c.complete || !c.briefed || c.frago == null) return null
-  const start = c.frago.title === 'LINES OF SUPPLY' ? 2 : 0
-  return <VtcWindow entry={c.frago} startSlide={start} onClose={() => ackFrago(S)} />
+  return <FragoCall entry={c.frago} />
 }
 
 // Blocking opener: the campaign's first VTC — the OPORD from higher. Holds the

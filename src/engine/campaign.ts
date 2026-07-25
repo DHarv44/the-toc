@@ -50,6 +50,14 @@ export const CAMPAIGN_LAYOUT: MapLayout = {
 // because initGame's signature is shared across modes and shouldn't grow a param.
 let _tutorialPending = false
 export function setCampaignTutorial(on: boolean): void { _tutorialPending = on }
+
+// The player's name — the task force commander. Set by the splash's COMMANDER
+// box just before initGame; startCampaign reads it (same pattern as the
+// tutorial flag).
+let _commanderPending = 'HARMON'
+export function setCampaignCommander(name: string): void {
+  _commanderPending = name.trim().toUpperCase() || 'HARMON'
+}
 import type { Vec2 } from '../world/WorldMap'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
@@ -332,6 +340,7 @@ export function startCampaign(S: GameState): void {
     (s.side === 'friend' && s.kind === 'HQ') || (s.side === 'hostile' && s.kind === 'HQ'))
   for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
   S.units = []
+  S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh
   S.enemyGroups = []
   S.nextWave = Infinity        // no economy-driven waves — missions script the OPFOR
   S.enemyResources = 0
@@ -347,6 +356,7 @@ export function startCampaign(S: GameState): void {
     hold: 0, delivered: 0, deliverBase: 0, eventT: null,
     opforObj: null, allow: { field: false, support: false, drone: true },
     frontY: town.y + 500, // provisional; objective activations re-anchor it
+    commander: _commanderPending,
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false,
     strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],

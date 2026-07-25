@@ -121,6 +121,32 @@ stays on the board as a KNOWN installation (structContacts), and the garrison is
 seeded as a SUSPECTED stale contact with ~200 m templating error; scouts still
 have to make it a live track.
 
+**Packs P1 (2026-07-25):** factions are "Packs" (`src/packs/`) — a formation as
+CONTENT referencing the shared base catalogs (physics lives once; packs are
+organization + identity). `Pack {organic, attached}` per unit type with parent
+battalion + lineage style ('plt'/'btry'/'hhc'); `lineageFor(pack, type, n)` and
+a plain `S.counters.lineage` counter (rng-free, golden-safe; reset in initGame
+AND startCampaign — the staged pre-campaign force must not burn slots). 1CD
+pack: MECH=2-8 CAV, ARM=1-12 CAV, CAV=1-7 CAV, SCT/MOR=HHC 2-8 CAV,
+ARTY=1-82 FA (btry), ENG=91 BEB, SIG=13 SIG BN, LOG=115 BSB; attachments
+STRY=5-20 IN (2ID), INF/AT=1-506 IN (101 ABN). Unit gains `lineage`/`attFrom`
+(tray chip + context menu show them; palette rows tag "ATT — <donor>").
+COMMANDER box on the campaign screen → `CampaignState.commander` (the player IS
+the TF CO; own "· YOU" tile on the VTC). P1 is organizational ONLY — golden
+byte-identical at 2409198223. Roadmap: P2 billets/ranks/deterministic names/
+troop card with rename + hash-seeded profile-pic factory + billet callsigns
+("6"=CO convention); P2.5 strength inversion; P3 rear det + automatic
+replacement pipeline (LTC's lever = who pulls back to refit); P4 DPRK-flavored
+fictional enemy pack (campaign) + real-army packs for skirmish; then S-shop
+views (S1 personnel, S4 log) on top.
+
+**COP two-line trace (2026-07-25):** the control field now yields BOTH lines —
+`blue` (friendly forward trace, ctl=+CONTEST) and `red` (enemy trace,
+ctl=−CONTEST) with UNCONTESTED ground between; the wash only paints beyond the
+red line. HQs/FOBs are strong influence anchors, so standing up FOB KEATON
+visibly pushes the blue line out. VTCs now PAUSE the sim while open (restoring
+the player's chosen speed on close).
+
 **Naming (2026-07-24):** the objective town (ASHFORD) is designated **OBJ
 KEATON**; the FOB built there is **FOB KEATON** (structure label stamped by the
 build objective's `onComplete`). Pre-battle town intel is UNKNOWN contacts —

@@ -588,18 +588,24 @@ export default function MapView() {
           ctx.globalAlpha = night ? 0.85 : 0.7
           ctx.drawImage(cf.tint, w2sX(0), w2sY(0), S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
           ctx.restore()
+          // TWO traces like a real battle map: the friendly forward line (blue)
+          // and the enemy line (red) — the gap between them is uncontested
           ctx.save()
-          ctx.strokeStyle = night ? 'rgba(255,96,96,0.85)' : 'rgba(190,34,34,0.8)'
-          ctx.lineWidth = Math.max(1.6, 2.6 * Math.min(1, view.ppm * 12))
-          ctx.setLineDash([9, 6])
           ctx.lineJoin = 'round'
-          ctx.beginPath()
-          for (const p of cf.paths) {
-            ctx.moveTo(w2sX(p[0]!.x), w2sY(p[0]!.y))
-            for (let i = 1; i < p.length; i++) ctx.lineTo(w2sX(p[i]!.x), w2sY(p[i]!.y))
+          const trace = (paths: typeof cf.blue, color: string) => {
+            ctx.strokeStyle = color
+            ctx.lineWidth = Math.max(1.6, 2.6 * Math.min(1, view.ppm * 12))
+            ctx.setLineDash([9, 6])
+            ctx.beginPath()
+            for (const p of paths) {
+              ctx.moveTo(w2sX(p[0]!.x), w2sY(p[0]!.y))
+              for (let i = 1; i < p.length; i++) ctx.lineTo(w2sX(p[i]!.x), w2sY(p[i]!.y))
+            }
+            ctx.stroke()
+            ctx.setLineDash([])
           }
-          ctx.stroke()
-          ctx.setLineDash([])
+          trace(cf.red, night ? 'rgba(255,96,96,0.85)' : 'rgba(190,34,34,0.8)')
+          trace(cf.blue, night ? 'rgba(96,160,255,0.85)' : 'rgba(30,90,190,0.8)')
           ctx.restore()
         }
       }

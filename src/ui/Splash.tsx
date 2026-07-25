@@ -5,6 +5,7 @@
 import { useState, type ReactNode } from 'react'
 import type { MapSizeKey } from '../world/WorldMap'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
+import { setCampaignCommander } from '../engine/campaign'
 import { THEATER_INDEX } from '../world/theaters'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
@@ -34,9 +35,14 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
   recruit: '#3a5a3a', regular: '#2a5a8a', veteran: '#8a6a2a', elite: '#8a3a2a',
 }
 
+// commander-name defaults: the box comes pre-filled, the player types over it
+// or keeps it. Pure flavor pool — the name is theirs either way.
+const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SLOANE', 'KINCAID']
+
 export default function Splash({ onStart }: { onStart: StartFn }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
+  const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
   const [size, setSize] = useState<MapSizeKey | null>(null)
   // undefined = not chosen yet · null = procedural · string = theater id
@@ -94,9 +100,20 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={toughness(d.damageMul)}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut)} />
+                onClick={() => { setCampaignCommander(commander); onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut) }} />
             )
           })}
+          {/* the task force commander is YOU — keep the suggested name or type your own */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 10px' }}>
+            <span style={{ fontSize: 9, letterSpacing: 2, color: '#7f97ab', flex: '0 0 auto' }}>COMMANDER · LTC</span>
+            <input value={commander} maxLength={18} spellCheck={false}
+              onChange={(e) => setCommander(e.target.value.toUpperCase())}
+              style={{
+                flex: 1, minWidth: 0, background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
+                borderRadius: 3, color: '#dceeff', fontFamily: 'inherit', fontSize: 12,
+                letterSpacing: 2, padding: '5px 8px', outline: 'none',
+              }} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <BackButton onClick={() => setTop(null)}>← BACK</BackButton>

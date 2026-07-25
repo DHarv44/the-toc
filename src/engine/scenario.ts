@@ -84,6 +84,7 @@ export function initGame(
   S.rng = makeRng(seed ^ 0xBEEF)
   S.counters.nextId = 1
   S.counters.designators.friend = 0; S.counters.designators.hostile = 0
+  S.counters.lineage = {}
 
   // starting installations: the single command post, plus its airstrip
   addStructure('friend', 'HQ', S.map.fob.x, S.map.fob.y, 'HQ COBALT', true)
