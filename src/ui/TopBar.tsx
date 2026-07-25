@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Box, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
+import { devIncomingStrike } from '../devtools/incoming'
 import { setMuted as audioSetMuted } from '../audio/audio'
 import { unreadReports } from '../engine/campaign'
 import { UnreadDot } from './S1Console'
@@ -110,6 +111,8 @@ export default function TopBar() {
               onClick={() => { S.fogEnabled = !S.fogEnabled }}>FOG</Button>
             <Button size="sm" variant={ui.console === 'packs' ? 'filled' : 'default'}
               onClick={() => ui.setConsole(ui.console === 'packs' ? null : 'packs')}>PACK</Button>
+            <Button size="sm" variant="default" title="Dev: drop an IDF strike on the CP"
+              onClick={() => devIncomingStrike()}>IDF</Button>
           </>
         )}
 

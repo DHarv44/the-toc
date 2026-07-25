@@ -493,15 +493,25 @@ export function baseImpactBoom(prox: number): void {
   rumble(0.25 + 0.45 * Math.max(0, Math.min(1, prox)), 48)
 }
 
-// wiring: net chatter comes off the engine bus; resume/create the context on the
-// first interaction anywhere in the app. Guarded so HMR re-imports don't stack
-// subscriptions or listeners.
-const g = globalThis as typeof globalThis & { __WOD2_AUDIO_WIRED?: boolean }
-if (typeof window !== 'undefined' && !g.__WOD2_AUDIO_WIRED) {
-  g.__WOD2_AUDIO_WIRED = true
-  bus.on('radio', e => radioMsg(e.text, e.callsign, e.priority))
-  bus.on('incoming', () => incomingAlarm())
-  bus.on('intercept', e => interceptBurst(e.sound))
-  bus.on('baseimpact', e => baseImpactBoom(e.prox))
-  window.addEventListener('pointerdown', () => { if (!muted) ensureAudio() }, { passive: true })
+// wiring: net chatter + base-under-fire cues come off the engine bus. HMR-SAFE:
+// each module swap tears down the PREVIOUS instance's subscriptions and
+// attaches this one's — new bus events start working on hot reload instead of
+// being silently blocked by a one-time guard (the old __WOD2_AUDIO_WIRED trap:
+// handlers added in an edit never wired until a full page reload).
+const g = globalThis as typeof globalThis & {
+  __WOD2_AUDIO_UNSUB?: Array<() => void>
+  __WOD2_AUDIO_PTR?: boolean
+}
+if (typeof window !== 'undefined') {
+  g.__WOD2_AUDIO_UNSUB?.forEach(fn => fn())
+  g.__WOD2_AUDIO_UNSUB = [
+    bus.on('radio', e => radioMsg(e.text, e.callsign, e.priority)),
+    bus.on('incoming', () => incomingAlarm()),
+    bus.on('intercept', e => interceptBurst(e.sound)),
+    bus.on('baseimpact', e => baseImpactBoom(e.prox)),
+  ]
+  if (!g.__WOD2_AUDIO_PTR) {
+    g.__WOD2_AUDIO_PTR = true
+    window.addEventListener('pointerdown', () => { if (!muted) ensureAudio() }, { passive: true })
+  }
 }

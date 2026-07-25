@@ -57,6 +57,11 @@
    a nature from stowage, and the engine's gunnery reads the nature's numbers.
    One tube, many natures (M252 firing HE/ICM/SMOKE/ILLUM = four ammo entries,
    one weapon). Golden-affecting; do as its own gated step.
+   **Sound split (decided 2026-07-25):** the AMMO NATURE owns the terminal
+   sound profile (explosion synth params — size/depth/character: 155 HE vs
+   81mm vs ICM ripple); the WEAPON owns the firing signature + cadence
+   (report params + rof/burst pacing, like the intercept spec's burstRof);
+   the engine owns the synth that reads both. No baked clips.
 
 ## Platform behavior constants
 13. **Aerostat scan rate** — `air/orders.ts` AEROSTAT_SCAN_RATE is platform
