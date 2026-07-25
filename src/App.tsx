@@ -12,6 +12,7 @@ import EndScreenGate from './ui/EndScreen'
 import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
 import S1Console from './ui/S1Console'
+import CommandDashboard from './ui/CommandDashboard'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
@@ -72,8 +73,9 @@ export default function App() {
             {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
             <CampaignObjectives />
             <VtcFrago />
-            {/* staff-shop console replaces the map column while open */}
+            {/* consoles replace the map column while open */}
             <S1Console />
+            <CommandDashboard />
           </div>
           <SelectionTray />
         </div>

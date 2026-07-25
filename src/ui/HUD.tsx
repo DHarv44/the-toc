@@ -28,7 +28,7 @@ import { DRONE_TYPES } from '../domains/air/catalog'
 import { setFeedAmbient, clearFeedAmbient } from '../audio/audio'
 import { useUI, ROUTE_MODES, type Feed } from './store'
 import { PaletteIcon } from './palette'
-import { clamp, panel, btn, fmtClock, mapColumnSize } from './styles'
+import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
 
 // compact toggle used in the selection tray / fire-mission rows
@@ -57,6 +57,15 @@ export default function HUD() {
 
   // overlays that belong to the map column; the top bar and the two side rails are
   // laid out by App as real siblings of the map
+  // map-corner control chrome (shared by day/rng/fit)
+  const mapCtl = (active: boolean): CSSProperties => ({
+    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 0, fontSize: 16, lineHeight: 1, cursor: 'pointer',
+    background: active ? '#1d3a55' : 'rgba(16,26,36,0.9)',
+    color: active ? '#dceeff' : '#9ab8d0',
+    border: `1px solid ${active ? '#5a86b0' : '#35506a'}`, borderRadius: 3,
+  })
+
   return (
     <>
       {/* the selection tray is a layout row BELOW the map — App mounts it */}
@@ -67,21 +76,24 @@ export default function HUD() {
       {/* unit context menu */}
       {ui.ctxMenu && <ContextMenu />}
 
-      {/* fit-to-screen: a map control at the map column's bottom-right, so it sits
-          just left of the net rail */}
-      <button
-        title="Fit map to screen"
-        onClick={() => {
-          const v = winView()
-          if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
-        }}
-        style={{
-          position: 'absolute', right: 10, bottom: 10, zIndex: 16,
-          width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 0, fontSize: 16, lineHeight: 1, cursor: 'pointer',
-          background: 'rgba(16,26,36,0.9)', color: '#9ab8d0',
-          border: '1px solid #35506a', borderRadius: 3,
-        }}>⛶</button>
+      {/* map controls: a stack at the map column's bottom-right — display
+          toggles live ON the map they affect (day/night, range rings, fit) */}
+      <div style={{
+        position: 'absolute', right: 10, bottom: 10, zIndex: 16,
+        display: 'flex', flexDirection: 'column', gap: 5,
+      }}>
+        <button title={ui.night ? 'Switch to day' : 'Switch to night'}
+          onClick={ui.toggleNight} style={mapCtl(ui.night)}>{ui.night ? '☾' : '☀'}</button>
+        <button title="Show weapon ranges for all units"
+          onClick={ui.toggleRanges} style={{ ...mapCtl(ui.showRanges), fontSize: 9, letterSpacing: 0.5 }}>RNG</button>
+        <button
+          title="Fit map to screen"
+          onClick={() => {
+            const v = winView()
+            if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
+          }}
+          style={mapCtl(false)}>⛶</button>
+      </div>
 
       {/* toasts */}
       <div style={{
@@ -924,7 +936,7 @@ export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number;
         : { position: 'relative', width: '100%', height: feed.h, flex: '0 0 auto' }
     : winMode === 'max'
       // edge-to-edge below the top bar — no margin, footer flush to the screen bottom
-      ? { position: 'fixed', left: 0, top: 34, right: 0, bottom: 0 }
+      ? { position: 'fixed', left: 0, top: TOPBAR_H, right: 0, bottom: 0 }
       : winMode === 'min'
         ? { position: 'absolute', ...style, width: feed.w }        // height auto = header only
         : { position: 'absolute', ...style, width: feed.w, height: feed.h }

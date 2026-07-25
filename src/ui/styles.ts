@@ -22,7 +22,7 @@ export const btn = (active: boolean): CSSProperties => ({
 // rail geometry, shared so map-column overlays can work out how much room they have
 // strip fits the bold vertical-rl `lg` tab labels
 export const RAIL_W = { left: 232, net: 310, strip: 34 } as const
-export const TOPBAR_H = 34
+export const TOPBAR_H = 64 // mantine-lg header: big TOC plate + lg controls
 
 // width of the map column for a given rail state — overlays inside it (context
 // menus, feed windows) clamp against this rather than the viewport
