@@ -592,10 +592,11 @@ export default function MapView() {
           ctx.strokeStyle = night ? 'rgba(255,96,96,0.85)' : 'rgba(190,34,34,0.8)'
           ctx.lineWidth = Math.max(1.6, 2.6 * Math.min(1, view.ppm * 12))
           ctx.setLineDash([9, 6])
+          ctx.lineJoin = 'round'
           ctx.beginPath()
-          for (const sg of cf.segs) {
-            ctx.moveTo(w2sX(sg.x0), w2sY(sg.y0))
-            ctx.lineTo(w2sX(sg.x1), w2sY(sg.y1))
+          for (const p of cf.paths) {
+            ctx.moveTo(w2sX(p[0]!.x), w2sY(p[0]!.y))
+            for (let i = 1; i < p.length; i++) ctx.lineTo(w2sX(p[i]!.x), w2sY(p[i]!.y))
           }
           ctx.stroke()
           ctx.setLineDash([])
