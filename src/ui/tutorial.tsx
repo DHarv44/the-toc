@@ -98,6 +98,22 @@ function exposeMarker(): { x: number; y: number } | null {
 // a live enemy contact on the common picture (recon has eyes on)
 const enemySpotted = () => { for (const c of S.contacts.values()) if (c.live) return true; return false }
 
+// M2 principals: the sustainment element and the FOB it stands up
+const m2eng = () => S.units.find(u => u.side === 'friend' && u.type === 'ENG' && u.strength > 0)
+const m2log = () => S.units.find(u => u.side === 'friend' && u.type === 'LOG' && u.strength > 0)
+const m2fob = () => S.structures.find(s => s.side === 'friend' && s.kind === 'FOB')
+
+// the waypoint lesson's first marker: a road point partway to the town, so the
+// column takes the (faster) road before pushing to its destination
+let _m2Road: { x: number; y: number } | null = null
+function m2RoadPoint(): { x: number; y: number } | null {
+  if (_m2Road) return _m2Road
+  const m = S.map, t = S.campaign?.strongpoint, hq = m?.fob
+  if (!m || !t || !hq) return null
+  _m2Road = nearestRoad(m, hq.x + (t.x - hq.x) * 0.45, hq.y + (t.y - hq.y) * 0.45, 600)
+  return _m2Road
+}
+
 // the spotted enemy the recon has eyes on — the one to attack (nearest live
 // contact to the recon platoon)
 function spottedEnemy() {
@@ -282,6 +298,82 @@ export const TUTORIALS: Record<string, TutorialStep[]> = {
         text: 'DIG IN — with your platoons in the town selected, click DIG IN. Prepared fighting positions stack with the urban cover for even more protection — hold here and defeat the counterattack.',
         targetSel: 'dig-in',
       }),
+    },
+  ],
+
+  'lines-of-supply': [
+    // 1) bring the sustainment element forward — the WAYPOINT lesson. Two
+    //    phases: put them on the road first (roads are faster), then SHIFT+
+    //    RIGHT-click queues the final waypoint into the town. Non-gated (they
+    //    have to drive); the cue hides once their route ends at the town. A
+    //    player who right-clicks the town directly skips the lesson — fine.
+    {
+      id: 'move-up',
+      done: () => {
+        const t = S.campaign?.strongpoint, e = m2eng(), l = m2log()
+        return !!t && !!e && !!l
+          && Math.hypot(e.x - t.x, e.y - t.y) <= 420 && Math.hypot(l.x - t.x, l.y - t.y) <= 420
+      },
+      hint: () => {
+        const t = S.campaign?.strongpoint, e = m2eng(), l = m2log()
+        if (!t || !e || !l) return { text: '', hidden: true }
+        // "handled": routed to the town, or already arrived there (no legs left)
+        const endsAtTown = (u: NonNullable<ReturnType<typeof m2eng>>) => u.legs.length > 0
+          ? Math.hypot(u.legs[u.legs.length - 1]!.x - t.x, u.legs[u.legs.length - 1]!.y - t.y) <= 520
+          : Math.hypot(u.x - t.x, u.y - t.y) <= 520
+        if (endsAtTown(e) && endsAtTown(l)) return { text: '', hidden: true }
+        // phase 1: no orders yet — put the column on the road
+        if (!e.legs.length && !l.legs.length) {
+          return {
+            text: 'BRING UP THE SUSTAINMENT — your engineer and logistics platoons arrived at the HQ. Select them both, then RIGHT-click the highlighted point to put them on the ROAD — columns move much faster on roads.',
+            targetPoint: m2RoadPoint() ?? undefined,
+          }
+        }
+        // phase 2: on the road — queue the final waypoint into the town
+        return {
+          text: 'QUEUE THE NEXT WAYPOINT — hold SHIFT and RIGHT-click the town to add their final destination. They will follow the road, then push up to the FOB site.',
+          targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
+        }
+      },
+    },
+    // 2) establish the FOB — engineer + palette + placement. Gated.
+    {
+      id: 'build-fob',
+      gate: true,
+      done: () => !!m2fob(),
+      hint: (_S, ui) => {
+        const e = m2eng()
+        if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === e?.id)) {
+          return { text: 'ESTABLISH THE FOB — left-click your engineer platoon to select it.', targetUnit: e?.id }
+        }
+        if (!ui.mode.startsWith('build:FOB')) {
+          return { text: 'ESTABLISH THE FOB — in the COMMAND rail on the left, under INSTALLATIONS, click Forward Op. Base.', targetSel: 'build-fob' }
+        }
+        const t = S.campaign!.strongpoint
+        return {
+          text: 'PLACE IT — click a spot inside the town. The engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.',
+          targetBox: { x0: t.x - 260, y0: t.y - 260, x1: t.x + 260, y1: t.y + 260 },
+        }
+      },
+    },
+    // 3) open the supply line — logistics platoon on a standing HQ→FOB run. Gated.
+    {
+      id: 'supply-run',
+      gate: true,
+      done: () => !!m2log()?.convoy,
+      hint: (_S, ui) => {
+        const l = m2log(), fob = m2fob()
+        if (!(ui.selectedIds.length === 1 && ui.selectedIds[0] === l?.id)) {
+          return { text: 'OPEN THE SUPPLY LINE — left-click your logistics platoon to select it.', targetUnit: l?.id }
+        }
+        if (!String(ui.mode).startsWith('convoy:')) {
+          return { text: 'OPEN THE SUPPLY LINE — click SUPPLY RUN in the selection tray at the bottom.', targetSel: 'supply-run' }
+        }
+        return {
+          text: 'SET THE ROUTE — click the FOB. The trucks will loop HQ → FOB on their own, delivering supply every run.',
+          targetPoint: fob ? { x: fob.x, y: fob.y } : undefined,
+        }
+      },
     },
   ],
 }

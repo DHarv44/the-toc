@@ -157,8 +157,15 @@ all on one persistent world (no reset between missions). Golden UNCHANGED at
   stacks them gets a SPREAD OUT nudge ("one shell can catch a bunched-up position");
   (9) gated DIG IN before the counterattack — only positions dug IN the town count.
   The M1 briefing sells the same story
-  (concealed garrison · scouts screen · FIND THEM). Curriculum front-loaded to be
-  empty by M4.
+  (concealed garrison · scouts screen · FIND THEM). **M2 (3 steps, all click-verified):**
+  (1) BRING UP THE SUSTAINMENT — the WAYPOINT lesson: right-click a highlighted ROAD
+  point first (roads are faster), then the cue flips to SHIFT+RIGHT-click the town to
+  queue the final waypoint (a player who routes direct skips the lesson without nagging);
+  (2) gated ESTABLISH THE FOB — select the engineer → ringed Forward Op Base palette row
+  (`data-tut="build-fob"`) → click a spot in the town (adaptive: catches wrong-row
+  clicks); (3) gated OPEN THE SUPPLY LINE — select the LOG → ringed SUPPLY RUN tray
+  button (`data-tut="supply-run"`) → click the FOB. Curriculum front-loaded to be
+  empty by M4 (M3 steps land with M3's design).
 - **Organic UAS is one-click** (`fieldUnitDrone` in air/orders): a carrying unit's Raven
   launches over the unit via the ⊕ button (like the aerostat at a site) — no map
   placement — capped 1 per unit, so the palette row reads 0/1 → 1/1 and disables.

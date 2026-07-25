@@ -284,7 +284,7 @@ function SelectionTray() {
           </button>
         )}
         {logiUnit && (
-          <button style={btn(ui.mode === `convoy:${logiUnit.id}`)}
+          <button data-tut="supply-run" style={btn(ui.mode === `convoy:${logiUnit.id}`)}
             title="Run supply from the HQ to a chosen FOB, then repeat"
             onClick={() => {
               if (logiUnit.convoy) orderHold(logiUnit.id)

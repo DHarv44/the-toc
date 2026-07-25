@@ -119,9 +119,10 @@ function DeploySection() {
                 active={!oneClick && ui.mode === it.mode}
                 onClick={() => (oneClick ? fire() : pick(it.mode))} />
             )
-            // tag just the Raven row so the campaign tutorial highlights only it
-            return it.key === 'RAVEN'
-              ? <div key={it.mode} data-tut="uas-raven">{row}</div>
+            // tag rows the campaign tutorial highlights (Raven launch, FOB build)
+            const tutTag = it.key === 'RAVEN' ? 'uas-raven' : it.mode === 'build:FOB' ? 'build-fob' : null
+            return tutTag
+              ? <div key={it.mode} data-tut={tutTag}>{row}</div>
               : row
           })}
         </RailSection>
