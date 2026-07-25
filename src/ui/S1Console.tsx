@@ -267,7 +267,16 @@ function slotLocation(sl: OrgSlot): string {
   return `${sl.bde} AO`
 }
 
-type S1Tab = 'div' | 'tf' | 'bn'
+type S1Tab = 'div' | 'tf' | 'bn' | 'shop'
+
+// rank seniority for the S1-shop tree (higher = more senior)
+const RANK_W: Record<string, number> = {
+  MG: 26, BG: 25, COL: 24, LTC: 23, MAJ: 22, CPT: 21, '1LT': 20, '2LT': 19,
+  CW3: 18, CW2: 17, WO1: 16,
+  CSM: 15, SGM: 14, MSG: 13, '1SG': 13, SFC: 12, SSG: 11, SGT: 10, CPL: 9,
+  SPC: 8, PFC: 7, PVT: 6,
+}
+const rankW = (r?: string): number => RANK_W[r ?? ''] ?? 0
 
 export default function S1Console() {
   useUI((st) => st.tick)
@@ -440,7 +449,7 @@ export default function S1Console() {
             )}
           </Group>
           <Text fz="xs" c="dark.3" style={{ letterSpacing: 1.5 }}>
-            PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : 'BATTALION PERSTAT'} · AS OF {dtg}
+            PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : tab === 'shop' ? 'S1 SECTION — PERSONNEL SERVICES' : 'BATTALION PERSTAT'} · AS OF {dtg}
           </Text>
         </Box>
         {playerBn && (
@@ -453,7 +462,7 @@ export default function S1Console() {
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
       <Group gap={6} pt={12}>
-        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION']] as [S1Tab, string][]).map(([t, label]) => (
+        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION'], ['shop', 'S1']] as [S1Tab, string][]).map(([t, label]) => (
           <UnstyledButton key={t} onClick={() => switchTab(t)} px={16} py={6}
             style={{
               border: `1px solid ${tab === t ? '#3d5a75' : '#22303d'}`,
@@ -570,6 +579,49 @@ export default function S1Console() {
               leader={cdrS ? `${cdrS.rank} ${cdrS.name}` : undefined}
               a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
             {open.has('bnroot') && renderCos(bnSlots, playerBn, 1)}
+          </>
+        )
+      })()}
+
+      {/* the S1 SHOP itself: every soldier in the personnel-services chain,
+          division G1 down to each battalion's S1 section, as a RANK TREE —
+          the chief at the root, each lower rank nesting a level deeper */}
+      {tab === 'shop' && org && (() => {
+        const rankTree = (soldiers: Soldier[], base: number) => {
+          const sorted = [...soldiers].sort((a, b) => rankW(b.rank) - rankW(a.rank))
+          const weights = [...new Set(sorted.map(s => rankW(s.rank)))]
+          return sorted.map(s => (
+            <SoldierRow key={`${s.pid ?? s.id}`} s={s} depth={base + weights.indexOf(rankW(s.rank))} />
+          ))
+        }
+        const secHeader = (label: string, sub: string, depth: number) => (
+          <Group gap={10} wrap="nowrap" px={10} py={7} pl={10 + depth * 24}
+            style={{ borderTop: '1px solid #141e28' }}>
+            <Text span fz="md" fw={600} c="#9fd0f5">{label}</Text>
+            <Text span fz="xs" c="dark.3">{sub}</Text>
+          </Group>
+        )
+        const g1 = slots.find(sl => sl.name === 'G1 SECTION')
+        const bnS1 = (bn: string) => slots
+          .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
+          .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
+        const bns = [...new Set(slots.filter(sl => sl.bde !== 'ATT').map(sl => sl.bn))]
+          .filter(bn => bnS1(bn).length > 0)
+        if (playerBn && bns.includes(playerBn)) { bns.splice(bns.indexOf(playerBn), 1); bns.unshift(playerBn) }
+        return (
+          <>
+            {g1 && (
+              <>
+                {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
+                {rankTree(g1.soldiers, 1)}
+              </>
+            )}
+            {bns.map(bn => (
+              <div key={bn}>
+                {secHeader(`${bn} S1`, bn === playerBn ? 'YOUR SHOP' : 'BATTALION PERSONNEL SECTION', 0)}
+                {rankTree(bnS1(bn), 1)}
+              </div>
+            ))}
           </>
         )
       })()}
