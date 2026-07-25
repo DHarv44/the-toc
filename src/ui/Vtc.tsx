@@ -588,7 +588,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
       background: 'radial-gradient(circle at 50% 30%, rgba(14,26,36,0.95) 0%, rgba(5,8,11,0.97) 70%)',
     }}>{win}</div>
   ) : (
-    <div style={{ position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)', zIndex: 104 }}>
+    <div style={{ position: 'fixed', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 104 }}>
       {win}
     </div>
   )

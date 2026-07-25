@@ -57,7 +57,7 @@ export default function TopBar() {
       <Group gap={6} wrap="nowrap" ml="auto">
         {/* map view: icon button, lit when a console is covering the map */}
         <Tooltip label="Map — common operational picture" withArrow>
-          <Button size="lg" variant={ui.console === null ? 'filled' : 'default'} px={12}
+          <Button size="sm" variant={ui.console === null ? 'filled' : 'default'} px={12}
             onClick={() => ui.setConsole(null)} aria-label="Map">
             <svg width="18" height="18" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
               <path d="M 1 3 L 5 1.5 L 9 3 L 13 1.5 V 11 L 9 12.5 L 5 11 L 1 12.5 Z" />
@@ -65,12 +65,12 @@ export default function TopBar() {
             </svg>
           </Button>
         </Tooltip>
-        <Divider orientation="vertical" color="dark.4" style={{ height: 26, alignSelf: 'center' }} />
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         {/* staff shops: each opens its section's console over the map column.
             S2-S4 stand up as their data gets moving parts. */}
         <Button.Group>
           <Tooltip label="S1 — Personnel (PERSTAT, rosters, replacements)" withArrow>
-            <Button size="lg" variant={ui.console === 's1' ? 'filled' : 'default'}
+            <Button size="sm" variant={ui.console === 's1' ? 'filled' : 'default'}
               style={{ position: 'relative', overflow: 'visible' }}
               onClick={() => {
                 // unread traffic routes straight to what the alert is for
@@ -81,21 +81,21 @@ export default function TopBar() {
               <UnreadDot n={unreadReports(S)} />
             </Button>
           </Tooltip>
-          <Tooltip label="S2 — Intelligence (soon)" withArrow><Button size="lg" variant="default" disabled>S2</Button></Tooltip>
-          <Tooltip label="S3 — Operations (soon)" withArrow><Button size="lg" variant="default" disabled>S3</Button></Tooltip>
-          <Tooltip label="S4 — Logistics (soon)" withArrow><Button size="lg" variant="default" disabled>S4</Button></Tooltip>
+          <Tooltip label="S2 — Intelligence (soon)" withArrow><Button size="sm" variant="default" disabled>S2</Button></Tooltip>
+          <Tooltip label="S3 — Operations (soon)" withArrow><Button size="sm" variant="default" disabled>S3</Button></Tooltip>
+          <Tooltip label="S4 — Logistics (soon)" withArrow><Button size="sm" variant="default" disabled>S4</Button></Tooltip>
         </Button.Group>
-        <Divider orientation="vertical" color="dark.4" style={{ height: 26, alignSelf: 'center' }} />
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Command dashboard" withArrow>
-          <Button size="lg" variant={ui.console === 'dash' ? 'filled' : 'default'}
+          <Button size="sm" variant={ui.console === 'dash' ? 'filled' : 'default'}
             onClick={() => ui.setConsole(ui.console === 'dash' ? null : 'dash')}>▤</Button>
         </Tooltip>
-        <Divider orientation="vertical" color="dark.4" style={{ height: 26, alignSelf: 'center' }} />
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Radio net" withArrow>
-          <Button size="lg" variant={ui.netOpen ? 'filled' : 'default'} onClick={ui.toggleNet}>NET</Button>
+          <Button size="sm" variant={ui.netOpen ? 'filled' : 'default'} onClick={ui.toggleNet}>NET</Button>
         </Tooltip>
         <Tooltip label={ui.muted ? 'Feed audio muted' : 'Feed audio on'} withArrow>
-          <Button size="lg" variant={ui.muted ? 'default' : 'filled'}
+          <Button size="sm" variant={ui.muted ? 'default' : 'filled'}
             onClick={() => { const m = !ui.muted; ui.setMuted(m); audioSetMuted(m) }}>
             {ui.muted ? '🔇' : '🔊'}
           </Button>
@@ -104,19 +104,19 @@ export default function TopBar() {
         {/* dev cheats belong to the sandbox, not a real game */}
         {S.devMode && (
           <>
-            <Divider orientation="vertical" color="dark.4" style={{ height: 26, alignSelf: 'center' }} />
+            <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
             <Text span fz={10} c="dark.3">DEV</Text>
-            <Button size="lg" variant={S.fogEnabled ? 'default' : 'filled'}
+            <Button size="sm" variant={S.fogEnabled ? 'default' : 'filled'}
               onClick={() => { S.fogEnabled = !S.fogEnabled }}>FOG</Button>
-            <Button size="lg" variant="default" onClick={() => { S.resources += 10000 }}>+10K</Button>
+            <Button size="sm" variant="default" onClick={() => { S.resources += 10000 }}>+10K</Button>
           </>
         )}
 
         {/* time controls sit last, the mission clock hard right beside them */}
-        <Divider orientation="vertical" color="dark.4" style={{ height: 26, alignSelf: 'center' }} />
+        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Button.Group>
           {SPEEDS.map(([sp, label]) => (
-            <Button size="lg" key={sp} variant={S.speed === sp ? 'filled' : 'default'}
+            <Button size="sm" key={sp} variant={S.speed === sp ? 'filled' : 'default'}
               onClick={() => { S.speed = sp }}>{label}</Button>
           ))}
         </Button.Group>
