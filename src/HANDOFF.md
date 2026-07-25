@@ -21,6 +21,23 @@
   get side callouts (right), ring hugs the unit rows; auto-center+zoom via
   map/view.ts centerView.
 
+- **ONE MISSION, FIVE PHASES** (2026-07-25, first Opus change — the user:
+  "The LODGMENT lays all of the objectives out… we just need to merge the two
+  mission files into 1"): `fob-keaton.json` is GONE, folded into
+  `lodgment.json`; `mainline: ["lodgment"]`. All five objectives are on the
+  board from H-hour the way an OPORD reads — no reveal gating, no
+  mission-boundary beat. The LINES OF SUPPLY tasking survives as a NEW ENGINE
+  VERB: the `frago` effect kind (`packs/types.ts` + `missions/effects.ts`)
+  raises a tasking card mid-stream, fired from the `consolidate` trigger; the
+  implicit mission-frago-on-activation path stays for side missions (S4).
+  `revealPoint` is dormant but kept (it's what will hide a genuinely new
+  mainline mission or a side mission). PACK-MISSIONS.md now carries the rule:
+  **a mission is an OPERATION, not a level** — split only when the tasking is
+  an operation the commander could not have been briefed on at H-hour.
+  Gates: tsc clean · campaign-check **38/38** (was 37; the fob-keaton
+  assertion became two) · golden **3077619369** · verified in browser (all
+  five objectives render, tutorial runs from field-scouts).
+
 - **Objective stream reads as a phased plan** (last Fable change): SCOUT OBJ
   KEATON (new `recon-area` engine verb — live contact in zone, or zone empty)
   → CLEAR → HOLD OBJ KEATON → BUILD FOB KEATON → OPEN THE SUPPLY LINE — all

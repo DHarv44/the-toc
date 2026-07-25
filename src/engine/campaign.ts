@@ -89,7 +89,10 @@ export interface RuntimeObjective extends ObjectiveSpec {
   missionId: string
   zoneSpec?: { place: PlaceRef; r: number }
   // a FRAGO-bearing mission's first objective — the tracker reveals the
-  // stream only up to the next one of these (taskings pop up, no spoilers)
+  // stream only up to the next one of these (taskings pop up, no spoilers).
+  // Dormant on a single-mission mainline (LODGMENT shows all five phases from
+  // H-hour, the way an OPORD reads); it's what keeps a genuinely NEW mainline
+  // mission — or a side mission (S4) — off the board until it is tasked.
   revealPoint?: boolean
 }
 

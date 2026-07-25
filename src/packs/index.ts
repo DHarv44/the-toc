@@ -25,7 +25,6 @@ import opforNames from './opfor/names.json'
 import itManifest from './1cd/campaigns/iron-triangle/campaign.json'
 import itMap from './1cd/campaigns/iron-triangle/map.json'
 import itLodgment from './1cd/campaigns/iron-triangle/missions/lodgment.json'
-import itFobKeaton from './1cd/campaigns/iron-triangle/missions/fob-keaton.json'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
@@ -148,7 +147,7 @@ function buildCampaign(manifest: unknown, map: unknown, missions: unknown[]): Ca
 }
 
 export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
-PACK_1CD.campaigns = [buildCampaign(itManifest, itMap, [itLodgment, itFobKeaton])]
+PACK_1CD.campaigns = [buildCampaign(itManifest, itMap, [itLodgment])]
 export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
 
 export const PACKS: Record<string, Pack> = {

@@ -32,11 +32,19 @@ src/packs/1cd/
       campaign.json           ← manifest: identity, map ref, mainline, side pool
       map.json                ← theater + seed + authored layout (the gazetteer)
       missions/
-        lodgment.json         ← M1: clear + hold OBJ KEATON
-        fob-keaton.json       ← M2: FOB + supply line
+        lodgment.json         ← the operation: scout/clear/hold, then FOB + supply line
         side/                 ← repeatable side-mission templates (stage 4)
           idf-pot.json
 ```
+
+**A mission is an OPERATION, not a level.** The mainline's phases belong in ONE
+mission file when they are one commander's one plan — the OPORD lays out the
+whole scheme of maneuver and the objective board shows every phase from H-hour
+(2026-07-25: `fob-keaton.json` was folded back into `lodgment.json` for exactly
+this reason). Split into a second mainline mission only when the tasking is a
+genuinely NEW operation — a different objective set the commander could not
+have been briefed on at H-hour. Mid-operation taskings are the `frago` EFFECT,
+not a file boundary.
 
 A different campaign = a different folder (different theater, different war).
 The splash's CAMPAIGN flow gains a campaign picker when a pack ships more than
@@ -86,7 +94,7 @@ theater is a later stage — note in HARDCODE-AUDIT).
     { "asset": "SHADOW", "formation": "1ACB" },
     { "asset": "SENTINEL", "formation": "CORPS MAIN" }
   ],
-  "mainline": ["lodgment", "fob-keaton"],
+  "mainline": ["lodgment"],
   "sideMissions": [
     { "mission": "side/idf-pot", "weight": 3, "cooldownS": 3600,
       "when": { "kind": "all", "of": [
@@ -185,8 +193,9 @@ stale contact w/ scatter), `place-force` (arc at anchor — today's
 `placeForce`), `set-roe`, `opfor-objective`, `spawn-group` (tags + stamps
 `eventT`), `deploy-column` (rear reinforcements entering at a map edge +
 move orders — today's M2 ENG/LOG arrival), `name-structure`, `release-asset`
-(conditional radio built in), `radio`, `toast`, `frago` (implicit: a
-mission's `frago` block drops when the mission activates).
+(conditional radio built in), `radio`, `toast`, `frago` (raise a tasking card
+mid-stream — DIV HQ on the VTC; a mission's own `frago` block also drops
+implicitly when the mission activates).
 Every effect implementation is today's code lifted verbatim and parameterized —
 that is what makes stage 1 golden-neutral.
 

@@ -1,8 +1,8 @@
 {
-  "_doc": "M1 — the lodgment fight: clear OBJ KEATON (the strongpoint town), defeat the counterattack. Trigger effects execute in declaration order (determinism law). COLD START (2026-07-25): NOTHING is fielded at H-hour — the commander calls the force up from garrison and forms the first battle group; the tutorial teaches it. Town garrison is second-line troops with Javelins stripped (AT4s only, tuned after the Phase 3 playtest). The wider theater is NOT empty: garrisons sit on the infrastructure, known to intel only as UNKNOWN contacts.",
+  "_doc": "M1 — LODGMENT, the whole operation as ONE mission in five phases: SCOUT / CLEAR / HOLD OBJ KEATON, then BUILD FOB KEATON and OPEN THE SUPPLY LINE. The commander sees the full scheme of maneuver on the board at H-hour, the way a real OPORD lays it out; the LINES OF SUPPLY tasking still arrives as a FRAGO card when the town is held (explicit `frago` effect), because that phase is where higher hands the sustainment piece over. Trigger effects execute in declaration order (determinism law). COLD START (2026-07-25): NOTHING is fielded at H-hour — the commander calls the force up from garrison and forms the first battle group; the tutorial teaches it. Town garrison is second-line troops with Javelins stripped (AT4s only, tuned after the Phase 3 playtest). The wider theater is NOT empty: garrisons sit on the infrastructure, known to intel only as UNKNOWN contacts.",
   "id": "lodgment",
   "name": "LODGMENT",
-  "brief": "TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and seize the crossroads town to your front, designated OBJECTIVE KEATON — it owns the road net. Intel has marked UNKNOWN enemy contacts in the town, but they are CONCEALED in the buildings: you will not see them until your scouts find them or they open fire. Nothing is fielded at H-hour: your battalion stages from CP GARRYOWEN — call up your scouts and your assault force from garrison and task-organize them as you see fit. Scouts screen forward; put them on BREAK before they step off. Expect a counterattack once you take the town. No fires support yet. Follow-on taskings will come by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.",
+  "brief": "TASK FORCE, THIS IS HIGHER. You have a foothold ashore. Push inland and seize the crossroads town to your front, designated OBJECTIVE KEATON — it owns the road net. Intel has marked UNKNOWN enemy contacts in the town, but they are CONCEALED in the buildings: you will not see them until your scouts find them or they open fire. Nothing is fielded at H-hour: your battalion stages from CP GARRYOWEN — call up your scouts and your assault force from garrison and task-organize them as you see fit. Scouts screen forward; put them on BREAK before they step off. Expect a counterattack once you take the town. No fires support yet. The operation runs in five phases: FIND them, CLEAR the objective, HOLD it — then make it stick with a forward operating base and a standing supply line. Phase details follow by FRAGO. FIND THEM. CLEAR OBJ KEATON. HOLD IT.",
   "objectives": [
     {
       "id": "scout", "label": "SCOUT OBJ KEATON", "kind": "recon-area",
@@ -15,7 +15,12 @@
     {
       "id": "hold", "label": "HOLD OBJ KEATON", "kind": "defeat-group",
       "groupTag": "REINFORCEMENT"
-    }
+    },
+    {
+      "id": "fob", "label": "BUILD FOB KEATON", "kind": "build", "structKind": "FOB",
+      "zone": { "place": "strongpoint", "r": 520 }
+    },
+    { "id": "route", "label": "OPEN THE SUPPLY LINE", "kind": "deliver", "amount": 200 }
   ],
   "triggers": [
     {
@@ -54,6 +59,33 @@
         { "kind": "release-asset", "asset": "SHADOW", "formation": "1ACB",
           "radio": { "from": "DIV G3",
             "text": "1ACB RELEASES A SHADOW ORBIT — ASSET AVAILABLE FOR TASKING" } }
+      ]
+    },
+    {
+      "id": "consolidate",
+      "when": { "kind": "objective-active", "objective": "fob" },
+      "do": [
+        { "kind": "set-allow", "field": true, "support": false, "drone": true },
+        { "kind": "opfor-objective", "place": null },
+        { "kind": "front-line", "place": "strongpoint", "offsetY": -1400 },
+        { "kind": "deploy-column", "units": ["ENG", "LOG"], "edge": "south", "margin": 120,
+          "spacing": 90,
+          "moveTo": { "anchor": "player-hq", "offsets": [[-140, 220], [140, 220]] } },
+        { "kind": "frago", "title": "LINES OF SUPPLY",
+          "text": "GOOD WORK ON THE CROSSROADS. Make it stick. Engineers and a logistics platoon are pushing up to you from the rear — bring them forward and establish FOB KEATON in the town, then run a supply line up to it. Field whatever the task force can give you if you need it. ESTABLISH FOB KEATON. OPEN THE SUPPLY LINE." }
+      ]
+    },
+    {
+      "id": "fob-open",
+      "when": { "kind": "objective-complete", "objective": "fob" },
+      "do": [
+        { "kind": "name-structure", "struct": "FOB", "near": "strongpoint", "r": 520,
+          "label": "FOB KEATON" },
+        { "kind": "radio", "radio": { "from": "NET", "cat": "arrive",
+          "text": "FOB KEATON IS OPEN FOR BUSINESS", "at": "ctx" } },
+        { "kind": "release-asset", "asset": "CRAM", "formation": "2ABCT",
+          "radio": { "from": "DIV G3",
+            "text": "2ABCT RELEASES A C-RAM SECTION TO THE DIVISION POOL" } }
       ]
     }
   ],
@@ -178,6 +210,57 @@
             "anchor": { "kind": "ui", "sel": "dig-in" } }
         ],
         "done": { "kind": "dug-in", "place": "strongpoint", "r": 260, "exclude": ["SCT"] }
+      },
+      {
+        "id": "move-up",
+        "hints": [
+          { "when": { "kind": "column-routed", "types": ["ENG", "LOG"], "place": "strongpoint", "r": 520 },
+            "hide": true },
+          { "when": { "kind": "not", "of": { "kind": "column-has-orders", "types": ["ENG", "LOG"] } },
+            "text": "BRING UP THE SUSTAINMENT — your engineer and logistics platoons are pushing up from the rear. Columns move much faster on ROADS.",
+            "action": "SELECT them both, then RIGHT-CLICK the highlighted road point.",
+            "anchor": { "kind": "road-marker" } },
+          { "text": "QUEUE THE NEXT WAYPOINT — they will follow the road, then push up to the FOB site in the town.",
+            "action": "HOLD SHIFT and RIGHT-CLICK the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
+        ],
+        "done": { "kind": "column-at", "types": ["ENG", "LOG"], "place": "strongpoint", "r": 420 }
+      },
+      {
+        "id": "build-fob",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "ENG" } },
+            "text": "ESTABLISH THE FOB — your engineer platoon does the building.",
+            "action": "LEFT-CLICK your engineer platoon.",
+            "anchor": { "kind": "unit", "type": "ENG" } },
+          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "build:FOB" } },
+            "text": "ESTABLISH THE FOB — with the engineers selected, installations are built from the COMMAND rail.",
+            "action": "CLICK Forward Op. Base in the rail on the left.",
+            "anchor": { "kind": "ui", "sel": "build-fob" } },
+          { "text": "PLACE IT — the engineers start construction; the supply truck on site is what lets you build this far forward of the HQ.",
+            "action": "CLICK a spot inside the town.",
+            "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
+        ],
+        "done": { "kind": "structure-built", "struct": "FOB" }
+      },
+      {
+        "id": "supply-run",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "LOG" } },
+            "text": "OPEN THE SUPPLY LINE — your logistics platoon runs standing convoys.",
+            "action": "LEFT-CLICK your logistics platoon.",
+            "anchor": { "kind": "unit", "type": "LOG" } },
+          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "convoy:" } },
+            "text": "OPEN THE SUPPLY LINE — a standing run keeps the FOB stocked without further orders.",
+            "action": "CLICK SUPPLY RUN in the bottom tray.",
+            "anchor": { "kind": "ui", "sel": "supply-run" } },
+          { "text": "SET THE ROUTE — the trucks will loop HQ → FOB on their own, delivering supply every run.",
+            "action": "CLICK the FOB.",
+            "anchor": { "kind": "struct", "struct": "FOB" } }
+        ],
+        "done": { "kind": "convoy-running" }
       }
     ],
     "reactive": [

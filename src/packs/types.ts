@@ -212,6 +212,11 @@ export type MissionEffect =
   | { kind: 'release-asset'; asset: string; formation: string; radio?: MissionRadio }
   | { kind: 'radio'; radio: MissionRadio }
   | { kind: 'toast'; text: string }
+  // raise a tasking card mid-stream (DIV HQ on the VTC). A mission's own
+  // `frago` block still drops implicitly when the mission activates; this is
+  // the EXPLICIT form, so one mission can phase its own taskings — and so a
+  // side mission (S4) can tender one whenever its trigger says.
+  | { kind: 'frago'; title: string; text: string }
 
 export interface MissionTrigger {
   id: string

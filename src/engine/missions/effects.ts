@@ -123,6 +123,17 @@ export function runEffects(S: GameState, effects: readonly MissionEffect[]): voi
       case 'toast':
         toast(e.text)
         break
+      case 'frago':
+        // the tasking always enters the recallable orders log; the CARD only
+        // goes up once the opening OPORD has been acknowledged (at H-hour the
+        // brief owns the screen — same rule as the implicit mission frago)
+        c.fragoLog.push({ title: e.title, text: e.text, t: S.t })
+        if (c.briefed) {
+          c.frago = { title: e.title, text: e.text }
+          radio('NET', 'arrive', `FRAGO — ${e.title}. DIV HQ ON THE VTC.`, undefined, undefined)
+          toast(`FRAGO — ${e.title}`)
+        }
+        break
     }
   }
 }

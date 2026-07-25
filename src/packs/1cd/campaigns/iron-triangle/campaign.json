@@ -15,5 +15,5 @@
     { "asset": "SHADOW", "formation": "1ACB" },
     { "asset": "SENTINEL", "formation": "CORPS MAIN" }
   ],
-  "mainline": ["lodgment", "fob-keaton"]
+  "mainline": ["lodgment"]
 }

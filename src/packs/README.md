@@ -40,7 +40,6 @@ src/packs/
         map.json       ← theater + seed + authored layout (towns/MSR/features = the gazetteer)
         missions/
           lodgment.json     ← brief, objectives, triggers, tutorial
-          fob-keaton.json
           side/             ← repeatable side-mission templates
   opfor/
     pack.json
