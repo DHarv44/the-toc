@@ -19,6 +19,8 @@ import { CELL } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
 import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/audio'
 import { playerPack } from '../packs'
+import type { StaffShop } from '../engine/GameState'
+import BnHeader from './BnHeader'
 
 const AMBER = '#e8b34a'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
@@ -397,6 +399,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
     title: string; text: string
     speaker?: { name: string; title: string } // a staff officer on the line instead of the CG
     docOnly?: boolean                          // no operation deck — the document is the visual
+    shop?: StaffShop                           // staff-shop document: its console header letterheads the paper
   }
   blocking?: boolean
   review?: boolean       // recalled order/report: the DOCUMENT for review — no call, no voice
@@ -533,6 +536,16 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               <div style={{ textAlign: 'center', fontSize: 11, letterSpacing: 3, color: '#7a1f1f', fontWeight: 'bold' }}>
                 SECRET//NOFORN
               </div>
+              {/* the producing shop's letterhead — same proud header as its console, paper tone */}
+              {entry.shop && (() => {
+                const info = playerPack().staff?.[entry.shop!]
+                return (
+                  <div style={{ margin: '16px 0 4px' }}>
+                    <BnHeader tone="paper" plate={info?.label ?? entry.shop!.toUpperCase()}
+                      sub={`${(info?.name ?? '').toUpperCase()} · ${playerPack().name.toUpperCase()}`} />
+                  </div>
+                )
+              })()}
               <div style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: 2, margin: '18px 0 14px' }}>
                 {entry.title}
               </div>
@@ -543,6 +556,9 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
             </div>
           ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+            {/* DIV HQ's masthead over their own deck — division identity, not the battalion's */}
+            <BnHeader division plate="DIV HQ"
+              sub={`DIVISION MAIN · ${playerPack().name.toUpperCase()}`} />
             <canvas ref={slideRef} width={1180} height={756}
               style={{ width: '100%', borderRadius: 2 }} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>

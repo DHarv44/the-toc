@@ -551,11 +551,13 @@ export interface CampaignState {
   briefed: boolean           // opening briefing acknowledged (false = paused on it)
   // open VTC (new tasking) or REVIEW (recalled doc — no call). `speaker` puts a
   // staff officer on the call instead of the CG (e.g. the S1 delivering a
-  // PERSTAT); `docOnly` calls skip the operation slide deck.
+  // PERSTAT); `docOnly` calls skip the operation slide deck. `shop` marks a
+  // staff-shop document (its console header letterheads the paper).
   frago: {
     title: string; text: string; review?: boolean
     speaker?: { name: string; title: string }
     docOnly?: boolean
+    shop?: StaffShop
   } | null
   fragoLog: Array<{ title: string; text: string; t: number }> // every order received (recallable VTCs)
   complete: boolean          // whole campaign won (checkEnd reads this)

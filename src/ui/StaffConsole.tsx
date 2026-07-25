@@ -45,7 +45,7 @@ function ShopFrame({ shop, children }: { shop: StaffShop; children: React.ReactN
     <Box pos="absolute" inset={0} p="lg"
       style={{ zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)', userSelect: 'none', ...MONO }}>
       <BnHeader plate={info?.label ?? shop.toUpperCase()}
-        sub={`${(info?.name ?? '').toUpperCase()} · ${pack.name.toUpperCase()} · ${(info?.desc ?? '').toUpperCase()} · MISSION ${fmtClock(S.t)}`} />
+        sub={`${(info?.name ?? '').toUpperCase()} · ${pack.name.toUpperCase()}`} about={info} />
       <Group justify="flex-end" mt={8}>
         {S.campaign && (
           <Button size="xs" variant="default" disabled={!!pending}

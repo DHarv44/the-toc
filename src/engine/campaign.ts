@@ -686,7 +686,7 @@ export function openReport(S: GameState, id: number): void {
   const speaker = o
     ? { name: `${o.rank} ${o.name ?? ''}`.trim(), title: shopTitle(e.shop) }
     : { name: e.shop.toUpperCase(), title: shopTitle(e.shop) }
-  c.frago = { title: e.title, text: e.text, speaker, docOnly: true, review: e.read }
+  c.frago = { title: e.title, text: e.text, speaker, docOnly: true, review: e.read, shop: e.shop }
   e.read = true
 }
 

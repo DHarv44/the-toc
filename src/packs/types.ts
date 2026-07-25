@@ -150,6 +150,8 @@ export interface Pack {
   id: string
   name: string            // '1st Cavalry Division'
   abbr: string            // '1CD'
+  nick?: string           // formation nickname: 'First Team'
+  motto?: string          // formation motto: 'America's First Team' (division-level heraldry)
   side: 'friend' | 'hostile'
   catalogs: PackCatalogs  // the platforms this pack's world is made of
   names?: NamePools       // personnel name generation inputs

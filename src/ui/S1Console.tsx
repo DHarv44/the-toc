@@ -16,7 +16,8 @@ import { pipelineBacklog } from '../domains/forces/pipeline'
 import { openReport, queueReport, unreadReports } from '../engine/campaign'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
-import { BnCrest, BnDui, RankIcon, RibbonIcon } from './insignia'
+import { RankIcon, RibbonIcon } from './insignia'
+import BnHeader from './BnHeader'
 
 const COL = { fit: '#7ec87e', wia: '#e8c547', kia: '#e8524a', mia: '#9a7ec8', dim: '#54708a' }
 const STATUS_COL: Record<string, string> = { FIT: COL.fit, WIA: COL.wia, KIA: COL.kia, MIA: COL.mia }
@@ -342,7 +343,6 @@ export default function S1Console() {
   const slotAggs = new Map<string, Agg>(slots.map(sl => [sl.id, aggSlot(sl)]))
   const divAgg = aggSum([...slotAggs.values()])
   const cmdr = S.campaign?.commander
-  const dtg = `${String(Math.floor(S.t / 3600)).padStart(2, '0')}${String(Math.floor(S.t / 60) % 60).padStart(2, '0')}Z`
 
   // brigade display order = formation order, attachments last
   const bdeOrder: { desig: string; nick?: string }[] = [
@@ -443,39 +443,10 @@ export default function S1Console() {
       }}>
       {/* DUSTWUN attention pulse (company + platoon labels) */}
       <style>{'@keyframes s1pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
-      {/* the proud battalion header: the battalion's DUI leads (its own badge —
-          numbered scroll, STALLIONS arc), designation + motto + nickname in the
-          middle, the REGIMENTAL coat of arms anchoring the right — crest by the
-          door, colors in the case. */}
-      <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
-        {playerBn && <BnDui bn={playerBn} h={54} title={pack.nicks?.[playerBn]} />}
-        {/* the staff-section plate: as tall as the title+subtitle block */}
-        <Text fz={54} fw={700} c="#ffffff" lh={1} style={{ letterSpacing: 1 }}>S1</Text>
-        <Box>
-          <Group gap={12} align="baseline" wrap="nowrap">
-            <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
-              {playerBn ?? pack.abbr}
-            </Text>
-            {playerBn && pack.nicks?.[playerBn] && (
-              <Text fz="md" fw={700} c="#d8b84a" style={{ letterSpacing: 2 }}>
-                {pack.nicks[playerBn]}
-              </Text>
-            )}
-          </Group>
-          <Text fz="xs" c="dark.3" style={{ letterSpacing: 1.5 }}>
-            PERSONNEL · {pack.name.toUpperCase()} · {tab === 'div' ? 'DIVISION PERSTAT' : tab === 'tf' ? 'TASK ORGANIZATION' : tab === 'shop' ? 'S1 SECTION — PERSONNEL SERVICES' : 'BATTALION PERSTAT'} · AS OF {dtg}
-          </Text>
-        </Box>
-        {playerBn && pack.mottos?.[playerBn] && (
-          <Text ml="auto" fz={54} fw={600} c="#c8a83c" lh={1} style={{ letterSpacing: 1.5, whiteSpace: 'nowrap' }}>
-            “{pack.mottos[playerBn]}”
-          </Text>
-        )}
-        {playerBn && (
-          <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
-            kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
-        )}
-      </Group>
+      {/* the proud battalion header — shared component (S1 set the format) */}
+      <BnHeader plate={pack.staff?.s1?.label ?? 'S1'}
+        sub={`${(pack.staff?.s1?.name ?? 'PERSONNEL').toUpperCase()} · ${pack.name.toUpperCase()}`}
+        about={pack.staff?.s1} />
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
       <Group gap={6} pt={12}>

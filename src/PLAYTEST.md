@@ -59,3 +59,12 @@
 - [ ] OPFOR troops still Korean-flavored names
 - [ ] Alarm: master mute (🔊 button) kills a LOOPING siren mid-attack
 - [ ] Aerostat endurance still infinite (JSON null→Infinity conversion)
+
+## Proud headers rework (2026-07-25 late)
+- [ ] Shop subtitles end at "· 1ST CAVALRY DIVISION" (no desc/clock junk) — VERIFIED S1/S2
+- [ ] Hover the big shop plate (S1/S2/S3/S4) → charter card (full name, short
+      desc in gold, detail paragraph) — VERIFIED S2
+- [ ] EYES ONLY: open a PERSTAT/INTSUM document — the producing shop's
+      letterhead on the paper (paper tone: dark ink, muted gold motto)
+- [ ] EYES ONLY: any DIV HQ VTC deck (FRAGO/opener) — DIV HQ masthead above
+      the slides: 1CD patch, "DIV HQ" plate, FIRST TEAM, "America's First Team"

@@ -112,6 +112,8 @@ function buildPack(
     id: m.id,
     name: man.name,
     abbr: man.abbr,
+    nick: man.nick,
+    motto: man.motto,
     side: man.side,
     patch: man.patch,
     rankStyle: man.rankStyle,
