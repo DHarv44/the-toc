@@ -21,10 +21,33 @@ export interface GameOverEvent {
   result: 'won' | 'lost'
 }
 
+// base under fire (#14): indirect inbound on the commander's CP — the TOC
+// hears the alarm, the point defense outside, and the impacts
+export interface IncomingEvent {
+  eta: number         // seconds until the first detected round lands
+}
+
+export interface InterceptEvent {
+  x: number           // firing system position
+  y: number
+  tx: number          // engaged round's predicted impact
+  ty: number
+  kill: boolean
+  // the SYSTEM'S OWN sound, from its pack spec (audio synthesizes from this)
+  sound: { burstRof: number; burstLen: number; pitch: number } | null
+}
+
+export interface BaseImpactEvent {
+  prox: number        // 0..1 — how close to the CP the round landed
+}
+
 export interface EventMap {
   radio: RadioTrafficEvent
   toast: ToastEvent
   gameover: GameOverEvent
+  incoming: IncomingEvent
+  intercept: InterceptEvent
+  baseimpact: BaseImpactEvent
 }
 
 export type EventName = keyof EventMap

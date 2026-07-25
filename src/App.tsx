@@ -1,6 +1,7 @@
 // App shell: splash → top bar over a three-column body (command rail | map |
 // net rail). Ported verbatim from src/App.jsx.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import BaseUnderFire from './ui/BaseUnderFire'
 import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
 import TopBar from './ui/TopBar'
@@ -26,6 +27,7 @@ import { CAMPAIGN_THEATER, CAMPAIGN_SEED, setCampaignTutorial } from './engine/c
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
+  const shakeRef = useRef<HTMLDivElement>(null) // base-under-fire shakes the whole TOC
 
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
   if (window.location.search.includes('insignia')) return <InsigniaTest />
@@ -57,11 +59,12 @@ export default function App() {
   // map. The map column is itself a flex COLUMN: the map area (with its
   // overlays) on top, the selection tray as a real row below it.
   return (
-    <div style={{
+    <div ref={shakeRef} style={{
       width: '100vw', height: '100vh', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
       background: '#2a2b2e', // in-game backdrop: neutral dark grey (menu keeps the theme blue)
     }}>
+      <BaseUnderFire shakeRef={shakeRef} />
       <TopBar />
       <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
         <CommandPanel />

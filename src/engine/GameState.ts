@@ -297,6 +297,8 @@ export interface Structure {
   // vehicles, the aid station returns casualties to duty, for units resting
   // in radius. HQs have the full set by default; FOBs build them out.
   facilities?: string[]
+  intBudget?: number         // point-defense engagement budget (intercept spec rof)
+  lastIntT?: number          // last intercept engagement (radio throttle)
 }
 
 // --- air ------------------------------------------------------------------
@@ -378,6 +380,7 @@ export interface Shell {
   t0?: number
   bigGun?: boolean           // firing-report cue for feed audio (deepest thud)
   _snd?: boolean             // one-shot feed-audio flag (global across open feeds)
+  _int?: boolean             // point defense already engaged this round (one roll each)
 }
 
 export interface GunRound {

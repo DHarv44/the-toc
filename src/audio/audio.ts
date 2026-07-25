@@ -435,6 +435,64 @@ export function clearFeedAmbient(feedId: string | number): void {
   if (a) { a.stop(); ambients.delete(feedId) }
 }
 
+// --- base under fire (#14) ---------------------------------------------------
+// The one place the "silent CIC" rule breaks: when the TOC ITSELF is under
+// attack, the commander hears it — the incoming alarm, the point-defense
+// burst outside (synthesized from the SYSTEM'S SPEC sound params, never a
+// baked clip), and impacts as muffled booms scaled by proximity.
+
+// RADAR-state alarm: detection pings arrive ~1/s while any round is tracked
+// inbound; the siren LOOPS from the first ping and keeps running until 10 s
+// after the last one — one alarm per attack, never one per round.
+const ALARM_TAIL_MS = 10000
+let alarmEl: HTMLAudioElement | null = null
+let alarmLastPing = 0
+let alarmTimer: ReturnType<typeof setInterval> | null = null
+export function incomingAlarm(): void {
+  if (muted) return
+  alarmLastPing = performance.now()
+  if (alarmTimer) return // already sounding — the ping just extends it
+  if (!alarmEl) { alarmEl = new Audio('/audio/incoming.mp3'); alarmEl.volume = 0.55 }
+  alarmEl.loop = true
+  alarmEl.currentTime = 0
+  void alarmEl.play().catch(() => {}) // pre-gesture autoplay block: alarm just misses once
+  alarmTimer = setInterval(() => {
+    if (performance.now() - alarmLastPing < ALARM_TAIL_MS) return
+    alarmEl?.pause()
+    if (alarmEl) alarmEl.currentTime = 0
+    if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null }
+  }, 400)
+}
+
+// point-defense burst: a pulse train at the spec's rate, through the same
+// muffled-outdoors filtering as everything else the TOC hears
+export function interceptBurst(sound: { burstRof: number; burstLen: number; pitch: number } | null): void {
+  if (muted || !audioReady()) return
+  const p = sound ?? { burstRof: 60, burstLen: 1.0, pitch: 1 }
+  const t = ctx!.currentTime
+  const lp = ctx!.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400 * p.pitch
+  const out = ctx!.createGain(); out.gain.value = 0.22
+  lp.connect(out).connect(master!)
+  const step = 1 / Math.max(10, p.burstRof)
+  const rounds = Math.floor(p.burstLen / step)
+  for (let i = 0; i < rounds; i++) {
+    const tt = t + i * step
+    const n = ctx!.createBufferSource(); n.buffer = noiseBuf
+    n.playbackRate.value = (1.4 + Math.random() * 0.4) * p.pitch
+    const ng = ctx!.createGain()
+    ng.gain.setValueAtTime(0.5 + Math.random() * 0.3, tt)
+    ng.gain.exponentialRampToValueAtTime(0.001, tt + step * 0.8)
+    n.connect(ng).connect(lp)
+    n.start(tt, Math.random()); n.stop(tt + step)
+  }
+}
+
+// a round landing on the base network: deep muffled boom, closer = louder
+export function baseImpactBoom(prox: number): void {
+  if (muted || !audioReady()) return
+  rumble(0.25 + 0.45 * Math.max(0, Math.min(1, prox)), 48)
+}
+
 // wiring: net chatter comes off the engine bus; resume/create the context on the
 // first interaction anywhere in the app. Guarded so HMR re-imports don't stack
 // subscriptions or listeners.
@@ -442,5 +500,8 @@ const g = globalThis as typeof globalThis & { __WOD2_AUDIO_WIRED?: boolean }
 if (typeof window !== 'undefined' && !g.__WOD2_AUDIO_WIRED) {
   g.__WOD2_AUDIO_WIRED = true
   bus.on('radio', e => radioMsg(e.text, e.callsign, e.priority))
+  bus.on('incoming', () => incomingAlarm())
+  bus.on('intercept', e => interceptBurst(e.sound))
+  bus.on('baseimpact', e => baseImpactBoom(e.prox))
   window.addEventListener('pointerdown', () => { if (!muted) ensureAudio() }, { passive: true })
 }

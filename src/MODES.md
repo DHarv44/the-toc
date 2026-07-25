@@ -648,3 +648,18 @@ release, authority, ALO→CAS chain, ATO window, determinism). GOLDEN
 RE-BASELINED 3077619369 ×2: the old script's free drone launch is now
 correctly REFUSED without orbit authority — the doctrine reaching skirmish
 is the change. All other checks green (37/22/12/8/14).
+
+**Base under fire SHIPPED (2026-07-25, task #14):** the INTERCEPT verb
+(installations/intercept.ts) — emplaced systems whose facility spec carries an
+intercept effect engage inbound indirect in the terminal window: rof budget
+(saturation real), one hash roll per round vs pk, kills burst mid-air and
+never land; pre-ballistics; engine reads the SPEC only. The TOC experience:
+RADAR-state alarm (pings ~1/s while any round is tracked; audio loops
+incoming.mp3 until 10 s after the last ping — one alarm per attack), red
+INCOMING banner over the top bar ("TAKE COVER, GET TO THE NEAREST BUNKER",
+blinking), slow red strobe wash (same 10 s tail), synthesized point-defense
+burst from the spec's sound params, muffled proximity booms, 300-500 ms
+proximity-scaled screen shake, and a two-stutter POWER FLICKER on impact
+(brightness dip — screens never die). Typed bus events (incoming/intercept/
+baseimpact), all UI-only. Verified live in the sandbox; golden 3077619369
+unchanged ×2.
