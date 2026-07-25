@@ -1,6 +1,21 @@
-# HANDOFF — 2026-07-25 (compact anchor; Fable 5 → next session)
+# HANDOFF — 2026-07-25 (compact anchor; Fable 5 → Opus)
 
-## ⚓ COMPACT ANCHOR — state as of commit `45fc459` (all pushed, tree clean)
+## ⚓ COMPACT ANCHOR — state as of commit `016db98` (all pushed, tree clean)
+
+**Latest (past 45fc459):** #32 proud-headers rework ✅ (`016db98`) — shop
+subtitles end at the division name; shop charter (desc/detail) moved to a
+HoverCard on the big shop plate itself (hover S1/S2/... — no icon); BnHeader
+generalized (dark/paper tones, `division` identity via new pack root fields
+`nick`/`motto` in 1cd/pack.json); report documents carry the producing shop's
+letterhead (frago state gained `shop`); DIV HQ masthead above the VTC slide
+deck. Verified live: S1/S2 subtitles + S2 hover charter. EYES ONLY remaining
+(PLAYTEST.md "Proud headers rework"): paper letterhead on an opened report,
+DIV HQ deck masthead on a FRAGO.
+
+**In flight next: CAMPAIGN TUTORIAL rework (Dave, end of Fable session).**
+No design settled yet — read the existing tutorial code (grep `tutorial` /
+Splash "TUTORIAL HINTS" toggle) before proposing. Everything else below is
+stable ground.
 
 Everything below "VERIFIED" is DONE and green. Late-session additions past the
 original handoff, all verified (tsc clean · golden 3077619369 · campaign 37/37):
