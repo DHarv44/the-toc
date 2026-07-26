@@ -12,7 +12,7 @@
 // Content browsing reuses PackViewer's tables (PackContent): one description
 // of what a pack contains, whichever door you came in through.
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Box, Button, Group, Table, Text, UnstyledButton } from '@mantine/core'
+import { Badge, Box, Button, Checkbox, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
 import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
@@ -59,6 +59,7 @@ function ModelBrowser({ p }: { p: Pack }) {
     [p.id],
   )
   const [info, setInfo] = useState<Record<string, GlbInfo | { error: string }>>({})
+  const [showParts, setShowParts] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -79,11 +80,22 @@ function ModelBrowser({ p }: { p: Pack }) {
     )
   }
 
+  // parts are off by default: the page is a catalogue of ASSETS, and a tank's
+  // road wheels are not one. They are one checkbox away when you want them.
+  const partCount = Object.values(info)
+    .reduce((n, i) => n + (i && !('error' in i) ? i.models.filter(m => m.part).length : 0), 0)
+
   return (
     <>
-      <Text fz={9} c="dark.3" mt="xs" mb={8} style={{ letterSpacing: 2 }}>
-        {files.length} FILE(S) IN models/
-      </Text>
+      <Group gap="md" mt="xs" mb={8} align="center">
+        <Text fz={9} c="dark.3" style={{ letterSpacing: 2 }}>
+          {files.length} FILE(S) IN models/
+        </Text>
+        <Checkbox size="xs" checked={showParts} onChange={e => setShowParts(e.currentTarget.checked)}
+          label={`SHOW PARTS${partCount ? ` (${partCount})` : ''}`}
+          disabled={!partCount}
+          styles={{ label: { fontSize: 9, letterSpacing: 1.5, color: '#54708a' } }} />
+      </Group>
       {files.map(f => {
         const i = info[f.url]
         const err = i && 'error' in i ? i.error : null
@@ -114,10 +126,13 @@ function ModelBrowser({ p }: { p: Pack }) {
                     would otherwise push every file below it off the page. */}
                 <Box mt="sm" pb={6}
                   style={{ display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'hidden' }}>
-                  {g.models.map(m => (
+                  {g.models.filter(m => showParts || !m.part).map(m => (
                     <Box key={m.name} w={190} style={{ flex: '0 0 auto' }}>
                       <ModelPreview url={f.url} node={m.node} />
-                      <Text fz={12} fw={700} c="#dceeff" mt={4} truncate>{m.name}</Text>
+                      <Group gap={6} wrap="nowrap" align="baseline" mt={4}>
+                        <Text fz={12} fw={700} c={m.part ? 'dark.1' : '#dceeff'} truncate>{m.name}</Text>
+                        {m.part && <Text fz={8} c="dark.3" style={{ flex: '0 0 auto' }}>PART</Text>}
+                      </Group>
                       <Text fz={9.5} c="dark.3">{m.tris.toLocaleString()} tris</Text>
                       <Text fz={9.5} c={WARN_C} truncate>
                         {m.node ? `node: "${m.node}"` : 'whole file'}

@@ -28,6 +28,7 @@ export interface GlbModel {
   name: string           // display name
   node?: string          // the node a manifest would ref; absent = whole file
   tris: number           // triangles in this node's whole subtree
+  part?: boolean         // a PIECE of the asset above it, not an asset itself
 }
 
 export interface GlbInfo {
@@ -136,16 +137,18 @@ export async function readGlb(url: string): Promise<GlbInfo> {
   const defaultNames = names.some(n => DEFAULT_NAME.test(n))
 
   const whole: GlbModel = { name: fileName, tris: total }
-  const parts = (): GlbModel[] =>
-    level.map((i, k) => ({ name: names[k]!, node: names[k]!, tris: subtreeTris(i) }))
+  const parts = (isPart: boolean): GlbModel[] =>
+    level.map((i, k) => ({
+      name: names[k]!, node: names[k]!, tris: subtreeTris(i), part: isPart || undefined,
+    }))
 
   // Uniform parts (one stem) say nothing individually, so the file alone is
   // the answer. A MIXED branch — real names beside default ones — is one asset
   // whose pieces are still worth seeing, so the COMPLETE thing leads and the
   // pieces follow. Neither tell firing means these really are separate models.
   const models: GlbModel[] = sharedStem ? [whole]
-    : defaultNames ? [whole, ...parts()]
-      : parts()
+    : defaultNames ? [whole, ...parts(true)]
+      : parts(false)
 
   return {
     url,
