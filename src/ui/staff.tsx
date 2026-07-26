@@ -29,19 +29,39 @@ export const UnreadDot = ({ n }: { n: number }) => n > 0 ? (
   }}>{n}</span>
 ) : null
 
+// Table cells. Mantine's Table.Th/Td are Box-based, so they take the style
+// props directly — no <Text> wrapper inside every cell.
 export const Th = ({ children, w, ta }: { children?: ReactNode; w?: number; ta?: 'left' | 'right' }) => (
-  <Table.Th w={w} ta={ta}>
-    <Text fz={10} c="dark.3" style={{ letterSpacing: 1 }}>{children}</Text>
-  </Table.Th>
+  <Table.Th w={w} ta={ta} fz={10} c="dark.3" fw={400}>{children}</Table.Th>
 )
 
 export const Td = ({ children, c = 'dark.1', ta }: {
   children?: ReactNode; c?: string; ta?: 'left' | 'right'
 }) => (
-  <Table.Td ta={ta}>
-    <Text fz={11} c={c} style={{ fontVariantNumeric: 'tabular-nums' }}>{children}</Text>
-  </Table.Td>
+  <Table.Td ta={ta} fz={11} c={c}>{children}</Table.Td>
 )
+
+// The staff board table. One place decides how every S-shop table behaves:
+// sticky header (a staff board is read while it scrolls), zebra rows and
+// hover, tabular figures so columns of numbers line up. `minWidth` hands the
+// scroll container something to work with when a rail eats the width.
+export function StaffTable({ head, children, minWidth = 560, maw }: {
+  head?: ReactNode
+  children: ReactNode
+  minWidth?: number
+  maw?: number    // a narrow board (two columns) should not span the whole console
+}) {
+  return (
+    <Table.ScrollContainer minWidth={minWidth} type="native" maw={maw}>
+      <Table stickyHeader striped="odd" highlightOnHover withRowBorders={false}
+        verticalSpacing={3} horizontalSpacing="sm"
+        style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {head && <Table.Thead><Table.Tr>{head}</Table.Tr></Table.Thead>}
+        <Table.Tbody>{children}</Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  )
+}
 
 // a titled block with a rule under the title — the unit of layout on every
 // staff console

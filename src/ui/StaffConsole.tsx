@@ -15,7 +15,7 @@ import { repairSiteOf } from '../domains/installations/service'
 import { locRef } from '../world/ref'
 import { fmtClock } from './styles'
 import {
-  Metric, ReportList, RequestReport, Section, StaffView, Td, Th, type StaffTab,
+  Metric, ReportList, RequestReport, Section, StaffTable, StaffView, Td, Th, type StaffTab,
 } from './staff'
 
 const OK_C = '#7ec87e'
@@ -33,19 +33,16 @@ function S2Console() {
     <StaffView shop="s2">
       <Group justify="flex-end" mt={8}><RequestReport shop="s2" /></Group>
       <Section title={`CURRENT TRACKS — ${live.length} LIVE · ${stale.length} STALE · ${unknown.length} UNIDENTIFIED`}>
-        <Table withRowBorders={false} verticalSpacing={2}>
-          <Table.Thead><Table.Tr><Th>TYPE</Th><Th>STATE</Th><Th>LOCATION</Th><Th>STRENGTH</Th></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {contacts.slice(0, 40).map(([id, c]) => (
-              <Table.Tr key={id}>
-                <Td c={c.unknown ? WARN_C : '#ff8a7e'}>{c.unknown ? '?' : (UNIT_TYPES[c.type]?.abbr ?? c.type)}</Td>
-                <Td c={c.live ? '#ff8a7e' : 'dark.3'}>{c.live ? 'LIVE' : `STALE ${Math.round((S.t - c.lastSeen) / 60)}M`}</Td>
-                <Td>{S.map ? locRef(S.map, c.x, c.y) : '—'}</Td>
-                <Td>{c.unknown ? 'NOT ASSESSED' : `${Math.round(c.strength)}%`}</Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <StaffTable head={<><Th>TYPE</Th><Th>STATE</Th><Th>LOCATION</Th><Th ta="right">STRENGTH</Th></>}>
+          {contacts.slice(0, 40).map(([id, c]) => (
+            <Table.Tr key={id}>
+              <Td c={c.unknown ? WARN_C : '#ff8a7e'}>{c.unknown ? '?' : (UNIT_TYPES[c.type]?.abbr ?? c.type)}</Td>
+              <Td c={c.live ? '#ff8a7e' : 'dark.3'}>{c.live ? 'LIVE' : `STALE ${Math.round((S.t - c.lastSeen) / 60)}M`}</Td>
+              <Td>{S.map ? locRef(S.map, c.x, c.y) : '—'}</Td>
+              <Td ta="right">{c.unknown ? 'NOT ASSESSED' : `${Math.round(c.strength)}%`}</Td>
+            </Table.Tr>
+          ))}
+        </StaffTable>
       </Section>
       <Section title="COLLECTION">
         <Text fz={11} c="dark.1" mt={6}>
@@ -91,21 +88,20 @@ function S3Console() {
         </Section>
       )}
       <Section title={`TASK FORCE — ${friendly.length} FIELDED`}>
-        <Table withRowBorders={false} verticalSpacing={2}>
-          <Table.Thead><Table.Tr><Th>ELEMENT</Th><Th>TYPE</Th><Th>STATE</Th><Th>ROE</Th><Th>WPNS</Th><Th>STR</Th></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {friendly.map(u => (
-              <Table.Tr key={u.id}>
-                <Td c="#7ec8ff">{u.label}{u.qrfHome != null ? ' ⚡' : ''}</Td>
-                <Td>{UNIT_TYPES[u.type]?.abbr ?? u.type}</Td>
-                <Td c={S.t - u.lastCombatT < 60 ? '#ff8a7e' : 'dark.1'}>{S.t - u.lastCombatT < 60 ? 'IN CONTACT' : u.state.toUpperCase()}</Td>
-                <Td>{u.roe.toUpperCase()}</Td>
-                <Td>{u.weapons.toUpperCase()}</Td>
-                <Td c={u.strength < 60 ? WARN_C : 'dark.1'}>{Math.round(u.strength)}%</Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <StaffTable head={
+          <><Th>ELEMENT</Th><Th>TYPE</Th><Th>STATE</Th><Th>ROE</Th><Th>WPNS</Th><Th ta="right">STR</Th></>
+        }>
+          {friendly.map(u => (
+            <Table.Tr key={u.id}>
+              <Td c="#7ec8ff">{u.label}{u.qrfHome != null ? ' ⚡' : ''}</Td>
+              <Td>{UNIT_TYPES[u.type]?.abbr ?? u.type}</Td>
+              <Td c={S.t - u.lastCombatT < 60 ? '#ff8a7e' : 'dark.1'}>{S.t - u.lastCombatT < 60 ? 'IN CONTACT' : u.state.toUpperCase()}</Td>
+              <Td>{u.roe.toUpperCase()}</Td>
+              <Td>{u.weapons.toUpperCase()}</Td>
+              <Td ta="right" c={u.strength < 60 ? WARN_C : 'dark.1'}>{Math.round(u.strength)}%</Td>
+            </Table.Tr>
+          ))}
+        </StaffTable>
       </Section>
       {dustwun.length > 0 && (
         <Section title="PERSONNEL RECOVERY — OPEN">
@@ -175,63 +171,57 @@ function MotorPool() {
       </Group>
 
       <Section title="FLEET — BY END ITEM">
-        <Table withRowBorders={false} verticalSpacing={2}>
-          <Table.Thead>
-            <Table.Tr>
-              <Th>END ITEM</Th><Th ta="right">AUTH</Th><Th ta="right">FMC</Th>
-              <Th ta="right">MAINT</Th><Th ta="right">LOSS</Th><Th ta="right">OR</Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {[...fleet.entries()].sort((a, b) => (b[1].ok + b[1].dam + b[1].dest) - (a[1].ok + a[1].dam + a[1].dest))
-              .map(([k, r]) => {
-                const tot = r.ok + r.dam + r.dest
-                const rate = tot ? Math.round(r.ok / tot * 100) : 100
-                return (
-                  <Table.Tr key={k}>
-                    <Td c="#7ec8ff">{VEHICLES[k]?.name ?? k}</Td>
-                    <Td ta="right">{tot}</Td>
-                    <Td ta="right" c={OK_C}>{r.ok}</Td>
-                    <Td ta="right" c={r.dam ? WARN_C : 'dark.3'}>{r.dam}</Td>
-                    <Td ta="right" c={r.dest ? BAD_C : 'dark.3'}>{r.dest}</Td>
-                    <Td ta="right" c={rate >= 90 ? OK_C : rate >= 75 ? WARN_C : BAD_C}>{rate}%</Td>
-                  </Table.Tr>
-                )
-              })}
-            {fleet.size === 0 && (
-              <Table.Tr><Td c="dark.3">NOTHING FIELDED — THE FLEET IS IN GARRISON.</Td></Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
+        <StaffTable head={
+          <>
+            <Th>END ITEM</Th><Th ta="right">AUTH</Th><Th ta="right">FMC</Th>
+            <Th ta="right">MAINT</Th><Th ta="right">LOSS</Th><Th ta="right">OR</Th>
+          </>
+        }>
+          {[...fleet.entries()].sort((a, b) => (b[1].ok + b[1].dam + b[1].dest) - (a[1].ok + a[1].dam + a[1].dest))
+            .map(([k, r]) => {
+              const tot = r.ok + r.dam + r.dest
+              const rate = tot ? Math.round(r.ok / tot * 100) : 100
+              return (
+                <Table.Tr key={k}>
+                  <Td c="#7ec8ff">{VEHICLES[k]?.name ?? k}</Td>
+                  <Td ta="right">{tot}</Td>
+                  <Td ta="right" c={OK_C}>{r.ok}</Td>
+                  <Td ta="right" c={r.dam ? WARN_C : 'dark.3'}>{r.dam}</Td>
+                  <Td ta="right" c={r.dest ? BAD_C : 'dark.3'}>{r.dest}</Td>
+                  <Td ta="right" c={rate >= 90 ? OK_C : rate >= 75 ? WARN_C : BAD_C}>{rate}%</Td>
+                </Table.Tr>
+              )
+            })}
+          {fleet.size === 0 && (
+            <Table.Tr><Td c="dark.3">NOTHING FIELDED — THE FLEET IS IN GARRISON.</Td></Table.Tr>
+          )}
+        </StaffTable>
       </Section>
 
       <Section title="DEADLINE REPORT">
         {down.length === 0 && <Text fz={11} c={OK_C} mt={6}>ALL FIELDED VEHICLES MISSION CAPABLE.</Text>}
         {down.length > 0 && (
-          <Table withRowBorders={false} verticalSpacing={2}>
-            <Table.Thead>
-              <Table.Tr>
-                <Th>ELEMENT</Th><Th>TYPE</Th><Th ta="right">MAINT</Th><Th ta="right">LOSS</Th>
-                <Th>STATUS</Th><Th>LOCATION</Th>
+          <StaffTable head={
+            <>
+              <Th>ELEMENT</Th><Th>TYPE</Th><Th ta="right">MAINT</Th><Th ta="right">LOSS</Th>
+              <Th>STATUS</Th><Th>LOCATION</Th>
+            </>
+          }>
+            {down.map(({ u, d, x, at, eta }) => (
+              <Table.Tr key={u.id}>
+                <Td c="#7ec8ff">{u.label}</Td>
+                <Td>{UNIT_TYPES[u.type]?.abbr ?? u.type}</Td>
+                <Td ta="right" c={d ? WARN_C : 'dark.3'}>{d || '—'}</Td>
+                <Td ta="right" c={x ? BAD_C : 'dark.3'}>{x || '—'}</Td>
+                <Td c={at ? WARN_C : d ? BAD_C : 'dark.3'}>
+                  {at ? `IN MAINTENANCE · ${at.site.label} · ETA ${eta} MIN`
+                    : d ? 'DEADLINED — NOT AT A MOTORPOOL'
+                      : 'COMBAT LOSS — NOT REPAIRABLE'}
+                </Td>
+                <Td>{S.map ? locRef(S.map, u.x, u.y) : '—'}</Td>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {down.map(({ u, d, x, at, eta }) => (
-                <Table.Tr key={u.id}>
-                  <Td c="#7ec8ff">{u.label}</Td>
-                  <Td>{UNIT_TYPES[u.type]?.abbr ?? u.type}</Td>
-                  <Td ta="right" c={d ? WARN_C : 'dark.3'}>{d || '—'}</Td>
-                  <Td ta="right" c={x ? BAD_C : 'dark.3'}>{x || '—'}</Td>
-                  <Td c={at ? WARN_C : d ? BAD_C : 'dark.3'}>
-                    {at ? `IN MAINTENANCE · ${at.site.label} · ETA ${eta} MIN`
-                      : d ? 'DEADLINED — NOT AT A MOTORPOOL'
-                        : 'COMBAT LOSS — NOT REPAIRABLE'}
-                  </Td>
-                  <Td>{S.map ? locRef(S.map, u.x, u.y) : '—'}</Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+            ))}
+          </StaffTable>
         )}
         <Text fz={10} c="dark.3" mt={8}>
           A DAMAGED VEHICLE IS ONLY WORKED AT A BASE WITH A MOTORPOOL, OUT OF CONTACT.
@@ -268,16 +258,14 @@ function S4Console() {
 
       {tab === 'clv' && (
         <Section title="CLASS V — STOWAGE ON HAND (TF ROLLUP)">
-          <Table withRowBorders={false} verticalSpacing={2}>
-            <Table.Tbody>
-              {Object.entries(stow).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
-                <Table.Tr key={k}><Td c="#7ec8ff">{k}</Td><Td>{Math.floor(n)}</Td></Table.Tr>
-              ))}
-              {Object.keys(stow).length === 0 && (
-                <Table.Tr><Td c="dark.3">NOTHING FIELDED — NO ROUNDS ON THE GROUND.</Td></Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
+          <StaffTable minWidth={320} maw={460} head={<><Th>NATURE</Th><Th ta="right">ON HAND</Th></>}>
+            {Object.entries(stow).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+              <Table.Tr key={k}><Td c="#7ec8ff">{k}</Td><Td ta="right">{Math.floor(n)}</Td></Table.Tr>
+            ))}
+            {Object.keys(stow).length === 0 && (
+              <Table.Tr><Td c="dark.3">NOTHING FIELDED — NO ROUNDS ON THE GROUND.</Td></Table.Tr>
+            )}
+          </StaffTable>
         </Section>
       )}
 
@@ -292,18 +280,15 @@ function S4Console() {
 
       {tab === 'assets' && (
         <Section title={`DIVISION ASSETS${A.favor > 0 ? ` · FAVOR +${A.favor}` : ''}`}>
-          <Table withRowBorders={false} verticalSpacing={2}>
-            <Table.Thead><Table.Tr><Th>ASSET</Th><Th>STATE</Th><Th>HOLDER</Th></Table.Tr></Table.Thead>
-            <Table.Tbody>
-              {A.pool.map(a => (
-                <Table.Tr key={a.id}>
-                  <Td c="#7ec8ff">{a.id}</Td>
-                  <Td c={a.state === 'available' ? OK_C : a.state === 'refit' ? BAD_C : WARN_C}>{a.state.toUpperCase()}</Td>
-                  <Td>{a.holder ?? '—'}</Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+          <StaffTable minWidth={420} maw={720} head={<><Th>ASSET</Th><Th>STATE</Th><Th>HOLDER</Th></>}>
+            {A.pool.map(a => (
+              <Table.Tr key={a.id}>
+                <Td c="#7ec8ff">{a.id}</Td>
+                <Td c={a.state === 'available' ? OK_C : a.state === 'refit' ? BAD_C : WARN_C}>{a.state.toUpperCase()}</Td>
+                <Td>{a.holder ?? '—'}</Td>
+              </Table.Tr>
+            ))}
+          </StaffTable>
           {A.queue.length > 0 && <Text fz={11} c={WARN_C} mt={4}>{A.queue.length} REQUEST(S) ON THE DIVISION WAITING LIST</Text>}
           {A.windows.length > 0 && <Text fz={11} c="dark.1" mt={2}>{A.windows.length} ATO WINDOW(S) GRANTED</Text>}
         </Section>
