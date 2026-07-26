@@ -4,7 +4,7 @@
 // This file ships the vocabulary: condition kinds (some read UI state —
 // tutorial-only; sim triggers never see the UI), anchor kinds (published
 // `data-tut` ids + map anchors + computed teaching markers), the reactive
-// verbs (break-drill), and the overlay machinery (pulsing ring + callout).
+// verbs (casualty-warning), and the overlay machinery (pulsing ring + callout).
 //
 // Gated steps pause the sim (speed 0) until done, then resume — the player
 // can't skip past an unlearned action. Hint variants: first whose `when`
@@ -32,6 +32,7 @@ interface TutorialHint {
   targetBox?: { x0: number; y0: number; x1: number; y1: number }
   hidden?: boolean
   nextKey?: string   // a read-and-continue beat: the card shows NEXT, keyed here
+  nextLabel?: string // …under a different word where NEXT is the wrong verb
   panTo?: { x: number; y: number }  // camera lesson: point the player's EYES here
   panLabel?: string
 }
@@ -123,20 +124,26 @@ function exposeMarker(): { x: number; y: number } | null {
 
 // ATTACK POSITION: the ground the assault force shakes out on before it goes
 // in. Hung off the SCREEN marker — the point the scouts were sent to, which is
-// already proven ground on the near side of the objective — and set 200 m back
-// from it, out of the scouts' own position.
+// already proven ground on the near side of the objective — and set back from
+// it so the assault is not driving through its own recon.
 //
-// It is an AREA, not a dot: 300 m of frontage by 100 m of depth. The force fans
+// It is an AREA, not a dot: 600 m of frontage by 100 m of depth. The force fans
 // out into it side by side, which is the whole lesson — the shape says it
 // before the text does.
-const ATK_BACK = 200                      // metres BEHIND the screen point (south = +y here)
-const ATK_HALF = { w: 150, h: 50 }        // 300 m wide × 100 m deep
+const ATK_BACK = 50                       // metres BEHIND the screen point (south = +y here)
+const ATK_HALF = { w: 300, h: 50 }        // 600 m of frontage × 100 m deep
 function attackPos(): { x: number; y: number } | null {
   if (_atkPos) return _atkPos
   const s = exposeMarker()
   if (!s) return null
   _atkPos = { x: s.x, y: s.y + ATK_BACK }
   return _atkPos
+}
+// the release point: 60 m short of the attack position's near edge — where the
+// group is sent FIRST, so the run-up is one leg and the fan-out is the next
+function apApproach(): { x: number; y: number } | null {
+  const p = attackPos()
+  return p ? { x: p.x, y: p.y + 60 } : null
 }
 function attackBox(): { x0: number; y0: number; x1: number; y1: number } | null {
   const p = attackPos()
@@ -285,6 +292,17 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
       const force = friends().filter(u => !(cond.exclude ?? []).includes(u.type))
       if (!force.length) return false
       const at = (u: Unit) => (cond.routed ? routeEnd(u) : { x: u.x, y: u.y })
+      // `spread` asks for a FAN, not a pile: every platoon on its own slot. A
+      // single click puts them all on one point and fails it, which is the
+      // whole lesson — one shell answers a pile.
+      if (cond.spread && force.length > 1) {
+        for (let i = 0; i < force.length; i++) {
+          for (let j = i + 1; j < force.length; j++) {
+            const a = at(force[i]!), b = at(force[j]!)
+            if (Math.hypot(a.x - b.x, a.y - b.y) < cond.spread) return false
+          }
+        }
+      }
       if (cond.marker === 'attack-pos') {
         const b = attackBox()
         if (!b) return false
@@ -293,7 +311,8 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
           return p.x >= b.x0 && p.x <= b.x1 && p.y >= b.y0 && p.y <= b.y1
         })
       }
-      const m = cond.marker === 'screen-marker' ? exposeMarker() : m2RoadPoint()
+      const m = cond.marker === 'screen-marker' ? exposeMarker()
+        : cond.marker === 'ap-approach' ? apApproach() : m2RoadPoint()
       if (!m) return false
       return force.every(u => {
         const p = at(u)
@@ -304,11 +323,15 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
       const p = resolvePlace(S, cond.place)
       const force = friends().filter(u => !(cond.exclude ?? []).includes(u.type))
       if (!force.length) return false
-      if (!force.every(u => Math.hypot(u.x - p.x, u.y - p.y) <= cond.r)) return false
+      // `routed` grades the ORDER: the route ENDS there, whether or not the
+      // platoons have driven it yet
+      const at = (u: Unit) => (cond.routed ? routeEnd(u) : u)
+      if (!force.every(u => { const q = at(u); return Math.hypot(q.x - p.x, q.y - p.y) <= cond.r })) return false
       if (cond.spread) {
         for (let i = 0; i < force.length; i++) {
           for (let j = i + 1; j < force.length; j++) {
-            if (Math.hypot(force[i]!.x - force[j]!.x, force[i]!.y - force[j]!.y) < cond.spread) return false
+            const a = at(force[i]!), b = at(force[j]!)
+            if (Math.hypot(a.x - b.x, a.y - b.y) < cond.spread) return false
           }
         }
       }
@@ -372,6 +395,7 @@ function applyAnchor(h: TutorialHint, a: TutAnchor | undefined): TutorialHint {
     case 'screen-marker': h.targetPoint = exposeMarker() ?? undefined; break
     case 'road-marker': h.targetPoint = m2RoadPoint() ?? undefined; break
     case 'attack-pos': h.targetBox = attackBox() ?? undefined; break
+    case 'ap-approach': h.targetPoint = apApproach() ?? undefined; break
   }
   return h
 }
@@ -408,25 +432,30 @@ function hintFor(step: TutStep, ui: UIState): TutorialHint {
 }
 
 // ---------------------------------------------------------------------------
-// Reactive verb: break-drill — the first time a line platoon falls below HALF
-// strength, pause and teach the BREAK drill. Fires WHENEVER the casualties
-// happen and overrides the step cue until acted on. One-shot per campaign
-// (CampaignState.tutBreakShown). The WORDS come from the pack.
+// Reactive verb: casualty-warning — the first time a line platoon falls below
+// HALF strength, pause and TELL the commander they are about to lose it. Fires
+// WHENEVER the casualties happen and overrides the step cue until acknowledged.
+// It asks for nothing: pulling the platoon out, reinforcing it or spending it
+// is a command decision, and the tutorial does not get a vote. One-shot per
+// campaign (CampaignState.tutBreakShown). The WORDS come from the pack.
 // ---------------------------------------------------------------------------
+const CASUALTY_KEY = 'reactive:casualty-warning'
 function hurtUnit(): Unit | undefined {
   return S.units.find(u => u.side === 'friend' && u.type !== 'SCT' && u.strength > 0 && u.strength < 50)
 }
-function breakTip(ui: UIState): TutorialHint | null {
+function casualtyWarning(): TutorialHint | null {
   const c = S.campaign
-  const spec = _reactive.find(r => r.verb === 'break-drill')
+  const spec = _reactive.find(r => r.verb === 'casualty-warning')
   if (!c || c.tutBreakShown || !spec) return null
+  if (_nextDone.has(CASUALTY_KEY)) return null // acknowledged; the tick latches it
   const u = hurtUnit()
   if (!u) return null
-  if (u.roe === 'break') return null // acted on; the effect latches tutBreakShown
-  if (!ui.selectedIds.includes(u.id)) {
-    return { text: spec.seek.text, action: spec.seek.action, targetUnit: u.id }
+  // ring the platoon in question — "which one" is the only thing they have to
+  // work out, and they should not have to hunt the roster for it
+  return {
+    text: spec.warn.text, action: spec.warn.action, targetUnit: u.id,
+    nextKey: CASUALTY_KEY, nextLabel: 'ACKNOWLEDGE',
   }
-  return applyAnchor({ text: spec.act.text, action: spec.act.action }, spec.act.anchor)
 }
 
 const ACCENT = '#7ec8ff'   // callout chrome (matches the campaign UI)
@@ -464,17 +493,17 @@ export default function TutorialOverlay() {
     // NOT gated on `briefed`: the opening VTC is itself the first lesson, so the
     // step flow has to be live while that call is still up.
     if (!c || !c.tutorial || c.complete) return
-    // reactive BREAK drill: pauses like a gate until set on the hurt platoon,
-    // then latches one-shot and hands back to the step flow
-    if (!c.tutBreakShown && _reactive.some(r => r.verb === 'break-drill')) {
+    // reactive casualty warning: pauses like a gate until ACKNOWLEDGED, then
+    // latches one-shot and hands back to the step flow
+    if (!c.tutBreakShown && _reactive.some(r => r.verb === 'casualty-warning')) {
       const u = hurtUnit()
       if (u) {
-        if (u.roe === 'break') {
+        if (_nextDone.has(CASUALTY_KEY)) {
           c.tutBreakShown = true
           if (S.speed === 0) S.speed = 1 // a pending gated step re-pauses next tick
         } else {
           if (S.speed !== 0) S.speed = 0
-          return // the tip owns the screen until acted on
+          return // the warning owns the screen until it is read
         }
       }
     }
@@ -521,9 +550,9 @@ export default function TutorialOverlay() {
   // it (z 108/109 clears the call's 105). Every LATER order window owns the
   // screen alone: by then the player knows what a call is.
   if (c.briefed && c.frago != null) return null
-  // the reactive BREAK tip overrides the step cue — and still renders after the
-  // scripted steps are exhausted (casualties often come with the counterattack)
-  const tip = breakTip(ui)
+  // the reactive casualty warning overrides the step cue — and still renders
+  // after the scripted steps are exhausted (casualties come with the counterattack)
+  const tip = casualtyWarning()
   if (!tip && c.tutStep >= _steps.length) return null
   const hint = tip ?? hintFor(_steps[c.tutStep]!, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route)
@@ -789,7 +818,7 @@ export default function TutorialOverlay() {
                   border: `2px solid ${RING_A}`, borderRadius: 3, cursor: 'pointer',
                   animation: 'tutPulse 1.4s ease-in-out infinite',
                   color: '#ffe9b0', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 'bold',
-                  letterSpacing: 1.5, padding: '4px 12px' }}>NEXT ▶</button>
+                  letterSpacing: 1.5, padding: '4px 12px' }}>{hint.nextLabel ?? 'NEXT ▶'}</button>
             )}
           </div>
         </div>

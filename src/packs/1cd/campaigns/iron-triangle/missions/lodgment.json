@@ -218,36 +218,69 @@
         "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
       },
       {
-        "id": "stage-forward",
+        "id": "select-assault",
+        "gate": true,
+        "hints": [
+          { "text": "SET FOR THE ASSAULT — you are about to plan the attack on OBJ KEATON in one sitting: a route up, a shake-out short of the town, and the assault itself.\n\nAn assault is ONE order to ONE force. Anything you leave out of the selection stays exactly where it is standing.",
+            "action": "DRAG a box around your assault force (or SHIFT-CLICK each platoon).",
+            "anchor": { "kind": "force-box", "exclude": ["SCT"] } }
+        ],
+        "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
+      },
+      {
+        "id": "move-to-ap",
+        "gate": true,
         "hints": [
           { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] } },
-            "text": "KEEP THE GROUP TOGETHER — an assault is one order to one force, not four platoons doing their own arithmetic. Select them together and RIGHT-CLICK-DRAG a line to fan them out; a single click stacks them on one point.",
-            "action": "SELECT your battle group again.",
+            "text": "KEEP THEM TOGETHER — the plan is one order to one force.",
+            "action": "SELECT your assault force again.",
             "anchor": { "kind": "force-box", "exclude": ["SCT"] } },
-          { "text": "OCCUPY THE ATTACK POSITION — the boxed ground short of the objective. Nobody assaults a town off the line of march: the force comes up the MSR in column, and a column fights with one vehicle — the one at the front.\n\nThe attack position is where you SHAKE OUT. Last covered ground before the objective, outside what the garrison can reach, where the group stops being a convoy and becomes a line. It is GROUND, not a dot — 300 metres of frontage, and your platoons fan out into it side by side, facing the town.\n\nDRAG the order instead of clicking it: a right-click DRAG lays a line and gives every platoon its own slot along it. One click stacks four platoons on one grid square, and one shell answers all four.",
-            "action": "RIGHT-CLICK and DRAG a line across the box.",
+          { "text": "FIRST LEG — MOVE UP. Nobody assaults a town off the line of march: the force comes up the MSR in column, and a column fights with one vehicle, the one at the front.\n\nSend them to the marked release point short of the objective. This is a plain MOVE — they are not attacking anything yet, they are getting into position.",
+            "action": "RIGHT-CLICK the highlighted point.",
+            "anchor": { "kind": "ap-approach" } }
+        ],
+        "done": { "kind": "force-at-marker", "marker": "ap-approach", "r": 260,
+          "routed": true, "exclude": ["SCT"] }
+      },
+      {
+        "id": "set-attack",
+        "gate": true,
+        "hints": [
+          { "text": "NOW SET ATTACK POSTURE — everything you add from here is an ATTACK order: the platoons advance ready to close with and destroy, instead of driving as if the ground were empty.",
+            "action": "CLICK ATTACK in the bottom tray (or press E).",
+            "anchor": { "kind": "ui", "sel": "attack-mode" } }
+        ],
+        "done": { "kind": "mode-is", "mode": "attack" }
+      },
+      {
+        "id": "spread-at-ap",
+        "gate": true,
+        "hints": [
+          { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] } },
+            "text": "KEEP THEM TOGETHER — the plan is one order to one force.",
+            "action": "SELECT your assault force again.",
+            "anchor": { "kind": "force-box", "exclude": ["SCT"] } },
+          { "text": "SECOND LEG — SHAKE OUT. The boxed ground is the ATTACK POSITION: the last covered ground before the objective, where the group stops being a convoy and becomes a line.\n\nHOLD SHIFT and RIGHT-CLICK-DRAG a line across the box — 600 metres of frontage to fill. SHIFT APPENDS: it adds this leg after the move-up instead of replacing it, which is how you plan a whole scheme of maneuver before anyone rolls. The DRAG is what fans them out, one slot per platoon.\n\nOne click stacks four platoons on one grid square, and one shell answers all four.",
+            "action": "SHIFT + RIGHT-CLICK-DRAG a line across the box.",
             "anchor": { "kind": "attack-pos" } }
         ],
         "done": { "kind": "force-at-marker", "marker": "attack-pos", "r": 500,
-          "routed": true, "exclude": ["SCT"] }
+          "routed": true, "spread": 60, "exclude": ["SCT"] }
       },
       {
         "id": "assault-town",
         "gate": true,
         "hints": [
           { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] } },
-            "text": "SET FOR THE ASSAULT — the whole group goes in on one order.",
-            "action": "SELECT your battle group.",
+            "text": "KEEP THEM TOGETHER — the assault goes in on one order.",
+            "action": "SELECT your assault force again.",
             "anchor": { "kind": "force-box", "exclude": ["SCT"] } },
-          { "when": { "kind": "not", "of": { "kind": "mode-is", "mode": "attack" } },
-            "text": "SET ATTACK POSTURE — attack orders send your battle group in to close with and destroy, instead of just moving.",
-            "action": "CLICK ATTACK in the bottom tray (or press E).",
-            "anchor": { "kind": "ui", "sel": "attack-mode" } },
-          { "text": "ASSAULT ON A LINE — they cross the bridge in column because they must, and they must NOT stay in one. RIGHT-CLICK and DRAG a line across the town: the platoons fan out along it as they come off the far bank, each taking its own piece of the objective.\n\nSpread is protection. One shell cannot catch a force on a line, and every platoon goes in with its own frontage.",
-            "action": "RIGHT-CLICK and DRAG a line across the town.",
+          { "text": "LAST LEG — GO IN. SHIFT again and lay the final line ACROSS THE TOWN. They will cross out of the attack position abreast, each platoon taking its own piece of the objective.\n\nThat is the whole plan on one route: move up, shake out, assault. Off the gate it runs itself, and you are free to watch the fight instead of driving it.",
+            "action": "SHIFT + RIGHT-CLICK-DRAG a line across the town.",
             "anchor": { "kind": "box", "place": "strongpoint", "r": 260 } }
         ],
-        "done": { "kind": "attack-ordered", "exclude": ["SCT"] }
+        "done": { "kind": "force-holding", "place": "strongpoint", "r": 320,
+          "routed": true, "spread": 60, "exclude": ["SCT"] }
       },
       {
         "id": "await-clear",
@@ -288,6 +321,13 @@
             "text": "ENGINEERS FIRST — the engineer platoon does the building. Nothing goes up without them, and they live under their own capability.",
             "action": "OPEN ENGINEER in the garrison list.",
             "anchor": { "kind": "ui", "sel": "callup-cat-ENGINEER" } },
+          { "when": { "kind": "all", "of": [
+              { "kind": "not", "of": { "kind": "fielded", "type": "ENG", "min": 1 } },
+              { "kind": "not", "of": { "kind": "callup-co", "cat": "ENGINEER" } }
+            ] },
+            "text": "ATTACHED, NOT ORGANIC — the engineers are not yours. They belong to the brigade engineer battalion and are attached to you for this operation, so they hang off THEIR company, not one of yours.",
+            "action": "CLICK the A CO · 91 BEB row.",
+            "anchor": { "kind": "ui", "sel": "callup-co-ENGINEER-A CO" } },
           { "when": { "kind": "not", "of": { "kind": "fielded", "type": "ENG", "min": 1 } },
             "text": "ENGINEERS FIRST — the engineer platoon does the building. Nothing goes up without them.",
             "action": "CLICK the ENG PLT row.",
@@ -296,6 +336,10 @@
             "text": "NOW THE TRUCKS — the logistics platoon hauls the stores forward and keeps the FOB stocked. It sits under SUSTAINMENT, not with the engineers.",
             "action": "OPEN SUSTAINMENT in the garrison list.",
             "anchor": { "kind": "ui", "sel": "callup-cat-SUSTAINMENT" } },
+          { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "SUSTAINMENT" } },
+            "text": "THE BSB HAULS IT — distribution is a brigade job. Your own headquarters company keeps the medics; the trucks belong to the brigade support battalion.",
+            "action": "CLICK the A CO · 115 BSB row.",
+            "anchor": { "kind": "ui", "sel": "callup-co-SUSTAINMENT-A CO" } },
           { "text": "NOW THE TRUCKS — the logistics platoon hauls the stores forward and keeps the FOB stocked.",
             "action": "CLICK the LOG PLT row.",
             "anchor": { "kind": "ui", "sel": "field-LOG" } }
@@ -359,15 +403,9 @@
     ],
     "reactive": [
       {
-        "verb": "break-drill",
-        "seek": {
-          "text": "CASUALTIES — the flashing platoon is below HALF strength. A mauled platoon fights at a fraction of its power; pull it out before it is destroyed.",
-          "action": "LEFT-CLICK the flashing platoon."
-        },
-        "act": {
-          "text": "BREAK CONTACT — the BREAK drill makes this platoon disengage and fall back on its own whenever it comes under fire. You can set it on any unit, any time.",
-          "action": "CLICK BREAK in the bottom tray.",
-          "anchor": { "kind": "ui", "sel": "roe-break" }
+        "verb": "casualty-warning",
+        "warn": {
+          "text": "YOU ARE ABOUT TO LOSE A PLATOON — the ringed element is below HALF strength. It is still fighting, but at a fraction of the power it had this morning, and it will not take much more.\n\nThis is a report, not an order. Pull it out, reinforce it, or spend it — that is a command decision, and it is yours."
         }
       }
     ]
