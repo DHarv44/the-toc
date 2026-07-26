@@ -60,11 +60,20 @@ function UnitsTable({ p }: { p: Pack }) {
   )
 }
 
-function VehiclesTable({ p }: { p: Pack }) {
+// `extra` appends a trailing column — the read-only console passes nothing;
+// the PACK BUILDER passes a model picker, so assignment happens where you are
+// already looking at vehicles rather than somewhere else.
+export interface ExtraCol {
+  head: React.ReactNode
+  cell: (vehicleKey: string) => React.ReactNode
+}
+
+function VehiclesTable({ p, extra }: { p: Pack; extra?: ExtraCol }) {
   return (
     <Table withRowBorders={false} verticalSpacing={2}>
       <Table.Thead><Table.Tr>
         <Th>KEY</Th><Th>NAME</Th><Th>CREW</Th><Th>PAX</Th><Th>MOB</Th><Th>WEAPONS</Th>
+        {extra && <Th>{extra.head}</Th>}
       </Table.Tr></Table.Thead>
       <Table.Tbody>
         {Object.values(p.catalogs.vehicles).map(v => (
@@ -72,6 +81,7 @@ function VehiclesTable({ p }: { p: Pack }) {
             <Td c="#7ec8ff">{v.key}</Td><Td>{v.name}</Td><Td>{v.crew}</Td><Td>{v.pax || '—'}</Td>
             <Td c="dark.3">{v.mob}</Td>
             <Td c="dark.2">{v.weapons.map(w => p.catalogs.weapons[w]?.name ?? w).join(', ') || 'unarmed'}</Td>
+            {extra && <Table.Td w={330}>{extra.cell(v.key)}</Table.Td>}
           </Table.Tr>
         ))}
       </Table.Tbody>
@@ -165,11 +175,13 @@ function Names({ p }: { p: Pack }) {
 export const PACK_TABS = ['UNITS', 'VEHICLES', 'WEAPONS', 'AIR', 'FORMATION', 'NAMES'] as const
 export type PackTab = (typeof PACK_TABS)[number]
 
-export function PackContent({ p, tab }: { p: Pack; tab: PackTab }) {
+export function PackContent({ p, tab, vehicleExtra }: {
+  p: Pack; tab: PackTab; vehicleExtra?: ExtraCol
+}) {
   return (
     <>
       {tab === 'UNITS' && <UnitsTable p={p} />}
-      {tab === 'VEHICLES' && <VehiclesTable p={p} />}
+      {tab === 'VEHICLES' && <VehiclesTable p={p} extra={vehicleExtra} />}
       {tab === 'WEAPONS' && <WeaponsTable p={p} />}
       {tab === 'AIR' && <DronesTable p={p} />}
       {tab === 'FORMATION' && <Formation p={p} />}

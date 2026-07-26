@@ -12,7 +12,7 @@
 // Content browsing reuses PackViewer's tables (PackContent): one description
 // of what a pack contains, whichever door you came in through.
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Box, Button, Checkbox, Group, Table, Text, UnstyledButton } from '@mantine/core'
+import { Badge, Box, Button, Checkbox, Group, Select, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
 import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
@@ -29,7 +29,9 @@ const BAD_C = '#e8524a'
 
 // The builder's own tab strip: the pack's content views plus ECHELON, which is
 // a builder-only thing (see EchelonTree).
-const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS', 'MODELS'] as const
+// The pack's own content views. MODELS is NOT here — art is a section of the
+// builder in its own right (left nav), not one more table about the pack.
+const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
 
 // ---------------------------------------------------------------------------
@@ -49,8 +51,9 @@ const MODEL_FILES = import.meta.glob('../packs/*/models/**/*.glb', {
 
 const kb = (n: number) => `${Math.round(n / 1024)} KB`
 
-function ModelBrowser({ p }: { p: Pack }) {
-  // '../packs/1cd/models/vehicles/x.glb' -> this pack's files only
+// Find and read this pack's model files. Shared: the MODELS page browses them,
+// the VEHICLES tab assigns from them, and neither should discover them twice.
+function usePackModels(p: Pack) {
   const files = useMemo(
     () => Object.entries(MODEL_FILES)
       .filter(([path]) => path.startsWith(`../packs/${p.id}/models/`))
@@ -59,7 +62,6 @@ function ModelBrowser({ p }: { p: Pack }) {
     [p.id],
   )
   const [info, setInfo] = useState<Record<string, GlbInfo | { error: string }>>({})
-  const [showParts, setShowParts] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -71,6 +73,38 @@ function ModelBrowser({ p }: { p: Pack }) {
     }
     return () => { live = false }
   }, [files])
+
+  // picker options. Value is `file|node` with the PACK-RELATIVE path — exactly
+  // what goes in the manifest. The LABEL is just the model's name: you are
+  // picking a Tiger, not a filename. The file only shows up when two models
+  // share a name and the name alone would not tell them apart.
+  const options = useMemo(() => {
+    const raw: { value: string; label: string; file: string }[] = []
+    for (const f of files) {
+      const i = info[f.url]
+      if (!i || 'error' in i) continue
+      const rel = f.path.replace(new RegExp(`^${p.id}/`), '')
+      const base = f.path.split('/').pop() ?? f.path
+      for (const m of i.models) {
+        if (m.part) continue // you assign an ASSET, not a road wheel
+        raw.push({ value: `${rel}|${m.node ?? ''}`, label: m.name, file: base })
+      }
+    }
+    const dupes = new Set(
+      raw.map(o => o.label).filter((l, k, all) => all.indexOf(l) !== k),
+    )
+    return raw.map(o => ({
+      value: o.value,
+      label: dupes.has(o.label) ? `${o.label} · ${o.file}` : o.label,
+    }))
+  }, [p.id, files, info])
+
+  return { files, info, options }
+}
+
+function ModelsSection({ p }: { p: Pack }) {
+  const { files, info } = usePackModels(p)
+  const [showParts, setShowParts] = useState(false)
 
   if (!files.length) {
     return (
@@ -145,6 +179,7 @@ function ModelBrowser({ p }: { p: Pack }) {
           </Box>
         )
       })}
+
     </>
   )
 }
@@ -437,7 +472,56 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
   const packs = installedPacks()
   const [idx, setIdx] = useState(0)
   const [tab, setTab] = useState<BuilderTab>('ECHELON')
+  // left nav: the PACK (its content tabs) or its MODELS (the art browser)
+  const [view, setView] = useState<'pack' | 'models'>('pack')
   const p = packs[Math.min(idx, packs.length - 1)]
+
+  // MODEL ASSIGNMENT lives on the VEHICLES tab — you assign a model where you
+  // are already looking at the platform, not in the art browser. Writing goes
+  // through the dev-only pack-io middleware: the manifest is re-read from DISK
+  // first, so a save only ever touches models.vehicles and passes the rest of
+  // the file through untouched.
+  const { options } = usePackModels(p!)
+  const assigned = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const [k, m] of Object.entries(p?.models?.vehicles ?? {})) out[k] = `${m.file}|${m.node ?? ''}`
+    return out
+  }, [p])
+  const [edit, setEdit] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  useEffect(() => { setEdit({}); setMsg(null) }, [p?.id])
+
+  const valueOf = (k: string) => edit[k] ?? assigned[k] ?? ''
+  const dirty = Object.keys(edit).some(k => (edit[k] ?? '') !== (assigned[k] ?? ''))
+
+  const save = async () => {
+    if (!p) return
+    setBusy(true); setMsg(null)
+    try {
+      const res = await fetch(`/__pack?id=${p.id}`)
+      if (!res.ok) throw new Error(`read failed: HTTP ${res.status}`)
+      const manifest = await res.json() as Record<string, unknown>
+      const merged = { ...assigned, ...edit }
+      const out: Record<string, { file: string; node?: string }> = {}
+      for (const [k, v] of Object.entries(merged)) {
+        if (!v) continue // '' = deliberately unassigned
+        const [file, node] = v.split('|')
+        out[k] = node ? { file: file!, node } : { file: file! }
+      }
+      manifest.models = { ...(manifest.models as object ?? {}), vehicles: out }
+      const put = await fetch(`/__pack?id=${p.id}`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(manifest),
+      })
+      const body = await put.json()
+      if (!put.ok) throw new Error(body.error ?? `HTTP ${put.status}`)
+      setMsg('SAVED to pack.json')
+      setEdit({})
+    } catch (e) {
+      setMsg(`FAILED: ${String((e as Error).message ?? e)}`)
+    } finally { setBusy(false) }
+  }
 
   return (
     <Box pos="fixed" inset={0} p="lg" bg="#05080b"
@@ -458,7 +542,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
         <Box w={230} style={{ flex: '0 0 auto' }}>
           <Text fz={9} c="dark.3" mb={6} style={{ letterSpacing: 2 }}>INSTALLED</Text>
           {packs.map((pk, i) => (
-            <UnstyledButton key={pk.id} w="100%" onClick={() => setIdx(i)} mb={6}>
+            <UnstyledButton key={pk.id} w="100%" onClick={() => { setIdx(i); setView('pack') }} mb={6}>
               <Group gap={10} wrap="nowrap" p={10}
                 style={{
                   border: `1px solid ${i === idx ? '#7ec8ff' : '#22303d'}`, borderRadius: 4,
@@ -475,6 +559,19 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
               </Group>
             </UnstyledButton>
           ))}
+          {/* sections of the SELECTED pack that are not one of its data tables */}
+          <Text fz={9} c="dark.3" mt="lg" mb={6} style={{ letterSpacing: 2 }}>SECTIONS</Text>
+          <UnstyledButton w="100%" onClick={() => setView('models')}>
+            <Group gap={10} wrap="nowrap" p={10}
+              style={{
+                border: `1px solid ${view === 'models' ? '#7ec8ff' : '#22303d'}`, borderRadius: 4,
+                background: view === 'models' ? '#14202c' : '#0d141c',
+              }}>
+              <Text fz={13} fw={700} c={view === 'models' ? '#dceeff' : 'dark.1'}>MODELS</Text>
+              <Text fz={9} c="dark.3" style={{ letterSpacing: 1 }}>ART · ASSIGNMENT</Text>
+            </Group>
+          </UnstyledButton>
+
           <Text fz={9} c="dark.4" mt={10} style={{ lineHeight: 1.6 }}>
             Packs load from src/packs/&lt;id&gt;/ as static imports. Adding or removing one is a
             code change today.
@@ -495,29 +592,62 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
                   {p.motto ? `${p.motto} · ` : ''}{p.id} · {p.side === 'friend' ? 'BLUFOR' : 'OPFOR'}
                 </Text>
               </Box>
-              <Badge size="sm" variant="outline" color="gray" ml="auto">READ ONLY</Badge>
+              {view === 'pack' && (
+                <Badge size="sm" variant="outline" color="gray" ml="auto">READ ONLY</Badge>
+              )}
             </Group>
 
-            <Group gap="sm" mt="lg" wrap="nowrap" align="flex-start">
-              {inventory(p).map(s => <Stat key={s.label} {...s} />)}
-            </Group>
+            {view === 'models' ? (
+              <Box mt="lg"><ModelsSection p={p} /></Box>
+            ) : (
+              <>
+                <Group gap="sm" mt="lg" wrap="nowrap" align="flex-start">
+                  {inventory(p).map(s => <Stat key={s.label} {...s} />)}
+                </Group>
 
-            <Group gap={4} mt="lg" style={{ borderBottom: '1px solid #22303d' }}>
-              {BUILDER_TABS.map(t => (
-                <UnstyledButton key={t} onClick={() => setTab(t)} px={10} py={5}
-                  style={{ borderBottom: `2px solid ${t === tab ? '#7ec8ff' : 'transparent'}` }}>
-                  <Text fz={11} fw={700} c={t === tab ? '#dceeff' : 'dark.3'}
-                    style={{ letterSpacing: 1 }}>{t}</Text>
-                </UnstyledButton>
-              ))}
-            </Group>
+                <Group gap={4} mt="lg" style={{ borderBottom: '1px solid #22303d' }}>
+                  {BUILDER_TABS.map(t => (
+                    <UnstyledButton key={t} onClick={() => setTab(t)} px={10} py={5}
+                      style={{ borderBottom: `2px solid ${t === tab ? '#7ec8ff' : 'transparent'}` }}>
+                      <Text fz={11} fw={700} c={t === tab ? '#dceeff' : 'dark.3'}
+                        style={{ letterSpacing: 1 }}>{t}</Text>
+                    </UnstyledButton>
+                  ))}
+                </Group>
 
-            <Box mt="md">
-              {tab === 'ECHELON' ? <EchelonTree p={p} />
-                : tab === 'ASSETS' ? <AssetsTable p={p} />
-                  : tab === 'MODELS' ? <ModelBrowser p={p} />
-                    : <PackContent p={p} tab={tab as PackTab} />}
-            </Box>
+                {/* the VEHICLES tab is where a platform gets its model */}
+                {tab === 'VEHICLES' && (
+                  <Group gap="md" align="center" mt="sm">
+                    <Text fz={9} c="dark.3" style={{ letterSpacing: 2 }}>
+                      MODELS ASSIGNED — {Object.values(p.catalogs.vehicles ?? {})
+                        .filter(v => valueOf(v.key)).length} OF {Object.keys(p.catalogs.vehicles ?? {}).length}
+                    </Text>
+                    <Button size="xs" variant={dirty ? 'filled' : 'default'}
+                      disabled={!dirty || busy} onClick={save}>
+                      {busy ? 'SAVING…' : 'SAVE TO pack.json'}
+                    </Button>
+                    {msg && <Text fz={10} c={msg.startsWith('FAILED') ? BAD_C : '#7ec87e'}>{msg}</Text>}
+                  </Group>
+                )}
+
+                <Box mt="md">
+                  {tab === 'ECHELON' ? <EchelonTree p={p} />
+                    : tab === 'ASSETS' ? <AssetsTable p={p} />
+                      : (
+                        <PackContent p={p} tab={tab as PackTab}
+                          vehicleExtra={{
+                            head: 'MODEL',
+                            cell: (key) => (
+                              <Select size="xs" searchable clearable placeholder="no model"
+                                data={options} value={valueOf(key) || null}
+                                onChange={v => setEdit(s => ({ ...s, [key]: v ?? '' }))}
+                                styles={{ input: { fontFamily: MONO, fontSize: 11 } }} />
+                            ),
+                          }} />
+                      )}
+                </Box>
+              </>
+            )}
           </Box>
         )}
       </Group>

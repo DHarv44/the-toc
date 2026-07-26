@@ -8,66 +8,143 @@
   "side": "friend",
   "patch": "1cd",
   "rankStyle": "us",
-  "catalogs": { "extends": "us-platforms" },
-  "campaigns": ["iron-triangle"],
-  "audio": { "incomingAlarm": "/audio/incoming.mp3" },
+  "catalogs": {
+    "extends": "us-platforms"
+  },
+  "campaigns": [
+    "iron-triangle"
+  ],
+  "audio": {
+    "incomingAlarm": "/audio/incoming.mp3"
+  },
   "staff": {
     "s1": {
-      "label": "S1", "name": "Personnel", "full": "S1 — Personnel", "report": "PERSTAT",
+      "label": "S1",
+      "name": "Personnel",
+      "full": "S1 — Personnel",
+      "report": "PERSTAT",
       "desc": "Strength, casualties, replacements",
       "detail": "The S1 shop tracks every soldier in the task force: assigned strength, wounded and killed, the DUSTWUN board, the replacement pipeline from rear detachment, promotions and awards. Its PERSTAT is the commander's honest picture of the people."
     },
     "s2": {
-      "label": "S2", "name": "Intelligence", "full": "S2 — Intelligence", "report": "INTSUM",
+      "label": "S2",
+      "name": "Intelligence",
+      "full": "S2 — Intelligence",
+      "report": "INTSUM",
       "desc": "Enemy picture, tracks, collection",
       "detail": "The S2 shop owns the enemy picture as the COP actually knows it: live tracks, stale last-knowns, assessed-but-unidentified contacts, and the collection plan that feeds them. What the sensors cannot see, the S2 will not claim."
     },
     "s3": {
-      "label": "S3", "name": "Operations", "full": "S3 — Operations", "report": "OPSUM",
+      "label": "S3",
+      "name": "Operations",
+      "full": "S3 — Operations",
+      "report": "OPSUM",
       "desc": "Objectives, orders, the fight",
       "detail": "The S3 shop runs the current fight: the operation's objectives, orders received, task organization, unit states and ROE, and open incidents like personnel recovery. The OPSUM is the fight as it stands, no varnish."
     },
     "s4": {
-      "label": "S4", "name": "Logistics", "full": "S4 — Logistics", "report": "LOGSTAT",
+      "label": "S4",
+      "name": "Logistics",
+      "full": "S4 — Logistics",
+      "report": "LOGSTAT",
       "desc": "Motorpool, munitions, division assets",
       "detail": "The S4 shop keeps the iron running: vehicle operational-readiness and the motorpool queue, Class V posture across the tubes, forward stock at the FOBs, convoys on the road, and the division asset board — what is allocated, inbound, or on the waiting list."
     },
     "s6": {
-      "label": "S6", "name": "Signal", "full": "S6 — Signal", "report": "COMSTAT",
+      "label": "S6",
+      "name": "Signal",
+      "full": "S6 — Signal",
+      "report": "COMSTAT",
       "desc": "Net status, retrans, comms coverage",
       "detail": "The S6 shop owns the network: retrans coverage, net health and (when the systems exist) jamming and electronic protection. Stands up with the EW layer."
     }
   },
-  "cats": ["ARMOR", "INFANTRY", "RECON", "FIRES", "ENGINEER", "SUSTAINMENT", "SIGNAL"],
+  "cats": [
+    "ARMOR",
+    "INFANTRY",
+    "RECON",
+    "FIRES",
+    "ENGINEER",
+    "SUSTAINMENT",
+    "SIGNAL"
+  ],
   "organic": {
-    "MECH": { "bn": "2-8 CAV" },
-    "ARM": { "bn": "1-12 CAV" },
-    "CAV": { "bn": "1-7 CAV" },
-    "SCT": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "SCT PLT" },
-    "MOR": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "MORT PLT" },
-    "MED": { "bn": "2-8 CAV", "style": "hhc", "hhcName": "MED PLT" },
-    "ARTY": { "bn": "1-82 FA", "style": "btry" },
-    "ENG": { "bn": "91 BEB" },
-    "SIG": { "bn": "13 SIG BN" },
-    "LOG": { "bn": "115 BSB" }
+    "MECH": {
+      "bn": "2-8 CAV"
+    },
+    "ARM": {
+      "bn": "1-12 CAV"
+    },
+    "CAV": {
+      "bn": "1-7 CAV"
+    },
+    "SCT": {
+      "bn": "2-8 CAV",
+      "style": "hhc",
+      "hhcName": "SCT PLT"
+    },
+    "MOR": {
+      "bn": "2-8 CAV",
+      "style": "hhc",
+      "hhcName": "MORT PLT"
+    },
+    "MED": {
+      "bn": "2-8 CAV",
+      "style": "hhc",
+      "hhcName": "MED PLT"
+    },
+    "ARTY": {
+      "bn": "1-82 FA",
+      "style": "btry"
+    },
+    "ENG": {
+      "bn": "91 BEB"
+    },
+    "SIG": {
+      "bn": "13 SIG BN"
+    },
+    "LOG": {
+      "bn": "115 BSB"
+    }
   },
   "attached": {
-    "STRY": { "bn": "5-20 IN", "from": "2ID" },
-    "INF": { "bn": "1-506 IN", "from": "101 ABN" },
-    "AT": { "bn": "1-506 IN", "from": "101 ABN", "style": "hhc", "hhcName": "AT SEC" }
+    "STRY": {
+      "bn": "5-20 IN",
+      "from": "2ID"
+    },
+    "INF": {
+      "bn": "1-506 IN",
+      "from": "101 ABN"
+    },
+    "AT": {
+      "bn": "1-506 IN",
+      "from": "101 ABN",
+      "style": "hhc",
+      "hhcName": "AT SEC"
+    }
   },
   "mottos": {
-    "2-8 CAV": "HONOR AND COURAGE", "1-8 CAV": "HONOR AND COURAGE", "3-8 CAV": "HONOR AND COURAGE",
-    "1-5 CAV": "LOYALTY AND COURAGE", "2-5 CAV": "LOYALTY AND COURAGE",
-    "1-7 CAV": "GARRYOWEN", "2-7 CAV": "GARRYOWEN",
-    "4-9 CAV": "WE CAN, WE WILL", "6-9 CAV": "WE CAN, WE WILL",
+    "2-8 CAV": "HONOR AND COURAGE",
+    "1-8 CAV": "HONOR AND COURAGE",
+    "3-8 CAV": "HONOR AND COURAGE",
+    "1-5 CAV": "LOYALTY AND COURAGE",
+    "2-5 CAV": "LOYALTY AND COURAGE",
+    "1-7 CAV": "GARRYOWEN",
+    "2-7 CAV": "GARRYOWEN",
+    "4-9 CAV": "WE CAN, WE WILL",
+    "6-9 CAV": "WE CAN, WE WILL",
     "1-12 CAV": "SEMPER PARATUS",
-    "1-82 FA": "CAN AND WILL", "2-82 FA": "CAN AND WILL",
+    "1-82 FA": "CAN AND WILL",
+    "2-82 FA": "CAN AND WILL",
     "3-16 FA": "MACTE NOVA VIRTUTE",
-    "91 BEB": "ACTS NOT WORDS", "8 BEB": "ESSAYONS", "3 BEB": "ESSAYONS",
+    "91 BEB": "ACTS NOT WORDS",
+    "8 BEB": "ESSAYONS",
+    "3 BEB": "ESSAYONS",
     "115 BSB": "MULE SKINNERS",
     "13 SIG BN": "VOICE OF COMMAND",
-    "1-227 ARB": "POUVOIR", "2-227 AHB": "POUVOIR", "3-227 GSAB": "POUVOIR",
+    "1-227 ARB": "POUVOIR",
+    "2-227 AHB": "POUVOIR",
+    "3-227 GSAB": "POUVOIR",
     "7-17 CAV": "FORWARD",
     "615 ASB": "COLD STEEL",
     "5-20 IN": "TANT QUE JE PUIS",
@@ -84,128 +161,345 @@
   "models": {
     "_note": "TESTING — these are Soviet platforms standing in for US ones until BLUFOR models exist. One GLB holds all five; `node` picks one out of it.",
     "vehicles": {
-      "ABRAMS":  { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "T-90" },
-      "BRADLEY": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
-      "CFV":     { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
-      "STRYKER": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
-      "HMMWV":   { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "Tiger" },
-      "RETRANS": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "UAZ" },
-      "FMTV":    { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "Ural" }
+      "ABRAMS": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "T-90"
+      },
+      "BRADLEY": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "BTR"
+      },
+      "CFV": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "BTR"
+      },
+      "STRYKER": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "BTR"
+      },
+      "HMMWV": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "Tiger"
+      },
+      "RETRANS": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "UAZ"
+      },
+      "FMTV": {
+        "file": "models/vehicles/low-poly_military_vehicles_pack.glb",
+        "node": "Ural"
+      }
     }
   },
   "formation": {
     "playerBn": "2-8 CAV",
     "playable": "all",
-    "qrf": ["C CO:1st PLT"],
+    "qrf": [
+      "C CO:1st PLT"
+    ],
     "bdes": [
       {
-        "desig": "1ABCT", "nick": "IRONHORSE",
+        "desig": "1ABCT",
+        "nick": "IRONHORSE",
         "bns": [
-          { "desig": "2-8 CAV", "kind": "CAB" },
-          { "desig": "1-12 CAV", "kind": "ARMOR", "tfCos": ["A CO"] },
-          { "desig": "1-7 CAV", "kind": "RECON", "tfCos": ["A TRP"] },
-          { "desig": "1-82 FA", "kind": "FA", "tfCos": ["A BTRY"] },
-          { "desig": "91 BEB", "kind": "BEB", "tfCos": ["A CO"] },
-          { "desig": "115 BSB", "kind": "BSB", "tfCos": ["A CO"] }
+          {
+            "desig": "2-8 CAV",
+            "kind": "CAB"
+          },
+          {
+            "desig": "1-12 CAV",
+            "kind": "ARMOR",
+            "tfCos": [
+              "A CO"
+            ]
+          },
+          {
+            "desig": "1-7 CAV",
+            "kind": "RECON",
+            "tfCos": [
+              "A TRP"
+            ]
+          },
+          {
+            "desig": "1-82 FA",
+            "kind": "FA",
+            "tfCos": [
+              "A BTRY"
+            ]
+          },
+          {
+            "desig": "91 BEB",
+            "kind": "BEB",
+            "tfCos": [
+              "A CO"
+            ]
+          },
+          {
+            "desig": "115 BSB",
+            "kind": "BSB",
+            "tfCos": [
+              "A CO"
+            ]
+          }
         ]
       },
       {
-        "desig": "2ABCT", "nick": "BLACK JACK",
+        "desig": "2ABCT",
+        "nick": "BLACK JACK",
         "bns": [
-          { "desig": "1-5 CAV", "kind": "CAB" },
-          { "desig": "1-8 CAV", "kind": "ARMOR" },
-          { "desig": "4-9 CAV", "kind": "RECON" },
-          { "desig": "3-16 FA", "kind": "FA" },
-          { "desig": "8 BEB", "kind": "BEB" },
-          { "desig": "15 BSB", "kind": "BSB" }
+          {
+            "desig": "1-5 CAV",
+            "kind": "CAB"
+          },
+          {
+            "desig": "1-8 CAV",
+            "kind": "ARMOR"
+          },
+          {
+            "desig": "4-9 CAV",
+            "kind": "RECON"
+          },
+          {
+            "desig": "3-16 FA",
+            "kind": "FA"
+          },
+          {
+            "desig": "8 BEB",
+            "kind": "BEB"
+          },
+          {
+            "desig": "15 BSB",
+            "kind": "BSB"
+          }
         ]
       },
       {
-        "desig": "3ABCT", "nick": "GREYWOLF",
+        "desig": "3ABCT",
+        "nick": "GREYWOLF",
         "bns": [
-          { "desig": "2-7 CAV", "kind": "CAB" },
-          { "desig": "3-8 CAV", "kind": "ARMOR" },
-          { "desig": "6-9 CAV", "kind": "RECON" },
-          { "desig": "2-82 FA", "kind": "FA" },
-          { "desig": "3 BEB", "kind": "BEB" },
-          { "desig": "215 BSB", "kind": "BSB" }
+          {
+            "desig": "2-7 CAV",
+            "kind": "CAB"
+          },
+          {
+            "desig": "3-8 CAV",
+            "kind": "ARMOR"
+          },
+          {
+            "desig": "6-9 CAV",
+            "kind": "RECON"
+          },
+          {
+            "desig": "2-82 FA",
+            "kind": "FA"
+          },
+          {
+            "desig": "3 BEB",
+            "kind": "BEB"
+          },
+          {
+            "desig": "215 BSB",
+            "kind": "BSB"
+          }
         ]
       },
       {
-        "desig": "1ACB", "nick": "AIR CAV",
+        "desig": "1ACB",
+        "nick": "AIR CAV",
         "bns": [
-          { "desig": "1-227 ARB", "kind": "ARB" },
-          { "desig": "7-17 CAV", "kind": "ARB" },
-          { "desig": "2-227 AHB", "kind": "AHB" },
-          { "desig": "3-227 GSAB", "kind": "GSAB" },
-          { "desig": "615 ASB", "kind": "ASB" }
+          {
+            "desig": "1-227 ARB",
+            "kind": "ARB"
+          },
+          {
+            "desig": "7-17 CAV",
+            "kind": "ARB"
+          },
+          {
+            "desig": "2-227 AHB",
+            "kind": "AHB"
+          },
+          {
+            "desig": "3-227 GSAB",
+            "kind": "GSAB"
+          },
+          {
+            "desig": "615 ASB",
+            "kind": "ASB"
+          }
         ]
       },
       {
-        "desig": "DIVARTY", "nick": "RED TEAM",
-        "bns": [{ "desig": "HHB DIVARTY", "kind": "HHB-DIVARTY" }]
-      },
-      {
-        "desig": "1CD SUST", "nick": "WAGONMASTER",
+        "desig": "DIVARTY",
+        "nick": "RED TEAM",
         "bns": [
-          { "desig": "STB", "kind": "STB" },
-          { "desig": "553 CSSB", "kind": "CSSB" },
-          { "desig": "13 SIG BN", "kind": "SIG", "tfCos": ["A CO"] }
+          {
+            "desig": "HHB DIVARTY",
+            "kind": "HHB-DIVARTY"
+          }
         ]
       },
       {
-        "desig": "HHBN", "nick": "MAVERICK",
-        "bns": [{ "desig": "HHBN 1CD", "kind": "HHBN" }]
+        "desig": "1CD SUST",
+        "nick": "WAGONMASTER",
+        "bns": [
+          {
+            "desig": "STB",
+            "kind": "STB"
+          },
+          {
+            "desig": "553 CSSB",
+            "kind": "CSSB"
+          },
+          {
+            "desig": "13 SIG BN",
+            "kind": "SIG",
+            "tfCos": [
+              "A CO"
+            ]
+          }
+        ]
+      },
+      {
+        "desig": "HHBN",
+        "nick": "MAVERICK",
+        "bns": [
+          {
+            "desig": "HHBN 1CD",
+            "kind": "HHBN"
+          }
+        ]
       }
     ]
   },
   "assets": {
     "CRAM": {
-      "name": "C-RAM Section", "from": "2-44 ADA", "echelon": "CORPS", "count": 3,
-      "setupTime": 120, "refitTime": 2400,
-      "delivers": { "facility": "CRAM" },
+      "name": "C-RAM Section",
+      "from": "2-44 ADA",
+      "echelon": "CORPS",
+      "count": 3,
+      "setupTime": 120,
+      "refitTime": 2400,
+      "delivers": {
+        "facility": "CRAM"
+      },
       "crew": {
         "billets": [
-          ["SFC", "Section Chief"], ["SSG", "Engagement NCO"],
-          ["SGT", "Radar Operator"], ["SPC", "Radar Operator"]
+          [
+            "SFC",
+            "Section Chief"
+          ],
+          [
+            "SSG",
+            "Engagement NCO"
+          ],
+          [
+            "SGT",
+            "Radar Operator"
+          ],
+          [
+            "SPC",
+            "Radar Operator"
+          ]
         ],
         "civ": 2
       }
     },
     "AEROSTAT": {
-      "name": "PGSS Aerostat Det", "from": "PM Aerostats", "echelon": "DIV", "count": 1,
+      "name": "PGSS Aerostat Det",
+      "from": "PM Aerostats",
+      "echelon": "DIV",
+      "count": 1,
       "setupTime": 90,
-      "delivers": { "tether": "AEROSTAT" },
-      "crew": { "billets": [["SSG", "Site Lead"]], "civ": 4 }
+      "delivers": {
+        "tether": "AEROSTAT"
+      },
+      "crew": {
+        "billets": [
+          [
+            "SSG",
+            "Site Lead"
+          ]
+        ],
+        "civ": 4
+      }
     },
     "SHADOW": {
-      "name": "Shadow Orbit", "from": "1ACB", "echelon": "DIV", "count": 2,
-      "delivers": { "orbit": "SHADOW" }
+      "name": "Shadow Orbit",
+      "from": "1ACB",
+      "echelon": "DIV",
+      "count": 2,
+      "delivers": {
+        "orbit": "SHADOW"
+      }
     },
     "SENTINEL": {
-      "name": "Sentinel Orbit", "from": "INSCOM", "echelon": "CORPS", "count": 1,
-      "delivers": { "orbit": "SENTINEL" }
+      "name": "Sentinel Orbit",
+      "from": "INSCOM",
+      "echelon": "CORPS",
+      "count": 1,
+      "delivers": {
+        "orbit": "SENTINEL"
+      }
     },
     "VIPER": {
-      "name": "Armed UAS Orbit", "from": "CENTCOM CAOC", "echelon": "CORPS", "count": 1,
-      "delivers": { "orbit": "VIPER" }
+      "name": "Armed UAS Orbit",
+      "from": "CENTCOM CAOC",
+      "echelon": "CORPS",
+      "count": 1,
+      "delivers": {
+        "orbit": "VIPER"
+      }
     },
     "ALO": {
-      "name": "ALO Team", "from": "3 ASOS", "echelon": "USAF", "count": 1,
+      "name": "ALO Team",
+      "from": "3 ASOS",
+      "echelon": "USAF",
+      "count": 1,
       "setupTime": 30,
-      "delivers": { "unlock": "CAS" },
-      "crew": { "billets": [["CPT", "Air Liaison Officer"], ["SSG", "TACP JTAC"]] }
+      "delivers": {
+        "unlock": "CAS"
+      },
+      "crew": {
+        "billets": [
+          [
+            "CPT",
+            "Air Liaison Officer"
+          ],
+          [
+            "SSG",
+            "TACP JTAC"
+          ]
+        ]
+      }
     },
     "SPECTRE": {
-      "name": "AC-130 CAS Window", "from": "4 SOS", "echelon": "USAF", "sortie": true,
-      "callsigns": ["SPOOKY", "GHOST"],
-      "windowLen": 900, "atoLead": 180,
-      "delivers": { "window": "SPECTRE" }
+      "name": "AC-130 CAS Window",
+      "from": "4 SOS",
+      "echelon": "USAF",
+      "sortie": true,
+      "callsigns": [
+        "SPOOKY",
+        "GHOST"
+      ],
+      "windowLen": 900,
+      "atoLead": 180,
+      "delivers": {
+        "window": "SPECTRE"
+      }
     },
     "AIRLIFT": {
-      "name": "C-130 Airdrop", "from": "317 AW", "echelon": "USAF", "sortie": true,
-      "callsigns": ["REACH", "HERKY"],
-      "delivers": { "airdrop": true }
+      "name": "C-130 Airdrop",
+      "from": "317 AW",
+      "echelon": "USAF",
+      "sortie": true,
+      "callsigns": [
+        "REACH",
+        "HERKY"
+      ],
+      "delivers": {
+        "airdrop": true
+      }
     }
   }
 }
