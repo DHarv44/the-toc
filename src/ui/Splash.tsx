@@ -39,7 +39,7 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 // or keeps it. Pure flavor pool — the name is theirs either way.
 const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SLOANE', 'KINCAID']
 
-export default function Splash({ onStart }: { onStart: StartFn }) {
+export default function Splash({ onStart, onPacks }: { onStart: StartFn; onPacks: () => void }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
@@ -90,6 +90,11 @@ export default function Splash({ onStart }: { onStart: StartFn }) {
           <SectionLabel>SANDBOX</SectionLabel>
           <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
             accent="#3a5a3a" onClick={() => onStart('dev')} />
+
+          <div style={{ height: 18 }} />
+          <SectionLabel>TOOLS</SectionLabel>
+          <SplashButton label="PACK BUILDER" sub="Inspect and build content packs · units, platforms, formation"
+            accent="#6a4a8a" onClick={onPacks} />
         </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>

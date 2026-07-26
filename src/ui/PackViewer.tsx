@@ -159,7 +159,26 @@ function Names({ p }: { p: Pack }) {
   )
 }
 
-const TABS = ['UNITS', 'VEHICLES', 'WEAPONS', 'AIR', 'FORMATION', 'NAMES'] as const
+// The pack's content views. Shared with the PACK BUILDER (ui/PackBuilder) so
+// the builder browses a pack through exactly the same tables the dev console
+// does — one description of what a pack contains, two places to look at it.
+export const PACK_TABS = ['UNITS', 'VEHICLES', 'WEAPONS', 'AIR', 'FORMATION', 'NAMES'] as const
+export type PackTab = (typeof PACK_TABS)[number]
+
+export function PackContent({ p, tab }: { p: Pack; tab: PackTab }) {
+  return (
+    <>
+      {tab === 'UNITS' && <UnitsTable p={p} />}
+      {tab === 'VEHICLES' && <VehiclesTable p={p} />}
+      {tab === 'WEAPONS' && <WeaponsTable p={p} />}
+      {tab === 'AIR' && <DronesTable p={p} />}
+      {tab === 'FORMATION' && <Formation p={p} />}
+      {tab === 'NAMES' && <Names p={p} />}
+    </>
+  )
+}
+
+const TABS = PACK_TABS
 
 export default function PackViewer() {
   useUI((st) => st.tick)
@@ -211,12 +230,7 @@ export default function PackViewer() {
       </Group>
 
       <Section title={`${p.name.toUpperCase()} — ${tab}`}>
-        {tab === 'UNITS' && <UnitsTable p={p} />}
-        {tab === 'VEHICLES' && <VehiclesTable p={p} />}
-        {tab === 'WEAPONS' && <WeaponsTable p={p} />}
-        {tab === 'AIR' && <DronesTable p={p} />}
-        {tab === 'FORMATION' && <Formation p={p} />}
-        {tab === 'NAMES' && <Names p={p} />}
+        <PackContent p={p} tab={tab} />
       </Section>
     </Box>
   )

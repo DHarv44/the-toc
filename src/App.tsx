@@ -17,6 +17,7 @@ import S1Console from './ui/S1Console'
 import StaffConsole from './ui/StaffConsole'
 import CommandDashboard from './ui/CommandDashboard'
 import PackViewer from './ui/PackViewer'
+import PackBuilder from './ui/PackBuilder'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
@@ -29,6 +30,7 @@ import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
   const [started, setStarted] = useState(() => !!S.map)
+  const [packs, setPacks] = useState(false) // PACK BUILDER route (menu-level tool)
   const shakeRef = useRef<HTMLDivElement>(null) // base-under-fire shakes the whole TOC
 
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
@@ -55,7 +57,10 @@ export default function App() {
     })().catch((e) => console.error('failed to start game', e))
   }
 
-  if (!started) return <Splash onStart={begin} />
+  // PACK BUILDER is a TOOL, not a game mode: it opens off the main menu with
+  // no sim running behind it, and returns to the menu.
+  if (packs) return <PackBuilder onExit={() => setPacks(false)} />
+  if (!started) return <Splash onStart={begin} onPacks={() => setPacks(true)} />
 
   // top bar over the rail row (P5): [INSTALLATIONS|BATTLE GROUPS] map [FEEDS|NET].
   // Every rail is a real layout sibling — collapsing one genuinely widens the
