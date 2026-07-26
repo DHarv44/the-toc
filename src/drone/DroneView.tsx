@@ -480,7 +480,9 @@ function getStructGeos(): StructGeos {
 const STRUCT_KINDS: readonly StructureTypeKey[] = ['FOB', 'HQ', 'OP', 'AFLD']
 
 function StructuresLayer({ feedRef, mode }: { feedRef: { current: FeedState }; mode: SensorMode }) {
-  const refs: Record<StructureTypeKey, React.RefObject<THREE.InstancedMesh>> = {
+  // React 19: useRef<T>(null) is RefObject<T | null> — the ref is genuinely
+  // null until the mesh mounts, and the type says so now
+  const refs: Record<StructureTypeKey, React.RefObject<THREE.InstancedMesh | null>> = {
     FOB: useRef<THREE.InstancedMesh>(null), HQ: useRef<THREE.InstancedMesh>(null),
     OP: useRef<THREE.InstancedMesh>(null), AFLD: useRef<THREE.InstancedMesh>(null),
   }
@@ -542,7 +544,7 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
   const tankRef = useRef<THREE.InstancedMesh>(null), ifvRef = useRef<THREE.InstancedMesh>(null)
   const truckRef = useRef<THREE.InstancedMesh>(null), spgRef = useRef<THREE.InstancedMesh>(null)
   const engRef = useRef<THREE.InstancedMesh>(null)
-  const classRefs: Record<VehClass, React.RefObject<THREE.InstancedMesh>> = {
+  const classRefs: Record<VehClass, React.RefObject<THREE.InstancedMesh | null>> = {
     tank: tankRef, ifv: ifvRef, truck: truckRef, spg: spgRef, eng: engRef,
   }
   const vehGeos = useMemo(getVehicleGeos, [])

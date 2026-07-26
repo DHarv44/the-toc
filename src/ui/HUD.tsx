@@ -1022,7 +1022,7 @@ export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number;
       background: '#020304', zIndex: 40, // UAV window sits above the map controls / other HUD
     }}>
       {/* ---- HEADER (drag handle) ---- */}
-      <Group ref={headerRef as React.RefObject<HTMLDivElement>} gap={5} wrap="nowrap" pl={8} pr={12} py={4} align="center"
+      <Group ref={headerRef} gap={5} wrap="nowrap" pl={8} pr={12} py={4} align="center"
         onPointerDown={startDrag} onPointerMove={onPointerMove} onPointerUp={endDrag}
         style={{ flex: '0 0 auto', background: 'rgba(8,12,16,0.92)', borderBottom: '1px solid #223240', cursor: 'grab', overflow: 'hidden' }}>
         <Text span fz={9} c={feed.muted ? 'orange.5' : 'dark.2'} style={{ letterSpacing: 1, whiteSpace: 'nowrap' }}>
@@ -1136,7 +1136,7 @@ export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number;
 
       {/* ---- CONTENT (flexes between header and footer; the sensor view) ---- */}
       {winMode !== 'min' && (
-        <Box ref={contentRef as React.RefObject<HTMLDivElement>}
+        <Box ref={contentRef}
           onPointerDown={feedDown} onPointerMove={feedMove} onPointerUp={feedUp}
           onWheel={gimbalZoom} onDoubleClick={gimbalReset}
           style={{
