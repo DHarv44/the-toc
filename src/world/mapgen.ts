@@ -536,6 +536,44 @@ export function genMap(seed: number, gridSize: number = GRID_DEFAULT, theater?: 
     }
   }
 
+  // --- 12.5. road verges: a metalled road through woods has cleared shoulders ---
+  // Somebody felled those trees to lay the road, and they keep felling them —
+  // verge, firebreak, sightline. Without this the forest stands hard against the
+  // tarmac, and since the raster gives a road exactly ONE cell of width while a
+  // platoon in wedge is over 120 m across, every vic but the lead one is in the
+  // trees. Terrain is priced per vic (movement/station), the group paces to its
+  // worst-off member, and the result inverts: a wheeled company made 0.57x its
+  // nominal speed ON a road against 0.59x straight across open field, and a
+  // tracked one 0.39x against 0.87x. Driving on the road was slower than driving
+  // beside it.
+  //
+  // Clearing the shoulder does not hand out road speed off the road — the verge
+  // is field, and field is slower than tarmac. What it buys is the right shape:
+  // a road march in column gets the full road, a wedge straddling one gets no
+  // more than it would cross-country, which is exactly the trade a commander
+  // makes when they decide to close up and take the road.
+  //
+  // Dirt paths get the same treatment, because ROADS ONLY routes over them
+  // (pathfinding tests road[i] truthy, and a path is truthy) — leaving them out
+  // would fix the inversion on exactly the corridors the game does NOT send you
+  // down and leave it on the ones it does. At 50 m a cell cannot tell a metalled
+  // road with a verge from a forest track with trees at the edge; both are
+  // sub-cell. The distinction that survives is the one that matters and it is
+  // already in the factors — a path is only 0.85-1.0 against a road's 0.55-0.7,
+  // so taking the track is still much the slower way round.
+  // No rng draws here — hamlet siting reads `terr` and must not shift.
+  for (let y = 1; y < GRID - 1; y++) {
+    for (let x = 1; x < GRID - 1; x++) {
+      if (!road[idx(x, y)]) continue
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const j = idx(x + dx, y + dy)
+          if (terr[j] === T_FOREST) terr[j] = T_FIELD
+        }
+      }
+    }
+  }
+
   // --- 13. named features: hills and rivers ---
   const features: MapFeature[] = []
   {
