@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react'
 import { Badge, Box, Button, Group, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
+import { isPlayableBn, playableBns } from '../packs/types'
 import { buildDivisionOrg } from '../packs/org'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
@@ -144,14 +145,18 @@ function EchelonTree({ p }: { p: Pack }) {
             {open.has(bk) && bde.bns.map(bn => {
               const bnSlots = bn.cos.flatMap(c => c.slots)
               const nk = `n:${bde.desig}:${bn.desig}`
-              const isPlayer = bn.desig === f?.playerBn
+              // PLAYABLE is what the PACK allows; CAMPAIGN is which one this
+              // pack's campaign happens to be about. Two different statements.
+              const canPlay = isPlayableBn(f, bn.desig)
+              const isCampaign = bn.desig === f?.playerBn
               const donor = bnSlots.map(donorOf).find(Boolean) ?? null
               return (
                 <Box key={bn.desig}>
                   <Row depth={2} open={open.has(nk)} onClick={() => toggle(nk)}
                     label={bn.desig} sub={nick(bn.desig)}
                     right={<>
-                      {isPlayer && <Badge size="xs" variant="light" color="yellow">PLAYER</Badge>}
+                      {canPlay && <Badge size="xs" variant="light" color="lime">PLAYABLE</Badge>}
+                      {isCampaign && <Badge size="xs" variant="light" color="yellow">CAMPAIGN</Badge>}
                       {donor && <Badge size="xs" variant="outline" color="grape">ATT {donor}</Badge>}
                       <Count n={bn.cos.length} unit="CO" />
                       <Count n={vics(bnSlots)} unit="VIC" />
@@ -210,6 +215,7 @@ function inventory(p: Pack): { label: string; n: number }[] {
     { label: 'FACILITIES', n: Object.keys(c.facilities ?? {}).length },
     { label: 'BRIGADES', n: f?.bdes.length ?? 0 },
     { label: 'BATTALIONS', n: bns },
+    { label: 'PLAYABLE', n: playableBns(f).length },
     { label: 'CAMPAIGNS', n: p.campaigns?.length ?? 0 },
     { label: 'DIV ASSETS', n: Object.keys(p.assets ?? {}).length },
   ]

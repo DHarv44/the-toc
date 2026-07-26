@@ -60,7 +60,16 @@ export interface BdePlan {
 }
 
 export interface Formation {
-  playerBn: string        // the battalion the player commands ('2-8 CAV')
+  // The battalion currently being commanded. The CAMPAIGN pins this ('2-8 CAV'
+  // for IRON TRIANGLE); skirmish will set it from the player's pick.
+  playerBn: string
+  // Which battalions a player may take command of. `'all'` opens the whole
+  // division; a list names the ones that are playable. This is a PACK design
+  // statement, not a campaign one — a pack decides whether you can run its
+  // BSB, and a campaign separately decides which battalion its story is about.
+  // Absent = only playerBn, which is how packs behaved before the field
+  // existed.
+  playable?: 'all' | string[]
   bdes: BdePlan[]
   // Standing QRF at H-hour: the elements the battalion has ALREADY put on
   // reaction duty at the command post, as `CO:PLT` inside the player battalion
@@ -408,6 +417,25 @@ export interface Pack {
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const
 const CO = ['A', 'B', 'C', 'D'] as const
+
+// Can a player take command of this battalion? Reads the pack's `playable`
+// declaration; with none, only the pack's own playerBn is playable (how packs
+// behaved before the field existed).
+export function isPlayableBn(f: Formation | undefined, desig: string): boolean {
+  if (!f) return false
+  if (f.playable === 'all') return true
+  if (Array.isArray(f.playable)) return f.playable.includes(desig)
+  return desig === f.playerBn
+}
+
+// Every battalion a player may command, in formation order — the skirmish
+// picker's source (division → brigade → battalion).
+export function playableBns(f: Formation | undefined): { bde: string; bn: BnPlan }[] {
+  if (!f) return []
+  return f.bdes.flatMap(b => b.bns
+    .filter(bn => isPlayableBn(f, bn.desig))
+    .map(bn => ({ bde: b.desig, bn })))
+}
 
 // The nth fielded unit of a type → its formal lineage line. Deterministic and
 // rng-free (a plain counter drives n), so fielding order alone decides slots.
