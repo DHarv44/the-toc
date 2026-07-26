@@ -19,7 +19,7 @@ import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
 import { playFeedAudio } from './feedAudio'
 import { COMPOSITIONS } from '../domains/forces/composition'
 import { loadFeedVehicleModels } from './vehicle-models'
-import { makePoseCache } from './smoothing'
+import { makePoseCache, makeElemPoses } from './smoothing'
 
 export { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from './DroneCamera'
 
@@ -36,22 +36,32 @@ interface Detail {
   bldgs: Array<{ x: number; y: number; h: number; w: number; d: number; bh: number; rot: number; n: number }>
 }
 
+// The ground the feed DRAWS, which is not the ground WorldMap reports.
+// map.elevAt is a nearest-cell read — a 50 m step function — while the terrain
+// mesh below is built by interpolating between cell centres. Anything placed
+// with elevAt therefore doesn't stand on the surface you can see: it floats or
+// sinks by the difference, and hops several metres every time it crosses a cell
+// line. Everything the feed positions vertically samples here instead. The sim
+// keeps using elevAt; this is a picture concern, not a terrain one.
+export function groundAt(x: number, y: number): number {
+  const { elev, GRID } = S.map!
+  const cx = x / CELL - 0.5, cy = y / CELL - 0.5
+  let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
+  const wx = cx - gx0, wy = cy - gy0
+  gx0 = Math.max(0, Math.min(GRID - 1, gx0)); gy0 = Math.max(0, Math.min(GRID - 1, gy0))
+  const gx1 = Math.min(GRID - 1, gx0 + 1), gy1 = Math.min(GRID - 1, gy0 + 1)
+  const a = elev[gy0 * GRID + gx0]!, b = elev[gy0 * GRID + gx1]!
+  const c = elev[gy1 * GRID + gx0]!, d = elev[gy1 * GRID + gx1]!
+  return a * (1 - wx) * (1 - wy) + b * wx * (1 - wy) + c * (1 - wx) * wy + d * wx * wy
+}
+
 let cache: Detail | null = null
 function getDetail(): Detail {
   if (cache && cache.map === S.map) return cache
   const map = S.map!
   const { elev, terr, waterSurf, GRID, WORLD } = map
 
-  const elevAtBilinear = (x: number, y: number): number => {
-    const cx = x / CELL - 0.5, cy = y / CELL - 0.5
-    let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
-    const wx = cx - gx0, wy = cy - gy0
-    gx0 = Math.max(0, Math.min(GRID - 1, gx0)); gy0 = Math.max(0, Math.min(GRID - 1, gy0))
-    const gx1 = Math.min(GRID - 1, gx0 + 1), gy1 = Math.min(GRID - 1, gy0 + 1)
-    const a = elev[gy0 * GRID + gx0]!, b = elev[gy0 * GRID + gx1]!
-    const c = elev[gy1 * GRID + gx0]!, d = elev[gy1 * GRID + gx1]!
-    return a * (1 - wx) * (1 - wy) + b * wx * (1 - wy) + c * (1 - wx) * wy + d * wx * wy
-  }
+  const elevAtBilinear = groundAt
 
   // --- ground color lives on a painted TEXTURE, not the vertices ---
   // Vertex colors cap edge sharpness at the mesh resolution (~20-25 m), which
@@ -545,7 +555,7 @@ function StructuresLayer({ feedRef, mode }: { feedRef: { current: FeedState }; m
         if (Math.hypot(s.x - feed.cx, s.y - feed.cy) > 2800) continue
         const building = s.buildT > 0
         const prog = building ? 1 - s.buildT / STRUCTURES[s.kind].buildTime : 1
-        dummy.position.set(s.x, S.map!.elevAt(s.x, s.y), s.y)
+        dummy.position.set(s.x, groundAt(s.x, s.y), s.y)
         dummy.rotation.set(0, ((s.id * 0.73) % 1.2) - 0.6, 0)
         dummy.scale.set(1, building ? 0.35 + 0.65 * prog : 1, 1)
         dummy.updateMatrix()
@@ -583,6 +593,14 @@ const cTmp = new THREE.Color()
 const VEH_CLASSES: readonly VehClass[] = ['tank', 'ifv', 'truck', 'spg', 'eng']
 const MAXC = 96 // instances per vehicle class
 
+// half-hull, metres — how far apart the ground is sampled to tip a vehicle to
+// the slope it is standing on. One set for every class: the difference between
+// a tank and a truck is well inside the terrain's own resolution.
+const HULL_L = 3.5, HULL_W = 1.6
+// no vehicle sits at more than ~26°; past that the terrain read is noise, not
+// ground, and a hull standing on its nose looks worse than one slightly flat
+const clampTilt = (a: number) => Math.max(-0.45, Math.min(0.45, a))
+
 function UnitsLayer({ feedRef, mode, muted = false }: {
   feedRef: { current: FeedState }
   mode: SensorMode
@@ -602,6 +620,7 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
   )
   const meshRefs = useRef<Record<string, THREE.InstancedMesh | null>>({})
   const poses = useRef(makePoseCache()).current
+  const elems = useRef(makeElemPoses()).current
   const trpRef = useRef<THREE.InstancedMesh>(null)
   const flashRef = useRef<THREE.InstancedMesh>(null)
   const smokeRef = useRef<THREE.InstancedMesh>(null)
@@ -629,19 +648,34 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
     const cnt: Record<string, number> = {}
     for (const b of buckets) cnt[b.id] = 0
     let ti = 0
-    const groundY = (x: number, y: number) => S.map!.elevAt(x, y)
+    const groundY = groundAt
     // a unit's platform wears its pack model where there is one, and falls back
     // to the class shape for everything else
     const bucketOf = (type: UnitTypeKey | StructureTypeKey): string => {
       const k = primaryVeh(type)
       return k && models[k] ? `m:${k}` : classOf(type)
     }
-    const putVehicle = (cls: string, x: number, y: number, heading: number, tilt: number, color: THREE.Color) => {
+    // A hull sits ON the ground, not above an averaged point of it: sample the
+    // surface fore/aft and either side of the vic and tip it to match. Vehicles
+    // drawn level on a slope are the single loudest tell that a feed is fake —
+    // you are looking down at terrain, so the mismatch is unmissable. Euler
+    // order is YZX so the rotations compose in the model's own frame: roll
+    // about the hull axis (+X), pitch about the lateral (+Z), then yaw into the
+    // world. `extra` is the wrecks' dumped-in-the-dirt cant, on top of the lie
+    // of the land.
+    const putVehicle = (cls: string, x: number, y: number, heading: number, extra: number, color: THREE.Color) => {
       const mesh = meshes[cls]
       const n = cnt[cls] ?? 0
       if (!mesh || n >= MAXC) return
-      dummy.position.set(x, groundY(x, y) + 0.3, y)
-      dummy.rotation.set(0, -heading, tilt)
+      const c = Math.cos(heading), s = Math.sin(heading)
+      const hF = groundY(x + c * HULL_L, y + s * HULL_L)
+      const hB = groundY(x - c * HULL_L, y - s * HULL_L)
+      const hL = groundY(x - s * HULL_W, y + c * HULL_W)
+      const hR = groundY(x + s * HULL_W, y - c * HULL_W)
+      const pitch = clampTilt(Math.atan2(hF - hB, HULL_L * 2))
+      const roll = clampTilt(Math.atan2(hR - hL, HULL_W * 2))
+      dummy.position.set(x, (hF + hB + hL + hR) / 4 + 0.3, y)
+      dummy.rotation.set(roll, -heading, pitch + extra, 'YZX')
       dummy.scale.setScalar(1)
       dummy.updateMatrix()
       mesh.setMatrixAt(n, dummy.matrix)
@@ -658,20 +692,34 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
     for (const u of S.units) {
       if (Math.hypot(u.x - cx, u.y - cy) > 2800) continue
       const cls = bucketOf(u.type)
+      // The unit pose carries the formation FRAME — where the platoon is and
+      // which way it is oriented, rate-limited so a waypoint corner swings the
+      // axis of advance over a second or so instead of one 50 ms tick.
       const p = poses.pose(u.id, u.x, u.y, u.heading, dt)
-      for (const el of u.elements) {
+      // Running hot: an engine that has been under load reads warmer than one
+      // idling, and no two vics in a platoon are the same temperature anyway.
+      const hot = u.state === 'moving' ? 1 : 0.9
+      for (let i = 0; i < u.elements.length; i++) {
+        const el = u.elements[i]!
         if (!el.alive || !elemExposed(u, el)) continue
+        // ...and the element pose carries the individual vehicle inside that
+        // frame: chasing its station rather than welded to it, hull pointed
+        // along its own track (see ./smoothing).
         const w = elemWorld(p, el)
+        const e = elems.pose(u.id * 256 + i, w.x, w.y, p.heading, dt)
+        const v = 0.9 + hash01(u.id, i) * 0.2
         if (el.kind === 'veh') {
-          putVehicle(cls, w.x, w.y, p.heading, 0,
-            eo ? cTmp.setRGB(0.24, 0.27, 0.19) : cTmp.setRGB(1, 1, 1))
+          const t = hot * v
+          putVehicle(cls, e.x, e.y, e.heading, 0,
+            eo ? cTmp.setRGB(0.24 * v, 0.27 * v, 0.19 * v) : cTmp.setRGB(t, t, t))
         } else if (ti < MAXT) {
-          dummy.position.set(w.x, groundY(w.x, w.y) + 0.1, w.y)
-          dummy.rotation.set(0, -p.heading, 0)
+          dummy.position.set(e.x, groundY(e.x, e.y) + 0.1, e.y)
+          dummy.rotation.set(0, -e.heading, 0)
           dummy.scale.setScalar(1.15)
           dummy.updateMatrix()
           trp.setMatrixAt(ti, dummy.matrix)
-          trp.setColorAt(ti, eo ? cTmp.setRGB(0.18, 0.17, 0.14) : cTmp.setRGB(0.85, 0.85, 0.85))
+          trp.setColorAt(ti, eo ? cTmp.setRGB(0.18 * v, 0.17 * v, 0.14 * v)
+            : cTmp.setRGB(0.85 * v, 0.85 * v, 0.85 * v))
           ti++
         }
       }
@@ -702,6 +750,7 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
     trp.instanceMatrix.needsUpdate = true
     if (trp.instanceColor) trp.instanceColor.needsUpdate = true
     poses.sweep()
+    elems.sweep()
 
     // flashes: arty impacts, muzzle flashes, impact sparks, kill explosions
     const fl = flashRef.current
