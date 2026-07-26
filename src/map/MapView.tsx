@@ -240,12 +240,28 @@ export default function MapView() {
             const wx0 = s2wX(wasLine.x0), wy0 = s2wY(wasLine.y0)
             const wx1 = s2wX(wasLine.x1), wy1 = s2wY(wasLine.y1)
             const ldx = wx1 - wx0, ldy = wy1 - wy0
-            // assign slots by projection along the line to minimize crossing
-            const sorted = [...sel].sort((a, b) =>
-              ((a.x - wx0) * ldx + (a.y - wy0) * ldy) - ((b.x - wx0) * ldx + (b.y - wy0) * ldy))
             const attack = ui.cmdMode === 'attack'
             const gid = null // an ad-hoc selection isn't a formation, so no shared pace cap
             const app = e.shiftKey // shift-drag appends the fan-out as the next waypoint
+            // Slots go by projection along the line, so nobody crosses anybody.
+            // On an APPEND that projection has to be taken from where the leg
+            // STARTS — the unit's route end, its slot in the previous fan — not
+            // from where the platoon happens to be parked. They have not driven
+            // any of this yet, so live positions are all the same point and the
+            // lanes come out shuffled: the left platoon gets the right slot and
+            // the fans cross. A fresh fan discards the route, so there the
+            // origin really is the live position.
+            const from = (o: Unit | Drone) => {
+              if (!app) return { x: o.x, y: o.y }
+              const r = (o as Unit).path?.length ? (o as Unit).path : (o as Drone).route
+              const last = r && r.length ? r[r.length - 1] : null
+              return last ? { x: last.x, y: last.y } : { x: o.x, y: o.y }
+            }
+            const proj = (o: Unit | Drone) => {
+              const p = from(o)
+              return (p.x - wx0) * ldx + (p.y - wy0) * ldy
+            }
+            const sorted = [...sel].sort((a, b) => proj(a) - proj(b))
             // ROUTING. The FIRST fan is the approach march: it uses the road
             // network, so the force runs the MSR (over the bridge) and only
             // peels off to its own slot at the end. Every fan AFTER that is an
