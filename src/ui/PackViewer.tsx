@@ -68,16 +68,20 @@ export interface ExtraCol {
   cell: (vehicleKey: string) => React.ReactNode
 }
 
-function VehiclesTable({ p, extra }: { p: Pack; extra?: ExtraCol }) {
+// `lead` puts a column BEFORE the key (the units table already leads with its
+// symbol); `extra` appends one after. The read-only console passes neither.
+function VehiclesTable({ p, lead, extra }: { p: Pack; lead?: ExtraCol; extra?: ExtraCol }) {
   return (
     <Table withRowBorders={false} verticalSpacing={2}>
       <Table.Thead><Table.Tr>
+        {lead && <Th>{lead.head}</Th>}
         <Th>KEY</Th><Th>NAME</Th><Th>CREW</Th><Th>PAX</Th><Th>MOB</Th><Th>WEAPONS</Th>
         {extra && <Th>{extra.head}</Th>}
       </Table.Tr></Table.Thead>
       <Table.Tbody>
         {Object.values(p.catalogs.vehicles).map(v => (
           <Table.Tr key={v.key}>
+            {lead && <Table.Td w={78}>{lead.cell(v.key)}</Table.Td>}
             <Td c="#7ec8ff">{v.key}</Td><Td>{v.name}</Td><Td>{v.crew}</Td><Td>{v.pax || '—'}</Td>
             <Td c="dark.3">{v.mob}</Td>
             <Td c="dark.2">{v.weapons.map(w => p.catalogs.weapons[w]?.name ?? w).join(', ') || 'unarmed'}</Td>
@@ -175,13 +179,13 @@ function Names({ p }: { p: Pack }) {
 export const PACK_TABS = ['UNITS', 'VEHICLES', 'WEAPONS', 'AIR', 'FORMATION', 'NAMES'] as const
 export type PackTab = (typeof PACK_TABS)[number]
 
-export function PackContent({ p, tab, vehicleExtra }: {
-  p: Pack; tab: PackTab; vehicleExtra?: ExtraCol
+export function PackContent({ p, tab, vehicleLead, vehicleExtra }: {
+  p: Pack; tab: PackTab; vehicleLead?: ExtraCol; vehicleExtra?: ExtraCol
 }) {
   return (
     <>
       {tab === 'UNITS' && <UnitsTable p={p} />}
-      {tab === 'VEHICLES' && <VehiclesTable p={p} extra={vehicleExtra} />}
+      {tab === 'VEHICLES' && <VehiclesTable p={p} lead={vehicleLead} extra={vehicleExtra} />}
       {tab === 'WEAPONS' && <WeaponsTable p={p} />}
       {tab === 'AIR' && <DronesTable p={p} />}
       {tab === 'FORMATION' && <Formation p={p} />}

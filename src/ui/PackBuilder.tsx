@@ -99,7 +99,15 @@ function usePackModels(p: Pack) {
     }))
   }, [p.id, files, info])
 
-  return { files, info, options }
+  // a manifest holds PACK-RELATIVE paths ('models/vehicles/x.glb'); the browser
+  // needs the served URL Vite emitted for that file
+  const urlFor = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const f of files) m.set(f.path.replace(new RegExp(`^${p.id}/`), ''), f.url)
+    return (rel: string) => m.get(rel)
+  }, [p.id, files])
+
+  return { files, info, options, urlFor }
 }
 
 function ModelsSection({ p }: { p: Pack }) {
@@ -481,7 +489,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
   // through the dev-only pack-io middleware: the manifest is re-read from DISK
   // first, so a save only ever touches models.vehicles and passes the rest of
   // the file through untouched.
-  const { options } = usePackModels(p!)
+  const { options, urlFor } = usePackModels(p!)
   const assigned = useMemo(() => {
     const out: Record<string, string> = {}
     for (const [k, m] of Object.entries(p?.models?.vehicles ?? {})) out[k] = `${m.file}|${m.node ?? ''}`
@@ -635,6 +643,18 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
                     : tab === 'ASSETS' ? <AssetsTable p={p} />
                       : (
                         <PackContent p={p} tab={tab as PackTab}
+                          vehicleLead={{
+                            head: '',
+                            // the platform as it will actually look, so the row
+                            // is checkable at a glance instead of by filename
+                            cell: (key) => {
+                              const [file, node] = (valueOf(key) || '').split('|')
+                              const url = file ? urlFor(file) : undefined
+                              return url
+                                ? <ModelPreview url={url} node={node || undefined} h={42} />
+                                : <Box h={42} style={{ border: '1px dashed #22303d', borderRadius: 3 }} />
+                            },
+                          }}
                           vehicleExtra={{
                             head: 'MODEL',
                             cell: (key) => (
