@@ -64,7 +64,10 @@ export function initElements(u: Unit): void {
 }
 
 // world position of an element given the unit's heading
-export function elemWorld(u: Unit, el: UnitElement): Vec2 {
+// Takes a POSE, not a whole unit: the drone feed draws elements off a smoothed
+// copy of the unit's position, and this only ever needed x/y/heading. A Unit
+// satisfies it as it stands.
+export function elemWorld(u: { x: number; y: number; heading: number }, el: UnitElement): Vec2 {
   const s = Math.sin(u.heading), c = Math.cos(u.heading)
   return { x: u.x + c * el.ox - s * el.oy, y: u.y + s * el.ox + c * el.oy }
 }

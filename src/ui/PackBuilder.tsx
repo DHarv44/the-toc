@@ -18,6 +18,7 @@ import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
 import { readGlb, type GlbInfo } from '../packs/glb'
+import { packModelFiles, packModelUrl } from '../packs/model-files'
 import ModelPreview from './ModelPreview'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
@@ -40,14 +41,10 @@ type BuilderTab = (typeof BUILDER_TABS)[number]
 // platform, or whether the pack even has a manifest entry for it. Drop a GLB
 // in and it shows up.
 //
-// Files are discovered with import.meta.glob, so this is the folder itself
-// rather than a list someone remembered to update, and Vite emits each one as
-// a real served asset (hashed in a build). readGlb then reads each file's
-// glTF table of contents — no renderer involved.
+// Files are discovered by packs/model-files (shared with the drone feed), so
+// this is the folder itself rather than a list someone remembered to update.
+// readGlb then reads each file's glTF table of contents — no renderer involved.
 // ---------------------------------------------------------------------------
-const MODEL_FILES = import.meta.glob('../packs/*/models/**/*.glb', {
-  query: '?url', import: 'default', eager: true,
-}) as Record<string, string>
 
 const kb = (n: number) => `${Math.round(n / 1024)} KB`
 
@@ -101,13 +98,7 @@ function ModelCell({ value, options, urlFor, onPick }: {
 // Find and read this pack's model files. Shared: the MODELS page browses them,
 // the VEHICLES tab assigns from them, and neither should discover them twice.
 function usePackModels(p: Pack) {
-  const files = useMemo(
-    () => Object.entries(MODEL_FILES)
-      .filter(([path]) => path.startsWith(`../packs/${p.id}/models/`))
-      .map(([path, url]) => ({ path: path.replace('../packs/', ''), url }))
-      .sort((a, b) => a.path.localeCompare(b.path)),
-    [p.id],
-  )
+  const files = useMemo(() => packModelFiles(p.id), [p.id])
   const [info, setInfo] = useState<Record<string, GlbInfo | { error: string }>>({})
 
   useEffect(() => {
@@ -130,11 +121,10 @@ function usePackModels(p: Pack) {
     for (const f of files) {
       const i = info[f.url]
       if (!i || 'error' in i) continue
-      const rel = f.path.replace(new RegExp(`^${p.id}/`), '')
       const base = f.path.split('/').pop() ?? f.path
       for (const m of i.models) {
         if (m.part) continue // you assign an ASSET, not a road wheel
-        raw.push({ value: `${rel}|${m.node ?? ''}`, label: m.name, file: base })
+        raw.push({ value: `${f.rel}|${m.node ?? ''}`, label: m.name, file: base })
       }
     }
     const dupes = new Set(
@@ -148,11 +138,7 @@ function usePackModels(p: Pack) {
 
   // a manifest holds PACK-RELATIVE paths ('models/vehicles/x.glb'); the browser
   // needs the served URL Vite emitted for that file
-  const urlFor = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const f of files) m.set(f.path.replace(new RegExp(`^${p.id}/`), ''), f.url)
-    return (rel: string) => m.get(rel)
-  }, [p.id, files])
+  const urlFor = useMemo(() => (rel: string) => packModelUrl(p.id, rel), [p.id])
 
   return { files, info, options, urlFor }
 }

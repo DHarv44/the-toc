@@ -165,6 +165,11 @@ export interface PackAsset {
 export interface ModelRef {
   file: string            // pack-relative ('models/vehicles/pack.glb')
   node?: string           // named node inside that file; absent = whole file
+  // Degrees about the vertical, applied after the loader has aligned the
+  // model's long axis. Only nose-vs-tail needs saying: which end of a hull is
+  // the front is the one thing geometry cannot be read for. 180 turns a
+  // backwards vehicle around.
+  yaw?: number
 }
 
 export interface PackModels {

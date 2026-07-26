@@ -1,7 +1,8 @@
 // MODEL PREVIEW — a still of one model out of a pack GLB.
 //
-// This is the project's first GLTF load. The drone feed still draws its
-// procedural shapes; when models go in there, this loader is what it will use.
+// The parsed file comes from packs/glb-scene, shared with the drone feed: the
+// builder and the feed look at the same art, so they fetch and parse it once
+// between them.
 //
 // WHY A THUMBNAIL AND NOT A LIVE CANVAS: a browser page shows dozens of
 // models, and every live <Canvas> is its own WebGL context. Browsers cap those
@@ -11,35 +12,17 @@
 // no per-card context, no per-card render loop, and it scales to any number of
 // models.
 //
-// Two caches, both keyed and shared: the parsed GLB per URL (a file holding
-// five vehicles is fetched and parsed once, not five times) and the rendered
-// thumbnail per url+node. Object3D.clone() SHARES geometry and material with
-// the cached original, so nothing here disposes what it draws — the cache owns
-// those, and disposing would break every later preview of the same file.
-//
-// No Meshopt/KTX2 decoders are wired: nothing in the packs uses either (the
-// browser's own extensionsUsed column reads NO COMPRESSION). They go in with
-// the optimize pipeline, against files that actually exercise them.
+// The rendered thumbnail is cached per url+node on top of that. Object3D.clone()
+// SHARES geometry and material with the cached original, so nothing here
+// disposes what it draws — the cache owns those, and disposing would break
+// every later preview of the same file.
 import { useEffect, useState } from 'react'
 import * as THREE from 'three'
-import { PropertyBinding } from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { loadGlbScene, findGlbNode } from '../packs/glb-scene'
 
 const SIZE = 320
 
-const sceneCache = new Map<string, Promise<THREE.Group>>()
 const thumbCache = new Map<string, Promise<string>>()
-
-function loadScene(url: string): Promise<THREE.Group> {
-  let hit = sceneCache.get(url)
-  if (!hit) {
-    hit = new Promise<THREE.Group>((resolve, reject) => {
-      new GLTFLoader().load(url, g => resolve(g.scene), undefined, reject)
-    })
-    sceneCache.set(url, hit)
-  }
-  return hit
-}
 
 // one context for the whole app, made on first use
 let _renderer: THREE.WebGLRenderer | null = null
@@ -73,12 +56,8 @@ function drawThumb(url: string, node?: string): Promise<string> {
   const key = `${url}|${node ?? ''}`
   let hit = thumbCache.get(key)
   if (hit) return hit
-  hit = loadScene(url).then(scene => {
-    // three SANITIZES node names on load (dots and spaces are reserved in
-    // animation binding paths), so a raw glTF name like 'desirefx.me_002_1'
-    // never matches. Try as authored, then as three rewrote it.
-    const src = !node ? scene
-      : scene.getObjectByName(node) ?? scene.getObjectByName(PropertyBinding.sanitizeNodeName(node))
+  hit = loadGlbScene(url).then(scene => {
+    const src = findGlbNode(scene, node)
     if (!src) throw new Error(`node "${node}" not found`)
 
     const s = new THREE.Scene()

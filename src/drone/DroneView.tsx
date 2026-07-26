@@ -5,7 +5,7 @@
 // Ported verbatim from src/drone/DroneView.jsx; the camera lives in
 // DroneCamera.tsx and the feed-audio pass in feedAudio.ts. The dead
 // formationOffset helper (superseded by the sim's element layer) was dropped.
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { S } from '../engine/state'
@@ -17,6 +17,9 @@ import { CELL, T_FOREST, T_URBAN, T_WATER } from '../world/WorldMap'
 import { hash01 } from '../lib/math'
 import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
 import { playFeedAudio } from './feedAudio'
+import { COMPOSITIONS } from '../domains/forces/composition'
+import { loadFeedVehicleModels } from './vehicle-models'
+import { makePoseCache } from './smoothing'
 
 export { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from './DroneCamera'
 
@@ -339,6 +342,50 @@ const VEH_CLASS: Partial<Record<UnitTypeKey, VehClass>> = {
 const classOf = (type: UnitTypeKey | StructureTypeKey): VehClass =>
   VEH_CLASS[type as UnitTypeKey] || 'tank'
 
+// --- pack art ---------------------------------------------------------------
+// The five shapes above are the FALLBACK — every unit type has one and always
+// will. On top of that, a pack may assign a real model to a PLATFORM (ABRAMS,
+// BRADLEY, HMMWV...), and a unit rides whatever its composition says it rides.
+// So the platform a unit type puts on the ground is the vehicle it fields most
+// of: a mech company is Bradleys with a couple of trucks behind it.
+const primaryVeh = (type: UnitTypeKey | StructureTypeKey): string | undefined => {
+  const vs = COMPOSITIONS[type as UnitTypeKey]?.vehicles
+  if (!vs?.length) return undefined
+  return vs.reduce((a, b) => (b.n > a.n ? b : a)).type
+}
+
+// How long a model of this platform should be: exactly the length of the
+// procedural shape it stands in for, so the two are interchangeable and a
+// model authored at any scale lands right without anyone measuring it.
+function modelTargets(): Record<string, number> {
+  const geos = getVehicleGeos()
+  const out: Record<string, number> = {}
+  for (const [type, comp] of Object.entries(COMPOSITIONS)) {
+    const k = primaryVeh(type as UnitTypeKey)
+    if (!k || k in out) continue
+    const g = geos[classOf(comp.unit)]
+    g.computeBoundingBox()
+    out[k] = g.boundingBox!.max.x - g.boundingBox!.min.x
+  }
+  return out
+}
+
+// Models load asynchronously and the feed cannot wait for them: it draws the
+// procedural shapes from the first frame and swaps a platform over the moment
+// its art is ready. One load for the life of the page.
+let modelsOnce: Promise<Record<string, THREE.BufferGeometry>> | null = null
+function useVehicleModels(): Record<string, THREE.BufferGeometry> {
+  const [geos, setGeos] = useState<Record<string, THREE.BufferGeometry>>({})
+  useEffect(() => {
+    let live = true
+    const t = modelTargets()
+    modelsOnce ??= loadFeedVehicleModels(k => t[k] ?? 7)
+    modelsOnce.then(g => { if (live && Object.keys(g).length) setGeos(g) })
+    return () => { live = false }
+  }, [])
+  return geos
+}
+
 interface PartOpts { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; c?: number }
 function P(gIn: THREE.BufferGeometry, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, c = 1 }: PartOpts = {}) {
   const g = gIn.toNonIndexed()
@@ -541,13 +588,20 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
   mode: SensorMode
   muted?: boolean
 }) {
-  const tankRef = useRef<THREE.InstancedMesh>(null), ifvRef = useRef<THREE.InstancedMesh>(null)
-  const truckRef = useRef<THREE.InstancedMesh>(null), spgRef = useRef<THREE.InstancedMesh>(null)
-  const engRef = useRef<THREE.InstancedMesh>(null)
-  const classRefs: Record<VehClass, React.RefObject<THREE.InstancedMesh | null>> = {
-    tank: tankRef, ifv: ifvRef, truck: truckRef, spg: spgRef, eng: engRef,
-  }
+  // One instanced mesh per BUCKET. A bucket is either one of the five
+  // procedural classes or one platform wearing pack art ('m:ABRAMS'); both are
+  // drawn the same way, so the draw loop never has to know which it is.
   const vehGeos = useMemo(getVehicleGeos, [])
+  const models = useVehicleModels()
+  const buckets = useMemo(
+    () => [
+      ...VEH_CLASSES.map(c => ({ id: c, geo: vehGeos[c] })),
+      ...Object.entries(models).map(([k, geo]) => ({ id: `m:${k}`, geo })),
+    ],
+    [vehGeos, models],
+  )
+  const meshRefs = useRef<Record<string, THREE.InstancedMesh | null>>({})
+  const poses = useRef(makePoseCache()).current
   const trpRef = useRef<THREE.InstancedMesh>(null)
   const flashRef = useRef<THREE.InstancedMesh>(null)
   const smokeRef = useRef<THREE.InstancedMesh>(null)
@@ -560,48 +614,60 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
     return g
   }, [])
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     const eo = mode === 'EO'
     const feed = feedRef.current
     const trp = trpRef.current
-    const meshes: Partial<Record<VehClass, THREE.InstancedMesh | null>> = {}
-    for (const c of VEH_CLASSES) meshes[c] = classRefs[c].current
+    const meshes = meshRefs.current
     if (!trp || !meshes.tank || !feed.active) {
-      for (const c of VEH_CLASSES) { const m = meshes[c]; if (m) m.count = 0 }
+      for (const b of buckets) { const m = meshes[b.id]; if (m) m.count = 0 }
       if (trp) trp.count = 0
       return
     }
     const { cx, cy } = feed
     playFeedAudio(feed, muted)
-    const cnt: Record<VehClass, number> = { tank: 0, ifv: 0, truck: 0, spg: 0, eng: 0 }
+    const cnt: Record<string, number> = {}
+    for (const b of buckets) cnt[b.id] = 0
     let ti = 0
     const groundY = (x: number, y: number) => S.map!.elevAt(x, y)
-    const putVehicle = (cls: VehClass, x: number, y: number, heading: number, tilt: number, color: THREE.Color) => {
+    // a unit's platform wears its pack model where there is one, and falls back
+    // to the class shape for everything else
+    const bucketOf = (type: UnitTypeKey | StructureTypeKey): string => {
+      const k = primaryVeh(type)
+      return k && models[k] ? `m:${k}` : classOf(type)
+    }
+    const putVehicle = (cls: string, x: number, y: number, heading: number, tilt: number, color: THREE.Color) => {
       const mesh = meshes[cls]
-      if (!mesh || cnt[cls] >= MAXC) return
+      const n = cnt[cls] ?? 0
+      if (!mesh || n >= MAXC) return
       dummy.position.set(x, groundY(x, y) + 0.3, y)
       dummy.rotation.set(0, -heading, tilt)
       dummy.scale.setScalar(1)
       dummy.updateMatrix()
-      mesh.setMatrixAt(cnt[cls], dummy.matrix)
-      mesh.setColorAt(cnt[cls], color)
-      cnt[cls]++
+      mesh.setMatrixAt(n, dummy.matrix)
+      mesh.setColorAt(n, color)
+      cnt[cls] = n + 1
     }
 
-    // render each live, exposed element at the exact position combat uses, so a
-    // pinpoint strike destroys the specific vic you can see
+    // Render each live, exposed element at the position combat uses — a
+    // pinpoint strike destroys the specific vic you can see. The pose is eased
+    // toward that position rather than snapped to it (see ./smoothing): the sim
+    // steps at 20 Hz and this draws at 60, so the raw value would step three
+    // frames at a time. The formation offsets ride on the eased pose, so a
+    // platoon stays rigid while it moves.
     for (const u of S.units) {
       if (Math.hypot(u.x - cx, u.y - cy) > 2800) continue
-      const cls = classOf(u.type)
+      const cls = bucketOf(u.type)
+      const p = poses.pose(u.id, u.x, u.y, u.heading, dt)
       for (const el of u.elements) {
         if (!el.alive || !elemExposed(u, el)) continue
-        const w = elemWorld(u, el)
+        const w = elemWorld(p, el)
         if (el.kind === 'veh') {
-          putVehicle(cls, w.x, w.y, u.heading, 0,
+          putVehicle(cls, w.x, w.y, p.heading, 0,
             eo ? cTmp.setRGB(0.24, 0.27, 0.19) : cTmp.setRGB(1, 1, 1))
         } else if (ti < MAXT) {
           dummy.position.set(w.x, groundY(w.x, w.y) + 0.1, w.y)
-          dummy.rotation.set(0, -u.heading, 0)
+          dummy.rotation.set(0, -p.heading, 0)
           dummy.scale.setScalar(1.15)
           dummy.updateMatrix()
           trp.setMatrixAt(ti, dummy.matrix)
@@ -623,17 +689,19 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
         const heat = Math.max(0.3, 1 - age / 240)
         color = cTmp.setRGB(heat, heat * 0.95, heat * 0.9)
       }
-      putVehicle(spec ? classOf(wk.type) : 'tank', wk.x, wk.y, (wk.x % 3), 0.22, color)
+      putVehicle(spec ? bucketOf(wk.type) : 'tank', wk.x, wk.y, (wk.x % 3), 0.22, color)
     }
-    for (const c of VEH_CLASSES) {
-      const m = meshes[c]!
-      m.count = cnt[c]
+    for (const b of buckets) {
+      const m = meshes[b.id]
+      if (!m) continue
+      m.count = cnt[b.id] ?? 0
       m.instanceMatrix.needsUpdate = true
       if (m.instanceColor) m.instanceColor.needsUpdate = true
     }
     trp.count = ti
     trp.instanceMatrix.needsUpdate = true
     if (trp.instanceColor) trp.instanceColor.needsUpdate = true
+    poses.sweep()
 
     // flashes: arty impacts, muzzle flashes, impact sparks, kill explosions
     const fl = flashRef.current
@@ -809,9 +877,10 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
 
   return (
     <>
-      {VEH_CLASSES.map((c) => (
-        <instancedMesh key={c} ref={classRefs[c]} args={[undefined, undefined, MAXC]}
-          geometry={vehGeos[c]} frustumCulled={false}>
+      {buckets.map((b) => (
+        <instancedMesh key={b.id} ref={m => { meshRefs.current[b.id] = m }}
+          args={[undefined, undefined, MAXC]}
+          geometry={b.geo} frustumCulled={false}>
           <meshBasicMaterial vertexColors toneMapped={false} />
         </instancedMesh>
       ))}

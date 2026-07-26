@@ -1,9 +1,11 @@
 // The sensor-ball camera: lock / aerostat turret / orbit gimbal / transit
 // look-ahead. Extracted verbatim from src/drone/DroneView.jsx.
+import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { PerspectiveCamera } from 'three'
 import { S } from '../engine/state'
 import { DRONE_TYPES } from '../domains/air/catalog'
+import { easePose, type Pose } from './smoothing'
 
 // aerostat turret depression limits: level (can't tilt above the horizon) to near-nadir
 export const AEROSTAT_MIN_TILT = 0.05    // rad above 0 so the horizon look-distance stays finite
@@ -28,20 +30,46 @@ export function DroneCamera({ feedRef, droneId, gimbal }: {
   droneId: number | null
   gimbal?: Gimbal
 }) {
-  useFrame(({ camera: cam }) => {
+  // The airframe's own position and whatever the ball is looking at, both eased
+  // (see ./smoothing). This matters more than smoothing the vehicles did: the
+  // camera stepping at 20 Hz drags the ENTIRE picture with it, so the ground
+  // itself stutters. A drone flies 40-60 m/s, so the 62 ms lag is a couple of
+  // metres of standoff nobody can see.
+  const eye = useRef<Pose>({ x: 0, y: 0, heading: 0 })
+  const aim = useRef<Pose>({ x: 0, y: 0, heading: 0 })
+  const shownId = useRef<number | null>(null)
+
+  useFrame(({ camera: cam }, dt) => {
     const camera = cam as PerspectiveCamera
     const d = S.drones.find(d => d.id === droneId)
     const feed = feedRef.current
-    if (!d) { feed.active = false; return }
+    if (!d) { feed.active = false; shownId.current = null; return }
     feed.active = true
     const spec = DRONE_TYPES[d.type]
     const gx = gimbal?.gx ?? 0, gy2 = gimbal?.gy ?? 0
-    const elev = S.map!.elevAt(d.x, d.y)
-    camera.position.set(d.x, elev + spec.alt * (d.altMul || 1), d.y)
+    // a feed that just opened, or was just pointed at a different airframe,
+    // cuts to the new picture instead of flying there
+    if (shownId.current !== d.id) {
+      shownId.current = d.id
+      eye.current.x = d.x; eye.current.y = d.y
+      aim.current.x = d.tx; aim.current.y = d.ty
+    }
+    easePose(eye.current, d.x, d.y, 0, dt, 400)
+    const ex = eye.current.x, ey = eye.current.y
+    const elev = S.map!.elevAt(ex, ey)
+    camera.position.set(ex, elev + spec.alt * (d.altMul || 1), ey)
+    // Ease the look point too, and hand the camera the eased one. A hard slew —
+    // a new lock, a mode change — outruns the snap threshold and cuts, the way
+    // an operator's slew does; a tracked vehicle just gets followed smoothly.
+    const look = (x: number, y: number, yOff = 0) => {
+      easePose(aim.current, x, y, 0, dt, 600)
+      const lx = aim.current.x, ly = aim.current.y
+      feed.cx = lx; feed.cy = ly
+      camera.lookAt(lx, S.map!.elevAt(lx, ly) + yOff, ly)
+    }
     if (d.lock && d.state !== 'striking') {
       // sensor lock: stay on the point/track no matter where the orbit takes us
-      feed.cx = d.lock.x; feed.cy = d.lock.y
-      camera.lookAt(d.lock.x, S.map!.elevAt(d.lock.x, d.lock.y), d.lock.y)
+      look(d.lock.x, d.lock.y)
     } else if (d.state === 'onstation' && d.tether) {
       // aerostat turret. AUTO sweeps 360° around the mast (scanAngle advances in the sim
       // tick); FREE holds the operator's hand-slewed bearing (gx/gy). LOCK is handled by
@@ -60,21 +88,16 @@ export function DroneCamera({ feedRef, droneId, gimbal }: {
       // if the turret was never hand-tilted.
       const dep = d.tilt ?? Math.atan2(alt, spec.sight * 0.45)
       const R = alt / Math.tan(Math.max(AEROSTAT_MIN_TILT, dep))
-      const lx = d.tx + Math.cos(bearing) * R, ly = d.ty + Math.sin(bearing) * R
-      feed.cx = lx; feed.cy = ly
-      camera.lookAt(lx, S.map!.elevAt(lx, ly), ly)
+      look(d.tx + Math.cos(bearing) * R, d.ty + Math.sin(bearing) * R)
     } else if (d.state === 'onstation') {
-      const lx = d.tx + gx, ly = d.ty + gy2
-      feed.cx = lx; feed.cy = ly
-      camera.lookAt(lx, S.map!.elevAt(lx, ly), ly)
+      look(d.tx + gx, d.ty + gy2)
     } else {
       const hx = d.state === 'rtb' ? d.ox : d.state === 'striking' ? d.sx! : d.tx
       const hy = d.state === 'rtb' ? d.oy : d.state === 'striking' ? d.sy! : d.ty
-      const a = Math.atan2(hy - d.y, hx - d.x)
+      const a = Math.atan2(hy - ey, hx - ex)
       const ahead = d.state === 'striking' ? 120 : 900
-      const lx = d.x + Math.cos(a) * ahead + gx, ly = d.y + Math.sin(a) * ahead + gy2
-      feed.cx = lx; feed.cy = ly
-      camera.lookAt(lx, S.map!.elevAt(lx, ly) + (d.state === 'striking' ? 0 : 30), ly)
+      look(ex + Math.cos(a) * ahead + gx, ey + Math.sin(a) * ahead + gy2,
+        d.state === 'striking' ? 0 : 30)
     }
     camera.fov = gimbal?.fov ?? 38
     camera.far = 20000
