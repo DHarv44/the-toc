@@ -122,6 +122,17 @@ export interface DivOrg {
 // known position (dim symbol, like a stale contact). Securing the area rolls
 // the truth: fast = most recovered (golden hour), enemy-held = captured (MIA),
 // never = MIA-heavy at the end. Securing IS the rescue mission.
+// What a recovery ORDER needs to know about the site it is tasking — a flat
+// snapshot, so the order stays readable in the log after the site itself has
+// resolved (the paper does not stop being the paper).
+export interface RecoveryRef {
+  x: number
+  y: number
+  label: string
+  lineage?: string
+  respFrom?: string   // set = a higher-echelon element; assisting is OPTIONAL
+}
+
 export interface DownedSite {
   id: number
   unitId: number             // the fallen unit (its org slot keys off this)
@@ -573,8 +584,16 @@ export interface CampaignState {
     speaker?: { name: string; title: string }
     docOnly?: boolean
     shop?: StaffShop
+    recovery?: RecoveryRef  // personnel-recovery tasking: swaps in the RECOVERY deck
   } | null
-  fragoLog: Array<{ title: string; text: string; t: number }> // every order received (recallable VTCs)
+  // Every order received, recallable from the objectives tracker. `urgent`
+  // marks an outstanding tasking (red in the log); `recovery` carries the
+  // downed site so the order can draw its OWN deck instead of the operation's.
+  fragoLog: Array<{
+    title: string; text: string; t: number
+    urgent?: boolean
+    recovery?: RecoveryRef
+  }>
   complete: boolean          // whole campaign won (checkEnd reads this)
   status: ObjStatus[]        // per-objective UI state across the WHOLE operation
   hold: number               // accumulated hold seconds (hold-for-time objectives)

@@ -82,16 +82,26 @@ export function CampaignObjectives() {
           <div style={{ height: 1, background: '#24343f', margin: '7px 0 5px' }} />
           <div style={{ fontSize: 8, letterSpacing: 2, color: '#5f7d95', marginBottom: 3 }}>ORDERS — RECALL VTC</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, pointerEvents: 'auto' }}>
-            {c.fragoLog.map((e, i) => (
-              <button key={i} onClick={() => { recallFrago(S, i); bump() }}
-                onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = '#e8b34a'; ev.currentTarget.style.color = '#f2ddb0' }}
-                onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = '#2a3a48'; ev.currentTarget.style.color = '#9ab8d0' }}
-                style={{
-                  padding: '2px 7px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
-                  background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
-                  color: '#9ab8d0', fontSize: 8.5, letterSpacing: 1,
-                }}>▸ {e.title}</button>
-            ))}
+            {c.fragoLog.map((e, i) => {
+              // An URGENT order (a personnel-recovery tasking) does not open
+              // itself — it sits here in red until the commander picks it up.
+              // Red border AND red text: on a board this dense, one of the two
+              // gets lost.
+              const edge = e.urgent ? '#a01414' : '#2a3a48'
+              const ink = e.urgent ? '#ff6f5e' : '#9ab8d0'
+              return (
+                <button key={i} onClick={() => { recallFrago(S, i); bump() }}
+                  onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = '#e8b34a'; ev.currentTarget.style.color = '#f2ddb0' }}
+                  onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = edge; ev.currentTarget.style.color = ink }}
+                  style={{
+                    padding: '2px 7px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+                    background: e.urgent ? 'rgba(46,14,14,0.9)' : 'rgba(16,26,36,0.85)',
+                    border: `1px solid ${edge}`,
+                    color: ink, fontSize: 8.5, letterSpacing: 1,
+                    fontWeight: e.urgent ? 700 : 400,
+                  }}>▸ {e.title}</button>
+              )
+            })}
           </div>
         </>
       )}

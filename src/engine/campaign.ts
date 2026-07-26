@@ -318,7 +318,7 @@ function activateObjective(S: GameState, c: CampaignState): void {
 export function recallFrago(S: GameState, idx: number): void {
   const c = S.campaign
   const e = c?.fragoLog[idx]
-  if (c && e) c.frago = { title: e.title, text: e.text, review: true }
+  if (c && e) c.frago = { title: e.title, text: e.text, review: true, recovery: e.recovery }
 }
 
 // ---------------------------------------------------------------------------
@@ -557,9 +557,19 @@ export function runCampaign(S: GameState, _dt: number): void {
   // PERSONNEL RECOVERY taskings: a platoon going DUSTWUN raises a FRAGO —
   // higher wants that ground secured and those soldiers accounted for.
   // (Resolution reports come from the recovery sweep itself.)
+  //
+  // These do NOT open on their own. A recovery tasking arrives the way paper
+  // arrives: it lands in the ORDERS log flagged urgent, the net calls it, and
+  // the commander reads it when the commander is ready. The TOC does not get
+  // its screen taken away mid-fight — least of all for this, when whatever
+  // just killed that platoon is probably still shooting at someone else.
   for (const site of S.downed) {
     if (site.side !== 'friend' || c.dustwunSeen.includes(site.id)) continue
     c.dustwunSeen.push(site.id)
+    const recovery = {
+      x: site.x, y: site.y, label: site.label,
+      lineage: site.lineage, respFrom: site.respFrom,
+    }
     if (site.respFrom) {
       // a HIGHER-echelon convoy down in the AO: their people, your ground.
       // Helping is a CHOICE — favor with division and a salvage chance if
@@ -570,8 +580,7 @@ export function runCampaign(S: GameState, _dt: number): void {
         + 'This is DIVISION\'S problem, not your tasking — but you are the closest force. '
         + 'If you can put an element on that grid, division will remember it, and there '
         + 'may be equipment worth recovering. Your call, commander. NO TASKING FOLLOWS.'
-      c.fragoLog.push({ title: `DIVISION CONVOY DOWN — ${site.label}`, text, t: S.t })
-      if (!c.frago) c.frago = { title: `DIVISION CONVOY DOWN — ${site.label}`, text }
+      c.fragoLog.push({ title: `DIVISION CONVOY DOWN — ${site.label}`, text, t: S.t, urgent: true, recovery })
       radio('NET', 'request', `${site.respFrom} CONVOY DOWN IN AO — ASSIST OPTIONAL, ${site.label} LKP`, site.x, site.y)
       continue
     }
@@ -581,8 +590,7 @@ export function runCampaign(S: GameState, _dt: number): void {
       + 'Get an element to that grid and SECURE IT. Every minute matters for the wounded; '
       + 'if the enemy holds that ground, our people become prisoners. '
       + 'A medical element on the recovery will save lives. FIND THEM. BRING THEM HOME.'
-    c.fragoLog.push({ title: `PERSONNEL RECOVERY — ${site.label}`, text, t: S.t })
-    if (!c.frago) c.frago = { title: `PERSONNEL RECOVERY — ${site.label}`, text }
+    c.fragoLog.push({ title: `PERSONNEL RECOVERY — ${site.label}`, text, t: S.t, urgent: true, recovery })
     radio('NET', 'request', `PERSONNEL RECOVERY TASKED — ${site.label} LKP, SECURE AND SWEEP`, site.x, site.y)
   }
   // staff reports: a pending PERSTAT lands after its prep delay
