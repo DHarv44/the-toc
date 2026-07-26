@@ -12,9 +12,10 @@
 // Content browsing reuses PackViewer's tables (PackContent): one description
 // of what a pack contains, whichever door you came in through.
 import { useMemo, useState } from 'react'
-import { Badge, Box, Button, Group, Text, UnstyledButton } from '@mantine/core'
+import { Badge, Box, Button, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
-import { isPlayableBn, playableBns } from '../packs/types'
+import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
+import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
@@ -24,8 +25,63 @@ const MONO = 'Consolas, monospace'
 
 // The builder's own tab strip: the pack's content views plus ECHELON, which is
 // a builder-only thing (see EchelonTree).
-const BUILDER_TABS = ['ECHELON', ...PACK_TABS] as const
+const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
+
+// ---------------------------------------------------------------------------
+// ASSETS — the requestable division/corps/USAF pool (ASSET-REQUESTS.md).
+//
+// NOTE the name clash: `pack.assets` is CAPABILITY the TOC requests up the
+// chain, which is what this tab shows. The pack's assets/ FOLDER on disk is
+// ART (the vehicle GLB) and has no schema yet — a different thing wearing the
+// same word, still to be resolved.
+// ---------------------------------------------------------------------------
+function AssetsTable({ p }: { p: Pack }) {
+  const rows = Object.entries(p.assets ?? {})
+  if (!rows.length) {
+    return <Text fz="sm" c="dark.3" p="md">NO REQUESTABLE ASSETS — this pack calls nothing up the chain.</Text>
+  }
+  // what an approved request physically hands you, in the order the delivery
+  // record declares it
+  const deliversOf = (a: PackAsset): string => {
+    const d = a.delivers ?? {}
+    const out: string[] = []
+    if (d.facility) out.push(`FACILITY ${d.facility}`)
+    if (d.tether) out.push(`TETHER ${d.tether}`)
+    if (d.orbit) out.push(`+1 ORBIT ${d.orbit}`)
+    if (d.window) out.push(`ATO WINDOW ${d.window}`)
+    if (d.unlock) out.push(`UNLOCK ${d.unlock}`)
+    if (d.airdrop) out.push('AIRDROP')
+    return out.join(' · ') || '—'
+  }
+  const mins = (s?: number) => (s ? `${Math.round(s / 60)} MIN` : '—')
+  return (
+    <StaffTable minWidth={900} head={
+      <>
+        <Th>KEY</Th><Th>ASSET</Th><Th>FROM</Th><Th>ECHELON</Th>
+        <Th ta="right">POOL</Th><Th ta="right">SETUP</Th><Th ta="right">REFIT</Th>
+        <Th ta="right">CREW</Th><Th>DELIVERS</Th>
+      </>
+    }>
+      {rows.map(([k, a]) => (
+        <Table.Tr key={k}>
+          <Td c="#7ec8ff">{k}</Td>
+          <Td>{a.name}</Td>
+          <Td c="dark.2">{a.from}</Td>
+          <Td c="dark.3">{a.echelon}</Td>
+          {/* a sortie asset has no pool — it has an ATO cycle */}
+          <Td ta="right" c={a.sortie ? '#e8c547' : 'dark.1'}>
+            {a.sortie ? 'SORTIE' : (a.count ?? '—')}
+          </Td>
+          <Td ta="right">{mins(a.setupTime)}</Td>
+          <Td ta="right">{mins(a.refitTime)}</Td>
+          <Td ta="right">{a.crew ? a.crew.billets.length + (a.crew.civ ?? 0) : '—'}</Td>
+          <Td c="dark.2">{deliversOf(a)}</Td>
+        </Table.Tr>
+      ))}
+    </StaffTable>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // ECHELON — the whole formation, five levels deep
@@ -42,12 +98,35 @@ type BuilderTab = (typeof BUILDER_TABS)[number]
 // ---------------------------------------------------------------------------
 const PAD = (d: number) => 10 + d * 24
 
-function Row({ depth, open, label, sub, right, onClick }: {
-  depth: number
+// The tree's COLUMN GRID. Every row, at every depth, lays out the same way:
+//
+//   [indent][toggle] LABEL  sub …………… | badges | SUBS | VIC | BILLETS |
+//
+// Fixed widths on the right-hand cells are the whole point — a division, a
+// battalion and a platoon are meant to be read down the column and compared
+// without hunting. Indent alone carries depth.
+const COL_BADGE = 200
+const COL_NUM = 92
+
+const Cell = ({ children, w = COL_NUM }: { children?: React.ReactNode; w?: number }) => (
+  <Text span fz={10} c="dark.3" w={w} ta="right"
+    style={{ flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' }}>{children}</Text>
+)
+
+// a count reads as nothing when there is nothing to count — an empty cell holds
+// the column without adding a "0 VIC" that means less than silence
+const num = (n: number, unit: string) => (n ? `${n} ${unit}` : '')
+
+function Row({ depth = 0, open, label, sub, badges, subs, vic, pax, head, onClick }: {
+  depth?: number
   open?: boolean
   label: string
   sub?: string
-  right?: React.ReactNode
+  badges?: React.ReactNode
+  subs?: string        // subordinate echelons ('6 BN', '4 CO', '3 ELM')
+  vic?: string
+  pax?: string
+  head?: boolean       // the column header strip
   onClick?: () => void
 }) {
   const lead: Record<number, { fz: number; c: string; fw: number }> = {
@@ -55,30 +134,35 @@ function Row({ depth, open, label, sub, right, onClick }: {
     1: { fz: 14, c: '#9fd0f5', fw: 700 },
     2: { fz: 13, c: '#dceeff', fw: 600 },
     3: { fz: 12, c: '#9ab8d0', fw: 600 },
-    4: { fz: 12, c: 'var(--mantine-color-dark-1)', fw: 400 },
+    4: { fz: 12, c: '#c8d8e8', fw: 400 },
   }
   const s = lead[depth] ?? lead[4]!
   return (
-    <Box onClick={onClick} pl={PAD(depth)} pr="md" py={5}
+    <Box onClick={onClick} pl={head ? 10 : PAD(depth)} pr="md" py={head ? 3 : 5}
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        borderTop: '1px solid #141e28', cursor: onClick ? 'pointer' : 'default',
+        borderTop: head ? 'none' : '1px solid #141e28',
+        cursor: onClick ? 'pointer' : 'default',
       }}
       onMouseEnter={e => { if (onClick) e.currentTarget.style.background = '#101a24' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
       <Text span fz={11} c="dark.3" w={12} style={{ flex: '0 0 auto' }}>
         {onClick ? (open ? '▾' : '▸') : ''}
       </Text>
-      <Text span fz={s.fz} fw={s.fw} c={s.c} style={{ flex: '0 0 auto' }}>{label}</Text>
-      {sub && <Text span fz={10} c="dark.3" truncate style={{ flex: 1, minWidth: 0 }}>{sub}</Text>}
-      <Group gap={8} ml="auto" style={{ flex: '0 0 auto' }}>{right}</Group>
+      {head
+        ? <Text span fz={9} c="dark.3" style={{ flex: 1, minWidth: 0, letterSpacing: 1.5 }}>{label}</Text>
+        : <>
+            <Text span fz={s.fz} fw={s.fw} c={s.c} style={{ flex: '0 0 auto' }}>{label}</Text>
+            <Text span fz={10} c="dark.3" truncate style={{ flex: 1, minWidth: 0 }}>{sub ?? ''}</Text>
+          </>}
+      <Group gap={6} w={COL_BADGE} justify="flex-end" wrap="nowrap"
+        style={{ flex: '0 0 auto' }}>{badges}</Group>
+      <Cell>{subs}</Cell>
+      <Cell>{vic}</Cell>
+      <Cell>{pax}</Cell>
     </Box>
   )
 }
-
-const Count = ({ n, unit }: { n: number; unit: string }) => (
-  <Text span fz={10} c="dark.3" style={{ fontVariantNumeric: 'tabular-nums' }}>{n} {unit}</Text>
-)
 
 function EchelonTree({ p }: { p: Pack }) {
   // generated once per pack — buildDivisionOrg walks the whole formation and
@@ -123,13 +207,12 @@ function EchelonTree({ p }: { p: Pack }) {
 
   return (
     <Box>
+      <Row head label="ELEMENT" subs="SUBORDINATE" vic="VEHICLES" pax="BILLETS" />
+
       <Row depth={0} open={open.has('div')} onClick={() => toggle('div')}
         label={p.name.toUpperCase()} sub={p.motto ?? undefined}
-        right={<>
-          <Count n={bdes.length} unit="BDE" />
-          <Count n={allSlots.length} unit="SLOTS" />
-          <Count n={billets(allSlots)} unit="BILLETS" />
-        </>} />
+        subs={num(bdes.length, 'BDE')} vic={num(vics(allSlots), 'VIC')}
+        pax={num(billets(allSlots), 'BILLETS')} />
 
       {open.has('div') && bdes.map(bde => {
         const bdeSlots = bde.bns.flatMap(b => b.cos.flatMap(c => c.slots))
@@ -138,10 +221,8 @@ function EchelonTree({ p }: { p: Pack }) {
           <Box key={bde.desig}>
             <Row depth={1} open={open.has(bk)} onClick={() => toggle(bk)}
               label={bde.desig} sub={nick(bde.desig)}
-              right={<>
-                <Count n={bde.bns.length} unit="BN" />
-                <Count n={billets(bdeSlots)} unit="BILLETS" />
-              </>} />
+              subs={num(bde.bns.length, 'BN')} vic={num(vics(bdeSlots), 'VIC')}
+              pax={num(billets(bdeSlots), 'BILLETS')} />
             {open.has(bk) && bde.bns.map(bn => {
               const bnSlots = bn.cos.flatMap(c => c.slots)
               const nk = `n:${bde.desig}:${bn.desig}`
@@ -154,27 +235,24 @@ function EchelonTree({ p }: { p: Pack }) {
                 <Box key={bn.desig}>
                   <Row depth={2} open={open.has(nk)} onClick={() => toggle(nk)}
                     label={bn.desig} sub={nick(bn.desig)}
-                    right={<>
+                    badges={<>
                       {canPlay && <Badge size="xs" variant="light" color="lime">PLAYABLE</Badge>}
                       {isCampaign && <Badge size="xs" variant="light" color="yellow">CAMPAIGN</Badge>}
                       {donor && <Badge size="xs" variant="outline" color="grape">ATT {donor}</Badge>}
-                      <Count n={bn.cos.length} unit="CO" />
-                      <Count n={vics(bnSlots)} unit="VIC" />
-                      <Count n={billets(bnSlots)} unit="BILLETS" />
-                    </>} />
+                    </>}
+                    subs={num(bn.cos.length, 'CO')} vic={num(vics(bnSlots), 'VIC')}
+                    pax={num(billets(bnSlots), 'BILLETS')} />
                   {open.has(nk) && bn.cos.map(co => {
                     const ck = `c:${bde.desig}:${bn.desig}:${co.co}`
                     return (
                       <Box key={co.co}>
                         <Row depth={3} open={open.has(ck)} onClick={() => toggle(ck)}
                           label={co.co}
-                          right={<>
-                            <Count n={co.slots.length} unit="ELM" />
-                            <Count n={billets(co.slots)} unit="BILLETS" />
-                          </>} />
+                          subs={num(co.slots.length, 'ELM')} vic={num(vics(co.slots), 'VIC')}
+                          pax={num(billets(co.slots), 'BILLETS')} />
                         {open.has(ck) && co.slots.map(sl => (
                           <Row key={sl.id} depth={4} label={sl.name} sub={sl.lin}
-                            right={<>
+                            badges={<>
                               {sl.type
                                 ? <Badge size="xs" variant="light" color="blue">{sl.type}</Badge>
                                 : <Badge size="xs" variant="outline" color="gray">STAFF</Badge>}
@@ -182,9 +260,9 @@ function EchelonTree({ p }: { p: Pack }) {
                               {donorOf(sl) && (
                                 <Badge size="xs" variant="outline" color="grape">{donorOf(sl)}</Badge>
                               )}
-                              <Count n={sl.vehicles.length} unit="VIC" />
-                              <Count n={sl.soldiers.length} unit="PAX" />
-                            </>} />
+                            </>}
+                            vic={num(sl.vehicles.length, 'VIC')}
+                            pax={num(sl.soldiers.length, 'BILLETS')} />
                         ))}
                       </Box>
                     )
@@ -221,12 +299,15 @@ function inventory(p: Pack): { label: string; n: number }[] {
   ]
 }
 
+// The inventory strip is ONE row — it is a glance, and a glance that wraps
+// stops being one. Each stat flexes to an even share of the width rather than
+// carrying a min width that forces a second line.
 function Stat({ label, n }: { label: string; n: number }) {
   return (
-    <Box miw={92}>
-      <Text fz={22} fw={700} lh={1.1} c={n ? '#dceeff' : 'dark.4'}
+    <Box style={{ flex: 1, minWidth: 0 }}>
+      <Text fz={19} fw={700} lh={1.1} c={n ? '#dceeff' : 'dark.4'}
         style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</Text>
-      <Text fz={9} c="dark.3" style={{ letterSpacing: 1.4 }}>{label}</Text>
+      <Text fz={8.5} c="dark.3" truncate style={{ letterSpacing: 1 }}>{label}</Text>
     </Box>
   )
 }
@@ -296,7 +377,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
               <Badge size="sm" variant="outline" color="gray" ml="auto">READ ONLY</Badge>
             </Group>
 
-            <Group gap="lg" mt="lg" wrap="wrap">
+            <Group gap="sm" mt="lg" wrap="nowrap" align="flex-start">
               {inventory(p).map(s => <Stat key={s.label} {...s} />)}
             </Group>
 
@@ -311,9 +392,9 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
             </Group>
 
             <Box mt="md">
-              {tab === 'ECHELON'
-                ? <EchelonTree p={p} />
-                : <PackContent p={p} tab={tab as PackTab} />}
+              {tab === 'ECHELON' ? <EchelonTree p={p} />
+                : tab === 'ASSETS' ? <AssetsTable p={p} />
+                  : <PackContent p={p} tab={tab as PackTab} />}
             </Box>
           </Box>
         )}
