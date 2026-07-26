@@ -19,6 +19,17 @@ export interface GlbNode {
   mesh: boolean
 }
 
+// One browsable THING in a file. Exporters bury the real content under a
+// wrapper chain (Sketchfab_model > file.fbx > RootNode > …), so the models are
+// found by walking DOWN the pass-through nodes to the first place the tree
+// branches. A file holding five vehicles yields five; a file holding one model
+// in many parts yields its parts, because that is genuinely how it was built.
+export interface GlbModel {
+  name: string           // display name
+  node?: string          // the node a manifest would ref; absent = whole file
+  tris: number           // triangles in this node's whole subtree
+}
+
 export interface GlbInfo {
   url: string
   bytes: number
@@ -27,7 +38,8 @@ export interface GlbInfo {
   materials: number
   textures: number
   images: string[]       // mime types, so PNG-vs-KTX2 is visible
-  nodes: GlbNode[]       // the scene graph, flattened with depth
+  models: GlbModel[]     // what is actually in here, wrappers stripped
+  nodes: GlbNode[]       // the raw scene graph, flattened with depth
   tris: number           // whole-file triangle count
 }
 
@@ -79,6 +91,49 @@ export async function readGlb(url: string): Promise<GlbInfo> {
   }
   for (const root of j.scenes?.[0]?.nodes ?? []) walk(root, 0)
 
+  // subtree triangles, for the model list
+  const subtreeTris = (i: number, guard = new Set<number>()): number => {
+    if (guard.has(i)) return 0
+    guard.add(i)
+    const n = j.nodes?.[i]
+    if (!n) return 0
+    let t = n.mesh != null ? meshTris(n.mesh) : 0
+    for (const c of n.children ?? []) t += subtreeTris(c, guard)
+    return t
+  }
+
+  // Walk down the wrapper chain: while there is exactly ONE node and it holds
+  // no mesh of its own but does have children, it is scaffolding, not content.
+  // Stop at the first branch (or the first real mesh) — that is the level the
+  // author actually modelled at.
+  let level = j.scenes?.[0]?.nodes ?? []
+  for (let hop = 0; hop < 16; hop++) {
+    if (level.length !== 1) break
+    const only = j.nodes?.[level[0]!]
+    if (!only || only.mesh != null || !only.children?.length) break
+    level = only.children
+  }
+  const names = level.map(i => j.nodes?.[i]?.name ?? `node ${i}`)
+
+  // ONE model in many parts, or many models? Parts of a single asset come out
+  // of an exporter sharing a name stem ('desirefx.me_002_1', '..._003_2', …);
+  // genuinely separate models do not ('BTR', 'T-90', 'Tiger'). A long common
+  // prefix across every branch child means the branch is the asset's PARTS, so
+  // the file is the model.
+  const lcp = names.length > 1
+    ? names.reduce((a, b) => {
+      let k = 0
+      while (k < a.length && k < b.length && a[k] === b[k]) k++
+      return a.slice(0, k)
+    })
+    : ''
+  const oneModel = names.length > 1 && lcp.length >= 4
+
+  const fileName = url.split('/').pop()?.replace(/\.glb$/i, '').replace(/\?.*$/, '') ?? 'model'
+  const models: GlbModel[] = oneModel
+    ? [{ name: fileName, tris: total }]
+    : level.map((i, k) => ({ name: names[k]!, node: names[k]!, tris: subtreeTris(i) }))
+
   return {
     url,
     bytes: buf.byteLength,
@@ -87,6 +142,7 @@ export async function readGlb(url: string): Promise<GlbInfo> {
     materials: j.materials?.length ?? 0,
     textures: j.textures?.length ?? 0,
     images: (j.images ?? []).map(i => i.mimeType ?? '?'),
+    models,
     nodes,
     tris: total,
   }

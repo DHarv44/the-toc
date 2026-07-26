@@ -18,6 +18,7 @@ import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
 import { readGlb, type GlbInfo } from '../packs/glb'
+import ModelPreview from './ModelPreview'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
 import { PatchIcon } from './insignia'
@@ -97,38 +98,33 @@ function ModelBrowser({ p }: { p: Pack }) {
             {err && <Text fz={11} c={BAD_C} mt={4}>{err}</Text>}
             {g && (
               <>
-                <Group gap="lg" mt={4} wrap="wrap">
+                <Group gap="lg" mt={2} wrap="wrap">
                   <Text fz={10} c="dark.3">{kb(g.bytes)}</Text>
                   <Text fz={10} c="dark.3">{g.tris.toLocaleString()} TRIS</Text>
                   <Text fz={10} c="dark.3">{g.materials} MAT · {g.textures} TEX</Text>
-                  {g.generator && <Text fz={10} c="dark.3">{g.generator}</Text>}
                   {/* compression is the thing an author needs to see at a glance */}
-                  <Text fz={10} c={g.extensions.length ? '#e8c547' : 'dark.4'}>
+                  <Text fz={10} c={g.extensions.length ? WARN_C : 'dark.4'}>
                     {g.extensions.length ? g.extensions.join(', ') : 'NO COMPRESSION'}
                   </Text>
-                  {g.images.length > 0 && (
-                    <Text fz={10} c="dark.3">{[...new Set(g.images)].join(', ')}</Text>
-                  )}
                 </Group>
-                <StaffTable minWidth={520} maw={760}
-                  head={<><Th>NODE</Th><Th ta="right">TRIS</Th><Th ta="right">REFERENCE</Th></>}>
-                  {g.nodes.map((n, k) => (
-                    <Table.Tr key={`${n.name}:${k}`}>
-                      <Td c={n.mesh ? '#dceeff' : 'dark.3'}>
-                        <span style={{ paddingLeft: n.depth * 14 }}>
-                          {n.depth > 0 ? '└ ' : ''}{n.name}
-                        </span>
-                      </Td>
-                      <Td ta="right" c={n.tris ? 'dark.1' : 'dark.4'}>
-                        {n.tris ? n.tris.toLocaleString() : ''}
-                      </Td>
-                      {/* what you'd put in a manifest to point at this node */}
-                      <Td ta="right" c={n.mesh ? '#e8c547' : 'dark.4'}>
-                        {n.mesh ? `node: "${n.name}"` : ''}
-                      </Td>
-                    </Table.Tr>
+
+                {/* One card per MODEL — the art, its size, and the string you
+                    would paste into a manifest to point at it. A file's models
+                    run along ONE row that scrolls sideways: a part-heavy file
+                    would otherwise push every file below it off the page. */}
+                <Box mt="sm" pb={6}
+                  style={{ display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'hidden' }}>
+                  {g.models.map(m => (
+                    <Box key={m.name} w={190} style={{ flex: '0 0 auto' }}>
+                      <ModelPreview url={f.url} node={m.node} />
+                      <Text fz={12} fw={700} c="#dceeff" mt={4} truncate>{m.name}</Text>
+                      <Text fz={9.5} c="dark.3">{m.tris.toLocaleString()} tris</Text>
+                      <Text fz={9.5} c={WARN_C} truncate>
+                        {m.node ? `node: "${m.node}"` : 'whole file'}
+                      </Text>
+                    </Box>
                   ))}
-                </StaffTable>
+                </Box>
               </>
             )}
           </Box>
