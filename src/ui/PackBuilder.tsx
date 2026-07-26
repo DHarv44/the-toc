@@ -11,19 +11,20 @@
 //
 // Content browsing reuses PackViewer's tables (PackContent): one description
 // of what a pack contains, whichever door you came in through.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge, Box, Button, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
 import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
+import { readGlb, type GlbInfo } from '../packs/glb'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
 import { PatchIcon } from './insignia'
 
 const MONO = 'Consolas, monospace'
-const OK_C = '#7ec87e'
 const WARN_C = '#e8c547'
+const BAD_C = '#e8524a'
 
 // The builder's own tab strip: the pack's content views plus ECHELON, which is
 // a builder-only thing (see EchelonTree).
@@ -31,74 +32,108 @@ const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS', 'MODELS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
 
 // ---------------------------------------------------------------------------
-// MODELS — the pack's 3D art (models/ folder), and which platform wears what.
+// MODELS — a browser for the art in a pack's models/ folder. What is IN the
+// folder, full stop: nothing here cares whether a model is assigned to a
+// platform, or whether the pack even has a manifest entry for it. Drop a GLB
+// in and it shows up.
 //
-// The useful half of this board is the GAPS: a pack author needs to see which
-// vehicles still have no model far more than they need to admire the ones that
-// do, so unmapped platforms are listed, not hidden.
+// Files are discovered with import.meta.glob, so this is the folder itself
+// rather than a list someone remembered to update, and Vite emits each one as
+// a real served asset (hashed in a build). readGlb then reads each file's
+// glTF table of contents — no renderer involved.
 // ---------------------------------------------------------------------------
-function ModelsTable({ p }: { p: Pack }) {
-  const map = p.models?.vehicles ?? {}
-  const vehicles = Object.values(p.catalogs.vehicles ?? {})
-  const mapped = vehicles.filter(v => map[v.key])
-  const missing = vehicles.filter(v => !map[v.key])
+const MODEL_FILES = import.meta.glob('../packs/*/models/**/*.glb', {
+  query: '?url', import: 'default', eager: true,
+}) as Record<string, string>
 
-  // distinct source files, and how many platforms draw from each — a single
-  // multi-vehicle GLB and one-file-per-vehicle both read correctly here
-  const files = new Map<string, number>()
-  for (const v of vehicles) {
-    const m = map[v.key]
-    if (m) files.set(m.file, (files.get(m.file) ?? 0) + 1)
-  }
-  const base = (f: string) => f.split('/').pop() ?? f
+const kb = (n: number) => `${Math.round(n / 1024)} KB`
 
-  if (!Object.keys(map).length) {
+function ModelBrowser({ p }: { p: Pack }) {
+  // '../packs/1cd/models/vehicles/x.glb' -> this pack's files only
+  const files = useMemo(
+    () => Object.entries(MODEL_FILES)
+      .filter(([path]) => path.startsWith(`../packs/${p.id}/models/`))
+      .map(([path, url]) => ({ path: path.replace('../packs/', ''), url }))
+      .sort((a, b) => a.path.localeCompare(b.path)),
+    [p.id],
+  )
+  const [info, setInfo] = useState<Record<string, GlbInfo | { error: string }>>({})
+
+  useEffect(() => {
+    let live = true
+    setInfo({})
+    for (const f of files) {
+      readGlb(f.url)
+        .then(i => { if (live) setInfo(s => ({ ...s, [f.url]: i })) })
+        .catch(e => { if (live) setInfo(s => ({ ...s, [f.url]: { error: String(e.message ?? e) } })) })
+    }
+    return () => { live = false }
+  }, [files])
+
+  if (!files.length) {
     return (
       <Text fz="sm" c="dark.3" p="md">
-        NO MODELS DECLARED — this pack renders with the engine's procedural shapes.
+        NOTHING IN models/ — drop a .glb under src/packs/{p.id}/models/ and it appears here.
       </Text>
     )
   }
+
   return (
     <>
-      <Text fz={9} c="dark.3" mt="xs" mb={6} style={{ letterSpacing: 2 }}>
-        SOURCES — {files.size} FILE(S) IN models/
+      <Text fz={9} c="dark.3" mt="xs" mb={8} style={{ letterSpacing: 2 }}>
+        {files.length} FILE(S) IN models/
       </Text>
-      {[...files.entries()].map(([f, n]) => (
-        <Text key={f} fz={11} c="dark.1" mb={2}>
-          <Text span c="#7ec8ff">{base(f)}</Text>
-          <Text span c="dark.3" fz={10}> · {f} · {n} platform(s)</Text>
-        </Text>
-      ))}
-
-      <Text fz={9} c="dark.3" mt="lg" mb={4} style={{ letterSpacing: 2 }}>
-        PLATFORM → MODEL · {mapped.length} OF {vehicles.length} MAPPED
-      </Text>
-      <StaffTable minWidth={760} head={
-        <><Th>KEY</Th><Th>PLATFORM</Th><Th>FILE</Th><Th>NODE</Th><Th>STATUS</Th></>
-      }>
-        {mapped.map(v => {
-          const m = map[v.key]!
-          return (
-            <Table.Tr key={v.key}>
-              <Td c="#7ec8ff">{v.key}</Td>
-              <Td>{v.name}</Td>
-              <Td c="dark.2">{base(m.file)}</Td>
-              <Td c={m.node ? '#e8c547' : 'dark.3'}>{m.node ?? 'WHOLE FILE'}</Td>
-              <Td c={OK_C}>MAPPED</Td>
-            </Table.Tr>
-          )
-        })}
-        {missing.map(v => (
-          <Table.Tr key={v.key}>
-            <Td c="#7ec8ff">{v.key}</Td>
-            <Td>{v.name}</Td>
-            <Td c="dark.3">—</Td>
-            <Td c="dark.3">—</Td>
-            <Td c={WARN_C}>NO MODEL</Td>
-          </Table.Tr>
-        ))}
-      </StaffTable>
+      {files.map(f => {
+        const i = info[f.url]
+        const err = i && 'error' in i ? i.error : null
+        const g = i && !('error' in i) ? i : null
+        return (
+          <Box key={f.url} mb="lg">
+            <Group gap={10} align="baseline" wrap="wrap">
+              <Text fz={14} fw={700} c="#7ec8ff">{f.path.split('/').pop()}</Text>
+              <Text fz={10} c="dark.3">{f.path}</Text>
+            </Group>
+            {!i && <Text fz={11} c="dark.3" mt={4}>reading…</Text>}
+            {err && <Text fz={11} c={BAD_C} mt={4}>{err}</Text>}
+            {g && (
+              <>
+                <Group gap="lg" mt={4} wrap="wrap">
+                  <Text fz={10} c="dark.3">{kb(g.bytes)}</Text>
+                  <Text fz={10} c="dark.3">{g.tris.toLocaleString()} TRIS</Text>
+                  <Text fz={10} c="dark.3">{g.materials} MAT · {g.textures} TEX</Text>
+                  {g.generator && <Text fz={10} c="dark.3">{g.generator}</Text>}
+                  {/* compression is the thing an author needs to see at a glance */}
+                  <Text fz={10} c={g.extensions.length ? '#e8c547' : 'dark.4'}>
+                    {g.extensions.length ? g.extensions.join(', ') : 'NO COMPRESSION'}
+                  </Text>
+                  {g.images.length > 0 && (
+                    <Text fz={10} c="dark.3">{[...new Set(g.images)].join(', ')}</Text>
+                  )}
+                </Group>
+                <StaffTable minWidth={520} maw={760}
+                  head={<><Th>NODE</Th><Th ta="right">TRIS</Th><Th ta="right">REFERENCE</Th></>}>
+                  {g.nodes.map((n, k) => (
+                    <Table.Tr key={`${n.name}:${k}`}>
+                      <Td c={n.mesh ? '#dceeff' : 'dark.3'}>
+                        <span style={{ paddingLeft: n.depth * 14 }}>
+                          {n.depth > 0 ? '└ ' : ''}{n.name}
+                        </span>
+                      </Td>
+                      <Td ta="right" c={n.tris ? 'dark.1' : 'dark.4'}>
+                        {n.tris ? n.tris.toLocaleString() : ''}
+                      </Td>
+                      {/* what you'd put in a manifest to point at this node */}
+                      <Td ta="right" c={n.mesh ? '#e8c547' : 'dark.4'}>
+                        {n.mesh ? `node: "${n.name}"` : ''}
+                      </Td>
+                    </Table.Tr>
+                  ))}
+                </StaffTable>
+              </>
+            )}
+          </Box>
+        )
+      })}
     </>
   )
 }
@@ -469,7 +504,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
             <Box mt="md">
               {tab === 'ECHELON' ? <EchelonTree p={p} />
                 : tab === 'ASSETS' ? <AssetsTable p={p} />
-                  : tab === 'MODELS' ? <ModelsTable p={p} />
+                  : tab === 'MODELS' ? <ModelBrowser p={p} />
                     : <PackContent p={p} tab={tab as PackTab} />}
             </Box>
           </Box>
