@@ -249,7 +249,7 @@ function S4Console() {
     { key: 'clv', label: 'CLASS V' },
     { key: 'supply', label: 'SUPPLY' },
     { key: 'assets', label: 'ASSETS' },
-    { key: 'reports', label: 'LOGSTATS', dot: unreadReports(S, 's4') },
+    { key: 'reports', label: 'LOGSTATS', dot: unreadReports(S, 's4'), right: true },
   ]
 
   return (

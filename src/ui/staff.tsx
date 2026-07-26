@@ -12,7 +12,23 @@ import { S } from '../engine/state'
 import type { StaffShop } from '../engine/GameState'
 import { openReport, queueReport } from '../engine/campaign'
 import { playerPack } from '../packs'
+import { AWARDS, type AwardKey } from '../packs/awards'
+import { Portrait } from './portrait'
+import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
+
+// rank seniority — the shop's chief reads first
+const RANK_W: Record<string, number> = {
+  MG: 26, BG: 25, COL: 24, LTC: 23, MAJ: 22, CPT: 21, '1LT': 20, '2LT': 19,
+  CW3: 18, CW2: 17, WO1: 16,
+  CSM: 15, SGM: 14, MSG: 13, '1SG': 13, SFC: 12, SSG: 11, SGT: 10, CPL: 9,
+  SPC: 8, PFC: 7, PVT: 6,
+}
+export const rankW = (r?: string): number => RANK_W[r ?? ''] ?? 0
+
+const STATUS_COL: Record<string, string> = {
+  FIT: '#7ec87e', WIA: '#e8c547', KIA: '#e8524a', MIA: '#9a7ec8',
+}
 
 const MONO = 'Consolas, monospace'
 
@@ -142,10 +158,73 @@ export function ReportList({ shop, empty }: { shop: StaffShop; empty?: string })
 // The console itself
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The section that runs the console
+// ---------------------------------------------------------------------------
+
+// Who is actually on this desk. Every shop opens with its own people —
+// names, faces, and what shape they are in — before any of its data, because
+// a staff product is only ever as good as the section that produced it. The
+// shop's REQUEST action lives here too: you ask the SECTION for the report.
+export function ShopSection({ shop, children }: { shop: StaffShop; children?: ReactNode }) {
+  const pack = playerPack()
+  const bn = pack.formation?.playerBn
+  const info = pack.staff?.[shop]
+  const key = shop.toUpperCase()
+  const crew = (S.org?.slots ?? [])
+    .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
+    .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith(key)))
+    .sort((a, b) => rankW(b.rank) - rankW(a.rank))
+  return (
+    <>
+      <Group gap={10} wrap="nowrap" px={10} py={7} justify="space-between"
+        style={{ borderTop: '1px solid #141e28' }}>
+        <Group gap={10} wrap="nowrap">
+          <Text span fz="md" fw={600} c="#9fd0f5">YOUR {key} SECTION — {bn}</Text>
+          <Text span fz="xs" c="dark.3">
+            {(info?.name ?? '').toUpperCase()} — THE SHOP RUNNING THIS CONSOLE
+          </Text>
+        </Group>
+        <RequestReport shop={shop} />
+      </Group>
+      {crew.length === 0 && (
+        <Text fz="sm" c="dark.3" px={12} py={10}>NO {key} SECTION ON THE ROSTER.</Text>
+      )}
+      <Group gap="md" px={12} py={10} align="stretch" wrap="wrap">
+        {crew.map(s => (
+          <Group key={s.pid ?? s.id} gap={12} wrap="nowrap" p={12}
+            style={{ border: '1px solid #22303d', borderRadius: 4, background: '#0d141c', minWidth: 340 }}>
+            <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={44} h={54} />
+            <Box>
+              <Group gap={8} wrap="nowrap" align="center">
+                <RankIcon rank={s.rank} style={pack.rankStyle} h={18} />
+                <Text span fz="md" fw={700} c="#dceeff">{s.rank} {s.name}</Text>
+              </Group>
+              <Text fz="sm" c="#9ab8d0">{s.pos}</Text>
+              <Group gap={8} wrap="nowrap" align="center">
+                <Text span fz="xs" fw={700} c={STATUS_COL[s.status] ?? '#9ab8d0'}>{s.status}</Text>
+                {(s.xp ?? 0) > 0 && (
+                  <Text span fz="xs" c="dark.3">COMBAT TIME {Math.round((s.xp ?? 0) / 60)} MIN</Text>
+                )}
+                {(s.awards ?? []).map(k => {
+                  const a = AWARDS[k as AwardKey]
+                  return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
+                })}
+              </Group>
+            </Box>
+          </Group>
+        ))}
+      </Group>
+      {children}
+    </>
+  )
+}
+
 export interface StaffTab {
   key: string
   label: string
-  dot?: number   // unread count — draws the red bubble on the tab corner
+  dot?: number    // unread count — draws the red bubble on the tab corner
+  right?: boolean // pushed to the far end of the strip (the reports tab)
 }
 
 export function StaffTabs({ tabs, active, onTab }: {
@@ -157,6 +236,7 @@ export function StaffTabs({ tabs, active, onTab }: {
     <Group gap={6} pt={12}>
       {tabs.map(t => (
         <UnstyledButton key={t.key} onClick={() => onTab(t.key)} px={16} py={6}
+          ml={t.right ? 'auto' : undefined}
           style={{
             position: 'relative',
             border: `1px solid ${active === t.key ? '#3d5a75' : '#22303d'}`,
@@ -178,11 +258,12 @@ export function StaffTabs({ tabs, active, onTab }: {
 // from PACK data, and its view tabs. Everything human-facing (plate, name,
 // report name, the about blurb) comes from the pack — a different army's staff
 // reads as that army's staff with no code change.
-export function StaffView({ shop, tabs, active, onTab, children }: {
+export function StaffView({ shop, tabs, active, onTab, section, children }: {
   shop: StaffShop
   tabs?: StaffTab[]
   active?: string
   onTab?: (key: string) => void
+  section?: ReactNode   // shop-specific extras under its section (S1's div chain)
   children: ReactNode
 }) {
   const pack = playerPack()
@@ -196,6 +277,8 @@ export function StaffView({ shop, tabs, active, onTab, children }: {
       <BnHeader plate={info?.label ?? shop.toUpperCase()}
         sub={`${(info?.name ?? '').toUpperCase()} · ${pack.name.toUpperCase()}`}
         about={info} />
+      {/* the section first, then its tabs — who is on the desk, then the desk */}
+      <ShopSection shop={shop}>{section}</ShopSection>
       {tabs && active != null && onTab && <StaffTabs tabs={tabs} active={active} onTab={onTab} />}
       {children}
     </Box>

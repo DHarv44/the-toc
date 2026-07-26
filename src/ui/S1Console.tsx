@@ -18,7 +18,7 @@ import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
-import { StaffTabs, UnreadDot, type StaffTab } from './staff'
+import { ShopSection, StaffTabs, UnreadDot, rankW, type StaffTab } from './staff'
 
 export { UnreadDot }   // S1 set the format; the dot now lives in the staff kit
 
@@ -280,24 +280,78 @@ function slotLocation(sl: OrgSlot): string {
 const donorOf = (sl: OrgSlot, bn: string): string | null =>
   sl.from && sl.from !== bn ? sl.from : null
 
-type S1Tab = 'div' | 'tf' | 'bn' | 'shop' | 'perstats'
+// The S1 SECTION itself is no longer a tab — it is the section header every
+// shop console opens with (staff.tsx ShopSection), always visible above the
+// tabs. The tabs are the ORG VIEWS: your battalion outward.
+type S1Tab = 'bn' | 'tf' | 'div' | 'perstats'
 
 
-// rank seniority for the S1-shop tree (higher = more senior)
-const RANK_W: Record<string, number> = {
-  MG: 26, BG: 25, COL: 24, LTC: 23, MAJ: 22, CPT: 21, '1LT': 20, '2LT': 19,
-  CW3: 18, CW2: 17, WO1: 16,
-  CSM: 15, SGM: 14, MSG: 13, '1SG': 13, SFC: 12, SSG: 11, SGT: 10, CPL: 9,
-  SPC: 8, PFC: 7, PVT: 6,
+// The personnel chain BEYOND this battalion: the division G1 and the other
+// battalions' S1 sections. Collapsed by default — it is reference, not the
+// commander's own shop.
+function S1PersonnelChain({ slots, playerBn, open, toggle }: {
+  slots: OrgSlot[]
+  playerBn?: string
+  open: Set<string>
+  toggle: (k: string) => void
+}) {
+  const rankTree = (soldiers: Soldier[], base: number) => {
+    const sorted = [...soldiers].sort((a, b) => rankW(b.rank) - rankW(a.rank))
+    const weights = [...new Set(sorted.map(s => rankW(s.rank)))]
+    return sorted.map(s => (
+      <SoldierRow key={`${s.pid ?? s.id}`} s={s} depth={base + weights.indexOf(rankW(s.rank))} />
+    ))
+  }
+  const secHeader = (label: string, sub: string, depth: number) => (
+    <Group gap={10} wrap="nowrap" px={10} py={7} pl={10 + depth * 24}
+      style={{ borderTop: '1px solid #141e28' }}>
+      <Text span fz="md" fw={600} c="#9fd0f5">{label}</Text>
+      <Text span fz="xs" c="dark.3">{sub}</Text>
+    </Group>
+  )
+  const g1 = slots.find(sl => sl.name === 'G1 SECTION')
+  const bnS1 = (bn: string) => slots
+    .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
+    .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
+  const bns = [...new Set(slots.filter(sl => sl.bde !== 'ATT').map(sl => sl.bn))]
+    .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
+  return (
+    <>
+      <UnstyledButton onClick={() => toggle('shopdiv')} w="100%">
+        <Group gap={10} align="center" mt="md" mb={4} mx={12}>
+          <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+          <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>
+            {open.has('shopdiv') ? '▾' : '▸'} PERSONNEL SERVICES — REST OF THE DIVISION
+          </Text>
+          <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+        </Group>
+      </UnstyledButton>
+      {open.has('shopdiv') && (
+        <>
+          {g1 && (
+            <>
+              {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
+              {rankTree(g1.soldiers, 1)}
+            </>
+          )}
+          {bns.map(bn => (
+            <div key={bn}>
+              {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
+              {rankTree(bnS1(bn), 1)}
+            </div>
+          ))}
+        </>
+      )}
+    </>
+  )
 }
-const rankW = (r?: string): number => RANK_W[r ?? ''] ?? 0
 
 export default function S1Console() {
   useUI((st) => st.tick)
   const ui = useUI()
   const pack = playerPack()
   const playerBn = pack.formation?.playerBn
-  const [tab, setTab] = useState<S1Tab>('div')
+  const [tab, setTab] = useState<S1Tab>('bn')
   const [open, setOpen] = useState<Set<string>>(() => new Set(
     ['div', 'bde:1ABCT', playerBn ? `bn:${playerBn}` : 'bn:'],
   ))
@@ -451,14 +505,18 @@ export default function S1Console() {
         sub={`${(pack.staff?.s1?.name ?? 'PERSONNEL').toUpperCase()} · ${pack.name.toUpperCase()}`}
         about={pack.staff?.s1} />
 
-      {/* view tabs: the whole division / the task force slice / the player's battalion */}
+      {/* the section that runs this console, always visible above the tabs */}
+      <ShopSection shop="s1">
+        {org && <S1PersonnelChain slots={slots} playerBn={playerBn} open={open} toggle={toggle} />}
+      </ShopSection>
+
+      {/* view tabs: your battalion outward — TF slice, then the whole division */}
       <StaffTabs active={tab} onTab={(k) => switchTab(k as S1Tab)}
         tabs={[
-          { key: 'div', label: 'DIVISION' },
-          { key: 'tf', label: 'TASK FORCE' },
           { key: 'bn', label: playerBn ?? 'BATTALION' },
-          { key: 'shop', label: 'S1' },
-          { key: 'perstats', label: 'PERSTATS', dot: unreadReports(S, 's1') },
+          { key: 'tf', label: 'TASK FORCE' },
+          { key: 'div', label: 'DIVISION' },
+          { key: 'perstats', label: 'PERSTATS', dot: unreadReports(S, 's1'), right: true },
         ] satisfies StaffTab[]} />
 
       {/* column headers */}
@@ -564,105 +622,6 @@ export default function S1Console() {
               leader={cdrS ? `${cdrS.rank} ${cdrS.name}` : undefined}
               a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />
             {open.has('bnroot') && renderCos(bnSlots, playerBn, 1)}
-          </>
-        )
-      })()}
-
-      {/* the S1 SHOP itself: every soldier in the personnel-services chain,
-          division G1 down to each battalion's S1 section, as a RANK TREE —
-          the chief at the root, each lower rank nesting a level deeper */}
-      {tab === 'shop' && org && (() => {
-        const rankTree = (soldiers: Soldier[], base: number) => {
-          const sorted = [...soldiers].sort((a, b) => rankW(b.rank) - rankW(a.rank))
-          const weights = [...new Set(sorted.map(s => rankW(s.rank)))]
-          return sorted.map(s => (
-            <SoldierRow key={`${s.pid ?? s.id}`} s={s} depth={base + weights.indexOf(rankW(s.rank))} />
-          ))
-        }
-        const secHeader = (label: string, sub: string, depth: number) => (
-          <Group gap={10} wrap="nowrap" px={10} py={7} pl={10 + depth * 24}
-            style={{ borderTop: '1px solid #141e28' }}>
-            <Text span fz="md" fw={600} c="#9fd0f5">{label}</Text>
-            <Text span fz="xs" c="dark.3">{sub}</Text>
-          </Group>
-        )
-        const g1 = slots.find(sl => sl.name === 'G1 SECTION')
-        const bnS1 = (bn: string) => slots
-          .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
-          .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
-        const bns = [...new Set(slots.filter(sl => sl.bde !== 'ATT').map(sl => sl.bn))]
-          .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
-        // the commander's OWN crew leads, as quick-read cards
-        const mine = playerBn ? bnS1(playerBn).sort((a, b) => rankW(b.rank) - rankW(a.rank)) : []
-        const pending = S.campaign?.reports.pending.find(p => p.shop === 's1')
-        return (
-          <>
-            <Group gap={10} wrap="nowrap" px={10} py={7} justify="space-between"
-              style={{ borderTop: '1px solid #141e28' }}>
-              <Group gap={10} wrap="nowrap">
-                <Text span fz="md" fw={600} c="#9fd0f5">YOUR S1 SECTION — {playerBn}</Text>
-                <Text span fz="xs" c="dark.3">THE SHOP RUNNING THIS CONSOLE</Text>
-              </Group>
-              {S.campaign && (
-                <Button size="xs" variant="default" disabled={!!pending}
-                  onClick={() => queueReport(S)}>
-                  {pending ? `PERSTAT INBOUND ~${Math.max(0, Math.ceil(pending.readyT - S.t))}S` : 'REQUEST PERSTAT'}
-                </Button>
-              )}
-            </Group>
-            <Group gap="md" px={12} py={10} align="stretch" wrap="wrap">
-              {mine.map(s => (
-                <Group key={s.pid ?? s.id} gap={12} wrap="nowrap" p={12}
-                  style={{ border: '1px solid #22303d', borderRadius: 4, background: '#0d141c', minWidth: 340 }}>
-                  <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={44} h={54} />
-                  <Box>
-                    <Group gap={8} wrap="nowrap" align="center">
-                      <RankIcon rank={s.rank} style={playerPack().rankStyle} h={18} />
-                      <Text span fz="md" fw={700} c="#dceeff">{s.rank} {s.name}</Text>
-                    </Group>
-                    <Text fz="sm" c="#9ab8d0">{s.pos}</Text>
-                    <Group gap={8} wrap="nowrap" align="center">
-                      <Text span fz="xs" fw={700} c={STATUS_COL[s.status] ?? '#9ab8d0'}>{s.status}</Text>
-                      {(s.xp ?? 0) > 0 && (
-                        <Text span fz="xs" c="dark.3">COMBAT TIME {Math.round((s.xp ?? 0) / 60)} MIN</Text>
-                      )}
-                      {(s.awards ?? []).map(k => {
-                        const a = AWARDS[k as AwardKey]
-                        return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
-                      })}
-                    </Group>
-                  </Box>
-                </Group>
-              ))}
-            </Group>
-
-            {/* the division-wide chain, COLLAPSED by default — click to open */}
-            <UnstyledButton onClick={() => toggle('shopdiv')} w="100%">
-              <Group gap={10} align="center" mt="md" mb={4} mx={12}>
-                <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-                <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>
-                  {open.has('shopdiv') ? '▾' : '▸'} PERSONNEL SERVICES — REST OF THE DIVISION
-                </Text>
-                <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-              </Group>
-            </UnstyledButton>
-
-            {open.has('shopdiv') && (
-              <>
-                {g1 && (
-                  <>
-                    {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
-                    {rankTree(g1.soldiers, 1)}
-                  </>
-                )}
-                {bns.map(bn => (
-                  <div key={bn}>
-                    {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
-                    {rankTree(bnS1(bn), 1)}
-                  </div>
-                ))}
-              </>
-            )}
           </>
         )
       })()}
