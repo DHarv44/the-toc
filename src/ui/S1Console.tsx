@@ -18,6 +18,9 @@ import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
+import { StaffTabs, UnreadDot, type StaffTab } from './staff'
+
+export { UnreadDot }   // S1 set the format; the dot now lives in the staff kit
 
 const COL = { fit: '#7ec87e', wia: '#e8c547', kia: '#e8524a', mia: '#9a7ec8', dim: '#54708a' }
 const STATUS_COL: Record<string, string> = { FIT: COL.fit, WIA: COL.wia, KIA: COL.kia, MIA: COL.mia }
@@ -279,14 +282,6 @@ const donorOf = (sl: OrgSlot, bn: string): string | null =>
 
 type S1Tab = 'div' | 'tf' | 'bn' | 'shop' | 'perstats'
 
-// small red unread bubble (tab corners, TopBar button)
-export const UnreadDot = ({ n }: { n: number }) => n > 0 ? (
-  <span style={{
-    position: 'absolute', top: -6, right: -8, minWidth: 15, height: 15, borderRadius: 8,
-    background: '#d43a3a', color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: '15px',
-    textAlign: 'center', padding: '0 3px', pointerEvents: 'none',
-  }}>{n}</span>
-) : null
 
 // rank seniority for the S1-shop tree (higher = more senior)
 const RANK_W: Record<string, number> = {
@@ -457,22 +452,14 @@ export default function S1Console() {
         about={pack.staff?.s1} />
 
       {/* view tabs: the whole division / the task force slice / the player's battalion */}
-      <Group gap={6} pt={12}>
-        {([['div', 'DIVISION'], ['tf', 'TASK FORCE'], ['bn', playerBn ?? 'BATTALION'], ['shop', 'S1'], ['perstats', 'PERSTATS']] as [S1Tab, string][]).map(([t, label]) => (
-          <UnstyledButton key={t} onClick={() => switchTab(t)} px={16} py={6}
-            style={{
-              position: 'relative',
-              border: `1px solid ${tab === t ? '#3d5a75' : '#22303d'}`,
-              background: tab === t ? '#101c28' : 'transparent',
-              borderRadius: '3px 3px 0 0',
-            }}>
-            <Text span fz="sm" fw={700} c={tab === t ? '#7ec8ff' : '#54708a'} style={{ letterSpacing: 1.5 }}>
-              {label}
-            </Text>
-            {t === 'perstats' && <UnreadDot n={unreadReports(S, 's1')} />}
-          </UnstyledButton>
-        ))}
-      </Group>
+      <StaffTabs active={tab} onTab={(k) => switchTab(k as S1Tab)}
+        tabs={[
+          { key: 'div', label: 'DIVISION' },
+          { key: 'tf', label: 'TASK FORCE' },
+          { key: 'bn', label: playerBn ?? 'BATTALION' },
+          { key: 'shop', label: 'S1' },
+          { key: 'perstats', label: 'PERSTATS', dot: unreadReports(S, 's1') },
+        ] satisfies StaffTab[]} />
 
       {/* column headers */}
       <Group gap={10} wrap="nowrap" px={10} pt={10} pb={4}>
