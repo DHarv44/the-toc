@@ -114,12 +114,16 @@ export async function readGlb(url: string): Promise<GlbInfo> {
     level = only.children
   }
   const names = level.map(i => j.nodes?.[i]?.name ?? `node ${i}`)
+  const fileName = url.split('/').pop()?.replace(/\?.*$/, '').replace(/\.glb$/i, '') ?? 'model'
 
-  // ONE model in many parts, or many models? Parts of a single asset come out
-  // of an exporter sharing a name stem ('desirefx.me_002_1', '..._003_2', …);
-  // genuinely separate models do not ('BTR', 'T-90', 'Tiger'). A long common
-  // prefix across every branch child means the branch is the asset's PARTS, so
-  // the file is the model.
+  // ONE asset in many parts, or many assets? Two tells, both from how
+  // exporters name things:
+  //
+  //  STEM   parts of one asset share a name stem ('desirefx.me_002_1',
+  //         '..._003_2', …); separate models do not ('BTR', 'T-90').
+  //  DEFAULT a part is often left with its primitive's default name —
+  //         'Cylinder.010', 'Track.001', 'Object_5'. Nobody names a VEHICLE
+  //         Cylinder, so one of these in the branch means it is a parts list.
   const lcp = names.length > 1
     ? names.reduce((a, b) => {
       let k = 0
@@ -127,12 +131,21 @@ export async function readGlb(url: string): Promise<GlbInfo> {
       return a.slice(0, k)
     })
     : ''
-  const oneModel = names.length > 1 && lcp.length >= 4
+  const DEFAULT_NAME = /^(cube|cylinder|sphere|plane|circle|cone|torus|icosphere|mesh|object|node|group|empty)[\s._-]*\d*$/i
+  const sharedStem = names.length > 1 && lcp.length >= 4
+  const defaultNames = names.some(n => DEFAULT_NAME.test(n))
 
-  const fileName = url.split('/').pop()?.replace(/\.glb$/i, '').replace(/\?.*$/, '') ?? 'model'
-  const models: GlbModel[] = oneModel
-    ? [{ name: fileName, tris: total }]
-    : level.map((i, k) => ({ name: names[k]!, node: names[k]!, tris: subtreeTris(i) }))
+  const whole: GlbModel = { name: fileName, tris: total }
+  const parts = (): GlbModel[] =>
+    level.map((i, k) => ({ name: names[k]!, node: names[k]!, tris: subtreeTris(i) }))
+
+  // Uniform parts (one stem) say nothing individually, so the file alone is
+  // the answer. A MIXED branch — real names beside default ones — is one asset
+  // whose pieces are still worth seeing, so the COMPLETE thing leads and the
+  // pieces follow. Neither tell firing means these really are separate models.
+  const models: GlbModel[] = sharedStem ? [whole]
+    : defaultNames ? [whole, ...parts()]
+      : parts()
 
   return {
     url,
