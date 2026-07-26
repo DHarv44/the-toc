@@ -81,6 +81,18 @@
     "1-227 ARB": "FIRST ATTACK",
     "1-506 IN": "RED CURRAHEE"
   },
+  "models": {
+    "_note": "TESTING — these are Soviet platforms standing in for US ones until BLUFOR models exist. One GLB holds all five; `node` picks one out of it.",
+    "vehicles": {
+      "ABRAMS":  { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "T-90" },
+      "BRADLEY": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
+      "CFV":     { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
+      "STRYKER": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "BTR" },
+      "HMMWV":   { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "Tiger" },
+      "RETRANS": { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "UAZ" },
+      "FMTV":    { "file": "models/vehicles/low-poly_military_vehicles_pack.glb", "node": "Ural" }
+    }
+  },
   "formation": {
     "playerBn": "2-8 CAV",
     "playable": "all",

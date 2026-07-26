@@ -134,6 +134,8 @@ function buildPack(
     mottos: man.mottos,
     nicks: man.nicks,
     assets: man.assets,
+    // ART is identity content — a pack's models are its own, never 1CD's
+    models: man.models,
     audio: man.audio ?? fallback?.audio,
     names: resolveNames(names) ?? fallback?.names,
     staff: man.staff ?? fallback?.staff,

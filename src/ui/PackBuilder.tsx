@@ -22,11 +22,86 @@ import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
 import { PatchIcon } from './insignia'
 
 const MONO = 'Consolas, monospace'
+const OK_C = '#7ec87e'
+const WARN_C = '#e8c547'
 
 // The builder's own tab strip: the pack's content views plus ECHELON, which is
 // a builder-only thing (see EchelonTree).
-const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS'] as const
+const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS', 'MODELS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
+
+// ---------------------------------------------------------------------------
+// MODELS — the pack's 3D art (models/ folder), and which platform wears what.
+//
+// The useful half of this board is the GAPS: a pack author needs to see which
+// vehicles still have no model far more than they need to admire the ones that
+// do, so unmapped platforms are listed, not hidden.
+// ---------------------------------------------------------------------------
+function ModelsTable({ p }: { p: Pack }) {
+  const map = p.models?.vehicles ?? {}
+  const vehicles = Object.values(p.catalogs.vehicles ?? {})
+  const mapped = vehicles.filter(v => map[v.key])
+  const missing = vehicles.filter(v => !map[v.key])
+
+  // distinct source files, and how many platforms draw from each — a single
+  // multi-vehicle GLB and one-file-per-vehicle both read correctly here
+  const files = new Map<string, number>()
+  for (const v of vehicles) {
+    const m = map[v.key]
+    if (m) files.set(m.file, (files.get(m.file) ?? 0) + 1)
+  }
+  const base = (f: string) => f.split('/').pop() ?? f
+
+  if (!Object.keys(map).length) {
+    return (
+      <Text fz="sm" c="dark.3" p="md">
+        NO MODELS DECLARED — this pack renders with the engine's procedural shapes.
+      </Text>
+    )
+  }
+  return (
+    <>
+      <Text fz={9} c="dark.3" mt="xs" mb={6} style={{ letterSpacing: 2 }}>
+        SOURCES — {files.size} FILE(S) IN models/
+      </Text>
+      {[...files.entries()].map(([f, n]) => (
+        <Text key={f} fz={11} c="dark.1" mb={2}>
+          <Text span c="#7ec8ff">{base(f)}</Text>
+          <Text span c="dark.3" fz={10}> · {f} · {n} platform(s)</Text>
+        </Text>
+      ))}
+
+      <Text fz={9} c="dark.3" mt="lg" mb={4} style={{ letterSpacing: 2 }}>
+        PLATFORM → MODEL · {mapped.length} OF {vehicles.length} MAPPED
+      </Text>
+      <StaffTable minWidth={760} head={
+        <><Th>KEY</Th><Th>PLATFORM</Th><Th>FILE</Th><Th>NODE</Th><Th>STATUS</Th></>
+      }>
+        {mapped.map(v => {
+          const m = map[v.key]!
+          return (
+            <Table.Tr key={v.key}>
+              <Td c="#7ec8ff">{v.key}</Td>
+              <Td>{v.name}</Td>
+              <Td c="dark.2">{base(m.file)}</Td>
+              <Td c={m.node ? '#e8c547' : 'dark.3'}>{m.node ?? 'WHOLE FILE'}</Td>
+              <Td c={OK_C}>MAPPED</Td>
+            </Table.Tr>
+          )
+        })}
+        {missing.map(v => (
+          <Table.Tr key={v.key}>
+            <Td c="#7ec8ff">{v.key}</Td>
+            <Td>{v.name}</Td>
+            <Td c="dark.3">—</Td>
+            <Td c="dark.3">—</Td>
+            <Td c={WARN_C}>NO MODEL</Td>
+          </Table.Tr>
+        ))}
+      </StaffTable>
+    </>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // ASSETS — the requestable division/corps/USAF pool (ASSET-REQUESTS.md).
@@ -394,7 +469,8 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
             <Box mt="md">
               {tab === 'ECHELON' ? <EchelonTree p={p} />
                 : tab === 'ASSETS' ? <AssetsTable p={p} />
-                  : <PackContent p={p} tab={tab as PackTab} />}
+                  : tab === 'MODELS' ? <ModelsTable p={p} />
+                    : <PackContent p={p} tab={tab as PackTab} />}
             </Box>
           </Box>
         )}

@@ -152,6 +152,25 @@ export interface PackAsset {
   crew?: AssetCrewRecipe  // attach-and-live-here assets: real ATT org slots
 }
 
+// --- models (pack ART) ------------------------------------------------------
+// NOT to be confused with `Pack.assets`, which is CAPABILITY the TOC requests
+// up the chain (C-RAM, SHADOW). These are the 3D models a pack ships in its
+// models/ folder.
+//
+// One reference shape covers both ways a pack can be authored:
+//   { file }         — the file IS the model (one GLB per vehicle)
+//   { file, node }   — a named node inside a file holding several vehicles
+// so a pack author can start with a downloaded multi-vehicle GLB and split it
+// later without the manifest changing shape.
+export interface ModelRef {
+  file: string            // pack-relative ('models/vehicles/pack.glb')
+  node?: string           // named node inside that file; absent = whole file
+}
+
+export interface PackModels {
+  vehicles?: Record<string, ModelRef>   // keyed by VEHICLE catalog key
+}
+
 // Staff sections ("the shops"): the pack DESCRIBES its staff — the UI builds
 // the shop tabs/consoles from this data (a different army's staff has
 // different names, reports and flavor). Keys are IDs (s1..s6), immutable.
@@ -395,6 +414,7 @@ export interface Pack {
   people?: PeoplePins     // explicit roster pins (override generation)
   staff?: Record<string, StaffSection> // the shops (falls back to 1CD's)
   assets?: Record<string, PackAsset> // requestable division/corps/USAF assets
+  models?: PackModels     // the pack's 3D art (models/ folder) — see PackModels
   // pack-declared audio ASSETS (engine synthesizes everything else from spec
   // params): a different faction's base has a different Big Voice
   audio?: { incomingAlarm?: string }
