@@ -27,6 +27,7 @@ import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
 import { CELL } from '../world/WorldMap'
+import type { PathOpts } from '../world/pathfinding'
 
 interface View { cx: number; cy: number; ppm: number }
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
@@ -245,23 +246,19 @@ export default function MapView() {
             const attack = ui.cmdMode === 'attack'
             const gid = null // an ad-hoc selection isn't a formation, so no shared pace cap
             const app = e.shiftKey // shift-drag appends the fan-out as the next waypoint
-            // A spread is a formation SHAPE, not a road order — spread slots route
-            // cross-country (mild road damping) unless a route mode is explicit.
-            const transitOpts = ROUTE_OPTS[ui.routeMode] || {}
-            const spreadOpts = ui.routeMode === 'auto'
-              ? { crossCountry: true }
-              : { ...transitOpts }
-            // Appending a new formation collapses the previous terminal fan to
-            // its centre first (units only, drones don't fan). That leg is
-            // TRANSIT, so it is re-cut on the player's route mode — NOT on the
-            // fan's cross-country policy, which would throw the whole march to
-            // the attack position off the MSR and scatter the column.
-            if (app) {
-              const us = sorted.filter(o => !(S.drones as Array<Unit | Drone>).includes(o)) as Unit[]
-              let cx = 0, cy = 0, n = 0
-              for (const u of us) { const l = u.legs[u.legs.length - 1]; if (l) { cx += l.x; cy += l.y; n++ } }
-              if (n) { cx /= n; cy /= n; for (const u of us) convergeLastLeg(u.id, cx, cy, transitOpts) }
-            }
+            // ROUTING. The FIRST fan is the approach march: it uses the road
+            // network, so the force runs the MSR (over the bridge) and only
+            // peels off to its own slot at the end. Every fan AFTER that is an
+            // assault leg — cross-country, because snapping a spread line back
+            // onto a road is what collapses it into single file.
+            // An explicit route mode beats both.
+            const spreadOpts: PathOpts = ui.routeMode !== 'auto'
+              ? { ...(ROUTE_OPTS[ui.routeMode] || {}) }
+              : app ? { crossCountry: true } : { roadBias: 3 }
+            // NO converge. Each unit appends from its OWN last route point
+            // (orderMove: `from = u.path[u.path.length-1]`), so fan N+1 grows
+            // out of fan N — the spread widens instead of being funnelled back
+            // through one shared point and re-fanned.
             sorted.forEach((o, i) => {
               const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
               const px = wx0 + ldx * t, py = wy0 + ldy * t
