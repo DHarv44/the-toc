@@ -148,7 +148,7 @@ export const useUI = create<UIState>()((set, get) => ({
   mode: 'select',
   cmdMode: 'move',
   setCmdMode: (cmdMode) => set({ cmdMode }),
-  routeMode: 'auto',
+  routeMode: 'fastest',
   setRouteMode: (routeMode) => set({ routeMode }),
   ctxMenu: null,
   feeds: [],
