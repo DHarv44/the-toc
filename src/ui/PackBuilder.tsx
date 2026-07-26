@@ -12,7 +12,7 @@
 // Content browsing reuses PackViewer's tables (PackContent): one description
 // of what a pack contains, whichever door you came in through.
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Box, Button, Checkbox, Group, Select, Table, Text, UnstyledButton } from '@mantine/core'
+import { Badge, Box, Button, Checkbox, Group, Menu, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
 import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
 import { StaffTable, Td, Th } from './staff'
@@ -50,6 +50,53 @@ const MODEL_FILES = import.meta.glob('../packs/*/models/**/*.glb', {
 }) as Record<string, string>
 
 const kb = (n: number) => `${Math.round(n / 1024)} KB`
+
+// The model a platform wears, and the control for changing it — the picture IS
+// the picker. Click the box and choose from the pack's models, each shown as
+// what it looks like rather than as a filename.
+function ModelCell({ value, options, urlFor, onPick }: {
+  value: string
+  options: { value: string; label: string }[]
+  urlFor: (rel: string) => string | undefined
+  onPick: (value: string) => void
+}) {
+  const thumb = (v: string, h: number) => {
+    const [file, node] = v.split('|')
+    const url = file ? urlFor(file) : undefined
+    return url ? <ModelPreview url={url} node={node || undefined} h={h} /> : null
+  }
+  const label = options.find(o => o.value === value)?.label
+  return (
+    <Menu shadow="md" width={280} position="bottom-start" withinPortal>
+      <Menu.Target>
+        <UnstyledButton w={64}>
+          {thumb(value, 42) ?? (
+            <Box h={42} style={{
+              border: '1px dashed #22303d', borderRadius: 3,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Text fz={8} c="dark.4">SET</Text>
+            </Box>
+          )}
+          <Text fz={8.5} c={label ? '#9ab8d0' : 'dark.4'} ta="center" truncate>
+            {label ?? 'none'}
+          </Text>
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item onClick={() => onPick('')}>
+          <Text fz={11} c="dark.3">— no model —</Text>
+        </Menu.Item>
+        {options.map(o => (
+          <Menu.Item key={o.value} onClick={() => onPick(o.value)}
+            leftSection={<Box w={44}>{thumb(o.value, 30)}</Box>}>
+            <Text fz={11} c="#dceeff">{o.label}</Text>
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
+  )
+}
 
 // Find and read this pack's model files. Shared: the MODELS page browses them,
 // the VEHICLES tab assigns from them, and neither should discover them twice.
@@ -644,24 +691,10 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
                       : (
                         <PackContent p={p} tab={tab as PackTab}
                           vehicleLead={{
-                            head: '',
-                            // the platform as it will actually look, so the row
-                            // is checkable at a glance instead of by filename
-                            cell: (key) => {
-                              const [file, node] = (valueOf(key) || '').split('|')
-                              const url = file ? urlFor(file) : undefined
-                              return url
-                                ? <ModelPreview url={url} node={node || undefined} h={42} />
-                                : <Box h={42} style={{ border: '1px dashed #22303d', borderRadius: 3 }} />
-                            },
-                          }}
-                          vehicleExtra={{
                             head: 'MODEL',
                             cell: (key) => (
-                              <Select size="xs" searchable clearable placeholder="no model"
-                                data={options} value={valueOf(key) || null}
-                                onChange={v => setEdit(s => ({ ...s, [key]: v ?? '' }))}
-                                styles={{ input: { fontFamily: MONO, fontSize: 11 } }} />
+                              <ModelCell value={valueOf(key)} options={options} urlFor={urlFor}
+                                onPick={v => setEdit(s => ({ ...s, [key]: v }))} />
                             ),
                           }} />
                       )}

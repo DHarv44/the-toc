@@ -68,15 +68,15 @@ export interface ExtraCol {
   cell: (vehicleKey: string) => React.ReactNode
 }
 
-// `lead` puts a column BEFORE the key (the units table already leads with its
-// symbol); `extra` appends one after. The read-only console passes neither.
-function VehiclesTable({ p, lead, extra }: { p: Pack; lead?: ExtraCol; extra?: ExtraCol }) {
+// `lead` puts a column BEFORE the key, the way the units table leads with its
+// symbol. The read-only console passes none; the PACK BUILDER passes the model
+// cell, which is both the picture and the control for changing it.
+function VehiclesTable({ p, lead }: { p: Pack; lead?: ExtraCol }) {
   return (
     <Table withRowBorders={false} verticalSpacing={2}>
       <Table.Thead><Table.Tr>
         {lead && <Th>{lead.head}</Th>}
         <Th>KEY</Th><Th>NAME</Th><Th>CREW</Th><Th>PAX</Th><Th>MOB</Th><Th>WEAPONS</Th>
-        {extra && <Th>{extra.head}</Th>}
       </Table.Tr></Table.Thead>
       <Table.Tbody>
         {Object.values(p.catalogs.vehicles).map(v => (
@@ -85,7 +85,6 @@ function VehiclesTable({ p, lead, extra }: { p: Pack; lead?: ExtraCol; extra?: E
             <Td c="#7ec8ff">{v.key}</Td><Td>{v.name}</Td><Td>{v.crew}</Td><Td>{v.pax || '—'}</Td>
             <Td c="dark.3">{v.mob}</Td>
             <Td c="dark.2">{v.weapons.map(w => p.catalogs.weapons[w]?.name ?? w).join(', ') || 'unarmed'}</Td>
-            {extra && <Table.Td w={330}>{extra.cell(v.key)}</Table.Td>}
           </Table.Tr>
         ))}
       </Table.Tbody>
@@ -179,13 +178,13 @@ function Names({ p }: { p: Pack }) {
 export const PACK_TABS = ['UNITS', 'VEHICLES', 'WEAPONS', 'AIR', 'FORMATION', 'NAMES'] as const
 export type PackTab = (typeof PACK_TABS)[number]
 
-export function PackContent({ p, tab, vehicleLead, vehicleExtra }: {
-  p: Pack; tab: PackTab; vehicleLead?: ExtraCol; vehicleExtra?: ExtraCol
+export function PackContent({ p, tab, vehicleLead }: {
+  p: Pack; tab: PackTab; vehicleLead?: ExtraCol
 }) {
   return (
     <>
       {tab === 'UNITS' && <UnitsTable p={p} />}
-      {tab === 'VEHICLES' && <VehiclesTable p={p} lead={vehicleLead} extra={vehicleExtra} />}
+      {tab === 'VEHICLES' && <VehiclesTable p={p} lead={vehicleLead} />}
       {tab === 'WEAPONS' && <WeaponsTable p={p} />}
       {tab === 'AIR' && <DronesTable p={p} />}
       {tab === 'FORMATION' && <Formation p={p} />}
