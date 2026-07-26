@@ -14,7 +14,6 @@ import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
 import {
   orderMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
-  convergeLastLeg,
 } from '../domains/forces/orders'
 import { deployUnit, deployStructure, orderReturnToGarrison } from '../domains/installations/orders'
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
@@ -420,17 +419,11 @@ export default function MapView() {
       const opts = ROUTE_OPTS[useUI.getState().routeMode] || {}
       const cols = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / cols)
-      // appending a waypoint: collapse the previous terminal fan to its common
-      // centre first, so the spread ends up only at the new final waypoint
-      // instead of leaving a kink where the old destination was
-      if (append) {
-        let cx = 0, cy = 0, n = 0
-        for (const u of units) {
-          const last = u.legs[u.legs.length - 1]
-          if (last) { cx += last.x; cy += last.y; n++ }
-        }
-        if (n) { cx /= n; cy /= n; for (const u of units) convergeLastLeg(u.id, cx, cy, opts) }
-      }
+      // A new waypoint NEVER touches an earlier one. Each leg keeps the ground
+      // it was routed over and the route mode it was given — plan a bound up
+      // the MSR on ROADS, then a cross-country leg onto the objective, and the
+      // road bound stays a road bound. orderMove appends from the end of the
+      // existing route and leaves everything before it alone.
       units.forEach((u, k) => {
         const ox = ((k % cols) - (cols - 1) / 2) * 90
         const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
