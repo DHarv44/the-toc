@@ -64,6 +64,7 @@ export function newUnit(
     aiRole: null, aiRepathT: 0,
     formSeed: S.rng ? S.rng() * 1000 : Math.random() * 1000,
     _spd: type.speed,
+    odo: 0,
     elements: [],
     // composition roster (FORCE-MODEL Phase 2): deterministic, rng-free build
     ...buildRoster(typeKey),

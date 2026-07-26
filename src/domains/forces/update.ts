@@ -7,7 +7,6 @@
 // from its seed. (Was raw Math.random during the migration for old-sim parity;
 // re-baselined after the cutover.)
 import { S } from '../../engine/state'
-import type { Unit } from '../../engine/GameState'
 import { findPath } from '../../world/pathfinding'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
@@ -18,55 +17,18 @@ import {
   deriveElements, deriveStrength, downUnit, medicalUpdate,
   processCapture, processWipe, remnantCheck,
 } from './casualties'
-import { COLUMN_GAP, STRAGGLE_GAP } from './orders'
+import { solveColumns } from '../movement/column'
+import { stationUpdate, stationSweep } from '../movement/station'
 import { trailUpdate } from '../fires/expendables'
 import { netRadio, radio, toast } from '../comms/radio'
 
 // units: group pacing, column order/stragglers, dig progress, convoy loops,
 // bridging, and movement itself
 export function movementUpdate(dt: number): void {
-  // group movement: a formation moves no faster than its slowest moving member.
-  // recomputed each tick from live, still-moving members (arrived/dead don't count) —
-  // cap the REAL (post-terrain) speed so a member on a road can't outrun one in a field.
-  const groupCap = new Map<number, number>()
-  for (const u of S.units) {
-    if (u.groupId == null || !u.path.length || u.strength <= 0) continue
-    const st = effStats(u)
-    const f = S.map!.moveFactor(u.x, u.y, st.mob)
-    const real = st.speed / (isFinite(f) ? f : 3)
-    const cur = groupCap.get(u.groupId)
-    if (cur == null || real < cur) groupCap.set(u.groupId, real)
-  }
-
-  // Column order is recomputed every tick from progress along the shared route (fewest
-  // waypoints remaining = furthest along). Fixing the order when the move is issued
-  // doesn't survive contact with reality: at that moment every unit is bunched at the
-  // start with indistinguishable route positions, and the order then drifts as the
-  // faster ones pull ahead — leaving "the vic ahead" pointing at a unit that's actually
-  // behind, so the front ran free while the rear waited on it.
-  const colMembers = new Map<number, Unit[]>()
-  for (const u of S.units) {
-    if (u.groupId == null || u.colIdx == null || u.strength <= 0) continue
-    if (!colMembers.has(u.groupId)) colMembers.set(u.groupId, [])
-    colMembers.get(u.groupId)!.push(u)
-  }
-  const colAhead = new Map<string, Unit>()
-  for (const [gid, list] of colMembers) {
-    list.sort((a, b) => a.path.length - b.path.length)
-    list.forEach((u, i) => { u.colIdx = i; colAhead.set(gid + ':' + i, u) })
-  }
-
-  // A column doesn't leave its tail behind: if a gap opens past STRAGGLE_GAP, everyone
-  // forward of the break stops and goes firm until the straggler closes up. Waiting
-  // units dig in rather than idling in the open — a halted convoy is a target.
-  const colStall = new Map<number, number>()
-  for (const [gid, list] of colMembers) {
-    for (let i = 0; i < list.length - 1; i++) {
-      const a = list[i]!, b = list[i + 1]!
-      if (!b.path.length) continue // already arrived — not a straggler
-      if (Math.hypot(b.x - a.x, b.y - a.y) > STRAGGLE_GAP) { colStall.set(gid, a.colIdx!); break }
-    }
-  }
+  // Group movement: every unit in a move group station-keeps on the one ahead
+  // of it, ordered by progress toward the shared objective. See
+  // movement/column.ts — this used to be four passes of bespoke pacing here.
+  const col = solveColumns(dt)
 
   // units: movement + bridging
   for (const u of S.units) {
@@ -195,15 +157,19 @@ export function movementUpdate(dt: number): void {
       const dx = wp.x - u.x, dy = wp.y - u.y
       const d = Math.hypot(dx, dy)
       const f = S.map!.moveFactor(u.x, u.y, st.mob)
-      // this unit's own terrain-adjusted speed, then held to the group's slowest real pace
+      // This unit's own terrain-adjusted speed. Terrain is applied HERE, to the
+      // achieved speed, and not to the ceiling the column solver reasons about:
+      // a platoon bogged in a wadi should fall behind and be waited for, not
+      // silently drag every platoon on tarmac down to its pace.
       let spd = st.speed / (isFinite(f) ? f : 3)
-      if (u.groupId != null) {
-        // halt and go firm if the tail has fallen behind us
-        const stall = colStall.get(u.groupId)
-        const waiting = stall != null && u.colIdx != null && u.colIdx <= stall
-        if (waiting !== !!u.colWait) {
-          u.colWait = waiting
-          if (waiting) {
+      const c = col.get(u.id)
+      if (c) {
+        spd = Math.min(spd, c.spd)
+        // A column halted for its tail digs in rather than idling in the open —
+        // a stopped convoy is a target.
+        if (c.wait !== !!u.colWait) {
+          u.colWait = c.wait
+          if (c.wait) {
             u.posture = 'dig'
             netRadio(u, 'move', 'HOLDING FOR TRAIL ELEMENTS — GOING FIRM', u.x, u.y)
           } else {
@@ -211,28 +177,19 @@ export function movementUpdate(dt: number): void {
             u.digT = 0
           }
         }
-        // Station-keeping. The group cap stops a formation outrunning its slowest
-        // member, but applied blindly it also means a unit that falls behind can NEVER
-        // close the gap — everyone crawls at the same speed and the column stretches
-        // out forever. So a follower outside its station is released from the cap and
-        // runs at its own speed until it's back on the vic ahead.
-        let capped = true
-        if (u.colIdx != null && u.colIdx > 0) {
-          const ahead = colAhead.get(u.groupId + ':' + (u.colIdx - 1))
-          if (ahead) {
-            const gap = Math.hypot(ahead.x - u.x, ahead.y - u.y)
-            if (gap > COLUMN_GAP * 1.2) capped = false          // trailing — close up
-            else if (gap < COLUMN_GAP) {                        // closed up — ease off
-              spd *= Math.max(0, (gap - COLUMN_GAP * 0.45) / (COLUMN_GAP * 0.55))
-            }
-          }
-        }
-        const cap = groupCap.get(u.groupId)
-        if (capped && cap != null) spd = Math.min(spd, cap)
-        if (waiting) spd = 0
+      } else if (u.colWait) {
+        u.colWait = false
+        u.posture = 'mobile'
+        u.digT = 0
       }
+      // What the unit's OWN vics are asking for: a platoon whose tail has come
+      // off a bend eases until it closes up, and one told to coil stops where it
+      // stands. Computed last tick, because the formation solves against where
+      // the unit ended up (see movement/station.ts).
+      if (u.formCap !== undefined) spd *= u.formCap
       u._spd = spd
       if (d < Math.max(4, spd * dt)) {
+        u.odo += d
         u.x = wp.x; u.y = wp.y
         u.path.shift()
         if (u.legs.length && --u.legs[0]!.n <= 0) {
@@ -249,11 +206,19 @@ export function movementUpdate(dt: number): void {
       } else {
         u.x += (dx / d) * spd * dt
         u.y += (dy / d) * spd * dt
+        u.odo += spd * dt
         u.heading = Math.atan2(dy, dx)
         u.state = 'moving'
       }
     }
   }
+
+  // Station keeping inside each unit: the vics drive to their slots along the
+  // route the unit has actually taken. Its own pass, after every unit has
+  // moved — a `continue` in the loop above (bridging) must not skip it, and a
+  // unit that has arrived still has vics closing up behind it.
+  for (const u of S.units) stationUpdate(u, dt)
+  stationSweep()
 }
 
 // mission resumption: contact clear and neighborhood quiet → continue movement.

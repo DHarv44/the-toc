@@ -2,14 +2,14 @@
 // src/game/sim.js. These are the ONLY mutations the UI and the enemy AI are
 // allowed to make on units — the AI is a commander issuing player-legal orders.
 import { S } from '../../engine/state'
-import type { Unit } from '../../engine/GameState'
+import type { Formation, Unit } from '../../engine/GameState'
 import { findPath, type PathOpts } from '../../world/pathfinding'
 import { CELL, T_WATER } from '../../world/WorldMap'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
-import { effStats } from './elements'
+import { effStats, formOf, layoutElements, FORMATION } from './elements'
 import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -332,6 +332,19 @@ export function orderWeapons(unitId: number, wpn: keyof typeof WPN_NAMES): void 
   if (!u || !WPN_NAMES[wpn] || u.weapons === wpn) return
   u.weapons = wpn
   netRadio(u, 'move', WPN_NAMES[wpn], u.x, u.y)
+}
+
+// Movement formation. Purely how the unit arranges itself on the ground — it
+// does not change where the unit is or where it is going, so it is legal at any
+// time, moving or halted, and takes effect as the vics drive to their new
+// stations. Reported on the net because a formation change is a command
+// decision the TOC would hear called.
+export function orderFormation(unitId: number, form: Formation): void {
+  const u = S.units.find(u => u.id === unitId)
+  if (!u || formOf(u) === form) return
+  u.formation = form
+  layoutElements(u)
+  netRadio(u, 'move', `FORMATION ${FORMATION[form].label}`, u.x, u.y)
 }
 
 const OCTS: ReadonlyArray<readonly [number, number]> = [

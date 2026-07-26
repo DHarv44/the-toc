@@ -10,7 +10,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { S } from '../engine/state'
 import type { WorldMap } from '../world/WorldMap'
-import { elemWorld, elemExposed } from '../domains/forces/elements'
+import { elemWorld, elemExposed, elemHeading } from '../domains/forces/elements'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
 import { CELL, T_FOREST, T_URBAN, T_WATER } from '../world/WorldMap'
@@ -702,11 +702,12 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
       for (let i = 0; i < u.elements.length; i++) {
         const el = u.elements[i]!
         if (!el.alive || !elemExposed(u, el)) continue
-        // ...and the element pose carries the individual vehicle inside that
-        // frame: chasing its station rather than welded to it, hull pointed
-        // along its own track (see ./smoothing).
+        // ...and the element pose is the individual vehicle. Once the unit has
+        // moved, that comes from the sim — the vic drives its own odometer
+        // along the unit's route (domains/movement/station.ts) and this only
+        // bridges 20 Hz to 60. Until then it is the rigid body-frame layout.
         const w = elemWorld(p, el)
-        const e = elems.pose(u.id * 256 + i, w.x, w.y, p.heading, dt)
+        const e = elems.pose(u.id * 256 + i, w.x, w.y, elemHeading(p, el), dt)
         const v = 0.9 + hash01(u.id, i) * 0.2
         if (el.kind === 'veh') {
           const t = hot * v

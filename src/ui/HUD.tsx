@@ -11,7 +11,7 @@ import { S } from '../engine/state'
 import type { Unit, Drone, GunFireMode, Roe, WeaponsControl } from '../engine/GameState'
 import type { Vec2 } from '../world/WorldMap'
 import {
-  orderHold, orderMount, orderRoe, orderDefend, orderWeapons,
+  orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderFormation,
 } from '../domains/forces/orders'
 import { convertToHq, orderReturnToGarrison } from '../domains/installations/orders'
 import {
@@ -20,7 +20,7 @@ import {
 } from '../domains/air/orders'
 import { gunshipSelectWeapon, gunshipSetMode } from '../domains/air/gunship'
 import { revealContact } from '../domains/intel/sensing'
-import { elemWorld, elemExposed } from '../domains/forces/elements'
+import { elemWorld, elemExposed, formOf, FORMATION, FORMATIONS } from '../domains/forces/elements'
 import { grid } from '../lib/format'
 import { UNIT_TYPES, COVER_DEF } from '../domains/forces/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
@@ -179,6 +179,60 @@ function RouteSelect() {
   )
 }
 
+// How the selected units arrange themselves on the ground. Mixed selections
+// read as MIXED and any pick puts all of them into the same formation, which is
+// what "3rd platoon, wedge" means when it goes out over the net.
+function FormSelect({ units }: { units: Unit[] }) {
+  const forms = new Set(units.map(formOf))
+  const cur = forms.size === 1 ? FORMATION[[...forms][0]!] : null
+  return (
+    <Menu shadow="md" width={280} position="top-start" withArrow={false}>
+      <Menu.Target>
+        <Button size="compact-xs" variant={cur?.key === 'wedge' ? 'default' : 'filled'}
+          styles={{ label: { fontSize: 9.5, letterSpacing: 0.5 } }}>
+          {cur ? cur.label : 'MIXED'} ▾
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {FORMATIONS.map((f, i) => (
+          <div key={f.key}>
+            {/* the two halt postures are a different kind of order from the
+                five march formations above them — a stopped element covering
+                its ground, not a way of getting somewhere */}
+            {f.halt && !FORMATIONS[i - 1]?.halt && (
+              <Divider my={3} label={<Text fz={8} c="dark.3" fw={700}>AT THE HALT</Text>} />
+            )}
+            <Menu.Item onClick={() => units.forEach(u => orderFormation(u.id, f.key))}
+              style={{ background: f.key === cur?.key ? 'var(--mantine-color-toc-8)' : undefined }}>
+              <Text fz={10} fw={f.key === cur?.key ? 700 : 400}>{f.label}</Text>
+              <Text fz={8.5} c="dark.3">{f.hint}</Text>
+            </Menu.Item>
+          </div>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
+  )
+}
+
+// A labelled cluster in the tray's control rows. The tray had grown into two
+// undifferentiated walls of same-weight buttons; grouping under a caption is
+// what makes "what does this unit do on contact" a two-second read instead of
+// a scan. `seg` is deliberately dumb — the grouping IS the tidy.
+function Seg({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      <span style={{ color: '#54708a', fontSize: 8.5, letterSpacing: 1 }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
+const segBar: CSSProperties = {
+  display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap',
+}
+const segSep = <div style={{ width: 1, alignSelf: 'stretch', background: '#25384a' }} />
+
+
 // The selection tray is a LAYOUT ROW below the map (P5), not a map overlay —
 // App mounts it as a sibling under the map wrapper.
 export function SelectionTray() {
@@ -211,8 +265,19 @@ export function SelectionTray() {
     <div style={{
       flex: '0 0 auto',
       background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
-      padding: '6px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
+      padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
     }}>
+      {/* header: what is selected, and the two controls that are about the
+          TRAY rather than about the units — they were buried at the end of the
+          action row, reading as orders when neither is one */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>{count} SELECTED</span>
+        <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
+        <button style={{ ...optBtn(false), color: '#7c92a6' }} title="Clear selection"
+          onClick={() => ui.setSelected([])}>CLEAR</button>
+        <button style={{ ...optBtn(false), color: '#7c92a6' }} title="Minimize"
+          onClick={() => setMin(true)}>—</button>
+      </div>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
         {units.map(u => {
           const type = UNIT_TYPES[u.type]
@@ -284,142 +349,178 @@ export function SelectionTray() {
           ))}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <span style={{ color: '#54708a', fontSize: 9, alignSelf: 'center' }}>{units.length + selDrones.length} SELECTED</span>
-        <button style={btn(false)} onClick={() => units.forEach(u => orderHold(u.id))}>HOLD</button>
-        {units.length > 0 && (
-          <button style={btn(units.every(u => ui.rangeUnits[u.id]))}
-            title="Show this unit's weapon range on the map"
-            onClick={() => {
-              const on = units.every(u => ui.rangeUnits[u.id])
-              units.forEach(u => { if (!!ui.rangeUnits[u.id] === on) ui.toggleUnitRange(u.id) })
-            }}>RANGE</button>
+      {/* ACTIONS — things the element DOES when you press them, grouped by what
+          kind of doing it is: move/posture, fight, engineer + organic assets,
+          then the administrative ones. */}
+      <div style={segBar}>
+        <Seg label="ELEMENT">
+          <button style={btn(false)} onClick={() => units.forEach(u => orderHold(u.id))}>HOLD</button>
+          {units.length > 0 && (
+            <button style={btn(units.every(u => ui.rangeUnits[u.id]))}
+              title="Show this unit's weapon range on the map"
+              onClick={() => {
+                const on = units.every(u => ui.rangeUnits[u.id])
+                units.forEach(u => { if (!!ui.rangeUnits[u.id] === on) ui.toggleUnitRange(u.id) })
+              }}>RANGE</button>
+          )}
+          {units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted) && (
+            <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, true))}>MOUNT</button>
+          )}
+          {units.some(u => UNIT_TYPES[u.type].carrier && u.mounted) && (
+            <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, false))}>DISMOUNT</button>
+          )}
+        </Seg>
+        {(anyIndirect || anyBridge) && segSep}
+        {(anyIndirect || anyBridge) && (
+          <Seg label="FIGHT">
+            {anyIndirect && (
+              <button style={btn(ui.mode === 'target')}
+                onClick={() => ui.setMode(ui.mode === 'target' ? 'select' : 'target')}>
+                FIRE MISSION
+              </button>
+            )}
+            {anyBridge && (
+              <button style={btn(ui.mode === 'bridge')}
+                onClick={() => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge')}>
+                PONTOON BRIDGE
+              </button>
+            )}
+          </Seg>
         )}
-        {units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted) && (
-          <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, true))}>MOUNT</button>
-        )}
-        {units.some(u => UNIT_TYPES[u.type].carrier && u.mounted) && (
-          <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, false))}>DISMOUNT</button>
-        )}
-        {anyIndirect && (
-          <button style={btn(ui.mode === 'target')}
-            onClick={() => ui.setMode(ui.mode === 'target' ? 'select' : 'target')}>
-            FIRE MISSION
-          </button>
-        )}
-        {anyBridge && (
-          <button style={btn(ui.mode === 'bridge')}
-            onClick={() => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge')}>
-            PONTOON BRIDGE
-          </button>
-        )}
-        {/* ENGINEER WORK: what this platoon can BUILD. Same reasoning as the
-            UAS below — building is something the element DOES, so it lives
-            with its other actions instead of in a rail about bases. Picking one
-            arms the placement mode; the footer says where it can go. */}
+        {/* ENGINEER WORK and organic UAS: what this platoon can BUILD and what
+            it can put in the air. Both are things the element DOES, so they
+            live with its other actions instead of in a rail about bases.
+            Picking one arms the placement mode; the footer says where it can
+            go. The Raven goes up right over the platoon and pops its feed. */}
         {(() => {
           const eng = units.find(u => buildItems(u).length > 0)
-          if (!eng) return null
-          return buildItems(eng).map(it => {
-            const mode = it.mode as UiMode
-            return (
-              <button key={it.mode}
-                data-tut={it.mode === 'build:FOB' ? 'build-fob' : undefined}
-                style={btn(ui.mode === mode)}
-                title={`${eng.label} builds a ${it.label} — click the map to site it`}
-                onClick={() => ui.setMode(ui.mode === mode ? 'select' : mode)}>
-                ⛏ {it.label.toUpperCase()}
-              </button>
-            )
-          })
-        })()}
-        {/* UNIT ASSETS: organic UAS the selected unit carries — launching is a
-            unit action, so it lives here with the rest of them (the Raven goes
-            up right over the platoon and pops its feed) */}
-        {(() => {
           const carrier = units.find(u => (UNIT_TYPES[u.type].carries?.length ?? 0) > 0)
-          if (!carrier) return null
-          return UNIT_TYPES[carrier.type].carries!.map(k => {
-            const dt = DRONE_TYPES[k]
-            if (!dt) return null
-            return (
-              <button key={k} data-tut={k === 'RAVEN' ? 'uas-raven' : undefined} style={btn(false)}
-                title={`Launch the ${dt.name} over ${carrier.label} — live feed of the ground ahead`}
-                onClick={() => {
-                  const d = fieldUnitDrone(carrier.id, k)
-                  if (d && d.id != null) ui.showDrone(d.id)
-                }}>
-                ⊕ {dt.name.toUpperCase()}
-              </button>
-            )
-          })
+          if (!eng && !carrier) return null
+          return (
+            <>
+              {segSep}
+              <Seg label="ORGANIC">
+                {eng && buildItems(eng).map(it => {
+                  const mode = it.mode as UiMode
+                  return (
+                    <button key={it.mode}
+                      data-tut={it.mode === 'build:FOB' ? 'build-fob' : undefined}
+                      style={btn(ui.mode === mode)}
+                      title={`${eng.label} builds a ${it.label} — click the map to site it`}
+                      onClick={() => ui.setMode(ui.mode === mode ? 'select' : mode)}>
+                      ⛏ {it.label.toUpperCase()}
+                    </button>
+                  )
+                })}
+                {carrier && UNIT_TYPES[carrier.type].carries!.map(k => {
+                  const dt = DRONE_TYPES[k]
+                  if (!dt) return null
+                  return (
+                    <button key={k} data-tut={k === 'RAVEN' ? 'uas-raven' : undefined} style={btn(false)}
+                      title={`Launch the ${dt.name} over ${carrier.label} — live feed of the ground ahead`}
+                      onClick={() => {
+                        const d = fieldUnitDrone(carrier.id, k)
+                        if (d && d.id != null) ui.showDrone(d.id)
+                      }}>
+                      ⊕ {dt.name.toUpperCase()}
+                    </button>
+                  )
+                })}
+              </Seg>
+            </>
+          )
         })()}
         {/* Garrison flows: RTB = return to the element's ASSIGNED garrison
             (every element carries one, even deployed — CP by default);
             GARRISON → = reassign: click a friendly base, they drive there,
             stand down, and it becomes their new home. FOBs gain garrisons
-            this way. */}
-        {units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id)) && (
-          <>
-            <button data-tut="rtb" style={btn(false)}
-              title="Return to this element's assigned garrison — stand down, refit, absorb replacements"
-              onClick={() => units.forEach(u => orderReturnToGarrison(u.id))}>
-              RTB
-            </button>
-            <button data-tut="garrison" style={btn(ui.mode === 'garrison')}
-              title="Reassign garrison: click a friendly base — they stand down there and it becomes home"
-              onClick={() => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison')}>
-              GARRISON →
-            </button>
-          </>
-        )}
-        {logiUnit && (
-          <button data-tut="supply-run" style={btn(ui.mode === `convoy:${logiUnit.id}`)}
-            title="Run supply from the HQ to a chosen FOB, then repeat"
-            onClick={() => {
-              if (logiUnit.convoy) orderHold(logiUnit.id)
-              else ui.setMode(`convoy:${logiUnit.id}` as never)
-            }}>
-            {logiUnit.convoy ? 'END SUPPLY RUN' : 'SUPPLY RUN'}
-          </button>
-        )}
-        <button style={btn(false)} onClick={() => ui.setSelected([])}>CLEAR</button>
-        <button style={{ ...btn(false), marginLeft: 6 }} title="Minimize" onClick={() => setMin(true)}>—</button>
+            this way. Supply runs are the same kind of order: where the element
+            lives and what it hauls, not what it does in the next bound. */}
+        {(() => {
+          const homed = units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id))
+          if (!homed && !logiUnit) return null
+          return (
+            <>
+              {segSep}
+              <Seg label="REAR">
+                {homed && (
+                  <>
+                    <button data-tut="rtb" style={btn(false)}
+                      title="Return to this element's assigned garrison — stand down, refit, absorb replacements"
+                      onClick={() => units.forEach(u => orderReturnToGarrison(u.id))}>
+                      RTB
+                    </button>
+                    <button data-tut="garrison" style={btn(ui.mode === 'garrison')}
+                      title="Reassign garrison: click a friendly base — they stand down there and it becomes home"
+                      onClick={() => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison')}>
+                      GARRISON →
+                    </button>
+                  </>
+                )}
+                {logiUnit && (
+                  <button data-tut="supply-run" style={btn(ui.mode === `convoy:${logiUnit.id}`)}
+                    title="Run supply from the HQ to a chosen FOB, then repeat"
+                    onClick={() => {
+                      if (logiUnit.convoy) orderHold(logiUnit.id)
+                      else ui.setMode(`convoy:${logiUnit.id}` as never)
+                    }}>
+                    {logiUnit.convoy ? 'END SUPPLY RUN' : 'SUPPLY RUN'}
+                  </button>
+                )}
+              </Seg>
+            </>
+          )
+        })()}
       </div>
+      {/* STANDING ORDERS — not actions but state the element carries until it is
+          told otherwise: how it moves, how it is arranged, what it does when
+          somebody shoots at it. Separated from the row above because the
+          difference between "do this now" and "from now on" is the whole
+          difference between the two rows. */}
       {units.length > 0 && (
-        <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>CMD:</span>
-          <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
-          <button data-tut="attack-mode"
-            style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
-            onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
-          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ROUTE:</span>
-          <RouteSelect />
-          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>ON CONTACT:</span>
-          {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-            <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
-              style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
-              onClick={() => units.forEach(u => orderRoe(u.id, roe as Roe))}>
-              {label}
-            </button>
-          ))}
-          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1, marginLeft: 6 }}>WPNS:</span>
-          {([['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const).map(([w, label]) => (
-            <button key={w}
-              style={optBtn(units.every(u => (u.weapons || 'free') === w))}
-              onClick={() => units.forEach(u => orderWeapons(u.id, w as WeaponsControl))}>
-              {label}
-            </button>
-          ))}
+        <div style={segBar}>
+          <Seg label="CMD">
+            <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
+            <button data-tut="attack-mode"
+              style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
+              onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
+          </Seg>
+          {segSep}
+          <Seg label="ROUTE"><RouteSelect /></Seg>
+          <Seg label="FORM"><FormSelect units={units} /></Seg>
+          {segSep}
+          <Seg label="ON CONTACT">
+            {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
+              <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
+                style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
+                onClick={() => units.forEach(u => orderRoe(u.id, roe as Roe))}>
+                {label}
+              </button>
+            ))}
+          </Seg>
+          <Seg label="WPNS">
+            {([['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const).map(([w, label]) => (
+              <button key={w}
+                style={optBtn(units.every(u => (u.weapons || 'free') === w))}
+                onClick={() => units.forEach(u => orderWeapons(u.id, w as WeaponsControl))}>
+                {label}
+              </button>
+            ))}
+          </Seg>
           {units.some(u => UNIT_TYPES[u.type].def) && (
-            <button data-tut="dig-in"
-              style={{ ...optBtn(units.every(u => u.posture === 'dig')), marginLeft: 6 }}
-              onClick={() => {
-                const allDug = units.every(u => u.posture === 'dig')
-                units.forEach(u => orderDefend(u.id, !allDug))
-              }}>
-              ⛨ DIG IN
-            </button>
+            <>
+              {segSep}
+              <Seg label="POSTURE">
+                <button data-tut="dig-in"
+                  style={optBtn(units.every(u => u.posture === 'dig'))}
+                  onClick={() => {
+                    const allDug = units.every(u => u.posture === 'dig')
+                    units.forEach(u => orderDefend(u.id, !allDug))
+                  }}>
+                  ⛨ DIG IN
+                </button>
+              </Seg>
+            </>
           )}
         </div>
       )}

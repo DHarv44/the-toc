@@ -28,10 +28,6 @@ const RATE = 16
 const FORM_TURN = 0.55   // rad/s — how fast a unit swings its formation frame
 const VEH_TURN = 1.1     // rad/s — how fast one hull comes round
 
-// Furthest, in metres, a drawn vehicle may sit from its true station. Combat
-// kills the vic at the SIM position, so the picture is not allowed to wander.
-const LAG_MAX = 45
-
 const k = (dt: number) => 1 - Math.exp(-RATE * Math.min(0.25, dt))
 
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
@@ -82,51 +78,35 @@ export function makePoseCache() {
 
 // Per-ELEMENT render poses.
 //
-// The formation offsets don't give a vehicle a position — they give it a
-// STATION, the slot it is trying to be in. Drawing it AT that slot is what
-// makes a platoon look like one rigid object: turn the unit and every vic
-// translates on a rail, all of them pointing the same way, none of them
-// behaving like a driver. So the drawn vic chases its station instead of being
-// pinned to it, and its hull points where IT is going rather than where its
-// unit is going. A turn now deforms the formation — trail vics swing wide, cut
-// back in, and settle — which is what a column doing a left turn looks like
-// from 3000 feet.
-//
-// This is cosmetic and deliberately so: nothing is written back, and the vic
-// combat kills is still the vic at the sim station (LAG_MAX bounds how far the
-// two may disagree). It is also the shape a real per-element sim layer would
-// feed, so when elements gain positions of their own this reads them unchanged.
+// Individual vics are driven by the sim now — each holds an odometer along its
+// unit's route and station-keeps toward its slot (domains/movement/station.ts),
+// and the hull turn rate is applied there so the map and the feed agree. So
+// there is nothing left for this layer to invent: it does the one job the
+// render layer is entitled to do, which is bridge 20 Hz to 60. Position and
+// heading both ease; nothing is clamped, because the value coming in IS the
+// truth and drifting from it would mean drawing a vic somewhere combat is not
+// going to kill it.
 export function makeElemPoses() {
   const m = new Map<number, Pose & { seen: number }>()
   let frame = 0
   return {
-    // `key` must be stable per element; `face` is the fallback heading for a
-    // vic that has not moved far enough to have a direction of its own yet
-    pose(key: number, x: number, y: number, face: number, dt: number): Pose {
+    // `key` must be stable per element
+    pose(key: number, x: number, y: number, heading: number, dt: number): Pose {
       let p = m.get(key)
-      if (!p) { p = { x, y, heading: face, seen: frame }; m.set(key, p); return p }
+      if (!p) { p = { x, y, heading, seen: frame }; m.set(key, p); return p }
       p.seen = frame
-      // a station that jumped this far is a re-form or a mount, not a drive
+      // a vic that jumped this far did not drive there — a mount, a re-form, a
+      // unit unloading off a transport
       if (Math.abs(x - p.x) > 300 || Math.abs(y - p.y) > 300) {
-        p.x = x; p.y = y; p.heading = face
+        p.x = x; p.y = y; p.heading = heading
         return p
       }
-      const ox = p.x, oy = p.y
       const a = k(dt)
       p.x += (x - p.x) * a
       p.y += (y - p.y) * a
-      const gx = x - p.x, gy = y - p.y
-      const gap = Math.hypot(gx, gy)
-      if (gap > LAG_MAX) { p.x = x - gx / gap * LAG_MAX; p.y = y - gy / gap * LAG_MAX }
-      // Hull follows its own track. Below a walking pace there is no track to
-      // read, so a halted vic holds the heading it stopped on rather than
-      // spinning on numerical noise.
-      const mx = p.x - ox, my = p.y - oy
-      if (Math.hypot(mx, my) > dt * 0.6) {
-        const lim = VEH_TURN * dt
-        const d = wrap(Math.atan2(my, mx) - p.heading)
-        p.heading += Math.max(-lim, Math.min(lim, d))
-      }
+      const d = wrap(heading - p.heading) * a
+      const lim = VEH_TURN * dt
+      p.heading += Math.max(-lim, Math.min(lim, d))
       return p
     },
     sweep(): void {

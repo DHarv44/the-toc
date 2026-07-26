@@ -34,13 +34,43 @@ export type BgRole = 'recon' | 'main'
 // one waypoint leg of a player-issued route: destination + how many path points it owns
 export interface Leg extends Vec2 { n: number }
 
-// individual vic/troop in a unit's formation; offsets are body-frame (fwd/lat)
+// Individual vic/troop in a unit's formation.
+//
+// ox/oy/oh are the STATION: where the formation wants this one, in the unit's
+// body frame (+ox forward, +oy left, oh radians off the unit's heading). They
+// are what the whole unit lays out from and never change while it drives.
+//
+// The rest is where it ACTUALLY is. Once the unit is under way its vics stop
+// being a rigid lattice welded to the unit's heading and start driving: each
+// holds an odometer along the unit's retained route and a signed offset from
+// its centreline, and station-keeps toward its slot (domains/movement). They
+// are absent until the unit first moves — a unit sitting in a garrison has no
+// route to hold an odometer against, so it lays out rigidly and elemWorld
+// falls back to the body-frame transform.
 export interface UnitElement {
   ox: number
   oy: number
+  oh?: number              // body-frame facing, radians off the unit's heading —
+                           // only the security formations (coil, herringbone)
+                           // point their vics anywhere but straight ahead
   kind: 'veh' | 'troop'
   alive: boolean
+  dist?: number            // odometer along the unit's track, metres. MONOTONIC.
+  lat?: number             // offset from the route centreline, metres, + = LEFT
+  spd?: number             // m/s along the route
+  wx?: number              // resolved world pose; set only while track-controlled
+  wy?: number
+  wh?: number              // hull heading, radians — its own track, not the unit's
 }
+
+// How a unit arranges itself on the ground. The first seven are march
+// formations — the trade is always control and speed against how much of the
+// unit can shoot, and in which direction. The last two are halt formations: a
+// stopped element does not just stop, it goes into a posture that covers the
+// ground around it. See FORMATIONS in domains/forces/elements.ts.
+export type Formation =
+  | 'column' | 'stagger' | 'wedge' | 'vee' | 'echL' | 'echR' | 'line'
+  | 'coil' | 'herringbone'
 
 // --- force composition roster (FORCE-MODEL.md, Phase 2) --------------------
 // The unit's actual people and vehicles, built from the composition catalog at
@@ -259,6 +289,15 @@ export interface Unit {
   aiRepathT: number
   formSeed: number
   _spd: number               // last computed real speed (map read-back)
+  odo: number                // metres driven. MONOTONIC — every station-keeping
+                             // controller measures against it, and a value that
+                             // ever goes backwards makes lag explode.
+  formation?: Formation      // absent = wedge (see formOf); optional so saves
+                             // written before formations still load
+  formHold?: boolean         // the unit's own vics have opened a gap it is
+                             // waiting on (stop hysteresis — see follow.ts)
+  formCap?: number           // 0..1 pace scale its formation is asking for,
+                             // applied on the next tick
   elements: UnitElement[]
   soldiers: Soldier[]        // composition roster (mirrors elements in Phase 2)
   vehicles: UnitVehicle[]
