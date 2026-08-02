@@ -109,6 +109,19 @@ export function packIo() {
           if (!dir) return send(400, { error: 'bad pack/map id' })
           if (req.method !== 'PUT') return send(405, { error: 'PUT' })
 
+          // The maps folders are excluded from Vite's watcher (a save must not
+          // reload the app out from under the editor), so discovery is
+          // invalidated by hand: the glob in map-files.ts re-runs on the next
+          // page load and picks the new map up.
+          const invalidateDiscovery = () => {
+            // Vite's module graph keys files with forward slashes, whatever the OS
+            const file = resolve(process.cwd(), 'src', 'packs', 'map-files.ts')
+              .replace(/\\/g, '/')
+            for (const m of server.moduleGraph.getModulesByFile(file) ?? []) {
+              server.moduleGraph.invalidateModule(m)
+            }
+          }
+
           if (kind === 'ground') {
             const buf = await readBinaryBody(req, MAX_GWPACK)
             // 'PK' — a zip, which is what a .gwpack is. Anything else is a
@@ -119,6 +132,7 @@ export function packIo() {
             await mkdir(dir, { recursive: true })
             const file = resolve(dir, 'ground.gwpack')
             await writeFile(file, buf)
+            invalidateDiscovery()
             return send(200, { ok: true, file, bytes: buf.length })
           }
           if (kind === 'meta') {
@@ -130,6 +144,7 @@ export function packIo() {
             await mkdir(dir, { recursive: true })
             const file = resolve(dir, 'map.json')
             await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
+            invalidateDiscovery()
             return send(200, { ok: true, file })
           }
           return send(400, { error: "file must be 'ground' or 'meta'" })

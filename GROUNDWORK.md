@@ -139,6 +139,13 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
       first pass), units/structures/trees layers; ground height via `sampleBox`
 - Verify: feed over real terrain in WHOT/EO; performance on a full battle.
 
+## Upstream asks (Groundwork changes, done in terrain-builder + republished)
+
+- **Persist the viewer camera** (orbit position + target) with the builder's
+  settings, so reopening the editor restores where you were looking, not just
+  what was built. The camera lives inside its OrbitControls with no host
+  handle — TOC will not reach through globals for it. Requested 2026-08-01.
+
 ## Log
 
 - 2026-08-01 — Plan committed. Branch `groundwork-maps` (off main at
