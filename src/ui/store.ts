@@ -1,14 +1,12 @@
 // UI-only state. Sim state lives in engine/state (module singleton `S`).
 // Ported verbatim from src/ui/store.js.
 import { create } from 'zustand'
-import type { PathOpts } from '../world/pathfinding'
 import type { ShellKind } from '../engine/GameState'
 import type { Sheaf } from '../domains/fires/orders'
 
 // mode: 'select' | 'deploy:<TYPE>' | 'deploy:DRONE' | 'build:<KIND>' | 'target' | 'bridge'
 export type UiMode = 'select' | 'target' | 'bridge' | 'garrison' | `deploy:${string}` | `build:${string}`
 export type CmdMode = 'move' | 'attack'
-export type RouteModeKey = 'auto' | 'roads' | 'noroads' | 'fastest'
 
 export interface Feed {
   id: number
@@ -45,31 +43,11 @@ const newFeed = (droneId: number | null = null): Feed => ({
   muted: false,
 })
 
-// pathfinding opts for each routing mode. 'auto' passes nothing so orderMove infers
-// intent from the click; the others bypass that inference.
-export const ROUTE_OPTS: Record<RouteModeKey, PathOpts> = {
-  auto: {},
-  roads: { roadsOnly: true },
-  noroads: { offRoad: true },
-  fastest: { roadBias: 1 },   // no bias either way — pure cheapest terrain cost
-}
-
-export const ROUTE_MODES: ReadonlyArray<{ val: RouteModeKey; label: string; hint: string }> = [
-  { val: 'auto', label: 'AUTO', hint: 'Click a road to use it, open ground to go direct' },
-  { val: 'roads', label: 'ROADS ONLY', hint: 'Hold the road network the whole way' },
-  { val: 'noroads', label: 'NO ROADS', hint: 'Stay off the network — move cross-country' },
-  { val: 'fastest', label: 'FASTEST', hint: 'Cheapest route by terrain, roads or not' },
-]
-
 export interface UIState {
   selectedIds: number[]
   mode: UiMode
   cmdMode: CmdMode          // what a ground/target click means
   setCmdMode: (cmdMode: CmdMode) => void
-  // how move orders route: 'auto' reads intent from where you clicked (on a road =
-  // use the network, open ground = go direct); the rest are explicit overrides
-  routeMode: RouteModeKey
-  setRouteMode: (routeMode: RouteModeKey) => void
   ctxMenu: CtxMenu | null   // screen coords
   feeds: Feed[]             // no feed shown until the player opens one (or deploys a drone)
   night: boolean
@@ -152,8 +130,6 @@ export const useUI = create<UIState>()((set, get) => ({
   mode: 'select',
   cmdMode: 'move',
   setCmdMode: (cmdMode) => set({ cmdMode }),
-  routeMode: 'fastest',
-  setRouteMode: (routeMode) => set({ routeMode }),
   ctxMenu: null,
   feeds: [],
   night: false,

@@ -26,7 +26,7 @@ import { UNIT_TYPES, COVER_DEF } from '../domains/forces/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
 import { DRONE_TYPES } from '../domains/air/catalog'
 import { setFeedAmbient, clearFeedAmbient } from '../audio/audio'
-import { useUI, ROUTE_MODES, type Feed, type UiMode } from './store'
+import { useUI, type Feed, type UiMode } from './store'
 import { PaletteIcon, buildItems } from './palette'
 import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
@@ -157,29 +157,6 @@ function FireMissionPanel() {
         {' · MORE ROUNDS = LONGER RELOAD'}
       </div>
     </div>
-  )
-}
-
-// How move orders route. AUTO infers from where you clicked; the rest override it.
-function RouteSelect() {
-  const ui = useUI()
-  const cur = ROUTE_MODES.find((m) => m.val === ui.routeMode) || ROUTE_MODES[0]!
-  return (
-    <Menu shadow="md" width={230} position="top-start" withArrow={false}>
-      <Menu.Target>
-        <Button size="compact-xs" variant={ui.routeMode === 'auto' ? 'default' : 'filled'}
-          styles={{ label: { fontSize: 9.5, letterSpacing: 0.5 } }}>{cur.label} ▾</Button>
-      </Menu.Target>
-      <Menu.Dropdown>
-        {ROUTE_MODES.map((m) => (
-          <Menu.Item key={m.val} onClick={() => ui.setRouteMode(m.val)}
-            style={{ background: m.val === ui.routeMode ? 'var(--mantine-color-toc-8)' : undefined }}>
-            <Text fz={10} fw={m.val === ui.routeMode ? 700 : 400}>{m.label}</Text>
-            <Text fz={8.5} c="dark.3">{m.hint}</Text>
-          </Menu.Item>
-        ))}
-      </Menu.Dropdown>
-    </Menu>
   )
 }
 
@@ -490,7 +467,6 @@ export function SelectionTray() {
               onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
           </Seg>
           {segSep}
-          <Seg label="ROUTE"><RouteSelect /></Seg>
           <Seg label="FORM"><FormSelect units={units} /></Seg>
           {segSep}
           <Seg label="ON CONTACT">

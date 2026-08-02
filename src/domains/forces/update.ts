@@ -104,12 +104,9 @@ export function movementUpdate(dt: number): void {
             u.path = []; u.legs = []
             c.phase = 'load'; c.timer = logi.loadTime
           } else if (!u.path.length) {
-            // trucks run the network like a convoy, not like a scout: the
-            // convoy profile over-prefers arterials beyond raw time. Falls
-            // back to free pathing where no route serves the endpoints.
-            const p = findPath(S.map!, u.x, u.y, hq.x, hq.y, effStats(u).mob,
-              { roadsOnly: true, profile: 'convoy' })
-              ?? findPath(S.map!, u.x, u.y, hq.x, hq.y, effStats(u).mob)
+            // trucks route like everything else, with the convoy doctrine
+            // profile: arterials over-preferred beyond raw time
+            const p = findPath(S.map!, u.x, u.y, hq.x, hq.y, effStats(u).mob, 'convoy')
             if (p) { u.path = p; u.legs = [{ x: hq.x, y: hq.y, n: p.length }] }
           }
         } else if (c.phase === 'load') {
@@ -126,9 +123,7 @@ export function movementUpdate(dt: number): void {
             u.path = []; u.legs = []
             c.phase = 'unload'; c.timer = logi.loadTime
           } else if (!u.path.length) {
-            const p = findPath(S.map!, u.x, u.y, fob.x, fob.y, effStats(u).mob,
-              { roadsOnly: true, profile: 'convoy' })
-              ?? findPath(S.map!, u.x, u.y, fob.x, fob.y, effStats(u).mob)
+            const p = findPath(S.map!, u.x, u.y, fob.x, fob.y, effStats(u).mob, 'convoy')
             if (p) { u.path = p; u.legs = [{ x: fob.x, y: fob.y, n: p.length }] }
           }
         } else if (c.phase === 'unload') {

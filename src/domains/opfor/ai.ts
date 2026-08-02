@@ -332,7 +332,6 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
   if (!obj) return
   const mainBody = mem.filter(u => u.bgRole === 'main')
   const mainCen = centroidOf(mainBody) || centroidOf(mem)!
-  const XC = { crossCountry: true } // advance off-road, dispersed
 
   let mainIdx = 0
   for (const u of mem) {
@@ -346,14 +345,14 @@ function updateBattlegroup(grp: Battlegroup, dt: number): void {
     } else if (u.bgRole === 'recon') {
       // screen ~750 m ahead of the main body along the axis of advance
       const ax = obj.x - mainCen.x, ay = obj.y - mainCen.y, L = Math.hypot(ax, ay) || 1
-      orderMove(u.id, mainCen.x + ax / L * 750, mainCen.y + ay / L * 750, false, false, null, XC)
+      orderMove(u.id, mainCen.x + ax / L * 750, mainCen.y + ay / L * 750, false, false, null)
     } else if (Math.hypot(u.x - obj.x, u.y - obj.y) > 300) {
       // main body: attack-move to a dispersed aim point (loose line abreast the
       // axis), paced together as a group, cross-country
       const ax = obj.x - mainCen.x, ay = obj.y - mainCen.y, L = Math.hypot(ax, ay) || 1
       const px = -ay / L, py = ax / L // perpendicular to the axis of advance
       const off = ((mainIdx - 1) - (mainBody.length - 1) / 2) * 180
-      orderMove(u.id, obj.x + px * off, obj.y + py * off, false, true, grp.id, XC)
+      orderMove(u.id, obj.x + px * off, obj.y + py * off, false, true, grp.id)
     }
   }
 

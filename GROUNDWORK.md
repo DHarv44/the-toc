@@ -218,11 +218,19 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   own mobility so nothing is born inside a wall. Consequence accepted: a
   block with no OSM-mapped street through it is vehicle-unreachable, which
   is why the service/alley upstream ask matters.
-- **FASTEST/AUTO are roads-first on pack maps (2026-08-02).** They route on
-  the same graph as ROADS ONLY; a direct cell route (smoothed, any-angle) is
-  computed as a challenger and wins only when an honest clock over the real
-  ground says so — which covers sparse-network maps with no special case.
-  OFF ROAD / CROSS COUNTRY remain deliberate cell moves.
+- **ONE router, no modes (2026-08-02, settled the hard way).** The route-mode
+  selector is DELETED (AUTO/FASTEST/NO ROADS/ROADS ONLY are gone from the UI
+  and from PathOpts, which no longer exists). Every order on a pack map takes
+  the road-graph route, full stop; the cell A* survives only as the fallback
+  where the graph has nothing (procgen until P6, mapless ground). There is
+  deliberately NO time-race between graph and direct cell routes: on a road
+  the cell version prices the same but measures shorter (cell centres chord
+  the real curves), so any tie-breaker hands stair-step geometry a win over
+  the clean route. Tried twice, regressed twice, never again. Known accepted
+  cost: a waypoint dropped mid-field circles via the road; fix that later
+  only with a rule that cannot beat the graph on a road. `profile` (convoy)
+  is doctrine weighting, not a mode. Any-angle smoothing applies to cell
+  fallback routes.
 
 ## Upstream asks (Groundwork changes, done in terrain-builder + republished)
 

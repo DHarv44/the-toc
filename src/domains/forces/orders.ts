@@ -3,7 +3,7 @@
 // allowed to make on units — the AI is a commander issuing player-legal orders.
 import { S } from '../../engine/state'
 import type { Formation, Unit } from '../../engine/GameState'
-import { findPath, type PathOpts } from '../../world/pathfinding'
+import { findPath } from '../../world/pathfinding'
 import { T_WATER } from '../../world/WorldMap'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
@@ -13,7 +13,6 @@ import { effStats, formOf, layoutElements, FORMATION } from './elements'
 import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
-export const ROAD_SNAP = 2 // cells either side of the click that still count as "on the road"
 export const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
 export const STRAGGLE_GAP = 190  // metres before the column stops and waits for its tail
 
@@ -33,30 +32,12 @@ function autoRemount(u: Unit): void {
   }
 }
 
-function nearRoad(x: number, y: number, r = ROAD_SNAP): boolean {
-  const m = S.map!, GRID = m.GRID
-  const cx = Math.floor(x / m.CELL), cy = Math.floor(y / m.CELL)
-  for (let dy = -r; dy <= r; dy++) {
-    for (let dx = -r; dx <= r; dx++) {
-      const nx = cx + dx, ny = cy + dy
-      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue
-      if (m.road[ny * GRID + nx]) return true
-    }
-  }
-  return false
-}
 
 // Read the player's routing intent from where they clicked. Dropping the pin on a road
 // means "use the network" — hold the roads the whole way. Dropping it out in the open
 // means they want that spot, so go direct rather than detouring along a road that
 // happens to be cheaper. Callers that already know what they want (the enemy AI's
 // cross-country moves, an explicit roads-only order) are left alone.
-function roadIntent(x: number, y: number, opts: PathOpts): PathOpts {
-  if (opts.crossCountry || opts.roadsOnly || opts.roadBias || opts.offRoad) return opts
-  return nearRoad(x, y)
-    ? { ...opts, roadBias: 3 }    // clicked the network — stay on it
-    : { ...opts, offRoad: true }  // clicked open ground — go there direct
-}
 
 // Move a formation as a column behind one lead vic.
 //
@@ -66,19 +47,19 @@ function roadIntent(x: number, y: number, opts: PathOpts): PathOpts {
 // constrained member (slowest real speed over its own terrain).
 export function orderGroupMove(
   unitIds: number[], x: number, y: number,
-  append = false, attack = false, opts: PathOpts = {},
+  append = false, attack = false,
 ): number | null {
   const units = unitIds
     .map(id => S.units.find(u => u.id === id))
     .filter((u): u is Unit => !!u && u.strength > 0)
   if (!units.length) return null
-  if (units.length === 1) { orderMove(units[0]!.id, x, y, append, attack, null, opts); return null }
+  if (units.length === 1) { orderMove(units[0]!.id, x, y, append, attack, null); return null }
   // Appending keeps each unit's own multi-leg waypoint queue — a shared column route
   // collapses the legs into one, which would renumber the player's waypoints out from
   // under them. Columns form on a fresh order.
   if (append) {
     const gid = newMoveGroup()
-    for (const u of units) orderMove(u.id, x, y, true, attack, gid, opts)
+    for (const u of units) orderMove(u.id, x, y, true, attack, gid)
     return gid
   }
 
@@ -91,7 +72,7 @@ export function orderGroupMove(
   }
 
   const gid = newMoveGroup()
-  orderMove(lead.id, x, y, append, attack, gid, opts)
+  orderMove(lead.id, x, y, append, attack, gid)
   if (!lead.path.length) return null   // route refused — don't strand the followers
 
   // Everyone else takes a slot in the column. A follower paths its own short leg
@@ -123,7 +104,7 @@ export function orderGroupMove(
     u.groupId = gid
     const mob = effStats(u).mob
     const entry = route[k]!
-    const join = findPath(S.map!, u.x, u.y, entry.x, entry.y, mob, { ...opts, roadBias: 3 })
+    const join = findPath(S.map!, u.x, u.y, entry.x, entry.y, mob)
     u.path = (join || [{ x: entry.x, y: entry.y }]).concat(route.slice(k + 1))
     // one leg to the objective — the join is plumbing, not a waypoint the player set
     u.legs = [{ x, y, n: u.path.length }]
@@ -136,7 +117,7 @@ export function orderGroupMove(
 
 export function orderMove(
   unitId: number, x: number, y: number,
-  append = false, attack = false, groupId: number | null = null, opts: PathOpts = {},
+  append = false, attack = false, groupId: number | null = null,
 ): void {
   const u = S.units.find(u => u.id === unitId)
   if (!u) return
@@ -144,13 +125,7 @@ export function orderMove(
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1]! : u
   const mob = effStats(u).mob
-  let p = findPath(S.map!, from.x, from.y, x, y, mob, roadIntent(x, y, opts))
-  // a roads-only order to somewhere the network doesn't reach shouldn't just refuse —
-  // run the trunk as far as it goes and say why the rest is cross-country
-  if (!p && opts.roadsOnly) {
-    p = findPath(S.map!, from.x, from.y, x, y, mob, { ...opts, roadsOnly: false, roadBias: 3 })
-    if (p && u.side === 'friend') toast('NO ROAD ROUTE — MOVING CROSS-COUNTRY')
-  }
+  const p = findPath(S.map!, from.x, from.y, x, y, mob)
   // only surface the toast for player-issued orders; the enemy AI re-drives idle
   // units every tick, so an unreachable hostile objective would spam it forever
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
@@ -227,7 +202,7 @@ export function removeLastWaypoint(unitId: number): void {
 // no radio). Used to collapse a group's terminal fan to a common transit point
 // when a new waypoint is appended, so the spread lives only at the last leg
 // instead of freezing into a kink mid-route.
-export function convergeLastLeg(unitId: number, x: number, y: number, opts: PathOpts = {}): void {
+export function convergeLastLeg(unitId: number, x: number, y: number): void {
   const u = S.units.find(u => u.id === unitId)
   if (!u || !u.legs || !u.legs.length) return
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
@@ -235,7 +210,7 @@ export function convergeLastLeg(unitId: number, x: number, y: number, opts: Path
   // start of the last leg = the path point just before its segment, else the unit
   const before = u.path.length - last.n - 1
   const start = before >= 0 ? u.path[before]! : { x: u.x, y: u.y }
-  const p = findPath(S.map!, start.x, start.y, x, y, effStats(u).mob, roadIntent(x, y, opts))
+  const p = findPath(S.map!, start.x, start.y, x, y, effStats(u).mob)
   if (!p) return
   u.path.length = u.path.length - last.n
   u.path = u.path.concat(p)
@@ -259,8 +234,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
   const removed = u.legs[legIndex]!
   const next = u.legs[legIndex + 1]!
   const start = legIndex === 0 ? { x: u.x, y: u.y } : u.path[before - 1]!
-  const bridge = findPath(S.map!, start.x, start.y, next.x, next.y, effStats(u).mob,
-    roadIntent(next.x, next.y, {}))
+  const bridge = findPath(S.map!, start.x, start.y, next.x, next.y, effStats(u).mob)
     || [{ x: next.x, y: next.y }]
   u.path = [...u.path.slice(0, before), ...bridge, ...u.path.slice(before + removed.n + next.n)]
   u.legs.splice(legIndex, 1)

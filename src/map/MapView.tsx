@@ -26,8 +26,7 @@ import { renderPackLayer, packPlaceLabels } from './packRender'
 import { R_TRACK, R_SECONDARY, R_PRIMARY } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
-import { useUI, ROUTE_OPTS } from '../ui/store'
-import type { PathOpts } from '../world/pathfinding'
+import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
@@ -273,24 +272,17 @@ export default function MapView() {
               return (p.x - wx0) * ldx + (p.y - wy0) * ldy
             }
             const sorted = [...sel].sort((a, b) => proj(a) - proj(b))
-            // ROUTING. The FIRST fan is the approach march: it uses the road
-            // network, so the force runs the MSR (over the bridge) and only
-            // peels off to its own slot at the end. Every fan AFTER that is an
-            // assault leg — cross-country, because snapping a spread line back
-            // onto a road is what collapses it into single file.
-            // An explicit route mode beats both.
-            const spreadOpts: PathOpts = ui.routeMode !== 'auto'
-              ? { ...(ROUTE_OPTS[ui.routeMode] || {}) }
-              : app ? { crossCountry: true } : { roadBias: 3 }
             // NO converge. Each unit appends from its OWN last route point
             // (orderMove: `from = u.path[u.path.length-1]`), so fan N+1 grows
             // out of fan N — the spread widens instead of being funnelled back
-            // through one shared point and re-fanned.
+            // through one shared point and re-fanned. The router's one clock
+            // handles the rest: short spread legs go direct because the road
+            // detour loses on time.
             sorted.forEach((o, i) => {
               const t = sorted.length > 1 ? i / (sorted.length - 1) : 0.5
               const px = wx0 + ldx * t, py = wy0 + ldy * t
               if ((S.drones as Array<Unit | Drone>).includes(o)) orderDroneMove(o.id, px, py, app)
-              else orderMove(o.id, px, py, app, attack, gid, { ...spreadOpts })
+              else orderMove(o.id, px, py, app, attack, gid)
             })
           }
           return
@@ -428,18 +420,14 @@ export default function MapView() {
     // (shared route, pace cap, station-keeping) belongs to real combat groups, which
     // don't exist yet; orderGroupMove is waiting for them.
     function issueMoves(units: Unit[], wx: number, wy: number, append: boolean, attack = false) {
-      const opts = ROUTE_OPTS[useUI.getState().routeMode] || {}
       const cols = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / cols)
-      // A new waypoint NEVER touches an earlier one. Each leg keeps the ground
-      // it was routed over and the route mode it was given — plan a bound up
-      // the MSR on ROADS, then a cross-country leg onto the objective, and the
-      // road bound stays a road bound. orderMove appends from the end of the
-      // existing route and leaves everything before it alone.
+      // A new waypoint NEVER touches an earlier one — orderMove appends from
+      // the end of the existing route and leaves everything before it alone.
       units.forEach((u, k) => {
         const ox = ((k % cols) - (cols - 1) / 2) * 90
         const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
-        orderMove(u.id, wx + ox, wy + oy, append, attack, null, { ...opts })
+        orderMove(u.id, wx + ox, wy + oy, append, attack, null)
       })
     }
 

@@ -1,89 +1,39 @@
-// A* over the terrain grid for a mobility class. Returns array of world-space
-// waypoints (cell centers, collinear points pruned), or null if unreachable.
-// Ported verbatim from src/game/pathfinding.js.
+// Routing. ONE behaviour, no modes, no challengers (GROUNDWORK.md P5b,
+// settled the hard way): on a pack map, movement IS the road network — every
+// order takes the junction-graph route over the real polylines, full stop.
+// The cell A* exists only as the fallback when the graph has nothing to say
+// (procgen maps until P6 buries them; a map with no network at all).
 //
-// opts.crossCountry: strip the road speed bonus so tactical moves advance
-//   direct/off-road (roads still usable — and still the only water crossings).
-// opts.offRoad: stronger — makes roads no cheaper than field for every mobility
-//   class ("the player clicked open ground, go there direct").
-// opts.roadBias: penalise off-road cells so a route sticks to the network.
-// opts.roadsOnly: refuse off-road cells outright, except close to either end —
-//   a unit still has to get on and off the road somewhere.
+// There is deliberately NO time-race between the graph and a direct cell
+// route: on a road the cell version prices the same speed but measures
+// shorter (cell centres chord the real curves), so any tie-breaker hands the
+// stair-step garbage a win over the clean geometry. Tried it. Never again.
+// A field-waypoint order that circles via the road instead of crossing the
+// field is the accepted cost until a rule exists that cannot regress this.
+//
+// The optional `profile` is doctrine, not a mode: supply convoys over-prefer
+// arterials beyond raw time.
 import { MinHeap } from './minheap'
 import { type Vec2, type WorldMap } from './WorldMap'
 import type { Mobility } from './mobility'
 import { routeOnRoads, type RouteProfile } from './pack/roadGraph'
 
-export interface PathOpts {
-  crossCountry?: boolean
-  offRoad?: boolean
-  roadBias?: number
-  roadsOnly?: boolean
-  /** road-graph cost profile for roads-only routes on pack maps */
-  profile?: RouteProfile
-}
-
 export function findPath(
   map: WorldMap, sx: number, sy: number, tx: number, ty: number,
-  mob: Mobility, opts: PathOpts = {},
+  mob: Mobility, profile: RouteProfile = 'fastest',
 ): Vec2[] | null {
   if (map.ground) {
-    // Pack maps are ROADS-FIRST (GROUNDWORK.md P5b). ROADS orders route on
-    // the network, period. FASTEST/AUTO route on the network TOO — roads are
-    // assumed faster because they are — and only take the direct cell route
-    // when the clock genuinely says so (a short hop, or a map with barely
-    // any network). In a city, "fastest" IS the streets; cutting a block is
-    // never on offer. OFF ROAD / CROSS COUNTRY stay deliberate cell moves.
-    if (opts.roadsOnly) {
-      const r = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
-      if (r) return r
-    } else if (!opts.offRoad && !opts.crossCountry) {
-      const road = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
-      const cell = findPathCells(map, sx, sy, tx, ty, mob, opts)
-      if (road && cell) {
-        return routeTime(map, road, mob, sx, sy) <= routeTime(map, cell, mob, sx, sy) ? road : cell
-      }
-      return road ?? cell
-    }
+    const road = routeOnRoads(map, sx, sy, tx, ty, mob, profile)
+    if (road) return road
   }
-  return findPathCells(map, sx, sy, tx, ty, mob, opts)
-}
-
-// Honest clock over a waypoint route: distance × the ground's factor, sampled
-// along each leg. This is what arbitrates network vs direct — an off-network
-// leg through a lake prices Infinity, so a bad shortcut can never win.
-function routeTime(map: WorldMap, pts: Vec2[], mob: Mobility, sx: number, sy: number): number {
-  let t = 0
-  let px = sx, py = sy
-  for (const p of pts) {
-    const len = Math.hypot(p.x - px, p.y - py)
-    const n = Math.max(1, Math.min(24, Math.ceil(len / map.CELL)))
-    for (let k = 0; k < n; k++) {
-      const f = map.moveFactor(px + (p.x - px) * ((k + 0.5) / n), py + (p.y - py) * ((k + 0.5) / n), mob)
-      if (!isFinite(f)) return Infinity
-      t += (len / n) * f
-    }
-    px = p.x; py = p.y
-  }
-  return t
+  return findPathCells(map, sx, sy, tx, ty, mob)
 }
 
 function findPathCells(
   map: WorldMap, sx: number, sy: number, tx: number, ty: number,
-  mob: Mobility, opts: PathOpts = {},
+  mob: Mobility,
 ): Vec2[] | null {
   const GRID = map.GRID
-  // Road penalty. crossCountry (2.2) merely dampens the bonus — enough for the AI's
-  // tactical advances, but wheeled roads are 3.1x better than open ground, so a route
-  // still hugs them. offRoad (3.4) makes roads no cheaper than field for every mobility
-  // class, which is what "the player clicked open ground, go there" actually needs.
-  const xc = opts.offRoad ? 3.4 : opts.crossCountry ? 2.2 : 1
-  const bias = opts.roadBias || 1
-  const roadsOnly = !!opts.roadsOnly
-  // Off-road slack allowed at each end in roads-only mode. Generous on purpose: the
-  // order means "use the network for the trunk", not "refuse to move unless the
-  // destination is itself paved" — a tight apron just makes the order fail.
-  const APRON = 14
   const start = map.cellAt(sx, sy)
   let goal = map.cellAt(tx, ty)
 
@@ -145,18 +95,6 @@ function findPathCells(
       if (dx !== 0 && dy !== 0
         && (!isFinite(map.moveFactorCell(cy * GRID + (cx + dx), mob))
           || !isFinite(map.moveFactorCell((cy + dy) * GRID + cx, mob)))) continue
-      if (map.road[ni]) {
-        if (xc > 1) f *= xc // dampen road preference for tactical moves
-      } else {
-        // off-road cell: blocked in roads-only mode unless we're still on the apron
-        // at either end, otherwise merely penalised when a road route is wanted
-        if (roadsOnly) {
-          const nearStart = Math.abs(nx - sx0) <= APRON && Math.abs(ny - sy0) <= APRON
-          const nearGoal = Math.abs(nx - gx0) <= APRON && Math.abs(ny - gy0) <= APRON
-          if (!nearStart && !nearGoal) continue
-        }
-        if (bias > 1) f *= bias
-      }
       const ng = g[cur]! + ((dx && dy) ? 1.414 : 1) * f
       if (ng < g[ni]!) {
         g[ni] = ng

@@ -114,8 +114,8 @@ const ACTIONS: CmdAction[] = [
       const px = (-ay / L) * side, py = (ax / L) * side
       const mx = c.cen.x + ax * 0.55 + px * 1200, my = c.cen.y + ay * 0.55 + py * 1200
       for (const u of flankers) {
-        orderMove(u.id, mx, my, false, false, null, { crossCountry: true })
-        orderMove(u.id, obj.x + px * 250, obj.y + py * 250, true, true, null, { crossCountry: true })
+        orderMove(u.id, mx, my, false, false, null)
+        orderMove(u.id, obj.x + px * 250, obj.y + py * 250, true, true, null)
       }
       c.grp.scheme = 'flank'
       c.grp.flankIds = flankers.map(u => u.id)
