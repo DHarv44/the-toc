@@ -60,6 +60,10 @@ export interface UIState {
   // yours; the center is theirs). A manual map pan breaks the lock.
   track: boolean
   toggleTrack: () => void
+  // satellite underlay: the BFT sheet swaps for orthoimagery of the same box
+  // (fetched on first toggle, session-cached; symbology stays on top)
+  sat: boolean
+  toggleSat: () => void
   overlayAlpha: number      // commander's overlay intensity (1 → 0.7 → 0.45, cycles)
   cycleOverlayAlpha: () => void
   rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
@@ -137,6 +141,8 @@ export const useUI = create<UIState>()((set, get) => ({
   toggleOverlay: (k) => set((s) => ({ overlays: { ...s.overlays, [k]: !s.overlays[k] } })),
   track: false,
   toggleTrack: () => set((s) => ({ track: !s.track })),
+  sat: false,
+  toggleSat: () => set((s) => ({ sat: !s.sat })),
   overlayAlpha: 1,
   cycleOverlayAlpha: () => set((s) => ({ overlayAlpha: s.overlayAlpha > 0.85 ? 0.7 : s.overlayAlpha > 0.6 ? 0.45 : 1 })),
   rangeUnits: {},

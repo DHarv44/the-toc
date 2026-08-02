@@ -270,6 +270,28 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   is doctrine weighting, not a mode. Any-angle smoothing applies to cell
   fallback routes.
 
+## Satellite imagery (2026-08-02, on Groundwork 0.2.0)
+
+- Packages bumped to 0.2.0: the builder now EXPORTS its imagery intake
+  (fetchImagery/prefetchImagery/estimates — Esri World Imagery through the
+  /api/imagery proxy, reprojected to plate carrée so it registers with the
+  DEM and vectors, shared IndexedDB tile cache under configureBuilder's
+  namespace). `world/pack/imagery.ts` wraps it: TOC adds only WHICH bounds
+  (whole box / sim frame) + a session canvas cache + the Esri credit string.
+- BFT: SAT map button (with the display toggles) swaps the exact sheet for
+  orthoimagery of the frame, fetched on first toggle; symbology, labels and
+  the attribution line (now + Esri credit) ride on top. Imagery is NOT pack
+  bytes — upstream chose live-intake-with-cache — so first view needs the
+  net; after that the tiles are local.
+- UAV feed: SAT joined the sensor modes (WHOT/BHOT/EO/NVG/SAT) — the box
+  mosaic draped on the engine mesh, EO visual language, credit on the
+  picture. Falls back to the painted EO drape until the mosaic lands.
+- Fidelity ceiling, by design: one-shot mosaics cap at 144 tiles/4096 px, so
+  a battalion-sized box lands ~z13. Sharper = smaller bounds at higher zoom:
+  the engine 0.2.0 ships `imageryRings` (a 4-level clipmap in TerrainSurface,
+  eased swaps) for the feed, and the BFT wants a viewport-following patch.
+  NEXT TASK — not yet built.
+
 ## Upstream asks (Groundwork changes, done in terrain-builder + republished)
 
 - **Persist the viewer camera** (orbit position + target) with the builder's

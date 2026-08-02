@@ -22,6 +22,8 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
+import { frameOf } from '../world/pack/frame'
+import { frameImagery, IMAGERY_CREDIT } from '../world/pack/imagery'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI } from '../ui/store'
@@ -40,6 +42,18 @@ export default function MapView() {
     // into the sheet once; the per-frame cost is a blit (GROUNDWORK.md P4)
     const ground = S.map!.ground!
     const terrainLayer = renderPackLayer(S.map!, ground)
+    // SAT underlay: orthoimagery of the same frame, fetched lazily on first
+    // toggle (builder's intake, session-cached) and blitted in the sheet's
+    // place. Null until it lands; the sheet keeps drawing meanwhile.
+    let satLayer: HTMLCanvasElement | null = null
+    let satKicked = false
+    const kickSat = () => {
+      if (satKicked) return
+      satKicked = true
+      frameImagery(ground, frameOf(ground.files.manifest))
+        .then(cv => { satLayer = cv })
+        .catch(e => { satKicked = false; console.error('satellite imagery failed', e) })
+    }
     // the full gazetteer + the licence line the ODbL requires on the sheet
     const packLabels = packPlaceLabels(S.map!, ground)
     const attribution = ground.files.manifest.attribution.map(a => `${a.source} — ${a.licence}`).join('  ·  ')
@@ -506,7 +520,8 @@ export default function MapView() {
         }
       }
       clampView()
-      const night = useUI.getState().night
+      const { night, sat } = useUI.getState()
+      if (sat) kickSat()
       const W = canvas.width, H = canvas.height
       // off-map backdrop: shows wherever the square map doesn't fill the viewport.
       // Mirrors the splash screen (radial wash + faint grid) so fit-to-screen reads
@@ -526,16 +541,24 @@ export default function MapView() {
       ctx.stroke()
       ctx.restore()
 
-      // terrain (dimmed + desaturated at night)
+      // terrain (dimmed + desaturated at night) — the exact sheet, or the
+      // orthoimagery of the same frame when SAT is on (symbology stays on top)
       const mpp = S.map!.CELL / TERRAIN_PX
-      ctx.imageSmoothingEnabled = view.ppm * mpp < 1
+      const showSat = sat && satLayer != null
+      ctx.imageSmoothingEnabled = showSat || view.ppm * mpp < 1
       if (night) ctx.filter = 'brightness(0.42) saturate(0.5) contrast(1.05)'
-      ctx.drawImage(
-        terrainLayer,
-        w2sX(0), w2sY(0),
-        terrainLayer.width * mpp * view.ppm,
-        terrainLayer.height * mpp * view.ppm,
-      )
+      if (showSat) {
+        // the sat canvas covers exactly the frame window, whatever its px size
+        ctx.drawImage(satLayer!, w2sX(0), w2sY(0),
+          S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
+      } else {
+        ctx.drawImage(
+          terrainLayer,
+          w2sX(0), w2sY(0),
+          terrainLayer.width * mpp * view.ppm,
+          terrainLayer.height * mpp * view.ppm,
+        )
+      }
       ctx.filter = 'none'
 
       // frame the map edge so the off-map backdrop reads as "outside the AO"
@@ -660,8 +683,10 @@ export default function MapView() {
         ctx.save()
         ctx.font = '8px Consolas, monospace'
         ctx.textAlign = 'right'
-        ctx.fillStyle = night ? 'rgba(150,170,190,0.45)' : 'rgba(40,50,60,0.5)'
-        ctx.fillText(attribution, canvas.clientWidth - 8, canvas.clientHeight - 6)
+        ctx.fillStyle = night ? 'rgba(150,170,190,0.45)' : showSat ? 'rgba(210,220,230,0.6)' : 'rgba(40,50,60,0.5)'
+        // Esri's credit joins the line whenever its imagery is on the sheet
+        ctx.fillText(showSat ? `${attribution}  ·  ${IMAGERY_CREDIT}` : attribution,
+          canvas.clientWidth - 8, canvas.clientHeight - 6)
         ctx.restore()
       }
 

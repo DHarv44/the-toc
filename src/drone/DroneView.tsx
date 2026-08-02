@@ -24,6 +24,7 @@ import { T_FOREST, T_URBAN } from '../world/WorldMap'
 import { hash01 } from '../lib/math'
 import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
 import { groundAt, groundCtx } from './ground'
+import { boxImagery } from '../world/pack/imagery'
 import { playFeedAudio } from './feedAudio'
 import { COMPOSITIONS } from '../domains/forces/composition'
 import { loadFeedVehicleModels } from './vehicle-models'
@@ -221,9 +222,44 @@ function getDetail(): Detail {
   return cache
 }
 
+// SAT is a daylight ortho drape: everything that isn't the ground texture —
+// vehicle tints, tree/building colors, lighting, fog — reads as EO.
+const eoLike = (m: SensorMode): boolean => m === 'EO' || m === 'SAT'
+
+// The satellite drape for the CURRENT map, one GPU texture per session.
+// Fetched through the builder's imagery intake on first request (whole box —
+// the engine mesh's UVs span it natively); null until the mosaic lands, and
+// the feed falls back to the painted EO drape meanwhile.
+let satTex: { map: WorldMap; tex: THREE.CanvasTexture | null } | null = null
+let satTexKicked: WorldMap | null = null
+function getSatTex(): THREE.CanvasTexture | null {
+  if (satTex && satTex.map === S.map) return satTex.tex
+  return null
+}
+function kickSatTex(onReady: () => void): void {
+  if (satTexKicked === S.map) return
+  const map = S.map!
+  satTexKicked = map
+  boxImagery(map.ground!)
+    .then(cv => {
+      const tex = new THREE.CanvasTexture(cv)
+      tex.flipY = false // canvas rows run north→south, same as the engine UVs
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.anisotropy = 8
+      satTex = { map, tex }
+      onReady()
+    })
+    .catch(e => { satTexKicked = null; console.error('satellite imagery failed', e) })
+}
+
 function TerrainMesh({ mode }: { mode: SensorMode }) {
   const detail = useMemo(getDetail, [])
-  const tex = mode === 'EO' ? detail.texEO : detail.texIR
+  const [, bump] = useState(0)
+  useEffect(() => {
+    if (mode === 'SAT' && !getSatTex()) kickSatTex(() => bump(n => n + 1))
+  }, [mode])
+  const sat = mode === 'SAT' ? getSatTex() : null
+  const tex = sat ?? (eoLike(mode) ? detail.texEO : detail.texIR)
   return (
     <>
       <mesh geometry={detail.geo} position={[detail.offX, 0, detail.offZ]}>
@@ -233,7 +269,7 @@ function TerrainMesh({ mode }: { mode: SensorMode }) {
           ground tone falling into fog, never into the void */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[detail.offX, detail.skirtY, detail.offZ]}>
         <planeGeometry args={[120000, 120000]} />
-        <meshLambertMaterial color={mode === 'EO' ? '#4a472e' : '#3a3a3a'} />
+        <meshLambertMaterial color={eoLike(mode) ? '#4a472e' : '#3a3a3a'} />
       </mesh>
     </>
   )
@@ -277,14 +313,14 @@ function SceneDetail({ mode }: { mode: SensorMode }) {
     const c = new THREE.Color()
     for (let i = 0; i < detail.trees.length; i++) {
       const n = detail.trees[i]!.n
-      if (mode === 'EO') c.setRGB(0.08 + n * 0.06, 0.20 + n * 0.10, 0.06 + n * 0.04)
+      if (eoLike(mode)) c.setRGB(0.08 + n * 0.06, 0.20 + n * 0.10, 0.06 + n * 0.04)
       else c.setRGB(0.10 + n * 0.05, 0.10 + n * 0.05, 0.10 + n * 0.05) // cool canopy
       tm.setColorAt(i, c)
     }
     if (tm.instanceColor) tm.instanceColor.needsUpdate = true
     for (let i = 0; i < detail.bldgs.length; i++) {
       const n = detail.bldgs[i]!.n
-      if (mode === 'EO') c.setRGB(0.45 + n * 0.15, 0.43 + n * 0.14, 0.40 + n * 0.13)
+      if (eoLike(mode)) c.setRGB(0.45 + n * 0.15, 0.43 + n * 0.14, 0.40 + n * 0.13)
       else c.setRGB(0.45 + n * 0.2, 0.45 + n * 0.2, 0.44 + n * 0.2) // warm structures
       bm.setColorAt(i, c)
     }
@@ -508,7 +544,7 @@ function StructuresLayer({ feedRef, mode }: { feedRef: { current: FeedState }; m
   }
   const geos = useMemo(getStructGeos, [])
   useFrame(() => {
-    const eo = mode === 'EO'
+    const eo = eoLike(mode)
     const feed = feedRef.current
     const cnt: Record<StructureTypeKey, number> = { FOB: 0, HQ: 0, OP: 0, AFLD: 0 }
     if (feed.active) {
@@ -597,7 +633,7 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
   }, [])
 
   useFrame((_, dt) => {
-    const eo = mode === 'EO'
+    const eo = eoLike(mode)
     const feed = feedRef.current
     const trp = trpRef.current
     const meshes = meshRefs.current
@@ -931,7 +967,7 @@ export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = fals
   muted?: boolean
 }) {
   const feedRef = useRef<FeedState>({ active: false, cx: 0, cy: 0 })
-  const eo = mode === 'EO'
+  const eo = eoLike(mode)
   return (
     <Canvas
       gl={{ antialias: true }}

@@ -31,6 +31,7 @@ import { PaletteIcon, buildItems } from './palette'
 import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
 import { groundAt } from '../drone/ground'
+import { IMAGERY_CREDIT } from '../world/pack/imagery'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active: boolean): CSSProperties => ({
@@ -85,6 +86,9 @@ export default function HUD() {
       }}>
         <button title={ui.night ? 'Switch to day' : 'Switch to night'}
           onClick={ui.toggleNight} style={mapCtl(ui.night)}>{ui.night ? '☾' : '☀'}</button>
+        <button title="Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)"
+          onClick={ui.toggleSat}
+          style={{ ...mapCtl(ui.sat), fontSize: 7.5, letterSpacing: 0.5 }}>SAT</button>
         <button title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
           onClick={() => ui.toggleOverlay('fires')}
           style={{ ...mapCtl(ui.overlays.fires), fontSize: 7.5, letterSpacing: 0.5 }}>FIRES</button>
@@ -639,12 +643,13 @@ function StructMenu() {
   )
 }
 
-const CAM_MODES = ['WHOT', 'BHOT', 'EO', 'NVG'] as const
+const CAM_MODES = ['WHOT', 'BHOT', 'EO', 'NVG', 'SAT'] as const
 const CAM_FILTERS: Record<string, string> = {
   WHOT: 'grayscale(1) contrast(1.18) brightness(1.08)',
   BHOT: 'grayscale(1) invert(1) contrast(1.12) brightness(1.02)',
   EO: 'saturate(1.08) contrast(1.05)',
   NVG: 'grayscale(1) brightness(1.4) sepia(1) hue-rotate(55deg) saturate(3.2) contrast(1.12)',
+  SAT: 'saturate(1.04) contrast(1.03)', // orthoimagery drape — near-raw
 }
 
 // Where the sensor is actually looking — must match DroneCamera exactly, or feed clicks
@@ -1243,10 +1248,16 @@ export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number;
                 <div key={i} style={{ position: 'absolute', width: 16, height: 16, borderStyle: 'solid', borderColor: 'rgba(220,235,245,0.6)', borderWidth: p.bw, top: p.top, left: p.left, right: p.right, bottom: p.bottom }} />
               ))}
               <div style={{ position: 'absolute', top: 8, left: 26, color: '#d8e8f0', fontSize: 9, letterSpacing: 1 }}>
-                {drone.label} · {camMode === 'EO' ? 'EO DAY-TV' : camMode === 'NVG' ? 'I2 NVG' : 'IR ' + camMode} · {
+                {drone.label} · {camMode === 'EO' ? 'EO DAY-TV' : camMode === 'SAT' ? 'SAT ORTHO' : camMode === 'NVG' ? 'I2 NVG' : 'IR ' + camMode} · {
                   drone.state === 'transit' ? 'TRANSIT' : drone.state === 'rtb' ? 'RTB' : drone.state === 'striking' ? 'TERMINAL' : 'ON STA'}
                 {' · '}{(38 / feed.fov).toFixed(1)}×{(feed.gx || feed.gy) ? ' · OFFSET' : ''}
               </div>
+              {/* the imagery credit rides the picture it applies to */}
+              {camMode === 'SAT' && (
+                <div style={{ position: 'absolute', bottom: 8, left: 26, color: 'rgba(216,232,240,0.55)', fontSize: 8, letterSpacing: 0.5 }}>
+                  {IMAGERY_CREDIT}
+                </div>
+              )}
               {/* gunship: selected weapon + remaining rounds, read off the imagery */}
               {DRONE_TYPES[drone.type].gunship && (() => {
                 const g = DRONE_TYPES[drone.type].gunship!
