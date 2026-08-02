@@ -81,6 +81,9 @@ export interface WorldMap {
   seed: number
   /** How to build this map again — the identity that persists (see ./mapref). */
   ref?: MapRef
+  /** The opened pack this map was built from — the exact renderer draws from
+   *  it directly instead of from the sim rasters (pack maps only). */
+  ground?: import('./pack/loadGround').Ground
   theaterId?: string        // real-DEM theater the elevation came from (absent = procgen noise)
   fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
   enemyBase: Vec2

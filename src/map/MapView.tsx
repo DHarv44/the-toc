@@ -22,6 +22,7 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender'
+import { renderPackLayer } from './packRender'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
@@ -37,7 +38,11 @@ export default function MapView() {
   useEffect(() => {
     const canvas = canvasRef.current!
     const ctx = canvas.getContext('2d')!
-    const terrainLayer = renderTerrainLayer(S.map!)
+    // pack maps get the exact renderer — the export drawn directly, roads and
+    // all baked into the sheet; procgen keeps the raster renderer until P6
+    const terrainLayer = S.map!.ground
+      ? renderPackLayer(S.map!, S.map!.ground)
+      : renderTerrainLayer(S.map!)
     // dev sandbox frames both bases in one screen; everything else opens on the
     // HQ (campaign included — the whole theater is the playfield, no AO crops)
     const dv = S.map!.devView
@@ -538,7 +543,10 @@ export default function MapView() {
       // styled by class — dirt paths dashed, roads cased, the highway trunk
       // wider with a center line once zoomed in. Drawn path → road → highway
       // so the MSR reads on top where routes overlap.
-      {
+      // PACK MAPS SKIP THIS: their roads are baked into the sheet (packRender)
+      // — real geography carries 50k+ polylines and a per-frame walk of them
+      // is exactly why the map crawled.
+      if (!S.map!.ground) {
         const strokePoly = (pts: { x: number; y: number }[]) => {
           ctx.moveTo(w2sX(pts[0]!.x), w2sY(pts[0]!.y))
           for (let i = 1; i < pts.length; i++) ctx.lineTo(w2sX(pts[i]!.x), w2sY(pts[i]!.y))

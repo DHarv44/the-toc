@@ -125,14 +125,24 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   real Baghdad roads pricing real movement. Real names throughout (بغداد,
   تل جمر…).
 
-### P4 — the exact BFT
-- [ ] Pack-native 2D underlay renderer (new module, not mapRender surgery):
-      contours/hypsometric/hillshade from the native heightfield; water/wood/
-      built as even-odd vector fills; roads stroked at class widths; real place
-      labels. Water drawn = sim water (impassable must never be misdrawn).
-- [ ] MapView selects renderer by map kind; symbols/overlays untouched
-- [ ] Attribution line surfaced (splash credits + map load)
-- Verify: side-by-side with Groundwork's own view — geometry matches.
+### P4 — the exact BFT                       [core DONE; labels+attribution open]
+- [x] src/map/packRender.ts: the export drawn directly — elevation art
+      (hypsometric bands over the map's own range, NW hillshade, contour
+      interval picked by relief: 10/20/50 m in REAL metres) from the pack
+      heightfield; water/wood/built as even-odd polygon fills (islands and
+      clearings survive; water fills last and gets bank lines); all five
+      observed road classes at true widths (ROAD_WIDTH_METRES), cased by
+      class, tracks dashed. Water drawn from the same polygons the sim raster
+      quantized — one source, two projections, ≤ half-cell disagreement.
+- [x] MapView: pack maps take the exact layer AND SKIP the per-frame road
+      vector pass — which was the slowness (51k polylines walked per frame).
+      Measured after: ~145 fps on Baghdad. Bake-once/blit-per-frame is the
+      architecture, not an optimisation.
+- [ ] Real place labels on the sheet (all pack names, ranked type sizes) —
+      MapView's dynamic town/feature labels cover the sim's 8+10 today
+- [ ] Attribution line surfaced in-game (splash credits + map load)
+- Note: bake cost is one ~4096² per-pixel pass at map open (~seconds). Fine
+  as a one-time cost; tile it later only if it ever hurts.
 
 ### P5 — skirmish + campaign on packs
 - [ ] Skirmish setup lists installed pack maps (procgen option remains until P6)
