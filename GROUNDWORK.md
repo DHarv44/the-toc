@@ -221,11 +221,32 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
       by id).
 - Verify: typecheck clean; skirmish playthrough on pack ground in-browser.
 
-### P7 — UAV on the engine
-- [ ] DroneView terrain = `@dharv44/groundwork-engine` mesh fed by the pack;
-      TOC keeps camera, sensor palettes (IR texture draped on engine geometry
-      first pass), units/structures/trees layers; ground height via `sampleBox`
-- Verify: feed over real terrain in WHOT/EO; performance on a full battle.
+### P7 — UAV on the engine                   [DONE 2026-08-02]
+- [x] DroneView terrain = the engine's `buildTerrain(hf)` — the pack's native
+      heightfield as a mesh in REAL metres, whole box, analytic normals
+      (exaggeration 1 = the true ground). Engine geometry is box-centred; sim
+      world coords hang off the frame's NW corner — spanX·widthMetres = WORLD
+      makes the difference a pure translation, so nothing else in the feed
+      moved. The old 512² mesh built from the sim's gameplay-renormalized
+      `elev` raster is gone.
+- [x] Ground height via core sampling: `drone/ground.ts` — `groundAt()` reads
+      the pack through `sampleBox`, and everything the feed places vertically
+      (hulls, camera, tracers, smoke, structures) reads there. DroneCamera had
+      been flying on `S.map.elevAt` — a different (gameplay-scaled) datum that
+      would clip real terrain — and now rides the same surface it films.
+- [x] Sensor palettes kept, sources upgraded: the IR/EO ground textures are
+      painted from the PACK's own polygons (water/wood/built, even-odd) and
+      road vectors at true widths, whole box at ~6 m/px — the feed and the
+      BFT draw the same geometry. Baked hillshade removed: the mesh normals
+      light the relief. Trees/buildings/vehicles/effects layers unchanged.
+- First-pass tradeoffs (tweaks welcome): no engine WaterPlane (water is
+  painted tone on the near-flat DEM); plain Lambert over the draped texture
+  rather than the engine's TerrainSurface shader (shading softness capped by
+  mesh density, MESH_DETAIL 1024); the mesh's plinth skirt shows smeared edge
+  texture when viewed from outside the box; a flat surround plane at
+  hf.min − 1.5 keeps edge orbits out of the void.
+- Verified: user-tested in the sandbox over Baghdad — feed over real terrain
+  confirmed effective; further tweaks to follow as their own tasks.
 
 - **Built-up ground is walls (2026-08-02).** `urban` is impassable to wheeled
   and tracked — vehicles drive the streets stamped through a district, never

@@ -6,6 +6,7 @@ import type { PerspectiveCamera } from 'three'
 import { S } from '../engine/state'
 import { DRONE_TYPES } from '../domains/air/catalog'
 import { easePose, type Pose } from './smoothing'
+import { groundAt } from './ground'
 
 // aerostat turret depression limits: level (can't tilt above the horizon) to near-nadir
 export const AEROSTAT_MIN_TILT = 0.05    // rad above 0 so the horizon look-distance stays finite
@@ -56,7 +57,9 @@ export function DroneCamera({ feedRef, droneId, gimbal }: {
     }
     easePose(eye.current, d.x, d.y, 0, dt, 400)
     const ex = eye.current.x, ey = eye.current.y
-    const elev = S.map!.elevAt(ex, ey)
+    // real-metre ground (./ground) — the same surface the engine mesh draws;
+    // the sim's own elevAt is a different (gameplay-scaled) field entirely
+    const elev = groundAt(ex, ey)
     camera.position.set(ex, elev + spec.alt * (d.altMul || 1), ey)
     // Ease the look point too, and hand the camera the eased one. A hard slew —
     // a new lock, a mode change — outruns the snap threshold and cuts, the way
@@ -65,7 +68,7 @@ export function DroneCamera({ feedRef, droneId, gimbal }: {
       easePose(aim.current, x, y, 0, dt, 600)
       const lx = aim.current.x, ly = aim.current.y
       feed.cx = lx; feed.cy = ly
-      camera.lookAt(lx, S.map!.elevAt(lx, ly) + yOff, ly)
+      camera.lookAt(lx, groundAt(lx, ly) + yOff, ly)
     }
     if (d.lock && d.state !== 'striking') {
       // sensor lock: stay on the point/track no matter where the orbit takes us

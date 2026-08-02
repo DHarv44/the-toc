@@ -1,143 +1,138 @@
 // The battlefield as seen through a UAS sensor ball. The scene is built in two
 // palettes: IR luminance (WHOT/BHOT/NVG derive from it via CSS filters) and
-// EO natural color. Detail layer: 512² micro-displaced terrain, instanced
-// trees in forests and buildings in towns, shared per map.
-// Ported verbatim from src/drone/DroneView.jsx; the camera lives in
-// DroneCamera.tsx and the feed-audio pass in feedAudio.ts. The dead
-// formationOffset helper (superseded by the sim's element layer) was dropped.
+// EO natural color.
+//
+// The GROUND is the Groundwork engine's (P7, GROUNDWORK.md): buildTerrain
+// turns the pack's native heightfield into a mesh in real metres — the same
+// export the BFT draws and the sim prices — and TOC's sensor-palette textures
+// (painted from the pack's own polygons and road vectors, whole box) drape
+// over it. Vertical placement samples the pack too (./ground), so the camera,
+// hulls and effects sit on the surface you can see. Instanced trees in
+// woodland and buildings in built-up areas ride on top, shared per map.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { buildTerrain } from '@dharv44/groundwork-engine'
+import { ROAD_WIDTH_METRES } from '@dharv44/groundwork-core'
+import type { PackRoad } from '@dharv44/groundwork-core'
 import { S } from '../engine/state'
 import type { WorldMap } from '../world/WorldMap'
 import { elemWorld, elemExposed, elemHeading } from '../domains/forces/elements'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
-import { T_FOREST, T_URBAN, T_WATER } from '../world/WorldMap'
+import { T_FOREST, T_URBAN } from '../world/WorldMap'
 import { hash01 } from '../lib/math'
 import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
+import { groundAt, groundCtx } from './ground'
 import { playFeedAudio } from './feedAudio'
 import { COMPOSITIONS } from '../domains/forces/composition'
 import { loadFeedVehicleModels } from './vehicle-models'
 import { makePoseCache, makeElemPoses } from './smoothing'
 
 export { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from './DroneCamera'
+export { groundAt } from './ground'
 
-const RES = 512 // terrain vertices per side
+// mesh vertices across the box's long side — capped at the DEM's own
+// resolution by buildTerrain, so small boxes render at native detail
+const MESH_DETAIL = 1024
 
 type SensorMode = 'WHOT' | 'BHOT' | 'NVG' | 'EO' | string
 
 interface Detail {
   map: WorldMap
   geo: THREE.BufferGeometry
+  /** engine box-centred coords → sim world coords (pure translation) */
+  offX: number
+  offZ: number
+  /** flat surround under the box edge, so edge orbits never stare into void */
+  skirtY: number
   texIR: THREE.CanvasTexture
   texEO: THREE.CanvasTexture
   trees: Array<{ x: number; y: number; h: number; s: number; n: number }>
   bldgs: Array<{ x: number; y: number; h: number; w: number; d: number; bh: number; rot: number; n: number }>
 }
 
-// The ground the feed DRAWS, which is not the ground WorldMap reports.
-// map.elevAt is a nearest-cell read — a 50 m step function — while the terrain
-// mesh below is built by interpolating between cell centres. Anything placed
-// with elevAt therefore doesn't stand on the surface you can see: it floats or
-// sinks by the difference, and hops several metres every time it crosses a cell
-// line. Everything the feed positions vertically samples here instead. The sim
-// keeps using elevAt; this is a picture concern, not a terrain one.
-export function groundAt(x: number, y: number): number {
-  const { elev, GRID, CELL } = S.map!
-  const cx = x / CELL - 0.5, cy = y / CELL - 0.5
-  let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
-  const wx = cx - gx0, wy = cy - gy0
-  gx0 = Math.max(0, Math.min(GRID - 1, gx0)); gy0 = Math.max(0, Math.min(GRID - 1, gy0))
-  const gx1 = Math.min(GRID - 1, gx0 + 1), gy1 = Math.min(GRID - 1, gy0 + 1)
-  const a = elev[gy0 * GRID + gx0]!, b = elev[gy0 * GRID + gx1]!
-  const c = elev[gy1 * GRID + gx0]!, d = elev[gy1 * GRID + gx1]!
-  return a * (1 - wx) * (1 - wy) + b * wx * (1 - wy) + c * (1 - wx) * wy + d * wx * wy
-}
-
 let cache: Detail | null = null
 function getDetail(): Detail {
   if (cache && cache.map === S.map) return cache
   const map = S.map!
-  const { elev, terr, waterSurf, GRID, WORLD, CELL } = map
+  const g = map.ground!
+  const { terr, GRID, CELL } = map
+  const man = g.files.manifest
+  const Wm = man.widthMetres, Hm = man.heightMetres
 
   const elevAtBilinear = groundAt
 
-  // --- ground color lives on a painted TEXTURE, not the vertices ---
-  // Vertex colors cap edge sharpness at the mesh resolution (~20-25 m), which
-  // reads as hard blocks up close and lets diagonal river cells pinch apart
-  // between vertices. Instead: paint a 2048² canvas per palette — cell classes
-  // upscaled with bilinear smoothing (soft shorelines/treelines, diagonals stay
-  // connected), grain noise for texture, and the VECTOR road polylines stroked
-  // at true widths on top so feed roads match the BFT curves (design law 1).
-  const EXT = 1600 // apron beyond the AO so edge orbits don't stare into the void
-  const SPAN = WORLD + EXT * 2
-  const waterC = new Float32Array(GRID * GRID)
-  for (let i = 0; i < GRID * GRID; i++) if (terr[i] === T_WATER) waterC[i] = 1
-  const fieldAt = (arr: Float32Array, x: number, y: number): number => {
-    const cx = x / CELL - 0.5, cy = y / CELL - 0.5
-    let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
-    const wx = cx - gx0, wy = cy - gy0
-    gx0 = Math.max(0, Math.min(GRID - 1, gx0)); gy0 = Math.max(0, Math.min(GRID - 1, gy0))
-    const gx1 = Math.min(GRID - 1, gx0 + 1), gy1 = Math.min(GRID - 1, gy0 + 1)
-    return arr[gy0 * GRID + gx0]! * (1 - wx) * (1 - wy) + arr[gy0 * GRID + gx1]! * wx * (1 - wy)
-      + arr[gy1 * GRID + gx0]! * (1 - wx) * wy + arr[gy1 * GRID + gx1]! * wx * wy
+  // --- the engine's terrain: the pack heightfield as a mesh in real metres
+  // (X east, Z south, Y up — exaggeration 1 is the true shape of the ground),
+  // with analytic normals so lighting carries the relief. Engine geometry is
+  // centred on the BOX; sim world coords hang off the frame's NW corner — and
+  // because spanX·widthMetres = WORLD the difference is a pure translation.
+  const build = buildTerrain(g.hf, { detail: MESH_DETAIL, exaggeration: 1 })
+  const { f } = groundCtx()
+  const offX = (0.5 - f.x0) * Wm
+  const offZ = (0.5 - f.y0) * Hm
+
+  // --- ground color lives on a painted TEXTURE draped over the mesh ---
+  // Painted from the PACK's own data, whole box, in each sensor palette: the
+  // observed polygons (water/wood/built, even-odd so islands and clearings
+  // survive) over an open-ground base, grain so nothing reads as plastic, and
+  // the real road vectors at true widths on top — the feed and the BFT draw
+  // the same geometry. Hillshade is NOT baked: the mesh normals light it.
+
+  const ROAD_DRAW: readonly PackRoad['cls'][] = ['track', 'minor', 'secondary', 'primary', 'motorway']
+  const ROAD_TONE: Record<'IR' | 'EO', Record<PackRoad['cls'], string>> = {
+    IR: {
+      track: 'rgb(112,112,112)', minor: 'rgb(124,124,124)', secondary: 'rgb(132,132,132)',
+      primary: 'rgb(138,138,138)', motorway: 'rgb(144,144,144)',
+    },
+    EO: {
+      track: 'rgb(84,71,51)', minor: 'rgb(80,68,51)', secondary: 'rgb(77,66,51)',
+      primary: 'rgb(82,71,55)', motorway: 'rgb(87,77,59)',
+    },
   }
-
   const makeGroundTex = (palette: 'IR' | 'EO'): THREE.CanvasTexture => {
-    const TEX = 2048
-    // per-cell base colors on a GRID-sized canvas
-    const tiny = document.createElement('canvas')
-    tiny.width = tiny.height = GRID
-    const tctx = tiny.getContext('2d')!
-    const img = tctx.createImageData(GRID, GRID)
-    for (let gy = 0; gy < GRID; gy++) {
-      for (let gx = 0; gx < GRID; gx++) {
-        const ci = gy * GRID + gx
-        const t = terr[ci]
-        const dry = hash01(gx, gy)
-        let r: number, g: number, b: number
-        if (palette === 'IR') {
-          let v: number
-          if (t === T_WATER) v = 0.05 + dry * 0.015
-          else if (t === T_FOREST) v = 0.15 + dry * 0.06
-          else if (t === T_URBAN) v = 0.40 + dry * 0.14
-          else v = 0.28 + dry * 0.07
-          r = g = b = v * 255
-        } else {
-          if (t === T_WATER) { r = 33; g = (0.22 + dry * 0.03) * 255; b = (0.30 + dry * 0.04) * 255 }
-          else if (t === T_FOREST) { r = (0.10 + dry * 0.05) * 255; g = (0.22 + dry * 0.08) * 255; b = (0.08 + dry * 0.03) * 255 }
-          else if (t === T_URBAN) { r = (0.38 + dry * 0.1) * 255; g = (0.37 + dry * 0.1) * 255; b = (0.35 + dry * 0.09) * 255 }
-          else { r = (0.32 + dry * 0.14) * 255; g = (0.32 + dry * 0.08) * 255; b = (0.16 + dry * 0.05) * 255 }
-        }
-        // hillshade (NW light) baked into the ground tint so relief reads from
-        // the air — the mesh displacement alone is too subtle at orbit altitude.
-        // Central difference over neighbours; softened on IR (thermal contrast
-        // comes from emissivity, not sun, but a readable feed beats purity).
-        if (t !== T_WATER) {
-          const eL = elev[gy * GRID + Math.max(0, gx - 1)]!, eR = elev[gy * GRID + Math.min(GRID - 1, gx + 1)]!
-          const eU = elev[Math.max(0, gy - 1) * GRID + gx]!, eD = elev[Math.min(GRID - 1, gy + 1) * GRID + gx]!
-          const sh = Math.max(0.55, Math.min(1.3, 1 - (eR - eL) * 0.045 - (eD - eU) * 0.045))
-          const k = palette === 'IR' ? 1 + (sh - 1) * 0.6 : sh
-          r = Math.min(255, r * k); g = Math.min(255, g * k); b = Math.min(255, b * k)
-        }
-        const o = ci * 4
-        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255
-      }
-    }
-    tctx.putImageData(img, 0, 0)
-
+    // target ~6 m/px (the exact BFT's fidelity), long side capped at 4096
+    const long = Math.max(Wm, Hm)
+    const texLong = Math.min(4096, Math.max(1024, Math.round(long / 6)))
+    const TW = Math.max(256, Math.round(texLong * (Wm / long)))
+    const TH = Math.max(256, Math.round(texLong * (Hm / long)))
     const cv = document.createElement('canvas')
-    cv.width = cv.height = TEX
+    cv.width = TW; cv.height = TH
     const ctx = cv.getContext('2d')!
-    const scale = TEX / SPAN // texture px per meter
-    ctx.imageSmoothingEnabled = true
-    // apron: the whole map smeared across the full canvas (blur) continues the
-    // edge tones into the surround, then the accurate AO is drawn on top
-    ctx.filter = 'blur(20px)'
-    ctx.drawImage(tiny, 0, 0, TEX, TEX)
-    ctx.filter = 'none'
-    ctx.drawImage(tiny, EXT * scale, EXT * scale, WORLD * scale, WORLD * scale)
+    const pxm = TW / Wm // texture px per metre
+
+    // open-ground base
+    ctx.fillStyle = palette === 'IR' ? 'rgb(79,79,79)' : 'rgb(88,84,46)'
+    ctx.fillRect(0, 0, TW, TH)
+
+    // the pack's own polygons (norm coords → px), even-odd
+    const areaPath = (kind: string): Path2D => {
+      const path = new Path2D()
+      for (const a of g.vectors.areas) {
+        if (a.kind !== kind) continue
+        for (const rings of [a.outer, a.inner]) {
+          for (const ring of rings) {
+            for (let i = 0; i + 1 < ring.length; i += 2) {
+              const x = ring[i]! * TW, y = ring[i + 1]! * TH
+              if (i === 0) path.moveTo(x, y)
+              else path.lineTo(x, y)
+            }
+            path.closePath()
+          }
+        }
+      }
+      return path
+    }
+    if (palette === 'IR') {
+      ctx.fillStyle = 'rgb(46,46,46)'; ctx.fill(areaPath('wood'), 'evenodd')
+      ctx.fillStyle = 'rgb(118,118,118)'; ctx.fill(areaPath('built'), 'evenodd')
+      ctx.fillStyle = 'rgb(15,15,17)'; ctx.fill(areaPath('water'), 'evenodd')
+    } else {
+      ctx.fillStyle = 'rgb(28,54,22)'; ctx.fill(areaPath('wood'), 'evenodd')
+      ctx.fillStyle = 'rgb(101,98,92)'; ctx.fill(areaPath('built'), 'evenodd')
+      ctx.fillStyle = 'rgb(33,60,79)'; ctx.fill(areaPath('water'), 'evenodd')
+    }
 
     // grain so flat ground doesn't read as plastic (feed-only texture noise)
     const nz = document.createElement('canvas')
@@ -152,41 +147,30 @@ function getDetail(): Detail {
     nctx.putImageData(nimg, 0, 0)
     ctx.globalCompositeOperation = 'overlay'
     ctx.globalAlpha = 0.16
-    for (let ty = 0; ty < TEX; ty += 256) for (let tx = 0; tx < TEX; tx += 256) ctx.drawImage(nz, tx, ty)
+    for (let ty = 0; ty < TH; ty += 256) for (let tx = 0; tx < TW; tx += 256) ctx.drawImage(nz, tx, ty)
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1
 
-    // vector roads at true widths (over water = the bridge deck)
+    // the real road vectors at true widths (over water = the crossing deck)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    const stroke = (cls: number, color: string, widthM: number) => {
-      ctx.strokeStyle = color
-      ctx.lineWidth = Math.max(1, widthM * scale)
-      ctx.beginPath()
-      for (const rd of map.roads) {
-        if (rd.cls !== cls) continue
-        ctx.moveTo((rd.pts[0]!.x + EXT) * scale, (rd.pts[0]!.y + EXT) * scale)
-        for (let i = 1; i < rd.pts.length; i++) ctx.lineTo((rd.pts[i]!.x + EXT) * scale, (rd.pts[i]!.y + EXT) * scale)
+    for (const cls of ROAD_DRAW) {
+      const path = new Path2D()
+      for (const r of g.vectors.roads) {
+        if (r.cls !== cls) continue
+        for (let i = 0; i + 1 < r.pts.length; i += 2) {
+          const x = r.pts[i]! * TW, y = r.pts[i + 1]! * TH
+          if (i === 0) path.moveTo(x, y)
+          else path.lineTo(x, y)
+        }
       }
-      ctx.stroke()
-    }
-    // five classes, near-true widths (track → motorway)
-    if (palette === 'IR') {
-      stroke(1, 'rgb(118,118,118)', 5)
-      stroke(2, 'rgb(128,128,128)', 8)
-      stroke(3, 'rgb(138,138,138)', 11)
-      stroke(4, 'rgb(142,142,142)', 15)
-      stroke(5, 'rgb(146,146,146)', 24)
-    } else {
-      stroke(1, 'rgb(84,71,51)', 5)
-      stroke(2, 'rgb(80,68,51)', 8)
-      stroke(3, 'rgb(77,66,51)', 11)
-      stroke(4, 'rgb(82,71,55)', 15)
-      stroke(5, 'rgb(87,77,59)', 24)
+      ctx.strokeStyle = ROAD_TONE[palette][cls]
+      ctx.lineWidth = Math.max(0.6, ROAD_WIDTH_METRES[cls] * pxm)
+      ctx.stroke(path)
     }
 
     const tex = new THREE.CanvasTexture(cv)
-    tex.flipY = false // uv v runs with world +y (canvas row order)
+    tex.flipY = false // uv v runs north→south, canvas row order (engine UVs match)
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = 8
     return tex
@@ -194,42 +178,8 @@ function getDetail(): Detail {
   const texIR = makeGroundTex('IR')
   const texEO = makeGroundTex('EO')
 
-  // --- terrain geometry: RES² over the AO plus the apron, micro-displacement.
-  // The apron continues the edge elevation (clamped sampling) with a gentle
-  // roll so the surround isn't a billiard table.
-  const geo = new THREE.BufferGeometry()
-  const pos = new Float32Array(RES * RES * 3)
-  const uv = new Float32Array(RES * RES * 2)
-  const step = SPAN / (RES - 1)
-  for (let j = 0; j < RES; j++) {
-    for (let i = 0; i < RES; i++) {
-      const vi = j * RES + i
-      const x = i * step - EXT, y = j * step - EXT
-      const n = hash01(i, j)
-      const over = Math.max(0, -x, x - WORLD, -y, y - WORLD)
-      // height: smooth banks (blend toward the water surface), apron rolls gently
-      const w = fieldAt(waterC, x, y) * Math.max(0, 1 - over / 600)
-      const wMix = w < 0.35 ? 0 : w > 0.65 ? 1 : (w - 0.35) / 0.3
-      const roll = over > 0 ? (hash01(i >> 3, j >> 3) - 0.5) * 6 * Math.min(1, over / 500) : 0
-      const hLand = elevAtBilinear(x, y) + (n - 0.5) * 1.1 + roll
-      const h = hLand * (1 - wMix) + fieldAt(waterSurf, x, y) * wMix
-      pos[vi * 3] = x; pos[vi * 3 + 1] = h; pos[vi * 3 + 2] = y
-      uv[vi * 2] = (x + EXT) / SPAN; uv[vi * 2 + 1] = (y + EXT) / SPAN
-    }
-  }
-  const idx = new Uint32Array((RES - 1) * (RES - 1) * 6)
-  let k = 0
-  for (let j = 0; j < RES - 1; j++) {
-    for (let i = 0; i < RES - 1; i++) {
-      const a = j * RES + i, b = a + 1, c = a + RES, d = c + 1
-      idx[k++] = a; idx[k++] = c; idx[k++] = b
-      idx[k++] = b; idx[k++] = c; idx[k++] = d
-    }
-  }
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-  geo.setIndex(new THREE.BufferAttribute(idx, 1))
-  geo.computeVertexNormals()
+  const geo = build.geometry
+  const skirtY = g.hf.min - 1.5
 
   // --- trees: one per ~2/3 forest cells, jittered ---
   const trees: Detail['trees'] = []
@@ -267,7 +217,7 @@ function getDetail(): Detail {
     if (bldgs.length >= 3000) break
   }
 
-  cache = { map, geo, texIR, texEO, trees, bldgs }
+  cache = { map, geo, offX, offZ, skirtY, texIR, texEO, trees, bldgs }
   return cache
 }
 
@@ -275,9 +225,17 @@ function TerrainMesh({ mode }: { mode: SensorMode }) {
   const detail = useMemo(getDetail, [])
   const tex = mode === 'EO' ? detail.texEO : detail.texIR
   return (
-    <mesh geometry={detail.geo}>
-      <meshLambertMaterial map={tex} />
-    </mesh>
+    <>
+      <mesh geometry={detail.geo} position={[detail.offX, 0, detail.offZ]}>
+        <meshLambertMaterial map={tex} />
+      </mesh>
+      {/* flat surround just below the box floor — an edge orbit looks out at
+          ground tone falling into fog, never into the void */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[detail.offX, detail.skirtY, detail.offZ]}>
+        <planeGeometry args={[120000, 120000]} />
+        <meshLambertMaterial color={mode === 'EO' ? '#4a472e' : '#3a3a3a'} />
+      </mesh>
+    </>
   )
 }
 
