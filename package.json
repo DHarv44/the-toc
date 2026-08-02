@@ -12,8 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dharv44/groundwork-builder": "file:vendor/dharv44-groundwork-builder-0.1.0.tgz",
+    "@dharv44/groundwork-core": "file:vendor/dharv44-groundwork-core-0.1.1.tgz",
+    "@dharv44/groundwork-engine": "file:vendor/dharv44-groundwork-engine-0.1.0.tgz",
     "@mantine/core": "^9.4.2",
     "@mantine/hooks": "^9.4.2",
+    "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.0.0",
     "express": "^5.2.1",
     "react": "^19.2.0",

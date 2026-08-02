@@ -39,7 +39,9 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 // or keeps it. Pure flavor pool — the name is theirs either way.
 const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SLOANE', 'KINCAID']
 
-export default function Splash({ onStart, onPacks }: { onStart: StartFn; onPacks: () => void }) {
+export default function Splash({ onStart, onPacks, onMaps }: {
+  onStart: StartFn; onPacks: () => void; onMaps: () => void
+}) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
@@ -95,6 +97,8 @@ export default function Splash({ onStart, onPacks }: { onStart: StartFn; onPacks
           <SectionLabel>TOOLS</SectionLabel>
           <SplashButton label="PACK BUILDER" sub="Inspect and build content packs · units, platforms, formation"
             accent="#6a4a8a" onClick={onPacks} />
+          <SplashButton label="MAP EDITOR" sub="Groundwork · real terrain, real roads · author a battlefield"
+            accent="#4a6a8a" onClick={onMaps} />
         </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>

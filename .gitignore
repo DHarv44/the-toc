@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 .tmp-mig/
+
+# local env (API keys for dev proxies)
+.env.local
+.env.*.local

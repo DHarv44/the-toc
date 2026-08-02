@@ -47,17 +47,28 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
 
 ## Phases
 
-### P0 — packages in, editor mounted        [in progress]
-- [ ] `.npmrc` scope line; install `@dharv44/groundwork-core`,
-      `@dharv44/groundwork-builder`, `@react-three/drei`
-- [ ] MAP EDITOR entry on the splash (TOOLS section) → full-screen
-      `<Builder />` inside a TOC shell
-- [ ] `configureBuilder`: storage prefix, direct tile endpoints (no proxies in
-      TOC dev), Köppen asset URL
-- [ ] Vite: builder is a Vite-class package (`?worker`, `import.meta.env`) —
-      `optimizeDeps` handling if dev chokes (known risk from the smoke report)
-- Verify: editor opens from the menu, builds a real box end to end, standalone
-  download works. Nothing else in the game touched.
+### P0 — packages in, editor mounted        [DONE]
+- [x] `.npmrc` scope line; installed `@dharv44/groundwork-core` 0.1.1,
+      `-engine` 0.1.0, `-builder` 0.1.0, `@react-three/drei` 10.7.7 — from the
+      registry, correctly deduped
+- [x] MAP EDITOR entry on the splash (TOOLS) → full-screen `<Builder />` inside
+      a TOC shell (src/ui/MapEditor.tsx)
+- [x] `configureBuilder`: `toc.terrain` storage prefix; Köppen asset base taken
+      from the package's own served URL; devHooks off (TOC owns window.__game)
+- [x] Endpoints: TOC's vite config mirrors Groundwork's dev proxies
+      (/api/opentopo with the key appended server-side from VITE_OPENTOPO_KEY
+      in .env.local, /api/terrarium, /api/imagery) — so the builder's DEFAULT
+      dev endpoints just work, and canvases stay untainted
+- [x] Vite: the known `?worker` risk was real — builder must be
+      `optimizeDeps.exclude`d, which then requires nested includes
+      (`builder > leaflet/react-leaflet/geotiff/zustand/@react-three/drei`)
+      for its CJS-adjacent deps. Two runtime failures found and fixed this way.
+- Verified in-browser: editor opens from the menu, fetched a real 165-tile
+  Colorado box through the proxies (AWS source — keyless, so no OpenTopo key
+  needed for this path), rendered the 3D build, OSM vector query ran,
+  attribution footer intact, clean return to the menu. Console error-free.
+- Note: VITE_OPENTOPO_KEY not yet set in .env.local (user-owned secret) — the
+  OpenTopography DEM source fails until then; AWS Terrain Tiles works today.
 
 ### P1 — save to PACK
 - [ ] Dev-only write route (beside pack-io): PUT
