@@ -96,9 +96,13 @@ export default function HUD() {
         <button title="Overlay intensity (cycles 100 / 70 / 45%)"
           onClick={ui.cycleOverlayAlpha}
           style={{ ...mapCtl(ui.overlayAlpha < 1), fontSize: 8 }}>{Math.round(ui.overlayAlpha * 100)}%</button>
+        <button title="Lock the camera to the selected unit or group — stays centered as they move (pan to release)"
+          onClick={ui.toggleTrack}
+          style={{ ...mapCtl(ui.track), fontSize: 7.5, letterSpacing: 0.5 }}>LOCK</button>
         <button
           title="Fit map to screen"
           onClick={() => {
+            if (ui.track) ui.toggleTrack() // fit takes the camera back
             const v = winView()
             if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
           }}

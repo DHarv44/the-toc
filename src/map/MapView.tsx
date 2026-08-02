@@ -210,6 +210,8 @@ export default function MapView() {
         const dx = mX(e) - lastMx, dy = mY(e) - lastMy
         if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true
         if (dragMoved) {
+          // taking the map by hand releases the camera lock
+          if (useUI.getState().track) useUI.setState({ track: false })
           view.cx -= dx / view.ppm
           view.cy -= dy / view.ppm
           lastMx = mX(e); lastMy = mY(e)
@@ -507,6 +509,19 @@ export default function MapView() {
     function draw() {
       raf = requestAnimationFrame(draw)
       resize()
+      // camera lock: the selection's centroid owns the center while it lives;
+      // zoom stays the player's. Selection dead or empty = lock releases.
+      if (useUI.getState().track) {
+        const tracked = [...selectedFriendlies(), ...selectedDrones()]
+        if (tracked.length) {
+          let cx = 0, cy = 0
+          for (const t of tracked) { cx += t.x; cy += t.y }
+          view.cx = cx / tracked.length
+          view.cy = cy / tracked.length
+        } else {
+          useUI.setState({ track: false })
+        }
+      }
       clampView()
       const night = useUI.getState().night
       const W = canvas.width, H = canvas.height

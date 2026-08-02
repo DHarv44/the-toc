@@ -325,5 +325,25 @@ export function routeOnRoads(
   push(last === eT.a ? slice(eT, 0, to.at) : slice(eT, to.at, eT.len).reverse())
   // and off the network to the click itself
   push([{ x: tx, y: ty }])
-  return pts
+  return keepRight(pts)
+}
+
+// Drive the right-hand side, not the crown of the road: waypoints are the
+// polyline CENTERLINE, and a vic on the centerline reads as oncoming traffic.
+// Each interior point shifts right of the direction of travel by a lane's
+// worth. This does not fix dual carriageways — those are two one-way
+// polylines in OSM and the pack carries no oneway flag yet (upstream ask).
+const LANE_OFFSET = 3.5
+function keepRight(pts: Vec2[]): Vec2[] {
+  if (pts.length < 3) return pts
+  const out: Vec2[] = [pts[0]!]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1]!, b = pts[i + 1]!, p = pts[i]!
+    const dx = b.x - a.x, dy = b.y - a.y
+    const L = Math.hypot(dx, dy) || 1
+    // right-hand normal of travel (screen y grows south, so right is (-dy, dx))
+    out.push({ x: p.x + (-dy / L) * LANE_OFFSET, y: p.y + (dx / L) * LANE_OFFSET })
+  }
+  out.push(pts[pts.length - 1]!)
+  return out
 }

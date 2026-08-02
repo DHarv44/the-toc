@@ -78,6 +78,10 @@ export interface UIState {
   // recon/drone/DF coverage, wpn = direct-fire range of the SELECTED units
   overlays: { fires: boolean; snsr: boolean; wpn: boolean }
   toggleOverlay: (k: 'fires' | 'snsr' | 'wpn') => void
+  // camera lock: keep the selected unit/group centered as it moves (zoom is
+  // yours; the center is theirs). A manual map pan breaks the lock.
+  track: boolean
+  toggleTrack: () => void
   overlayAlpha: number      // commander's overlay intensity (1 → 0.7 → 0.45, cycles)
   cycleOverlayAlpha: () => void
   rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
@@ -155,6 +159,8 @@ export const useUI = create<UIState>()((set, get) => ({
   night: false,
   overlays: { fires: false, snsr: false, wpn: false },
   toggleOverlay: (k) => set((s) => ({ overlays: { ...s.overlays, [k]: !s.overlays[k] } })),
+  track: false,
+  toggleTrack: () => set((s) => ({ track: !s.track })),
   overlayAlpha: 1,
   cycleOverlayAlpha: () => set((s) => ({ overlayAlpha: s.overlayAlpha > 0.85 ? 0.7 : s.overlayAlpha > 0.6 ? 0.45 : 1 })),
   rangeUnits: {},
