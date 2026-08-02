@@ -376,9 +376,12 @@ export interface MissionSpec {
 }
 
 export interface CampaignMapSpec {
-  theater: string         // engine theater id (baked DEM patch) — pack-shipped DEMs are a later stage
+  /** A pack map id (packs/<pack>/maps/<id>/) — THE ground path. When set,
+   *  theater/seed/layout are ignored: the map file is the map. */
+  map?: string
+  theater: string         // LEGACY: engine theater id (baked DEM patch); dies in P6 (GROUNDWORK.md)
   seed: number
-  layout: MapLayout       // towns/MSR/features — the campaign's GAZETTEER
+  layout: MapLayout       // LEGACY: procgen gazetteer for theater-backed campaigns
 }
 
 export interface CampaignManifest {

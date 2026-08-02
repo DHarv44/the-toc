@@ -149,12 +149,17 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   carries only 27 (city cores are `suburb`/`neighbourhood` nodes in OSM,
   which Groundwork does not fetch). Front Range carries 610.
 
-### P5 — skirmish + campaign on packs
-- [ ] Skirmish setup lists installed pack maps (procgen option remains until P6)
-- [ ] Campaign references a map id; Iron Triangle either migrates to a real
-      map or is explicitly grandfathered until content is authored
+### P5 — skirmish + campaign on packs        [setup DONE; road graph open]
+- [x] Skirmish terrain step lists every installed pack map first, then
+      PROCEDURAL. Baked theaters are GONE from skirmish setup (the campaign
+      still reads its legacy theater until it migrates). A pack map sets its
+      own size; the size step's force caps still apply.
+- [x] `CampaignMapSpec.map?: string` — a campaign referencing a pack map id
+      plays that map (theater/seed/layout ignored). Iron Triangle stays on
+      its legacy spec until campaign ground is authored for it.
 - [ ] ROADS ONLY becomes graph routing over pack road polylines
-- Verify: full campaign start on a pack map; movement, fog, drones, missions.
+- Verified: full skirmish flow to a running game on DENVER — FOB framed in
+  real Front Range contours, starter force deployed.
 
 ### P6 — the kill
 - [ ] Delete: theaters (`theaters.ts`, `theaterIndex.ts`, `bake-theaters.mjs`,

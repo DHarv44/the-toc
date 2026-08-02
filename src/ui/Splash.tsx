@@ -6,14 +6,16 @@ import { useState, type ReactNode } from 'react'
 import type { MapSizeKey } from '../world/WorldMap'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
-import { THEATER_INDEX } from '../world/theaters'
+import { packMaps } from '../packs/map-files'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
 } from '../domains/economy/difficulty'
 
 export type StartFn = (
   mode: 'dev' | 'new', size?: MapSizeKey, difficulty?: DifficultyKey,
-  gameMode?: ModeId, theaterId?: string | null, tutorial?: boolean,
+  gameMode?: ModeId,
+  /** null = procedural ground · 'packId/mapId' = a pack map (the real thing) */
+  terrain?: string | null, tutorial?: boolean,
 ) => void
 
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
@@ -47,7 +49,7 @@ export default function Splash({ onStart, onPacks, onMaps }: {
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
   const [size, setSize] = useState<MapSizeKey | null>(null)
-  // undefined = not chosen yet · null = procedural · string = theater id
+  // undefined = not chosen yet · null = procedural · string = 'packId/mapId'
   const [terrain, setTerrain] = useState<string | null | undefined>(undefined)
 
   const hint =
@@ -155,12 +157,16 @@ export default function Splash({ onStart, onPacks, onMaps }: {
       ) : terrain === undefined ? (
         <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
           <SectionLabel>SKIRMISH · STEP 3 OF 4 · TERRAIN</SectionLabel>
+          {/* pack maps first: real ground, authored in the MAP EDITOR, shipped
+              by packs. A pack map sets its own size — the size step's caps
+              still apply, the ground does not stretch. */}
+          {packMaps().map((m) => (
+            <SplashButton key={`${m.packId}/${m.mapId}`} label={m.name}
+              sub={`${m.packId.toUpperCase()} pack map · real terrain, real roads, real names`}
+              accent="#4a6a8a" onClick={() => setTerrain(`${m.packId}/${m.mapId}`)} />
+          ))}
           <SplashButton label="PROCEDURAL" sub="Synthetic terrain · a new map for every seed"
             accent="#3a5a3a" onClick={() => setTerrain(null)} />
-          {THEATER_INDEX.map((t) => (
-            <SplashButton key={t.id} label={t.name} sub={t.sub} accent="#8a6a2a"
-              onClick={() => setTerrain(t.id)} />
-          ))}
           <BackButton onClick={() => setSize(null)}>
             ← {SIZES.find((s) => s.key === size)!.label} MAP — CHANGE
           </BackButton>
@@ -178,7 +184,9 @@ export default function Splash({ onStart, onPacks, onMaps }: {
             )
           })}
           <BackButton onClick={() => setTerrain(undefined)}>
-            ← {terrain === null ? 'PROCEDURAL' : THEATER_INDEX.find((t) => t.id === terrain)!.name} — CHANGE
+            ← {terrain === null
+              ? 'PROCEDURAL'
+              : (packMaps().find((m) => `${m.packId}/${m.mapId}` === terrain)?.name ?? terrain)} — CHANGE
           </BackButton>
         </div>
       )}

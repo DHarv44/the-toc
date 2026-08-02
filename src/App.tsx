@@ -27,6 +27,7 @@ import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
 import { buildGameMap, type MapRef } from './world/mapref'
 import { packMap, packMaps } from './packs/map-files'
+import { playerPack } from './packs'
 import type { MapLayout } from './world/mapgen'
 import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 
@@ -52,7 +53,7 @@ export default function App() {
 
   // map building is async (theater fetch today, pack read from P3) — the
   // splash stays up while buildGameMap resolves the MapRef into ground
-  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId, tutorial) => {
+  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, terrain, tutorial) => {
     void (async () => {
       if (mode === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
@@ -62,20 +63,32 @@ export default function App() {
           ? await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId })
           : undefined)
       } else {
-        // the campaign is always the same ground: the PACK's campaign ships
-        // its theater + fixed seed + authored layout (PACK-MISSIONS.md)
         const isCampaign = gameMode === 'campaign'
         const seed = isCampaign ? activeCampaign().map.seed : (Date.now() % 100000)
-        const ref: MapRef = {
-          kind: 'procgen',
-          seed,
-          gridSize: isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large),
-          ...(isCampaign
-            ? {
-                theaterId: activeCampaign().map.theater,
-                layout: activeCampaign().map.layout as MapLayout,
-              }
-            : theaterId ? { theaterId } : {}),
+        // Which ground:
+        //  - campaign referencing a pack map by id → that map (the real thing)
+        //  - campaign on the legacy authored layout → procgen + theater window
+        //  - skirmish on a picked pack map ('packId/mapId') → that map
+        //  - otherwise procgen at the chosen size
+        const campaignMapId = isCampaign ? activeCampaign().map.map : undefined
+        let ref: MapRef
+        if (campaignMapId) {
+          ref = { kind: 'pack', packId: playerPack().id, mapId: campaignMapId }
+        } else if (!isCampaign && terrain) {
+          const [packId, mapId] = terrain.split('/') as [string, string]
+          ref = { kind: 'pack', packId, mapId }
+        } else {
+          ref = {
+            kind: 'procgen',
+            seed,
+            gridSize: isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large),
+            ...(isCampaign
+              ? {
+                  theaterId: activeCampaign().map.theater,
+                  layout: activeCampaign().map.layout as MapLayout,
+                }
+              : {}),
+          }
         }
         if (isCampaign) setCampaignTutorial(!!tutorial) // read by startCampaign
         const map = await buildGameMap(ref)
