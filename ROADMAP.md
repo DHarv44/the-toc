@@ -1,29 +1,61 @@
 # TOC — Roadmap
 
 The current build is a real-time C2 game: a Blue Force Tracker map with MIL-STD-2525
-symbology, recon-driven fog, deployable UAS feeds (3D EO/IR), procedural terrain,
-mounted/dismounted maneuver units with battle drills and weapons control, a logistics
-chain, installations, and a tactical enemy AI. Units are modeled as individual
-vics/troops (sub-elements) so precision fires hit specific platforms.
+symbology, recon-driven fog, deployable UAS feeds (3D EO/IR + satellite), REAL-EARTH
+terrain (maps authored in the embedded Groundwork editor and shipped in packs — real
+roads, real names, real orthoimagery), mounted/dismounted maneuver units with battle
+drills and weapons control, a logistics chain, installations, and a tactical enemy AI.
+Units are modeled as individual vics/troops (sub-elements) so precision fires hit
+specific platforms. Deployed continuously to Railway.
 
 Sections below are a thematic **reference** — the full detail for each item. The bands
 in *Priority* are the actual plan.
 
-**Status:** ✅ shipped · 🟡 partial · ⬜ not started
+**Status:** ✅ shipped · 🟡 partial · ⬜ not started · ☠ dead
 An unmarked heading is not started. ⬜ is used only where something *looks* built but isn't —
 so nobody plans work off a false lead. Statuses were verified against the source, not
-self-reported. Last audited **2026-07-25**. **Completed items live in the Shipped Archive
+self-reported. Last audited **2026-08-02**. **Completed items live in the Shipped Archive
 at the bottom of this file** — the sections above it are the open work. When a section
-here contradicts a dated block in `src/MODES.md`, MODES.md wins (it's written at ship
-time; this file is periodically re-audited).
+here contradicts a dated block in `src/MODES.md` or `GROUNDWORK.md`, those win (written
+at ship time; this file is periodically re-audited).
 
 ---
 
 ## Status at a Glance
 
-**Last audited 2026-07-25.** Full shipped detail: dated blocks in `src/MODES.md`;
-personnel/composition model in `src/FORCE-MODEL.md`; asset-request design in
-`src/ASSET-REQUESTS.md`; open engine-content debt in `src/HARDCODE-AUDIT.md`.
+**Last audited 2026-08-02.** Full shipped detail: the Groundwork plan of record in
+`GROUNDWORK.md`; dated blocks in `src/MODES.md`; personnel/composition model in
+`src/FORCE-MODEL.md`; asset-request design in `src/ASSET-REQUESTS.md`; open
+engine-content debt in `src/HARDCODE-AUDIT.md`.
+
+**The 2026-08-01/02 wave — GROUNDWORK (the ground became real):**
+- **Real Earth is the only ground.** The Groundwork terrain builder is consumed as
+  published npm packages (public registry — no auth anywhere) and embedded as the MAP
+  EDITOR: pick a box of Earth, tune it, SAVE TO PACK. Maps are pack content
+  (`packs/<id>/maps/<mapId>/` = `.gwpack` geography + `map.json` scenario sidecar);
+  skirmish lists every installed pack's maps; the sidecar carries FOB/enemy/MSR/SAT.
+- **THE KILL (P6):** baked theaters, procgen (`mapgen.ts`), the old raster renderer,
+  the golden harness, the skirmish PROCEDURAL option and map-size step — all deleted.
+  Every map the game can start is a pack map (BAGHDAD, DENVER, FRONT RANGE, KABUL).
+- **Exact BFT:** the sheet IS the export — real-metre contours/hillshade, actual
+  water/wood/built polygons, five OSM road classes at true widths, real gazetteer
+  labels, ODbL attribution printed on the sheet. Bake-once/blit-per-frame (~145 fps
+  over 51k Baghdad polylines).
+- **ONE router:** every order takes the junction graph built from the real polylines
+  (time-optimal Google-Maps behavior; convoy profile as doctrine weighting); built-up
+  ground is WALLS to vehicles (streets only; foot cuts blocks); keep-right lanes +
+  motorway carriageway heuristic; any-angle smoothing on the cell fallback. No modes,
+  no graph-vs-cell time race — settled the hard way, never again.
+- **UAV feed on the engine (P7):** `buildTerrain` mesh in real metres, one ground
+  seam (`sampleBox`) for camera/hulls/effects/reticles, palettes painted from the
+  pack's own vectors.
+- **Satellite views:** SAT map toggle on the BFT + SAT sensor mode in the feed —
+  Esri orthoimagery through the same proxy stack, viewport patch + engine clipmap
+  rings for street-level fidelity, IndexedDB tile cache. SAT is CONTENT: the
+  builder's satellite toggle at save decides; a map that didn't ship it renders the
+  engine's terrain mode instead (a fictional world gets its own satellite).
+- **Deployed:** packages on the public npm registry, production server proxies the
+  tile/DEM endpoints, Railway builds green from push.
 
 **The 2026-07-24/25 wave (headliners):**
 - **Packs own everything (stage 2)** — engine ships VERBS, packs ship NOUNS. All
@@ -44,14 +76,17 @@ personnel/composition model in `src/FORCE-MODEL.md`; asset-request design in
   RECOVERY FRAGOs, battlefield promotions, replacement pipeline, Purple Hearts;
   S1 console (battalion heraldry header, PERSTATS tab), staff reports (request + auto,
   VTC-then-document), command dashboard, role-based range overlays.
-- **Campaign** — continuous objective stream on the authored Chorwon layout; open
-  fielding from H-hour; the airstrip is H-hour infrastructure (never player-built);
-  missions no longer pre-form battle groups (task organization is the commander's).
+- **Campaign** — continuous objective stream, open fielding from H-hour, the airstrip
+  as H-hour infrastructure, task organization the commander's. *Its GROUND died in P6*
+  (the Chorwon layout was procgen gazetteer): IRON TRIANGLE is parked on `map: null` —
+  greyed on the splash — until real ground is authored for it and its mission place
+  refs are re-anchored to real names.
 
-**Earlier waves** (2026-07-23): real-DEM theaters, cartography, road hierarchy +
-bridges, hamlets/named terrain, mode recipes, OPFOR operational commander
-(main/supporting effort · reserve · posture), unit SOPs (bound-to-cover, break
-fatigue), fire-tempo rework. See the Shipped Archive.
+**Earlier waves** (2026-07-23): cartography, road hierarchy + bridges, hamlets/named
+terrain, mode recipes, OPFOR operational commander (main/supporting effort · reserve ·
+posture), unit SOPs (bound-to-cover, break fatigue), fire-tempo rework. (The real-DEM
+theater system from this wave shipped, served, and was deleted by Groundwork P6.)
+See the Shipped Archive.
 
 **Known ⬜ traps** (look built, aren't): **Individual unit formations** (dead code
 removed in the TS migration) and **Symmetric fog & counter-recon** (`updateContacts`
@@ -61,40 +96,50 @@ is one-directional; the OPFOR reads ground truth).
 
 ## Priority
 
-### Now — the #21 chain (in flight)
-1. **Asset crews as org slots** *(task #21 step 2)* — C-RAM/aerostat/ALO crews
-   materialized as ATT org slots (named mil + CIV FSR contractors, S1-visible),
-   Defense of Freedom Medal for wounded contractors.
-2. **Base under fire (#14)** — incoming.mp3 alarm, subtle red TOC flash, the
-   INTERCEPT verb reading the facility spec (targets/pk/rof/sound params — never a
-   system name), proximity-scaled booms + 300-500 ms shake, bus events sim→UI.
-3. **Name pools (#27)** — 600+ first / 2000+ last names in the 1CD pack (own lib
-   files); OPFOR proportional. Every generated name re-rolls (accepted).
+*(Re-cut 2026-08-02: the former "Now" band — asset crews #21, base under fire #14,
+name pools #27 — is ✅ shipped, and the entire Groundwork arc P0–P7 + satellite
+landed on top. The former "Next" band promotes to Now.)*
 
-### Next — the enablers
-4. **Hardcode audit (#28)** — work `src/HARDCODE-AUDIT.md` top-down: billet/rank
+### Now — the enablers
+1. **Iron Triangle ground** *(user-gated — content, not code)* — author real pack
+   ground for the campaign in the MAP EDITOR, set its `map.json` reference, and
+   re-anchor the mission place refs (ASHFORD-chain gazetteer → real names). The
+   campaign machinery is intact and waiting; the splash un-greys itself.
+2. **Hardcode audit (#28)** — work `src/HARDCODE-AUDIT.md` top-down: billet/rank
    tables, callsign pools, radio voice culture, force lists, base naming, MED rates,
    insignia/awards → pack data.
-5. **Attack aviation (#26)** — AH-64 attack weapons teams from the pack's own 1ACB +
+3. **Attack aviation (#26)** — AH-64 attack weapons teams from the pack's own 1ACB +
    A-10/AC-130 CAS windows; commander-level control only (designate an EA, desired
    effects/restrictions, CLEARED HOT / ABORT — crew AI services targets; the manual
    FIRE button dies everywhere, SPECTRE migrates).
-6. **P4: OPFOR faction pack (#10)** — upgrade `packs/opfor.ts` from placeholder to
+4. **P4: OPFOR faction pack (#10)** — upgrade the opfor pack from placeholder to
    the DPRK-flavored fictional faction: its own platforms, org, names, heraldry.
-7. **S4 LOGSTAT + materiel ledger** — CL V rolls up from real stowage, CL VII from
+5. **S4 LOGSTAT + materiel ledger** — CL V rolls up from real stowage, CL VII from
    org hulls; LOGSTATS tab per the PERSTAT pattern; replaces the last supply-point
    plumbing.
-8. **Save / continue** — fully seeded sim, plain serializable state. CAVEAT: shared
+6. **Save / continue** — fully seeded sim, plain serializable state. CAVEAT: shared
    roster references (org slot ↔ fielded unit ↔ DUSTWUN site) must re-link on load;
-   S.assets/convoys serialize clean.
+   S.assets/convoys serialize clean. Map identity is solved: `map.ref` rebuilds the
+   ground from the pack.
+
+### Standing — Groundwork upstream asks *(fixed in terrain-builder, republished, TOC pulls)*
+Session-restore timing (host shim in place — remove after) · builder viewer-UI reorg
+(controls into the settings panel; user in progress) · `fetchImageryProgressive`
+export (hitch-free ring refetches) · `oneway` road flag (retires the carriageway
+heuristic) · `place=suburb/neighbourhood` fetch (city-core labels) · sixth road
+class (service/alley) · builder camera persistence · pack-import path for the editor
+(load exactly what was saved, offline).
 
 ### Later — depth
-After Action Reviews · 2525 symbology audit · maps + missions in packs · unit
-net-intel cueing (spot reports orient nearby units) · zone capture · spec ops ·
-scenario builder · call for fire (approve/deny, ammo as the currency) ·
-counter-battery · SEAD/air defense · UAV sensor realism · symmetric fog &
-counter-recon · smoke triggers · true LOS · E&E / LZ evac (DUSTWUN extension) ·
-staff-report competence scaling · unit wiki · urban depth · helipad installation.
+**Make maneuver beat mass** (decisive prepared-defense advantage — the core playtest
+finding) · symmetric fog & counter-recon · After Action Reviews · 2525 symbology
+audit · unit net-intel cueing (spot reports orient nearby units) · zone capture ·
+spec ops · scenario builder · call for fire (approve/deny, ammo as the currency) ·
+counter-battery · SEAD/air defense · UAV sensor realism · smoke triggers · true LOS ·
+E&E / LZ evac (DUSTWUN extension) · staff-report competence scaling · unit wiki ·
+urban depth (recast: real cities exist now — the open piece is route-clearance
+GAMEPLAY) · helipad installation · Starship Troopers total-conversion pack (the
+satellite-as-content and theme groundwork is laid).
 
 ### Someday — architecture
 SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
@@ -113,8 +158,12 @@ system decision is tested against these; cite them by number ("fails law 1").
    something, it should be because it's *right*.
 1. **The drone feed is the product; the map serves it.** The feeds must remain a
    mostly-accurate representation of the ground. Nothing ships that makes the map cooler
-   at the feeds' expense — why full real-world (OSM) maps were rejected: our synthesized
-   ground would be competing with the player's mental image of a real place.
+   at the feeds' expense. *(Amended 2026-08-02: the original corollary — "full
+   real-world OSM maps rejected because synthesized ground would compete with the
+   player's mental image of a real place" — was resolved the other way: the ground is
+   no longer synthesized. Groundwork ships the REAL place — real DEM, real OSM
+   vectors, real orthoimagery — so the feed and the mental image now agree by
+   construction. The law itself stands.)*
 2. **73 Easting, not Fallujah.** The sim resolves *maneuver warfare*: the platoon is the
    smallest thing that exists as gameplay, cells are 50 m, and fights happen between
    terrain features — treelines, ridgelines, crossings — not between buildings. Towns
@@ -123,18 +172,17 @@ system decision is tested against these; cite them by number ("fails law 1").
    the platoon (soldiers, rooms, streets) is simulated — it is only *seen*, in the feeds.
    (Both anchors are battles, not places: this law is about simulation grain, not AO
    size — AO size is law 5's business.)
-3. **One map contract, many sources.** Everything compiles to `WorldMap` (elev / terr /
-   road / slope rasters + towns + names). Map *sources* are swappable compilers:
-   `procgen noise | baked real-DEM theater | authored heightmap | (someday) builder file`.
-   Both renderers (BFT and feeds) read `WorldMap`, so drone-cam ground truth is accurate
-   by construction regardless of source.
-   *Architectural stance (2026-07-23, after the "3D-first?" discussion): we do NOT flip
-   to a 3D-scene-first pipeline — the sim needs rasters and elevation generation is
-   raster math anyway. Instead the contract **thickens over time**: culture gets promoted
-   from implicit (renderers hash-inventing detail) to explicit shared objects, as already
-   done for roads (vector polylines both renderers honor). Next candidates: building
-   footprints, tree instances, hedgerow/wall polylines. End state: one scene
-   description, two honest renderers.*
+3. **One map contract, one source.** Everything compiles to `WorldMap` (elev / terr /
+   road / slope rasters + towns + names + the opened pack). *(Amended 2026-08-02: the
+   "many swappable sources" clause is settled — procgen noise, baked theaters and
+   authored heightmaps are DELETED (P6); the builder file won. The seam held exactly as
+   designed: the sim behind `WorldMap` was never rewritten.)* Both renderers (BFT and
+   feeds) read the same contract AND the same pack, so drone-cam ground truth is
+   accurate by construction. The "contract thickens" stance now reads: culture arrives
+   as DATA (real polygons, real polylines, real names) instead of being hash-invented —
+   remaining candidates are building footprints (derivable from the pack's `built`
+   polygons) and tree instances. End state unchanged: one scene description, two honest
+   renderers.
 4. **Automation adds seats; it never takes the stick out of your hand.** Personally
    calling the fire mission, flying the sensor, walking rounds onto the treeline — the
    *doing* is the game. AI staff, subordinate commanders and request flows are optional
@@ -150,75 +198,54 @@ system decision is tested against these; cite them by number ("fails law 1").
 
 ---
 
-## Maps & Terrain  🟡 *(overhaul largely shipped 2026-07-23 — M1–M4 records in the Shipped Archive; what's below is what remains)*
+## Maps & Terrain  ✅ *(GROUNDWORK 2026-08-01/02 — plan of record and full P0–P7 ship
+records in `GROUNDWORK.md`; the M-track below it in the Shipped Archive is the
+prehistory. What remains is listed here.)*
 
-Governed by laws 1–3. Theater curation rule from law 2: every theater is *maneuver
-country* — valleys, river plains, ridge-and-farmland, steppe; at most one modest town
-per map, no megacities.
+Governed by laws 1–3 (as amended). The ground is real Earth, authored in the embedded
+Groundwork editor and shipped as pack content. Authoring guidance replaces the old
+theater-curation rule: a battalion AO is ~15 km at full DEM resolution (the sim's
+GRID cap); bigger boxes play at proportionally coarser cells. Map-size force caps
+still apply — the map declares its own size.
 
-### The plan
-*(M1 theaters, M2 cartography, M2.5 road hierarchy, M3a hamlets/named terrain and
-M3b terrain-anchored radio are ✅ shipped — see the Shipped Archive. Loose ends carried
-forward from them: a RANDOM theater button · sea-level water for coastal patches ·
-theater names feeding briefings/HHQ flavor · LKP hold for lost drone tracks.)*
-- **M3c — Oversized world (feed surround done right)** ⬜ *(PARKED by the user — build when
-  wanted)* *(decided
-  2026-07-23)*: the interim drone-feed apron (a 1.6 km blurred smear of the map)
-  doesn't match the real terrain and is too small — sensors can still find the edge.
-  The right architecture, per the user: **generate a larger world than the AO** — mapgen
-  produces the AO plus a wide margin (~3× the current apron, ≈5 km) of *real*
-  generated terrain: same elevation source, terrain classes, forests, even roads
-  running off-map. The **BFT crops/contains to the AO** (sim, units, orders, fog all
-  stay inside — the margin is scenery, not battlespace); the **UAV feeds render the
-  full extent**. DroneView then deletes the blur-apron hack and just consumes the
-  bigger rasters/textures. Theater patches already carry the surplus real elevation
-  (512² baked vs. 256 AO window — the margin is sitting in the asset). Feed ground
-  rendering just moved from vertex colors to painted 2048² textures (smooth
-  shorelines/treelines, vector-true roads, no diagonal river pinch) — M3c builds on
-  that directly. **Verification recipe: deploy an aerostat at the HQ, slew the
-  sensor south past the map edge.**
-- **M3 — Culture layer upgrades** ⬜ *(remaining)*: towns strung along roads and valleys instead of
-  scattered; field/hedgerow patterning; a **buildings layer** (footprints in towns —
-  scenery only, per design law 2) rendered by the drone feeds so village orbits stop
-  looking empty; **named features** (rivers from the flow-accum pass, dominant hills,
-  towns already named) feeding radio calls, briefings and objective labels
-  ("crossing the KOMA RIVER", "contact on HILL 402"). Wider open areas and 2–4 km
-  engagement geometry so the terrain plays at company/battalion frontage, not
-  skirmish-game density.
-- **Urban depth — cities that are places** ⬜ *(added 2026-07-23 — NEEDS DESIGN
-  DISCUSSION before build)*: towns today are a blob of urban cells — plain and boring.
-  Wanted: real urban structure (arterial road grid + districts, dense core vs.
-  sprawl, compounds, industrial edges, named neighborhoods/key facilities), and
-  support for **mostly-urban AOs** — a Baghdad-style mission with the HQ at a
-  Camp Liberty/Victory-type base on the outskirts. Design law 2 stands: the urban
-  fight at our echelon is **route clearance, not room clearing** — MSRs through the
-  urban canyon, convoy security, cordons and overwatch, intersections and overpasses
-  as decision points, ambush/IED threat on named routes (ROUTE IRISH energy). Open
-  questions: urban generator design (district graph vs. denser cell classes), how
-  concealment/engagement ranges behave in city blocks at platoon atomicity, what
-  route-clearance gameplay actually consists of, feed density (buildings LOD).
-  - **Units occupying buildings** *(thought 2026-07-23)*: at some point let a platoon
-    strongpoint a building/compound — the building becomes a real defensive position
-    (hard cover, sight lines) and a real *target*: the classic dilemma of drop the
-    building with a bomb vs. cordon vs. assault. Stays platoon-atomic (a unit holds
-    *the building*, no room-by-room) so it composes with law 2. Ties into structures/
-    destructibility and the fires systems.
-  Discuss, then slot into the M-track.
-- **M4 — Mode recipes** 🟡 *(framework + KotH shipped 2026-07-23)*: `ModeSpec.mapOk(map)`
-  plus a bounded map-seed reroll loop in initGame — modes without a recipe generate
-  exactly once, so the default A&D path is byte-identical (golden-gated, baseline
-  unchanged). KotH's recipe rejects maps whose central third has no real hill (peak
-  ≥ 18 over the median): over 90 test maps, ~half of Small rerolled (≤ 3 attempts),
-  Medium rarely, Large never. Still open: the **Campaign recipe** (river belt across
-  the axis, ≥ 2 crossings, towns along the way) — lands when the campaign restarts,
-  which begins here.
-- **Map authoring v0** *(free with M1)*: a "map" is a heightmap + a culture recipe —
-  Claude can author maps by hand (painted or real-DEM heightmap + placement params JSON)
-  with zero tooling. The community-facing **map builder** lands later as a Scenario
-  Builder tab; players who want to build maps get the old-school-RTS custom-map loop
-  (share JSON + PNG), the player who doesn't never touches it.
-- **Parked**: full OSM real-world import (roads-as-data is solved — it's a graph — but it
-  fails design law 1 in the feeds); vector/polygon map rewrite (raster bones are good).
+### What remains
+- **Author Iron Triangle's ground** *(user-gated — the Now band's #1)* — the campaign
+  is parked on `map: null` until its real ground exists and mission place refs are
+  re-anchored to the real gazetteer.
+- **Buildings layer in the feed** 🟡 *(recast)* — the feed's instanced buildings are
+  still hash-scattered boxes in urban CELLS; the pack carries the actual `built`
+  polygons. Derive footprints (or at least placement/orientation/density) from the
+  real polygons so a city orbit reads as streets and blocks, not confetti. Trees
+  similarly: keep instancing, source placement from `wood` polygons and keep them
+  off the real road corridors.
+- **Water done right** ⬜ — the engine ships `WaterPlane` (animated, shader-driven);
+  the feed currently paints water as polygon tone on near-flat DEM. Fine for the
+  Tigris, wrong for coasts and big lakes. Adopt WaterPlane in the feed's engine
+  scene when a coastal map makes it matter.
+- **Mode terrain fit** ⬜ *(replaces M4's reroll model)* — `mapOk`/rerolls died with
+  procgen (ground is fixed; nothing rerolls). Modes must ADAPT to the map instead:
+  KotH should pick its hill from the real relief and decline gracefully on a
+  billiard-flat box; the campaign recipe idea becomes authoring guidance ("this
+  campaign wants a river belt with ≥2 crossings — author one").
+- **Urban gameplay depth** ⬜ *(recast from "urban depth" — design discussion still
+  wanted)* — real cities now EXIST (Baghdad's actual districts, arterials and
+  neighborhoods are in). What was never built is the GAMEPLAY the old entry wanted:
+  route clearance, convoy security on named MSRs, cordons/overwatch, ambush/IED
+  threat on routes (ROUTE IRISH energy), and platoons strongpointing a
+  building/compound. Built-up-as-walls (P5b) is the terrain half; this is the
+  missions-and-mechanics half. Discuss before build.
+- **Carried loose ends** — LKP hold for lost drone tracks (unchanged) · map names /
+  real geography feeding briefings and HHQ flavor (the gazetteer is now real — use
+  it) · sea-level/coastal handling (folds into Water done right).
+
+### Dead *(P6, deliberately)*
+Procgen noise & seeds ☠ · baked real-DEM theaters ☠ · M3c oversized world ☠
+*(superseded: P7 renders the pack's whole box while the sim frames the centred
+square — the "real terrain past the AO edge" architecture, delivered by data instead
+of generation; a flat surround plane below the box floor covers the far void)* ·
+map authoring v0 / hand-authored heightmap JSON ☠ *(superseded by the real editor)* ·
+"full OSM import parked as failing law 1" ☠ *(shipped as the entire foundation —
+law 1 amended accordingly)*.
 
 ---
 
@@ -345,17 +372,19 @@ Contested-line control:
 
 ### 4. Campaign 🟡 *(one map, one long war — SLICE v1 SHIPPED 2026-07-24: M1+M2 playable end-to-end; missions 3+ pending design)*
 
-> **Build state (2026-07-24):** the objective engine, mission runner, brief/tracker/
-> debrief UI, palette gating, per-mission AO crop, and the first two missions are built
-> and browser-verified — see `src/MODES.md → Mode 4` for the full implementation handoff.
-> The campaign is fought on ONE fixed real-world map: the baked **Chorwon Valley** theater
-> (the Iron Triangle) at Large + a fixed seed — deterministic every playthrough, windowed
-> per mission by the AO crop. Not procedural.
-> Missions were (re)designed with the user this session: **M1 LODGMENT** is now CLEAR &
-> HOLD (the FOB moved to M2); **M2 LINES OF SUPPLY** is BUILD THE FOB + OPEN THE SUPPLY
-> LINE, with the M1 force persisting into it. The user explicitly **dropped the "march to
-> the enemy HQ" end-state framing** — the operation's later shape is open. The 7-mission
-> sketch below predates that and is now a menu of ideas, not a locked arc.
+> **Build state (re-audited 2026-08-02):** the objective engine, mission runner,
+> brief/tracker/debrief UI, palette gating and the first two missions are built and
+> verified — see `src/MODES.md → Mode 4`. **But the campaign's GROUND died in P6**:
+> the baked Chorwon theater + authored procgen layout it fought on were deleted with
+> the generator. IRON TRIANGLE is parked on `map: null` (greyed on the splash) until
+> real pack ground is authored for it in the MAP EDITOR and the mission place refs
+> (the invented ASHFORD→GARWICK gazetteer) are re-anchored to the real map's names.
+> The mission files are untouched and the machinery is intact — this is content
+> authoring, not code. The old layout lives in git history as a design reference.
+> Earlier decisions stand: **M1 LODGMENT** is CLEAR & HOLD, **M2 LINES OF SUPPLY** is
+> BUILD THE FOB + OPEN THE SUPPLY LINE with the M1 force persisting; the "march to
+> the enemy HQ" end-state framing is dropped — the 7-mission sketch below is a menu
+> of ideas, not a locked arc.
 
 Moved up in the build order ahead of Zone Capture: the campaign doubles as the
 **new-player teaching arc** (each mission introduces one system), and building it may
@@ -638,7 +667,11 @@ ammunition cook-off that throws the turret clear:
   turret object (up-arc + spin + impact + settle as debris); reuse the wreck/fire system for the
   hull.
 
-### Sensor Horizon — Haze the Distance in the Feed ⬜
+### Sensor Horizon — Haze the Distance in the Feed ⬜ *(note 2026-08-02: fog exists
+and P7 gave the feed real terrain to fade into; the item — driving fade distance from
+`spec.alt * altMul` + per-airframe sensor quality, matched to detection range — is
+still the open tuning pass. The engine's TerrainSurface in SAT mode ignores scene fog,
+a known P7 tradeoff to fold in here.)*
 A UAS feed can see clear to the map edge right now — the R3F scene renders the whole world
 crisply, so a low Raven surveys as far as a high Sentinel. It should fall off with distance,
 gated by altitude and airframe, so a feed shows a believable sensor footprint rather than the
@@ -658,7 +691,11 @@ entire theatre.
   it by day/night and camMode (IR vs EO). Cheap and mostly a tuning pass over existing fog.
   Pairs with the map-side fog/LKP model — this is its in-feed counterpart.
 
-### Edge-of-Map Blackness in the Feed ⬜
+### Edge-of-Map Blackness in the Feed 🟡 *(largely solved 2026-08-02 by P7: the feed
+renders the pack's WHOLE box — the sim frame is the centred square inside it, so past
+the AO edge is real ground — and a flat surround plane below the box floor plus fog
+covers the far void. Remaining: the surround plane is a flat tone; the terrain mesh's
+plinth skirt shows smeared texture at the box edge from outside. Cosmetic.)*
 When a drone near the map edge looks outward, the feed shows the black void past the world —
 the R3F scene only has terrain inside the play area, so beyond it is empty background. It reads
 as a bug ("the world just ends"). Needs a deliberate treatment.
@@ -796,7 +833,10 @@ in priority order:
 
 Deepen the ISR/fog layer so intelligence is something you fight for, not a given:
 
-### Satellite Intel Request
+### Satellite Intel Request ⬜ *(disambiguation 2026-08-02: satellite VIEWS shipped —
+the BFT SAT underlay and the feed's SAT sensor mode are imagery of the ground. This
+entry is a different thing and still open: a tasked INTEL pass that briefly reveals
+enemy positions in a footprint. The shipped imagery never shows units.)*
 An on-call national/theater ISR asset, requested like a fire mission:
 - Player **requests a satellite pass** over a chosen area; after a short **tasking delay**
   it returns a **snapshot** of enemy positions in that footprint (a timed reveal, then the
@@ -994,14 +1034,15 @@ The detour advisory warns; it doesn't stop the pathfinder routing straight throu
 enemy's axis. Around water the only crossing is often exactly where the fighting is, and
 units take it without hesitation — both playtest engineers died this way.
 - **Route cost from the contact picture** — known live contacts project a soft cost
-  bubble into `findPath` for friendly planning (fog-honest: it reads the COP, not ground
-  truth).
-- **A "safe route" option** beside ROADS ONLY rather than always-on — sometimes through
-  *is* the order.
-- Design notes: an additive cost raster rebuilt from `S.contacts` at order time, sampled
-  in the A* neighbour loop like `roadBias`. Keep it away from the AI's own moves until
-  *Symmetric Fog* gives it an honest picture too. Combat groups (escorted moves) are the
-  deeper fix.
+  into route planning (fog-honest: it reads the COP, not ground truth).
+- *(Updated 2026-08-02: route MODES no longer exist — one router, the road graph.
+  Threat cost would land as an edge-weight term in `roadGraph`'s A* — contacts near
+  an edge inflate its cost — plus the same idea in the cell fallback. NOT a mode:
+  a soft weighting, or at most a per-order flag, consistent with the no-modes law
+  in GROUNDWORK.md.)*
+- Design notes: an additive cost keyed off `S.contacts` at order time. Keep it away
+  from the AI's own moves until *Symmetric Fog* gives it an honest picture too.
+  Combat groups (escorted moves) are the deeper fix.
 
 ## Enemy AI / OPFOR 🟡
 
@@ -1313,12 +1354,11 @@ Real C2 runs multiple nets, not one stream — split the traffic into channels:
 
 ## Maps & World
 
-### Seed-Generated Maps 🟡 *(genMap(seed, size) + size presets shipped; the seed is `Date.now() % 100000`, never shown and not enterable)*
-- **Seeded procedural maps** *(done)* — the terrain/hydrology/roads/towns generate from a single
-  seed, and the map now comes in **selectable sizes** (Small 4.8 km / Medium 8.0 km / Large
-  12.8 km), chosen on the splash screen for a new game (`genMap(seed, gridSize)`).
-- Still open: **surface/expose the seed** in the UI so a specific battlefield is shareable and
-  replayable (seed entry + display), not just randomized per game.
+### Seed-Generated Maps ☠ *(DEAD 2026-08-02 — procgen deleted in Groundwork P6)*
+`genMap`, the seed, and the size presets are gone; every map is authored pack content
+and a map declares its own size. The surviving idea — a specific battlefield being
+shareable and replayable — is now true by construction: a pack map IS the shareable
+artifact (drop the folder in, the map exists).
 
 ### More Detailed Maps & Bigger Towns *(superseded)*
 Superseded by the **Maps & Terrain** M-track (theaters, culture layer) and the **Urban
@@ -1356,7 +1396,10 @@ one linear mission, not a syllabus.
   a convoy completed, a drone on station, `S.won`). Reuse `radio()` for prompts. Pairs with the
   Unit Wiki (what the tutorial points at) and the Scenario Builder (same staging/serialization).
 
-### Scenario Builder
+### Scenario Builder 🟡 *(note 2026-08-02: the MAP-side half exists — the MAP EDITOR
+authors the ground and its SCENARIO step places FOB/enemy base into the map.json
+sidecar. What remains below is the BATTLE-layout half: both sides' order of battle,
+postures, and a victory-condition picker.)*
 A proper in-app editor to lay out a battle instead of hand-placing everything by console:
 - **Place forces for both sides** — friendly and enemy units, structures, and drones anywhere on
   the map, set their facing/posture/mount state, and drop wrecks/smoke/effects for staging.
@@ -1552,12 +1595,13 @@ machine, same browser*, so it's all client-side:
 Roads cut through forest, but the feed's instanced trees spawn on any forest cell —
 including cells a road polyline passes through — so trunks stand in the middle of the
 carriageway.
-- Design notes: the tree placement loop in `DroneView getDetail()` checks
-  `terr === T_FOREST` only. Cheapest fix: also skip cells with `road[ci]` set (cell-
-  granular; may clear slightly wide). Cleaner: distance-to-road test — sample the road
-  raster at the jittered tree position (or a couple of points around it) so trees keep
-  crowding the verge but never stand on the deck. Same check should apply to the
-  buildings loop for urban cells a road crosses.
+- Design notes *(updated 2026-08-02)*: the tree placement loop in
+  `DroneView.tsx getDetail()` still checks `terr === T_FOREST` only. Cheapest fix:
+  skip cells with `road[ci]` set (the raster now stamps all five real classes).
+  Cleaner and now possible: the pack carries the REAL road polylines — distance-to-
+  polyline at the jittered tree position keeps trees crowding the verge without
+  standing on the deck. Same for the buildings loop. Folds naturally into the
+  "buildings layer from real polygons" item under Maps & Terrain.
 
 Everything else tracked is fixed — records in the Shipped Archive → Fixed Bugs. One
 carried-forward nice-to-have lives with *Threat-Aware Routing*: a friendly unit whose
@@ -1675,14 +1719,13 @@ OIC's experience/competence — a green S1 takes longer and maybe misses details
 seasoned one is fast and sharp. Hook: the org has real officers with XP records;
 report quality/turnaround becomes one of them.
 
-### Maps & missions in packs ⬜ *(added 2026-07-25)*
-A pack should be able to ship its own THEATERS (map layouts / DEM windows / authored
-town chains) and its own MISSIONS/CAMPAIGNS (operation tables, briefs, scripted
-OPFOR) — "1 pack could change the entire game" ends with content, not just platforms.
-Requires engine work: the campaign runner becomes a generic mission interpreter
-(objective specs are already data); CAMPAIGN_LAYOUT/OPERATION move out of
-engine/campaign.ts into pack space; mode setup reads pack-declared scenarios. See
-src/HARDCODE-AUDIT.md items 8-12.
+### Maps & missions in packs ✅ *(SHIPPED — missions 2026-07-2x, maps 2026-08-01/02)*
+Both halves landed: campaigns/missions are pack JSON (manifest + map ref + mission
+files; the engine is a generic interpreter of objective/trigger/effect vocabulary),
+and maps are pack content (`packs/<id>/maps/` — Groundwork exports + scenario
+sidecars, glob-discovered). "1 pack could change the entire game" is now true for
+content as well as platforms — the Starship Troopers pack (Later band) is the
+intended stress test.
 
 ### Ammo natures in packs ⬜ *(added 2026-07-25 — user directive; HARDCODE-AUDIT item 0)*
 Pack ammo entries become full NATURE specs (dmg, blast, AP, flight, scatter, effect
@@ -1705,7 +1748,39 @@ Everything below is **done and verified**. Compact records — the full design t
 in this file's git history and the feature commits. Open follow-ups from shipped items
 are called out here *and* stubbed in the active sections above where they matter.
 
-### Maps & Terrain (the 2026-07-23 overhaul)
+### GROUNDWORK — real Earth as pack content (2026-08-01/02)
+Full plan of record + per-phase ship records: **`GROUNDWORK.md`**. The headline arc:
+- **P0–P1** — the Groundwork terrain builder consumed as published npm packages
+  (public registry; no auth for anyone, anywhere) and embedded as the MAP EDITOR;
+  SAVE TO PACK writes `.gwpack` geography + `map.json` scenario sidecar into
+  `packs/<id>/maps/`; glob discovery; OPEN FROM PACK; last-map restore.
+- **P2–P3** — `MapRef` identity + `buildGameMap` seam; `world/pack/` services
+  compile a pack into the untouched `WorldMap` contract (real elevation, areas
+  even-odd, five road classes, real-named towns/peaks).
+- **P4** — the exact BFT: the export drawn directly (real-metre elevation art,
+  actual polygons, true-width roads, real gazetteer, ODbL attribution on the
+  sheet); bake-once/blit-per-frame (~145 fps over Baghdad's 51k polylines).
+- **P5** — skirmish + campaign on pack maps; SCENARIO placement editor writes the
+  sidecar; **P5b roads**: junction graph from the real polylines, ONE router (no
+  modes, no graph-vs-cell race — settled the hard way), built-up = walls, convoy
+  profile, keep-right + carriageway heuristic, any-angle smoothing on fallback.
+- **P6 — the kill**: theaters, procgen, golden harness, old renderer, PROCEDURAL
+  option and map-size step all deleted. `connectStructureToRoads` rescued to
+  `world/access.ts` (and its 50 m CELL bug fixed in the move).
+- **P7** — UAV feed on the engine: `buildTerrain` mesh in real metres, one ground
+  seam (`sampleBox`) for camera/hulls/effects/feed reticles, palettes painted from
+  pack vectors, whole-box render with surround.
+- **Satellite** — SAT toggle on the BFT + SAT sensor mode in the feed; Esri imagery
+  via the proxied intake with IndexedDB tile cache; viewport patch + engine clipmap
+  rings for street-level fidelity; **satellite is content** — the builder's toggle
+  at save decides, and a map that shipped none renders the engine's terrain mode
+  (its own world's "satellite") with zero Esri traffic.
+- **Deploy** — production server proxies the tile/DEM endpoints; Railway builds
+  green from push. Maps shipped: BAGHDAD, DENVER, FRONT RANGE, KABUL (1CD pack).
+
+### Maps & Terrain (the 2026-07-23 overhaul) *(the prehistory — the M1 theater
+system and everything downstream of procgen was DELETED by Groundwork P6; kept as
+the historical record)*
 - **M1 — Real-DEM theaters** — 7 real-world elevation patches (Fulda Gap, NTC Mojave,
   Tigris Valley, Donbas Steppe, Ardennes, Arghandab Valley, Golan Heights) baked from
   public-domain DEMs into repo assets (`tools/bake-theaters.mjs`, no runtime fetches);
@@ -1823,9 +1898,10 @@ are called out here *and* stubbed in the active sections above where they matter
   (`src/MIGRATION.md`), golden-run verified, fully seeded sim, sim-edit HMR hot-apply.
   Golden baseline history: `696495692` → `4133144527` → `1929051837` → `60356280` →
   `1377301839` → `289931028` (reserve) → `2291045480` → `2402375581` (economy death) →
-  `3077619369` (drone launch requires orbit authority) →
-  **`1880095465`** (current — expendables: platoons pop smoke breaking contact, and
-  a break with no route out no longer strands the unit).
+  `3077619369` (drone launch requires orbit authority) → `1880095465` (expendables).
+  **The golden harness was RETIRED 2026-08-02 (Groundwork P6)** — it gated the
+  procgen sim port and died with the generator it measured. Verification is now
+  typecheck + build + in-browser/headless playthroughs on pack ground.
 
 ### Fixed Bugs
 - **OPFOR units crossing rivers** — see Water discipline above.
