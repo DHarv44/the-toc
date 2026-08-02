@@ -19,6 +19,7 @@ import CommandDashboard from './ui/CommandDashboard'
 import PackViewer from './ui/PackViewer'
 import PackBuilder from './ui/PackBuilder'
 import MapEditor from './ui/MapEditor'
+import ScenarioBuilder from './ui/scenario/ScenarioBuilder'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
@@ -34,6 +35,7 @@ export default function App() {
   const [started, setStarted] = useState(() => !!S.map)
   const [packs, setPacks] = useState(false) // PACK BUILDER route (menu-level tool)
   const [maps, setMaps] = useState(false)   // MAP EDITOR route (Groundwork, menu-level tool)
+  const [scenarios, setScenarios] = useState(false) // SCENARIO BUILDER route (Eden, menu-level tool)
   // The dev sandbox can swap S.map for another pack map at runtime. Everything
   // reads S live except mount-time work (MapView's baked layer, the initial
   // framing) — so a swap bumps this key and the game layout remounts over the
@@ -88,8 +90,10 @@ export default function App() {
   // no sim running behind them, and return to the menu.
   if (packs) return <PackBuilder onExit={() => setPacks(false)} />
   if (maps) return <MapEditor onExit={() => setMaps(false)} />
+  if (scenarios) return <ScenarioBuilder onExit={() => setScenarios(false)} />
   if (!started) {
-    return <Splash onStart={begin} onPacks={() => setPacks(true)} onMaps={() => setMaps(true)} />
+    return <Splash onStart={begin} onPacks={() => setPacks(true)} onMaps={() => setMaps(true)}
+      onScenarios={() => setScenarios(true)} />
   }
 
   // top bar over the rail row (P5): [INSTALLATIONS|BATTLE GROUPS] map [FEEDS|NET].

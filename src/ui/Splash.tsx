@@ -35,8 +35,8 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 // or keeps it. Pure flavor pool — the name is theirs either way.
 const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SLOANE', 'KINCAID']
 
-export default function Splash({ onStart, onPacks, onMaps }: {
-  onStart: StartFn; onPacks: () => void; onMaps: () => void
+export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
+  onStart: StartFn; onPacks: () => void; onMaps: () => void; onScenarios: () => void
 }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
@@ -106,6 +106,8 @@ export default function Splash({ onStart, onPacks, onMaps }: {
             accent="#6a4a8a" onClick={onPacks} />
           <SplashButton label="MAP EDITOR" sub="Groundwork · real terrain, real roads · author a battlefield"
             accent="#4a6a8a" onClick={onMaps} />
+          <SplashButton label="SCENARIO BUILDER" sub="Place the war on a pack map · units, bases, objectives · ships in the pack"
+            accent="#8a6a2a" onClick={onScenarios} />
         </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>

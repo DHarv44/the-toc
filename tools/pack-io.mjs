@@ -35,6 +35,13 @@ function mapDir(pack, map) {
   return p.startsWith(ROOT + sep) ? p : null
 }
 
+// A scenario's folder: src/packs/<pack>/scenarios/<id>/. Same guards.
+function scenarioDir(pack, id) {
+  if (!SLUG.test(pack) || !SLUG.test(id)) return null
+  const p = resolve(ROOT, pack, 'scenarios', id)
+  return p.startsWith(ROOT + sep) ? p : null
+}
+
 const readBody = (req) => new Promise((res, rej) => {
   let s = ''
   req.on('data', c => { s += c; if (s.length > 8e6) rej(new Error('body too large')) })
@@ -156,6 +163,44 @@ export function packIo() {
             return send(200, { ok: true, file })
           }
           return send(400, { error: "file must be 'ground' or 'meta'" })
+        } catch (e) {
+          return send(500, { error: String(e?.message ?? e) })
+        }
+      })
+
+      // The SCENARIO BUILDER's save seam (SCENARIO-BUILDER.md E1):
+      //   PUT /__gwscenario?pack=1cd&id=river-delay    the scenario.json
+      // Parsed and re-serialized like every JSON this middleware touches; the
+      // scenarios folders are watcher-ignored (same reason as maps — a save
+      // must not reload the app under the builder), so the discovery module
+      // and the folder's cached modules are invalidated by hand.
+      server.middlewares.use('/__gwscenario', async (req, res) => {
+        const send = (code, obj) => {
+          res.statusCode = code
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify(obj))
+        }
+        try {
+          const url = new URL(req.url ?? '/', 'http://localhost')
+          const dir = scenarioDir(url.searchParams.get('pack') ?? '', url.searchParams.get('id') ?? '')
+          if (!dir) return send(400, { error: 'bad pack/scenario id' })
+          if (req.method !== 'PUT') return send(405, { error: 'PUT' })
+          const raw = await readBody(req)
+          let parsed
+          try { parsed = JSON.parse(raw) } catch (e) {
+            return send(400, { error: `not valid JSON: ${e.message}` })
+          }
+          await mkdir(dir, { recursive: true })
+          const file = resolve(dir, 'scenario.json')
+          await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
+          const files = [resolve(process.cwd(), 'src', 'packs', 'scenario-files.ts'), dir]
+            .map(p => p.replace(/\\/g, '/'))
+          for (const [f, mods] of server.moduleGraph.fileToModulesMap) {
+            if (f === files[0] || f.startsWith(files[1] + '/')) {
+              for (const m of mods) server.moduleGraph.invalidateModule(m)
+            }
+          }
+          return send(200, { ok: true, file })
         } catch (e) {
           return send(500, { error: String(e?.message ?? e) })
         }
