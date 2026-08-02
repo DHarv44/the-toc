@@ -12,18 +12,29 @@
 import { MinHeap } from './minheap'
 import { type Vec2, type WorldMap } from './WorldMap'
 import type { Mobility } from './mobility'
+import { routeOnRoads, type RouteProfile } from './pack/roadGraph'
 
 export interface PathOpts {
   crossCountry?: boolean
   offRoad?: boolean
   roadBias?: number
   roadsOnly?: boolean
+  /** road-graph cost profile for roads-only routes on pack maps */
+  profile?: RouteProfile
 }
 
 export function findPath(
   map: WorldMap, sx: number, sy: number, tx: number, ty: number,
   mob: Mobility, opts: PathOpts = {},
 ): Vec2[] | null {
+  // Pack maps route ROADS orders on the real network (GROUNDWORK.md P5b):
+  // time-optimal over the actual polylines — local streets to the on-ramp,
+  // arterials for the trunk, off near the click. The cell A* below remains
+  // the safety net (and the whole story for procgen and every other mode).
+  if (opts.roadsOnly && map.ground) {
+    const r = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
+    if (r) return r
+  }
   const GRID = map.GRID
   // Road penalty. crossCountry (2.2) merely dampens the bonus — enough for the AI's
   // tactical advances, but wheeled roads are 3.1x better than open ground, so a route

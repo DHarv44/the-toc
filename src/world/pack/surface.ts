@@ -5,14 +5,15 @@
 // classes overlap is water > built > wood — water is impassable and must
 // never lose an argument with a polygon that also covers the cell.
 //
-// Roads collapse five observed classes to the sim's three and are stamped the
-// way genMap stamped its own: sampled along each segment at half-cell steps.
-// TRACKS STAY VECTOR-ONLY — at battalion cell sizes a dense street grid
-// stamped into the raster smears whole town centres into one road blob
-// (GROUNDWORK.md P3). They still draw; they just don't price mobility.
+// Roads keep the data's five classes — the sim's vocabulary IS the pack's
+// now (GROUNDWORK.md P5b) — and ALL of them stamp the raster, the way genMap
+// stamped its own: sampled along each segment at half-cell steps. The raster
+// is PRICING, not routing (the road graph owns routing on pack maps), so a
+// city-core cell reading "minor" is roughly honest, and a unit driven down a
+// track is priced on the track instead of the field beside it.
 import type { PackArea, PackRoad, PackVectors } from '@dharv44/groundwork-core'
 import {
-  R_HIGHWAY, R_PATH, R_ROAD,
+  R_MINOR, R_MOTORWAY, R_PRIMARY, R_SECONDARY, R_TRACK,
   T_FIELD, T_FOREST, T_URBAN, T_WATER,
   type RoadClass, type RoadPoly, type Vec2,
 } from '../WorldMap'
@@ -65,9 +66,11 @@ export function terrainOf(vectors: PackVectors, f: Frame): Uint8Array {
 
 function simClass(cls: PackRoad['cls']): RoadClass {
   switch (cls) {
-    case 'motorway': case 'primary': return R_HIGHWAY
-    case 'secondary': case 'minor': return R_ROAD
-    case 'track': return R_PATH
+    case 'motorway': return R_MOTORWAY
+    case 'primary': return R_PRIMARY
+    case 'secondary': return R_SECONDARY
+    case 'minor': return R_MINOR
+    case 'track': return R_TRACK
   }
 }
 
@@ -104,7 +107,6 @@ export function roadsOf(vectors: PackVectors, f: Frame): RoadLayer {
   }
 
   for (const r of roads) {
-    if (r.cls === R_PATH) continue // vector-only: drawn, never priced
     for (let s = 0; s + 1 < r.pts.length; s++) {
       const p = r.pts[s]!, q = r.pts[s + 1]!
       const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))

@@ -170,14 +170,19 @@ function getDetail(): Detail {
       }
       ctx.stroke()
     }
+    // five classes, near-true widths (track → motorway)
     if (palette === 'IR') {
-      stroke(1, 'rgb(118,118,118)', 8)
-      stroke(2, 'rgb(138,138,138)', 13)
-      stroke(3, 'rgb(146,146,146)', 20)
+      stroke(1, 'rgb(118,118,118)', 5)
+      stroke(2, 'rgb(128,128,128)', 8)
+      stroke(3, 'rgb(138,138,138)', 11)
+      stroke(4, 'rgb(142,142,142)', 15)
+      stroke(5, 'rgb(146,146,146)', 24)
     } else {
-      stroke(1, 'rgb(84,71,51)', 8)
-      stroke(2, 'rgb(77,66,51)', 13)
-      stroke(3, 'rgb(87,77,59)', 20)
+      stroke(1, 'rgb(84,71,51)', 5)
+      stroke(2, 'rgb(80,68,51)', 8)
+      stroke(3, 'rgb(77,66,51)', 11)
+      stroke(4, 'rgb(82,71,55)', 15)
+      stroke(5, 'rgb(87,77,59)', 24)
     }
 
     const tex = new THREE.CanvasTexture(cv)

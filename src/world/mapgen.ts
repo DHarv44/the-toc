@@ -9,7 +9,7 @@ import { MOVE_FACTORS, ROAD_NAME, type Mobility } from './mobility'
 import type { TheaterData } from './theaters'
 import {
   CELL, GRID_DEFAULT, TERR_NAME, T_FIELD, T_FOREST, T_URBAN, T_WATER,
-  R_PATH, R_ROAD, R_HIGHWAY,
+  R_TRACK, R_SECONDARY, R_PRIMARY,
   type BridgeSpan, type InfraKind, type MapFeature, type RoadClass, type RoadPoly, type Terrain,
   type Town, type Vec2, type WorldMap,
 } from './WorldMap'
@@ -17,6 +17,11 @@ import {
 const D8: ReadonlyArray<readonly [number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
 ]
+
+// Procgen invented three road classes; the sim now speaks the data's five
+// (GROUNDWORK.md P5b). The generator's three map onto the new codes here and
+// nowhere else — this file dies in P6 with its vocabulary.
+const R_PATH = R_TRACK, R_ROAD = R_SECONDARY, R_HIGHWAY = R_PRIMARY
 
 // Authored map layout (campaign): pins what procgen would otherwise roll — the
 // theater sub-window and the culture nodes (towns, base sites). Everything

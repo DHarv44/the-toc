@@ -161,7 +161,32 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
       sheet — arm PLACE FOB / PLACE ENEMY, click, SAVE writes the sidecar.
       "(auto)" marks the engine's fallback until a spot is authored.
       Groundwork still never learns what a FOB is.
-- [ ] ROADS ONLY becomes graph routing over pack road polylines
+- [x] P5b — roads, properly (design ratified + BUILT 2026-08-02; verified on
+      Baghdad: graph build + first cross-city route 303 ms, 59 ms after; a
+      ROADS-ordered scout drove 18.8 km with the ground under it reading
+      primary/motorway on 84 of 90 samples and off-network on zero; supply
+      convoys run the `convoy` profile with free-path fallback):
+      · the sim adopts the DATA's five road classes — motorway/primary/
+        secondary/minor/track — as its native vocabulary (the 3-class model
+        was procgen's invention; the adapter stops throwing fidelity away).
+        Procgen's three map onto the new codes for its remaining lifetime.
+      · MOVE_FACTORS per class per mobility (motorway 0.45 wheeled … track
+        1.0); ALL five classes stamp the raster — pricing wants them even
+        though routing no longer reads cells (a unit on a track is priced on
+        the track, and a city-core cell reading "minor" is roughly honest)
+      · ROADS orders route on a JUNCTION GRAPH built from the real polylines
+        (src/world/pack/roadGraph.ts): nodes = shared vertices + endpoints,
+        edges carry geometry/length/class, entry/exit via nearest point on
+        the network. Edge cost = length ÷ speed(mob, class) — time-optimal
+        routing IS the Google-Maps behavior: local streets to the on-ramp,
+        arterials for the trunk, exit near the destination, no mode ever
+        "fails" because the last leg is a track.
+      · cost PROFILES, not modes: `fastest` (honest time) and `convoy`
+        (doctrine — over-prefers arterials via per-class multipliers; later
+        discounts authored MSR edges). No strict highway-only mode: hard
+        constraints fail ugly, the convoy profile carries the intent.
+      · FASTEST/CROSS COUNTRY/OFF ROAD keep the cell A* unchanged; cell
+        fallback stays as the safety net behind the graph.
 - Verified: full skirmish flow to a running game on DENVER — FOB framed in
   real Front Range contours, starter force deployed. Authored DENVER bases
   round-trip: placed on the sheet, saved, and a fresh buildGameMap put both
@@ -194,6 +219,10 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
 - **Fetch `place=suburb`/`neighbourhood` nodes** into pack places. City-core
   boxes (Baghdad) carry almost no labels without them — districts are the
   names a COP over a city actually uses. Requested 2026-08-02.
+- **A sixth road class** splitting service roads/alleys out of `minor` —
+  convoys have no business in an alley and the sim would price them apart.
+  The collapse happens at the builder's Overpass mapping, so only Groundwork
+  can undo it. Requested 2026-08-02.
 
 ## Log
 

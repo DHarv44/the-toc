@@ -23,6 +23,7 @@ import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domain
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender'
 import { renderPackLayer, packPlaceLabels } from './packRender'
+import { R_TRACK, R_SECONDARY, R_PRIMARY } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
@@ -568,22 +569,24 @@ export default function MapView() {
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
         const ppm = view.ppm
-        // dirt paths
-        strokeClass(1, night ? 'rgba(140,120,92,0.5)' : 'rgba(122,98,66,0.85)',
+        // procgen emits three of the five classes (track/secondary/primary —
+        // see the mapping atop mapgen.ts); this pass only ever runs for it
+        // dirt tracks
+        strokeClass(R_TRACK, night ? 'rgba(140,120,92,0.5)' : 'rgba(122,98,66,0.85)',
           Math.max(1, 5 * ppm), [6, 5])
         // roads: casing + fill
-        strokeClass(2, night ? 'rgba(30,26,20,0.7)' : 'rgba(52,44,34,0.85)', Math.max(2.4, 9 * ppm + 2), null)
-        strokeClass(2, night ? '#5c503c' : '#96794f', Math.max(1.5, 9 * ppm), null)
+        strokeClass(R_SECONDARY, night ? 'rgba(30,26,20,0.7)' : 'rgba(52,44,34,0.85)', Math.max(2.4, 9 * ppm + 2), null)
+        strokeClass(R_SECONDARY, night ? '#5c503c' : '#96794f', Math.max(1.5, 9 * ppm), null)
         // highway: heavier casing + lighter fill + center line when zoomed
-        strokeClass(3, night ? 'rgba(26,22,16,0.8)' : 'rgba(40,34,26,0.9)', Math.max(3.4, 15 * ppm + 2.5), null)
-        strokeClass(3, night ? '#6e5f44' : '#b09055', Math.max(2.2, 15 * ppm), null)
+        strokeClass(R_PRIMARY, night ? 'rgba(26,22,16,0.8)' : 'rgba(40,34,26,0.9)', Math.max(3.4, 15 * ppm + 2.5), null)
+        strokeClass(R_PRIMARY, night ? '#6e5f44' : '#b09055', Math.max(2.2, 15 * ppm), null)
         if (ppm > 0.06) {
-          strokeClass(3, night ? 'rgba(200,190,160,0.28)' : 'rgba(245,235,205,0.55)',
+          strokeClass(R_PRIMARY, night ? 'rgba(200,190,160,0.28)' : 'rgba(245,235,205,0.55)',
             Math.max(0.7, 1.2 * ppm), [10, 9])
         }
         // bridges: dark abutments + light deck, oriented along the crossing
         for (const b of S.map!.bridges) {
-          const w = (b.cls === 3 ? 22 : b.cls === 2 ? 16 : 10) * ppm
+          const w = (b.cls >= R_PRIMARY ? 22 : b.cls === R_SECONDARY ? 16 : 10) * ppm
           const L = 54 * ppm
           ctx.save()
           ctx.translate(w2sX(b.x), w2sY(b.y))

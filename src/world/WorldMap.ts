@@ -10,11 +10,15 @@ export const T_FIELD = 0, T_FOREST = 1, T_URBAN = 2, T_WATER = 3
 export type Terrain = typeof T_FIELD | typeof T_FOREST | typeof T_URBAN | typeof T_WATER
 export const TERR_NAME: readonly TerrainName[] = ['field', 'forest', 'urban', 'water']
 
-// road classes (raster values in `road`; 0 = none). The vector polylines in
-// `roads` are the source of truth — the raster is stamped from them for O(1)
-// mobility/pathfinding lookups.
-export const R_PATH = 1, R_ROAD = 2, R_HIGHWAY = 3
-export type RoadClass = typeof R_PATH | typeof R_ROAD | typeof R_HIGHWAY
+// road classes (raster values in `road`; 0 = none) — the data's five-class
+// vocabulary (GROUNDWORK.md P5b), ordered so a HIGHER value is always a
+// better road and wins a stamping tie. The vector polylines in `roads` are
+// the source of truth — the raster is stamped from them for O(1) mobility
+// pricing (routing reads the road GRAPH on pack maps, not cells).
+export const R_TRACK = 1, R_MINOR = 2, R_SECONDARY = 3, R_PRIMARY = 4, R_MOTORWAY = 5
+export type RoadClass =
+  | typeof R_TRACK | typeof R_MINOR | typeof R_SECONDARY
+  | typeof R_PRIMARY | typeof R_MOTORWAY
 
 export const GRID_DEFAULT = 256   // default (large) cells per side
 export const CELL = 50            // meters per cell (constant across sizes)

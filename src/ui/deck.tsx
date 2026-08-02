@@ -377,9 +377,12 @@ export function drawSlide(cv: HTMLCanvasElement, idx: number, deck: Slide[]): vo
     }
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
+    // five classes (track → motorway), widths graded like a printed sheet
     strokeCls(1, 'rgba(120,96,64,0.75)', 0.8, [3, 2.5])
-    strokeCls(2, 'rgba(96,80,58,0.9)', 1.4, null)
-    strokeCls(3, 'rgba(70,58,42,0.95)', 2.2, null)
+    strokeCls(2, 'rgba(104,88,62,0.85)', 1.0, null)
+    strokeCls(3, 'rgba(96,80,58,0.9)', 1.4, null)
+    strokeCls(4, 'rgba(80,66,48,0.95)', 1.8, null)
+    strokeCls(5, 'rgba(70,58,42,0.95)', 2.2, null)
   }
   slide.body(inset)
   ctx.restore()
