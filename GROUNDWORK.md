@@ -70,15 +70,23 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
 - Note: VITE_OPENTOPO_KEY not yet set in .env.local (user-owned secret) — the
   OpenTopography DEM source fails until then; AWS Terrain Tiles works today.
 
-### P1 — save to PACK
-- [ ] Dev-only write route (beside pack-io): PUT
-      `src/packs/<pack>/maps/<map>/ground.gwpack` + `map.json` sidecar
-- [ ] TOC shell around the editor gains SAVE TO PACK (pack picker, map id from
-      name) using the documented host seam (`packBytesFrom` + `useStore`)
-- [ ] Pack discovery: glob `./*/maps/*/ground.gwpack` (`?url`) + sidecar JSON;
-      `installedPacks()` surfaces maps
-- Verify: authored map appears in the pack folder, discovered on reload,
-  round-trips through `packFromBytes`.
+### P1 — save to PACK                        [DONE]
+- [x] Dev-only write route `/__gwmap?pack=&map=&file=ground|meta` in pack-io:
+      slug-guarded paths, zip-magic check on the ground, JSON re-serialized on
+      the sidecar, 400 MB cap
+- [x] Editor shell gained SAVE TO PACK: pack select + map name in the header,
+      id slugged from the name, `packBytesFrom` + `useStore` host seam — what
+      is saved is byte-identical to what Export would download
+- [x] Discovery: `src/packs/map-files.ts` (globs `./*/maps/*/ground.gwpack`
+      as URL + `map.json` eagerly, modeled on model-files.ts) —
+      `packMaps()/packMap()`; sidecar type carries the P3 scenario fields
+- Verified live: the P0 Colorado build saved as `1cd/maps/front-range/`
+  (23.5 MB), sidecar written, discovered by the glob, and read back through
+  core in bare Node — 3712×2464 heights 1471–4345 m, 56,903 roads, 18,094
+  areas, 610 named places, attribution carried (AWS/SRTM + OSM ODbL).
+- Note: FRONT RANGE is a scratch test box (109×72 km — far beyond a battalion
+  AO) committed as the P3 development target; real campaign maps will be
+  authored smaller. Map size guidance for authors is a P5 concern.
 
 ### P2 — wiring hygiene (before any non-50 m map exists)
 - [ ] `CELL` audit: consumers read `map.CELL`, never the imported constant

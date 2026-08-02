@@ -13,10 +13,12 @@
 //    standalone app does (key appended server-side, canvases never tainted).
 //  - The Köppen raster ships inside the package; we hand its served URL back
 //    as the asset base rather than copying the file anywhere.
-import { Badge, Box, Button, Group, Text } from '@mantine/core'
-import { Builder, configureBuilder } from '@dharv44/groundwork-builder'
+import { useState } from 'react'
+import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
+import { Builder, configureBuilder, packBytesFrom, useStore } from '@dharv44/groundwork-builder'
 import '@dharv44/groundwork-builder/styles.css'
 import koppenUrl from '@dharv44/groundwork-builder/assets/koppen_0p1.png'
+import { installedPacks } from '../packs'
 
 const MONO = 'Consolas, monospace'
 const KOPPEN_FILE = 'koppen_0p1.png'
@@ -30,7 +32,55 @@ configureBuilder({
   devHooks: false, // TOC owns window.__game; the editor gets no globals here
 })
 
+// filename/id from the display name — fixed at save, like every pack id
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
+
 export default function MapEditor({ onExit }: { onExit: () => void }) {
+  const [packId, setPackId] = useState(() => installedPacks()[0]?.id ?? '')
+  const [name, setName] = useState('NEW MAP')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  // the builder's state, live — SAVE lights up once a terrain is actually built
+  const built = useStore(s => !!s.heightField)
+
+  // The documented host seam: the builder's own state, packed to bytes, and
+  // POSTed to the dev write route — no download in the loop. What is saved is
+  // exactly what Export would download.
+  const save = async () => {
+    const s = useStore.getState()
+    if (!s.heightField) return
+    const mapId = slugify(name)
+    if (!mapId || !packId) { setMsg('FAILED: pick a pack and name the map'); return }
+    setBusy(true); setMsg(null)
+    try {
+      const bytes = await packBytesFrom({
+        heightField: s.heightField,
+        osm: s.roads,
+        waterMask: s.waterMask,
+        baseName: mapId,
+        createdAt: new Date().toISOString(),
+      })
+      const q = `pack=${packId}&map=${mapId}`
+      const put = await fetch(`/__gwmap?${q}&file=ground`, {
+        method: 'PUT', headers: { 'content-type': 'application/zip' },
+        body: bytes.buffer as ArrayBuffer,
+      })
+      const body = await put.json() as { error?: string; bytes?: number }
+      if (!put.ok) throw new Error(body.error ?? `HTTP ${put.status}`)
+      // the sidecar is the SCENARIO layer — bases/MSR land here in P3; for now
+      // it names the map and records where the ground came from
+      const meta = await fetch(`/__gwmap?${q}&file=meta`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() || mapId }),
+      })
+      if (!meta.ok) throw new Error((await meta.json() as { error?: string }).error ?? `HTTP ${meta.status}`)
+      setMsg(`SAVED ${packId}/maps/${mapId} · ${((body.bytes ?? 0) / 1e6).toFixed(1)} MB`)
+    } catch (e) {
+      setMsg(`FAILED: ${String((e as Error).message ?? e)}`)
+    } finally { setBusy(false) }
+  }
+
   return (
     <Box pos="fixed" inset={0} bg="#05080b"
       style={{ zIndex: 100, display: 'flex', flexDirection: 'column', fontFamily: MONO }}>
@@ -41,12 +91,19 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
             MAP EDITOR
           </Text>
           <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
-            GROUNDWORK · PICK A BOX OF EARTH, TUNE IT, EXPORT THE BATTLEFIELD
+            GROUNDWORK · PICK A BOX OF EARTH, TUNE IT, SAVE IT TO A PACK
           </Text>
         </Box>
-        {/* SAVE TO PACK lands in P1 — until then the builder's own Export tab
-            downloads a .gwpack you can drop into a pack folder by hand */}
-        <Badge size="sm" variant="outline" color="gray">EXPORT → DOWNLOAD (P1: SAVE TO PACK)</Badge>
+        {msg && (
+          <Text fz={10} c={msg.startsWith('FAILED') ? '#e8524a' : '#7ec8ff'}>{msg}</Text>
+        )}
+        <Select size="xs" w={150} value={packId} onChange={v => v && setPackId(v)}
+          data={installedPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))} />
+        <TextInput size="xs" w={180} value={name} placeholder="MAP NAME"
+          onChange={e => setName(e.currentTarget.value.toUpperCase())} />
+        <Button size="sm" onClick={() => void save()} loading={busy} disabled={!built}>
+          SAVE TO PACK
+        </Button>
         <Button size="sm" variant="default" onClick={onExit}>◀ MAIN MENU</Button>
       </Group>
 
