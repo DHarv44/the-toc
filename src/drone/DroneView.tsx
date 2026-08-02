@@ -13,7 +13,7 @@ import type { WorldMap } from '../world/WorldMap'
 import { elemWorld, elemExposed, elemHeading } from '../domains/forces/elements'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
-import { CELL, T_FOREST, T_URBAN, T_WATER } from '../world/WorldMap'
+import { T_FOREST, T_URBAN, T_WATER } from '../world/WorldMap'
 import { hash01 } from '../lib/math'
 import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
 import { playFeedAudio } from './feedAudio'
@@ -44,7 +44,7 @@ interface Detail {
 // line. Everything the feed positions vertically samples here instead. The sim
 // keeps using elevAt; this is a picture concern, not a terrain one.
 export function groundAt(x: number, y: number): number {
-  const { elev, GRID } = S.map!
+  const { elev, GRID, CELL } = S.map!
   const cx = x / CELL - 0.5, cy = y / CELL - 0.5
   let gx0 = Math.floor(cx), gy0 = Math.floor(cy)
   const wx = cx - gx0, wy = cy - gy0
@@ -59,7 +59,7 @@ let cache: Detail | null = null
 function getDetail(): Detail {
   if (cache && cache.map === S.map) return cache
   const map = S.map!
-  const { elev, terr, waterSurf, GRID, WORLD } = map
+  const { elev, terr, waterSurf, GRID, WORLD, CELL } = map
 
   const elevAtBilinear = groundAt
 

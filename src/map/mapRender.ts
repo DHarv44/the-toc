@@ -4,12 +4,13 @@
 // lines every 10 m (index every 50 m), depth-shaded water with soft shorelines,
 // forest/field texture. Roads + bridges stroked on top.
 // Ported verbatim from src/map/mapRender.js.
-import { CELL, T_FOREST, T_URBAN, T_WATER, type WorldMap } from '../world/WorldMap'
+import { T_FOREST, T_URBAN, T_WATER, type WorldMap } from '../world/WorldMap'
 
 const PX = 8
 
 export function renderTerrainLayer(map: WorldMap): HTMLCanvasElement {
   const GRID = map.GRID
+  const CELL = map.CELL
   const size = GRID * PX
   const cv = document.createElement('canvas')
   cv.width = size; cv.height = size

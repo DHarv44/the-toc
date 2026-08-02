@@ -4,7 +4,7 @@
 import { S } from '../../engine/state'
 import type { Formation, Unit } from '../../engine/GameState'
 import { findPath, type PathOpts } from '../../world/pathfinding'
-import { CELL, T_WATER } from '../../world/WorldMap'
+import { T_WATER } from '../../world/WorldMap'
 import { clampWorld } from '../../world/place'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
@@ -35,7 +35,7 @@ function autoRemount(u: Unit): void {
 
 function nearRoad(x: number, y: number, r = ROAD_SNAP): boolean {
   const m = S.map!, GRID = m.GRID
-  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL)
+  const cx = Math.floor(x / m.CELL), cy = Math.floor(y / m.CELL)
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const nx = cx + dx, ny = cy + dy

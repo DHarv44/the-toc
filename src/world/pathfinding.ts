@@ -10,7 +10,7 @@
 // opts.roadsOnly: refuse off-road cells outright, except close to either end —
 //   a unit still has to get on and off the road somewhere.
 import { MinHeap } from './minheap'
-import { CELL, type Vec2, type WorldMap } from './WorldMap'
+import { type Vec2, type WorldMap } from './WorldMap'
 import type { Mobility } from './mobility'
 
 export interface PathOpts {
@@ -54,8 +54,8 @@ export function findPath(
     }
     if (found == null) return null
     goal = found
-    gtx = ((goal % GRID) + 0.5) * CELL
-    gty = (((goal / GRID) | 0) + 0.5) * CELL
+    gtx = ((goal % GRID) + 0.5) * map.CELL
+    gty = (((goal / GRID) | 0) + 0.5) * map.CELL
   }
   if (start === goal) return [{ x: gtx, y: gty }]
 
@@ -125,8 +125,8 @@ export function findPath(
   while (c !== -1) { cells.push(c); c = came[c]! }
   cells.reverse()
   const pts: Vec2[] = cells.map(i => ({
-    x: ((i % GRID) + 0.5) * CELL,
-    y: (((i / GRID) | 0) + 0.5) * CELL,
+    x: ((i % GRID) + 0.5) * map.CELL,
+    y: (((i / GRID) | 0) + 0.5) * map.CELL,
   }))
   // prune collinear runs
   const out: Vec2[] = [pts[0]!]

@@ -25,7 +25,6 @@ import { renderTerrainLayer, TERRAIN_PX } from './mapRender'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
-import { CELL } from '../world/WorldMap'
 import type { PathOpts } from '../world/pathfinding'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -519,7 +518,7 @@ export default function MapView() {
       ctx.restore()
 
       // terrain (dimmed + desaturated at night)
-      const mpp = CELL / TERRAIN_PX
+      const mpp = S.map!.CELL / TERRAIN_PX
       ctx.imageSmoothingEnabled = view.ppm * mpp < 1
       if (night) ctx.filter = 'brightness(0.42) saturate(0.5) contrast(1.05)'
       ctx.drawImage(
@@ -991,7 +990,7 @@ export default function MapView() {
 
       // pontoon bridges laid by engineers
       if (S.pontoons.length) {
-        const GRID = S.map!.GRID
+        const { GRID, CELL } = S.map!
         for (const i of S.pontoons) {
           const gx = i % GRID, gy = (i / GRID) | 0
           const x = w2sX(gx * CELL), y = w2sY(gy * CELL)

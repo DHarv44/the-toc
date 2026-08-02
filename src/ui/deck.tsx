@@ -15,7 +15,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import { renderTerrainLayer, TERRAIN_PX } from '../map/mapRender'
-import { CELL } from '../world/WorldMap'
 import { controlField } from '../engine/frontline'
 import { locRef } from '../world/ref'
 import type { RecoveryRef } from '../engine/GameState'
@@ -357,7 +356,7 @@ export function drawSlide(cv: HTMLCanvasElement, idx: number, deck: Slide[]): vo
   }
   ctx.save()
   ctx.beginPath(); ctx.rect(MX, MY, MW, MH); ctx.clip()
-  const tpm = TERRAIN_PX / CELL
+  const tpm = TERRAIN_PX / S.map!.CELL
   ctx.drawImage(terrainLayer(), sx * tpm, sy * tpm, f.span * tpm, f.span * tpm * (MH / MW), MX, MY, MW, MH)
   // the road net (vector polylines — the cached terrain layer doesn't carry
   // them): dirt dashed, roads solid, the MSR heavier. Drawn under the

@@ -16,7 +16,7 @@ import { damageUnit, deriveElements, precisionBlast } from '../forces/casualties
 import { unitFirepower, consumeAmmo } from '../forces/firepower'
 import { canEngage, concealment, firingDetected, observedByDrone, SMOKE_DURATION } from '../intel/sensing'
 import { netRadio, radio } from '../comms/radio'
-import { CELL, TERR_NAME, T_FOREST, T_URBAN } from '../../world/WorldMap'
+import { TERR_NAME, T_FOREST, T_URBAN } from '../../world/WorldMap'
 
 // observed-fire DPS multiplier when a friendly UAV is watching the target
 const OBSERVED_FIRE_MUL = 1.3
@@ -70,7 +70,7 @@ export function directFireUpdate(dt: number): void {
           const m = S.map!
           const here = m.terrAt(u.x, u.y)
           if (here !== T_FOREST && here !== T_URBAN) {
-            const gx0 = Math.floor(u.x / CELL), gy0 = Math.floor(u.y / CELL)
+            const gx0 = Math.floor(u.x / m.CELL), gy0 = Math.floor(u.y / m.CELL)
             let cbx = 0, cby = 0, cbd = Infinity
             for (let dy = -5; dy <= 5; dy++) {
               for (let dx = -5; dx <= 5; dx++) {
@@ -79,7 +79,7 @@ export function directFireUpdate(dt: number): void {
                 if (!m.inBounds(gx, gy)) continue
                 const t2 = m.terr[gy * m.GRID + gx]
                 if (t2 !== T_FOREST && t2 !== T_URBAN) continue
-                const px = (gx + 0.5) * CELL, py = (gy + 0.5) * CELL
+                const px = (gx + 0.5) * m.CELL, py = (gy + 0.5) * m.CELL
                 const dSelf = Math.hypot(px - u.x, py - u.y)
                 if (dSelf >= cbd || dSelf > 260) continue
                 if (Math.hypot(px - tgt.x, py - tgt.y) < tdist * 0.8) continue // no bounding toward the guns
