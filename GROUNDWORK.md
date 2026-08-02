@@ -88,26 +88,42 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   AO) committed as the P3 development target; real campaign maps will be
   authored smaller. Map size guidance for authors is a P5 concern.
 
-### P2 — wiring hygiene (before any non-50 m map exists)
-- [ ] `CELL` audit: consumers read `map.CELL`, never the imported constant
-      (movement, drone, renderers, HUD rulers — grep-driven, mechanical)
-- [ ] Map identity: `{packId, mapId}` replaces seed-regenerates-the-map
-      assumptions (persistence note in WorldMap.ts, HMR remount, initGame)
-- [ ] `initGame` takes a map reference; Splash/campaign plumbing passes it
-- Verify: existing procgen game still runs identically (golden unaffected).
+### P2 — wiring hygiene                      [DONE]
+- [x] `CELL` audit: every consumer reads `map.CELL` (pathfinding, fires,
+      orders, drone feed, both map renderers, deck). Only mapgen still imports
+      the constant — it generates AT 50 m and dies in P6.
+- [x] Map identity: `MapRef` (world/mapref.ts) — procgen or `{packId, mapId}`;
+      `buildGameMap(ref)` is the one async seam; `map.ref` is what persists
+- [x] `initGame(map, seed, difficulty, mode)` — synchronous scenario
+      composition over a finished map; App builds the ref
+- Course correction recorded mid-phase: golden.ts is DEPRECATED, not
+  protected — patched to compile, killed in P6 with the generator it
+  measured. Mode terrain rerolls (mapOk) not wired through the new seam;
+  modes get fixed later, on pack maps.
+- Verified: dev sandbox plays identically after the audit.
 
-### P3 — the sim index (pack → WorldMap)
-- [ ] `src/world/pack/` services: pack loader (fetch + `packFromBytes`, cached),
-      elevation resample (`sampleBox` → grid at data resolution),
-      area rasteriser (even-odd, inner rings honored) → `terr`,
-      road converter (clip, classify, stamp roads/highways; paths vector-only),
-      places → real-named `Town[]`/`MapFeature[]`, bridges/waterSurf/slope/
-      moveFactor derived as today, gameplay elevation renormalisation kept
-      (mobility costs are tuned against it; `elevLabel` maps back to metres)
-- [ ] fob/enemyBase from sidecar `map.json`; heuristic fallback
-- [ ] `mapFromPack(files, sidecar) → WorldMap` factory assembling the above
-- Verify: a real exported map is playable — old renderer as stopgap picture,
-  units path over real roads, names show up in radio/briefs.
+### P3 — the sim index (pack → WorldMap)     [DONE]
+- [x] `src/world/pack/` services, one concern each:
+      `loadGround` (fetch + core reader, session-cached) ·
+      `frame` (pack box → largest centred square; CELL = max(data res,
+      side/512) — the 512 cap serves the OLD renderer's 8 px/cell canvas and
+      dies with it) · `elevation` (sampleBox resample + genMap's gameplay
+      renormalisation kept — mobility tuning — with `toMetres` inverse) ·
+      `surface` (areas even-odd with inner rings honored, water > built >
+      wood; roads clipped/collapsed/stamped, TRACKS VECTOR-ONLY) ·
+      `culture` (real-named towns capped to 8 most significant, peaks to 10
+      highest with true elevations, named waters as river anchors)
+- [x] `mapFromPack(ground, sidecar) → WorldMap` factory; fob/enemy from the
+      sidecar or opposite-corner fallback on standable ground
+- [x] `buildGameMap({kind:'pack'})` wired — a pack ref is now startable
+- Deliberately absent: bridges (a stamped road cell already outprices the
+  water under it, so crossings PRICE right; decks/targeting later), rivers'
+  own hydrology raster (P4 reads polygons directly).
+- Verified headless on BAGHDAD (26.5 km, 512 cells @ 51.7 m, 51,360 road
+  polylines): initGame spawns 32 town garrisons, a scout ordered cross-map
+  drove 12.2 km in 10 sim-minutes and sits on `highway` per terrNameAt —
+  real Baghdad roads pricing real movement. Real names throughout (بغداد,
+  تل جمر…).
 
 ### P4 — the exact BFT
 - [ ] Pack-native 2D underlay renderer (new module, not mapRender surgery):

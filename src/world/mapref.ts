@@ -12,6 +12,9 @@
 import { genMap, type MapLayout } from './mapgen'
 import { loadTheater } from './theaters'
 import type { WorldMap } from './WorldMap'
+import { packMap } from '../packs/map-files'
+import { loadGround } from './pack/loadGround'
+import { mapFromPack } from './pack/mapFromPack'
 
 export type MapRef =
   | {
@@ -39,9 +42,12 @@ export async function buildGameMap(
   mapOk?: (m: WorldMap) => boolean,
 ): Promise<WorldMap> {
   if (ref.kind === 'pack') {
-    // P3 lands mapFromPack here; the identity exists first so nothing else
-    // has to change shape when it does.
-    throw new Error(`pack map ${ref.packId}/${ref.mapId}: mapFromPack lands in P3`)
+    const entry = packMap(ref.packId, ref.mapId)
+    if (!entry) throw new Error(`no map ${ref.packId}/${ref.mapId} in any installed pack`)
+    const ground = await loadGround(entry.groundUrl)
+    const m = mapFromPack(ground, entry.sidecar)
+    m.ref = ref
+    return m
   }
   const theater = ref.theaterId ? await loadTheater(ref.theaterId) : undefined
   let m = genMap(ref.seed, ref.gridSize, theater, ref.layout)
