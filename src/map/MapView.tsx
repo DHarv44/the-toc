@@ -24,6 +24,7 @@ import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/c
 import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
 import { frameOf } from '../world/pack/frame'
 import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../world/pack/imagery'
+import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI } from '../ui/store'
@@ -42,15 +43,21 @@ export default function MapView() {
     // into the sheet once; the per-frame cost is a blit (GROUNDWORK.md P4)
     const ground = S.map!.ground!
     const terrainLayer = renderPackLayer(S.map!, ground)
-    // SAT underlay: orthoimagery of the same frame, fetched lazily on first
-    // toggle (builder's intake, session-cached) and blitted in the sheet's
-    // place. Null until it lands; the sheet keeps drawing meanwhile.
+    // SAT underlay: for a map that shipped satellite (map.json `sat`),
+    // orthoimagery of the frame, fetched lazily on first toggle. For a
+    // terrain-mode world, the engine's procedural ground baked top-down —
+    // that world's own orthoimagery. Null until ready; the sheet keeps
+    // drawing meanwhile.
     const frame = frameOf(ground.files.manifest)
     let satLayer: HTMLCanvasElement | null = null
     let satKicked = false
     const kickSat = () => {
       if (satKicked) return
       satKicked = true
+      if (!S.map!.sat) {
+        try { satLayer = terrainOrtho() } catch (e) { satKicked = false; console.error('terrain ortho bake failed', e) }
+        return
+      }
       frameImagery(ground, frame)
         .then(cv => { satLayer = cv })
         .catch(e => { satKicked = false; console.error('satellite imagery failed', e) })
@@ -570,8 +577,9 @@ export default function MapView() {
         ctx.drawImage(satLayer!, w2sX(0), w2sY(0),
           S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
         // past the base mosaic's own resolution, sharpen where the view is
+        // (real imagery only — the terrain bake has nothing sharper to fetch)
         const basePpm = satLayer!.width / S.map!.WORLD
-        if (view.ppm > basePpm * 1.3) {
+        if (S.map!.sat && view.ppm > basePpm * 1.3) {
           const pad = 1.35
           const hw = (canvas.width / 2 / view.ppm) * pad, hh = (canvas.height / 2 / view.ppm) * pad
           kickPatch(
@@ -717,8 +725,9 @@ export default function MapView() {
         ctx.font = '8px Consolas, monospace'
         ctx.textAlign = 'right'
         ctx.fillStyle = night ? 'rgba(150,170,190,0.45)' : showSat ? 'rgba(210,220,230,0.6)' : 'rgba(40,50,60,0.5)'
-        // Esri's credit joins the line whenever its imagery is on the sheet
-        ctx.fillText(showSat ? `${attribution}  ·  ${IMAGERY_CREDIT}` : attribution,
+        // Esri's credit joins the line only when its pixels are on the sheet
+        const esri = showSat && S.map!.sat
+        ctx.fillText(esri ? `${attribution}  ·  ${IMAGERY_CREDIT}` : attribution,
           canvas.clientWidth - 8, canvas.clientHeight - 6)
         ctx.restore()
       }

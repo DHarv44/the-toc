@@ -257,7 +257,9 @@ function TerrainMesh({ mode, feedRef }: { mode: SensorMode; feedRef: { current: 
   const detail = useMemo(getDetail, [])
   const [, bump] = useState(0)
   useEffect(() => {
-    if (mode === 'SAT' && !getSatTex()) kickSatTex(() => bump(n => n + 1))
+    // the base mosaic is only fetched for a map that shipped satellite —
+    // a terrain-mode world's SAT drape needs no imagery at all
+    if (mode === 'SAT' && S.map!.sat && !getSatTex()) kickSatTex(() => bump(n => n + 1))
   }, [mode])
   // SAT rides the ENGINE surface — its shader runs the imagery clipmap
   // (nested close-up rings under the look-point, eased swaps). IR/EO keep

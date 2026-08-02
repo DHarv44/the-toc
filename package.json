@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dharv44/groundwork-builder": "^0.2.0",
-    "@dharv44/groundwork-core": "^0.2.0",
-    "@dharv44/groundwork-engine": "^0.2.0",
+    "@dharv44/groundwork-builder": "^0.3.2",
+    "@dharv44/groundwork-core": "^0.3.2",
+    "@dharv44/groundwork-engine": "^0.3.2",
     "@mantine/core": "^9.4.2",
     "@mantine/hooks": "^9.4.2",
     "@react-three/drei": "^10.7.7",

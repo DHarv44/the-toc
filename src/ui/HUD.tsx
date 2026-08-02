@@ -86,7 +86,9 @@ export default function HUD() {
       }}>
         <button title={ui.night ? 'Switch to day' : 'Switch to night'}
           onClick={ui.toggleNight} style={mapCtl(ui.night)}>{ui.night ? '☾' : '☀'}</button>
-        <button title="Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)"
+        <button title={S.map?.sat
+          ? 'Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)'
+          : "Satellite underlay — this world's own ground, rendered top-down"}
           onClick={ui.toggleSat}
           style={{ ...mapCtl(ui.sat), fontSize: 7.5, letterSpacing: 0.5 }}>SAT</button>
         <button title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
@@ -1252,8 +1254,9 @@ export function FeedWindow({ feed, index, docked }: { feed: Feed; index: number;
                   drone.state === 'transit' ? 'TRANSIT' : drone.state === 'rtb' ? 'RTB' : drone.state === 'striking' ? 'TERMINAL' : 'ON STA'}
                 {' · '}{(38 / feed.fov).toFixed(1)}×{(feed.gx || feed.gy) ? ' · OFFSET' : ''}
               </div>
-              {/* the imagery credit rides the picture it applies to */}
-              {camMode === 'SAT' && (
+              {/* the imagery credit rides the picture it applies to — a
+                  terrain-mode SAT view shows no Esri pixels, so no credit */}
+              {camMode === 'SAT' && S.map?.sat && (
                 <div style={{ position: 'absolute', bottom: 8, left: 26, color: 'rgba(216,232,240,0.55)', fontSize: 8, letterSpacing: 0.5 }}>
                   {IMAGERY_CREDIT}
                 </div>

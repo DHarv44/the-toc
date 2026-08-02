@@ -13,8 +13,11 @@
 //    standalone app does (key appended server-side, canvases never tainted).
 //  - The Köppen raster ships inside the package; we hand its served URL back
 //    as the asset base rather than copying the file anywhere.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
+// BEFORE the builder package: its session restore runs at module evaluation,
+// and this shim puts our session under the key it actually reads
+import './builderSessionFix'
 import { Builder, configureBuilder, packBytesFrom, useStore } from '@dharv44/groundwork-builder'
 import { packFromBytes } from '@dharv44/groundwork-core'
 import '@dharv44/groundwork-builder/styles.css'
@@ -61,6 +64,21 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
   const [scenario, setScenario] = useState<PackMapEntry | null>(null)
   // the builder's state, live — SAVE lights up once a terrain is actually built
   const built = useStore(s => !!s.heightField)
+  // Satellite in-game is decided by the builder's own drape at save time
+  // (map.json `sat`): authoring with the satellite toggle ON means the map's
+  // world IS Earth and the game may show orthoimagery; OFF means the game's
+  // SAT views render the engine's terrain mode instead — a fictional world
+  // has its own "satellite".
+  const sat = useStore(s => s.settings.textureMode === 'satellite')
+
+  // The map you were working on comes back the same way the OPEN FROM PACK
+  // dropdown loads one: TOC's own localStorage pack/map id → the saved
+  // pack's bounds → rebuild. TOC's truth, not the builder's internal
+  // session restore.
+  useEffect(() => {
+    if (lastEntry) void load(lastEntry.packId, lastEntry.mapId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Load an existing pack map back into the editor. The builder has no import
   // path — it authors from BOUNDS — but the saved ground carries its bounds in
@@ -111,11 +129,13 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
       })
       const body = await put.json() as { error?: string; bytes?: number }
       if (!put.ok) throw new Error(body.error ?? `HTTP ${put.status}`)
-      // the sidecar is the SCENARIO layer — bases/MSR land here in P3; for now
-      // it names the map and records where the ground came from
+      // The sidecar is the SCENARIO layer. The write route replaces the file
+      // wholesale, so MERGE over what the map already carries — a ground
+      // re-save must never silently discard authored bases or the MSR.
+      const existing = packMaps().find(m => m.packId === packId && m.mapId === mapId)?.sidecar
       const meta = await fetch(`/__gwmap?${q}&file=meta`, {
         method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() || mapId }),
+        body: JSON.stringify({ ...existing, name: name.trim() || mapId, sat }),
       })
       if (!meta.ok) throw new Error((await meta.json() as { error?: string }).error ?? `HTTP ${meta.status}`)
       writeLast(packId, mapId)

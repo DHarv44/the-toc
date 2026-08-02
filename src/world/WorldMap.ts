@@ -75,6 +75,9 @@ export interface WorldMap {
   /** The opened pack this map was built from — the exact renderer draws from
    *  it directly instead of from the sim rasters (pack maps only). */
   ground?: import('./pack/loadGround').Ground
+  /** Satellite imagery permitted (map.json `sat`) — gates the BFT SAT
+   *  underlay and the feed's SAT sensor mode. Content decides. */
+  sat: boolean
   fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
   enemyBase: Vec2
   devView?: { cx: number; cy: number; fit: number }  // sandbox initial framing

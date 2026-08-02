@@ -26,6 +26,10 @@ export interface PackMapSidecar {
   enemyBase?: { x: number; y: number }
   /** MSR as an ordered list of place names to route through. P3. */
   msr?: string[]
+  /** Satellite imagery permitted in-game (BFT underlay + feed SAT mode).
+   *  A content decision, made at save: a fictional-world pack never wants
+   *  Earth orthoimagery over its ground. Absent = NO satellite. */
+  sat?: boolean
 }
 
 export interface PackMapEntry {

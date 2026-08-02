@@ -52,7 +52,9 @@ export function getSatSurface(): TerrainSurface {
     surface.setConfig({
       ...DEFAULT_SURFACE_CONFIG,
       exaggeration: 1,          // true shape — must match the ground seam
-      textureMode: 'satellite',
+      // a map whose sidecar shipped no satellite (map.json `sat`) is its own
+      // world: SAT renders the engine's TERRAIN mode and never touches Esri
+      textureMode: S.map!.sat ? 'satellite' : 'procedural',
     })
     surface.setSky(computeSky(135, 55)) // fixed clear-day light, SE sun
     state = {
@@ -81,6 +83,7 @@ export function satSurfaceFrame(
   const s = state
   if (!s || s.map !== S.map) return
   s.surface.update(dt)
+  if (!S.map!.sat) return // terrain-mode world: no imagery, no rings, no fetches
   if (baseTex && s.baseTex !== baseTex) { s.baseTex = baseTex; pushLayers(s) }
   const { f } = groundCtx()
   const g = S.map!.ground!
