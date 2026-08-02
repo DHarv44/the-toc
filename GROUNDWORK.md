@@ -157,9 +157,19 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
 - [x] `CampaignMapSpec.map?: string` — a campaign referencing a pack map id
       plays that map (theater/seed/layout ignored). Iron Triangle stays on
       its legacy spec until campaign ground is authored for it.
+- [x] Scenario placement: SCENARIO in the editor opens the saved map's exact
+      sheet — arm PLACE FOB / PLACE ENEMY, click, SAVE writes the sidecar.
+      "(auto)" marks the engine's fallback until a spot is authored.
+      Groundwork still never learns what a FOB is.
 - [ ] ROADS ONLY becomes graph routing over pack road polylines
 - Verified: full skirmish flow to a running game on DENVER — FOB framed in
-  real Front Range contours, starter force deployed.
+  real Front Range contours, starter force deployed. Authored DENVER bases
+  round-trip: placed on the sheet, saved, and a fresh buildGameMap put both
+  where they were clicked (snapped to standable ground).
+- Bug found+fixed on the way: the maps folders are watcher-ignored, so
+  Vite's TRANSFORM CACHE also never heard about saves — the sidecar's eager
+  JSON import stayed stale across reloads. The /__gwmap route now invalidates
+  every cached module under the map's folder, not just discovery.
 
 ### P6 — the kill
 - [ ] Delete: theaters (`theaters.ts`, `theaterIndex.ts`, `bake-theaters.mjs`,

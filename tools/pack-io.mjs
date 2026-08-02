@@ -114,11 +114,19 @@ export function packIo() {
           // invalidated by hand: the glob in map-files.ts re-runs on the next
           // page load and picks the new map up.
           const invalidateDiscovery = () => {
-            // Vite's module graph keys files with forward slashes, whatever the OS
-            const file = resolve(process.cwd(), 'src', 'packs', 'map-files.ts')
-              .replace(/\\/g, '/')
-            for (const m of server.moduleGraph.getModulesByFile(file) ?? []) {
-              server.moduleGraph.invalidateModule(m)
+            // The watcher ignores the maps folders (a save must not reload the
+            // app), which also means Vite's transform cache never hears about
+            // the write. Invalidate by hand: the discovery module AND every
+            // cached module under this map's folder — the sidecar map.json is
+            // an eager import, and serving its stale cache is how an authored
+            // base silently fails to arrive.
+            // (Module-graph paths use forward slashes on every OS.)
+            const files = [resolve(process.cwd(), 'src', 'packs', 'map-files.ts'), dir]
+              .map(p => p.replace(/\\/g, '/'))
+            for (const [file, mods] of server.moduleGraph.fileToModulesMap) {
+              if (file === files[0] || file.startsWith(files[1] + '/')) {
+                for (const m of mods) server.moduleGraph.invalidateModule(m)
+              }
             }
           }
 
