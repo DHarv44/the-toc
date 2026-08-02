@@ -32,6 +32,7 @@ import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
 import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
+import { MapButton, MapControlStack } from './MapControls'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active: boolean): CSSProperties => ({
@@ -57,17 +58,10 @@ export default function HUD() {
   useUI((s) => s.tick) // re-render at 10 Hz
   const ui = useUI()
 
-  // overlays that belong to the map column; the top bar and the two side rails are
-  // laid out by App as real siblings of the map
-  // map-corner control chrome (shared by day/rng/fit)
-  const mapCtl = (active: boolean): CSSProperties => ({
-    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: 0, fontSize: 16, lineHeight: 1, cursor: 'pointer',
-    background: active ? '#1d3a55' : 'rgba(16,26,36,0.9)',
-    color: active ? '#dceeff' : '#9ab8d0',
-    border: `1px solid ${active ? '#5a86b0' : '#35506a'}`, borderRadius: 3,
-  })
-
+  // overlays that belong to the map column; the top bar and the two side rails
+  // are laid out by App as real siblings of the map. The corner control stack
+  // is the SHARED MapControls primitives — the scenario builder composes the
+  // same ones over its sheet.
   return (
     <>
       {/* the selection tray is a layout row BELOW the map — App mounts it */}
@@ -80,41 +74,36 @@ export default function HUD() {
 
       {/* map controls: a stack at the map column's bottom-right — display
           toggles live ON the map they affect (day/night, range rings, fit) */}
-      <div style={{
-        position: 'absolute', right: 10, bottom: 10, zIndex: 16,
-        display: 'flex', flexDirection: 'column', gap: 5,
-      }}>
-        <button title={ui.night ? 'Switch to day' : 'Switch to night'}
-          onClick={ui.toggleNight} style={mapCtl(ui.night)}>{ui.night ? '☾' : '☀'}</button>
-        <button title={S.map?.sat
-          ? 'Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)'
-          : "Satellite underlay — this world's own ground, rendered top-down"}
-          onClick={ui.toggleSat}
-          style={{ ...mapCtl(ui.sat), fontSize: 7.5, letterSpacing: 0.5 }}>SAT</button>
-        <button title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
-          onClick={() => ui.toggleOverlay('fires')}
-          style={{ ...mapCtl(ui.overlays.fires), fontSize: 7.5, letterSpacing: 0.5 }}>FIRES</button>
-        <button title="Sensor overlay — recon sight, drone footprints, SIG direction-finding"
-          onClick={() => ui.toggleOverlay('snsr')}
-          style={{ ...mapCtl(ui.overlays.snsr), fontSize: 7.5, letterSpacing: 0.5 }}>SNSR</button>
-        <button title="Weapon overlay — direct-fire range of the selected units"
-          onClick={() => ui.toggleOverlay('wpn')}
-          style={{ ...mapCtl(ui.overlays.wpn), fontSize: 7.5, letterSpacing: 0.5 }}>WPN</button>
-        <button title="Overlay intensity (cycles 100 / 70 / 45%)"
-          onClick={ui.cycleOverlayAlpha}
-          style={{ ...mapCtl(ui.overlayAlpha < 1), fontSize: 8 }}>{Math.round(ui.overlayAlpha * 100)}%</button>
-        <button title="Lock the camera to the selected unit or group — stays centered as they move (pan to release)"
-          onClick={ui.toggleTrack}
-          style={{ ...mapCtl(ui.track), fontSize: 7.5, letterSpacing: 0.5 }}>LOCK</button>
-        <button
-          title="Fit map to screen"
+      <MapControlStack>
+        <MapButton active={ui.night} title={ui.night ? 'Switch to day' : 'Switch to night'}
+          onClick={ui.toggleNight}>{ui.night ? '☾' : '☀'}</MapButton>
+        <MapButton small active={ui.sat}
+          title={S.map?.sat
+            ? 'Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)'
+            : "Satellite underlay — this world's own ground, rendered top-down"}
+          onClick={ui.toggleSat}>SAT</MapButton>
+        <MapButton small active={ui.overlays.fires}
+          title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
+          onClick={() => ui.toggleOverlay('fires')}>FIRES</MapButton>
+        <MapButton small active={ui.overlays.snsr}
+          title="Sensor overlay — recon sight, drone footprints, SIG direction-finding"
+          onClick={() => ui.toggleOverlay('snsr')}>SNSR</MapButton>
+        <MapButton small active={ui.overlays.wpn}
+          title="Weapon overlay — direct-fire range of the selected units"
+          onClick={() => ui.toggleOverlay('wpn')}>WPN</MapButton>
+        <MapButton small active={ui.overlayAlpha < 1}
+          title="Overlay intensity (cycles 100 / 70 / 45%)"
+          onClick={ui.cycleOverlayAlpha}>{Math.round(ui.overlayAlpha * 100)}%</MapButton>
+        <MapButton small active={ui.track}
+          title="Lock the camera to the selected unit or group — stays centered as they move (pan to release)"
+          onClick={ui.toggleTrack}>LOCK</MapButton>
+        <MapButton title="Fit map to screen"
           onClick={() => {
             if (ui.track) ui.toggleTrack() // fit takes the camera back
             const v = winView()
             if (v && S.map) { v.cx = S.map.WORLD / 2; v.cy = S.map.WORLD / 2; v.ppm = 1e-5 } // clamps to whole-map fit
-          }}
-          style={mapCtl(false)}>⛶</button>
-      </div>
+          }}>⛶</MapButton>
+      </MapControlStack>
 
       {/* toasts */}
       <div style={{

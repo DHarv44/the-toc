@@ -84,17 +84,18 @@ function trackAstar(
   return path
 }
 
-// Lay a dirt access PATH from a freshly-placed structure to the nearest
-// existing road of ANY class. Dry only (never crosses water), Chaikin-
-// smoothed, stamped into the raster and pushed to map.roads so pricing and
-// the raster fallbacks pick it up. No-op if the structure already sits on the
-// network or no dry route exists. (Baked layers — the exact BFT, the drone
-// feed — are cached per map, so a runtime path shows only after a rebuild.)
-export function connectStructureToRoads(map: WorldMap, x: number, y: number): void {
-  const { GRID, CELL, road, elev, terr, roads } = map
+// PLAN the dirt access track from a structure site to the nearest existing
+// road of ANY class — pure compute, no mutation. Dry only (never crosses
+// water), Chaikin-smoothed. Returns null if the site already sits on the
+// network or no dry route exists. The game stamps what this plans
+// (connectStructureToRoads below); the SCENARIO BUILDER draws it as a
+// preview — one implementation, so the preview and H-hour reality cannot
+// disagree.
+export function planAccessTrack(map: WorldMap, x: number, y: number): Vec2[] | null {
+  const { GRID, CELL, road, elev, terr } = map
   const sgx = Math.max(1, Math.min(GRID - 2, Math.floor(x / CELL)))
   const sgy = Math.max(1, Math.min(GRID - 2, Math.floor(y / CELL)))
-  if (road[sgy * GRID + sgx]) return // already on the network
+  if (road[sgy * GRID + sgx]) return null // already on the network
   // nearest existing road cell of any class (bounded ring scan)
   let best = -1, bd = Infinity
   const R = Math.min(GRID - 2, 90)
@@ -107,12 +108,12 @@ export function connectStructureToRoads(map: WorldMap, x: number, y: number): vo
       if (d < bd) { bd = d; best = gy * GRID + gx }
     }
   }
-  if (best < 0) return
+  if (best < 0) return null
   const cellPath = trackAstar(
     { gx: sgx, gy: sgy }, { gx: best % GRID, gy: (best / GRID) | 0 },
     elev, terr, GRID, Infinity, // Infinity waterCost: a dirt path can't cross water
   )
-  if (cellPath.length < 2) return
+  if (cellPath.length < 2) return null
   const raw: Vec2[] = cellPath.map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
   let pts = chaikin(chaikin(raw))
   // smoothing must not cut a corner across water — fall back to the raw line
@@ -129,6 +130,17 @@ export function connectStructureToRoads(map: WorldMap, x: number, y: number): vo
     return false
   }
   if (crossesWater(pts)) pts = raw
+  return pts
+}
+
+// Lay the planned track for real: pushed to map.roads and stamped into the
+// raster so pricing and the raster fallbacks pick it up. (Baked layers — the
+// exact BFT, the drone feed — are cached per map, so a runtime path shows
+// only after a rebuild.)
+export function connectStructureToRoads(map: WorldMap, x: number, y: number): void {
+  const { GRID, CELL, road, roads } = map
+  const pts = planAccessTrack(map, x, y)
+  if (!pts) return
   roads.push({ cls: R_TRACK, pts })
   // stamp the raster (never downgrade a higher-class road at the junction)
   for (let s = 0; s < pts.length - 1; s++) {

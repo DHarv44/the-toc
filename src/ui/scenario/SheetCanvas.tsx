@@ -4,10 +4,13 @@
 // selects, LEFT drag on an entity moves it, LEFT click on empty ground places
 // (when a tool is armed) or deselects; MIDDLE/RIGHT drag pans; wheel zooms to
 // the cursor. All callbacks speak WORLD metres — the parent owns the state.
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { WorldMap } from '../../world/WorldMap'
 import type { Ground } from '../../world/pack/loadGround'
 import { renderPackLayer, TERRAIN_PX } from '../../map/packRender'
+import { terrainOrtho } from '../../map/terrainOrtho'
+import { frameOf } from '../../world/pack/frame'
+import { frameImagery } from '../../world/pack/imagery'
 import { drawUnitSymbol, drawStructure } from '../../map/symbols'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import type { Entity } from '../../scenario/edit'
@@ -16,19 +19,29 @@ export interface SheetProps {
   map: WorldMap
   ground: Ground
   entities: Entity[]
+  /** planned FOB access tracks (world/access planAccessTrack) — the exact
+   *  dirt road the game will lay at H-hour, previewed */
+  tracks: { id: number; pts: { x: number; y: number }[] }[]
   sel: number | null
   /** a placement tool is armed — empty-ground clicks place instead of deselect */
   placing: boolean
+  /** the shared map-control toggles — same semantics as the game's BFT */
+  night: boolean
+  sat: boolean
   onPick: (id: number | null) => void
   onPlace: (wx: number, wy: number) => void
   onDragStart: (id: number) => void
   onDragTo: (id: number, wx: number, wy: number) => void
 }
 
-export default function SheetCanvas(p: SheetProps) {
+export interface SheetHandle { fit: () => void }
+
+const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, handle) {
   const cvRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(p)
   propsRef.current = p
+  const fitRef = useRef<() => void>(() => {})
+  useImperativeHandle(handle, () => ({ fit: () => fitRef.current() }), [])
 
   useEffect(() => {
     const canvas = cvRef.current!
@@ -41,9 +54,29 @@ export default function SheetCanvas(p: SheetProps) {
     const view = { cx: map.WORLD / 2, cy: map.WORLD / 2, ppm: 0.02 }
     const fit = () => {
       const s = Math.min(canvas.clientWidth || 800, canvas.clientHeight || 800)
+      view.cx = map.WORLD / 2
+      view.cy = map.WORLD / 2
       view.ppm = Math.max(0.005, s / map.WORLD)
     }
+    fitRef.current = fit
     let fitted = false
+
+    // SAT underlay — the SAME services the game's BFT uses (imagery for a map
+    // that shipped satellite, the engine's terrain bake for one that didn't),
+    // so the builder shows exactly what the commander will see
+    let satLayer: HTMLCanvasElement | null = null
+    let satKicked = false
+    const kickSat = () => {
+      if (satKicked) return
+      satKicked = true
+      if (!map.sat) {
+        try { satLayer = terrainOrtho(map) } catch (e) { satKicked = false; console.error('terrain ortho bake failed', e) }
+        return
+      }
+      frameImagery(ground, frameOf(ground.files.manifest))
+        .then(cv => { satLayer = cv })
+        .catch(e => { satKicked = false; console.error('satellite imagery failed', e) })
+    }
 
     const w2sX = (wx: number) => (wx - view.cx) * view.ppm + canvas.width / 2
     const w2sY = (wy: number) => (wy - view.cy) * view.ppm + canvas.height / 2
@@ -126,13 +159,37 @@ export default function SheetCanvas(p: SheetProps) {
 
       ctx.fillStyle = '#1a1b1d'
       ctx.fillRect(0, 0, w, h)
-      ctx.imageSmoothingEnabled = view.ppm * mpp < 1
-      ctx.drawImage(layer, w2sX(0), w2sY(0), layer.width * mpp * view.ppm, layer.height * mpp * view.ppm)
+      const { night, sat } = propsRef.current
+      if (sat) kickSat()
+      const showSat = sat && satLayer != null
+      ctx.imageSmoothingEnabled = showSat || view.ppm * mpp < 1
+      if (night) ctx.filter = 'brightness(0.42) saturate(0.5) contrast(1.05)'
+      if (showSat) {
+        ctx.drawImage(satLayer!, w2sX(0), w2sY(0), map.WORLD * view.ppm, map.WORLD * view.ppm)
+      } else {
+        ctx.drawImage(layer, w2sX(0), w2sY(0), layer.width * mpp * view.ppm, layer.height * mpp * view.ppm)
+      }
+      ctx.filter = 'none'
       ctx.strokeStyle = 'rgba(40,55,70,0.55)'
       ctx.lineWidth = 2
       ctx.strokeRect(w2sX(0), w2sY(0), map.WORLD * view.ppm, map.WORLD * view.ppm)
 
-      const { entities, sel } = propsRef.current
+      const { entities, sel, tracks } = propsRef.current
+      // FOB access tracks first — under the symbols, styled like the sheet's
+      // own dirt tracks so the preview reads as the road it will become
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      for (const t of tracks) {
+        if (t.pts.length < 2) continue
+        ctx.strokeStyle = 'rgba(122,98,66,0.9)'
+        ctx.lineWidth = Math.max(1.2, 5 * view.ppm)
+        ctx.setLineDash([6, 5])
+        ctx.beginPath()
+        ctx.moveTo(w2sX(t.pts[0]!.x), w2sY(t.pts[0]!.y))
+        for (let i = 1; i < t.pts.length; i++) ctx.lineTo(w2sX(t.pts[i]!.x), w2sY(t.pts[i]!.y))
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
       for (const e of entities) {
         const x = w2sX(e.x), y = w2sY(e.y)
         // authored route: dashed to each waypoint, pips at the stops
@@ -184,4 +241,6 @@ export default function SheetCanvas(p: SheetProps) {
   }, [p.map])
 
   return <canvas ref={cvRef} style={{ display: 'block', width: '100%', height: '100%' }} />
-}
+})
+
+export default SheetCanvas

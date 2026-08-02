@@ -55,7 +55,7 @@ export default function MapView() {
       if (satKicked) return
       satKicked = true
       if (!S.map!.sat) {
-        try { satLayer = terrainOrtho() } catch (e) { satKicked = false; console.error('terrain ortho bake failed', e) }
+        try { satLayer = terrainOrtho(S.map!) } catch (e) { satKicked = false; console.error('terrain ortho bake failed', e) }
         return
       }
       frameImagery(ground, frame)

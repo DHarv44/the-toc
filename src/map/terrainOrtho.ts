@@ -8,15 +8,15 @@ import * as THREE from 'three'
 import {
   TerrainSurface, DEFAULT_SURFACE_CONFIG, buildTerrain, computeSky,
 } from '@dharv44/groundwork-engine'
-import { S } from '../engine/state'
 import { frameOf } from '../world/pack/frame'
 import type { WorldMap } from '../world/WorldMap'
 
 let cache: { map: WorldMap; cv: HTMLCanvasElement } | null = null
 
-export function terrainOrtho(): HTMLCanvasElement {
-  if (cache && cache.map === S.map) return cache.cv
-  const map = S.map!
+/** Bake (session-cached per map). Callers pass THEIR map — the game passes
+ *  S.map, the scenario builder its own loaded map. */
+export function terrainOrtho(map: WorldMap): HTMLCanvasElement {
+  if (cache && cache.map === map) return cache.cv
   const g = map.ground!
   const man = g.files.manifest
   const f = frameOf(man)

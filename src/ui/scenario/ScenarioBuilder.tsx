@@ -23,7 +23,9 @@ import {
   place, update, moveLive, beginDrag, remove, select, selected, undo, redo,
 } from '../../scenario/edit'
 import { entitiesFromSpec, specFromEntities, saveScenario } from '../../scenario/io'
-import SheetCanvas from './SheetCanvas'
+import { planAccessTrack } from '../../world/access'
+import { MapButton, MapControlStack } from '../MapControls'
+import SheetCanvas, { type SheetHandle } from './SheetCanvas'
 import Palette, { type Armed } from './Palette'
 import Inspector from './Inspector'
 
@@ -49,6 +51,26 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
   const [world, setWorld] = useState<{ map: WorldMap; ground: Ground } | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  // the shared map-control toggles (MapControls) — same look as the game's BFT
+  const [night, setNight] = useState(false)
+  const [sat, setSat] = useState(false)
+  const sheetRef = useRef<SheetHandle>(null)
+
+  // FOB access tracks: the exact dirt road the game lays at H-hour, planned by
+  // the SAME function (world/access). Keyed on cell-quantized FOB positions so
+  // a drag recomputes on cell crossings, not every pointer event.
+  const fobKey = ed.entities
+    .filter(e => e.ent === 'structure' && e.kind === 'FOB')
+    .map(e => `${e.id}:${Math.round(e.x / 50)}:${Math.round(e.y / 50)}`)
+    .join('|')
+  const tracks = useMemo(() => {
+    if (!world) return []
+    return ed.entities
+      .filter(e => e.ent === 'structure' && e.kind === 'FOB')
+      .map(e => ({ id: e.id, pts: planAccessTrack(world.map, e.x, e.y) }))
+      .filter((t): t is { id: number; pts: { x: number; y: number }[] } => t.pts != null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, fobKey])
 
   // load the picked map's ground — the sheet and the snapping surface
   useEffect(() => {
@@ -182,14 +204,29 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
           onSide={setSide} onArm={setArmed} />
         <Box style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           {world ? (
-            <SheetCanvas
-              map={world.map} ground={world.ground}
-              entities={ed.entities} sel={ed.sel} placing={armed != null}
-              onPick={id => setEd(s => select(s, id))}
-              onPlace={onPlace}
-              onDragStart={() => setEd(beginDrag)}
-              onDragTo={(id, wx, wy) => setEd(s => moveLive(s, id, wx, wy))}
-            />
+            <>
+              <SheetCanvas ref={sheetRef}
+                map={world.map} ground={world.ground}
+                entities={ed.entities} tracks={tracks}
+                sel={ed.sel} placing={armed != null}
+                night={night} sat={sat}
+                onPick={id => setEd(s => select(s, id))}
+                onPlace={onPlace}
+                onDragStart={() => setEd(beginDrag)}
+                onDragTo={(id, wx, wy) => setEd(s => moveLive(s, id, wx, wy))}
+              />
+              <MapControlStack>
+                <MapButton active={night} title={night ? 'Switch to day' : 'Switch to night'}
+                  onClick={() => setNight(v => !v)}>{night ? '☾' : '☀'}</MapButton>
+                <MapButton small active={sat}
+                  title={world.map.sat
+                    ? 'Satellite underlay — orthoimagery of this ground'
+                    : "Satellite underlay — this world's own ground, rendered top-down"}
+                  onClick={() => setSat(v => !v)}>SAT</MapButton>
+                <MapButton title="Fit map to screen"
+                  onClick={() => sheetRef.current?.fit()}>⛶</MapButton>
+              </MapControlStack>
+            </>
           ) : (
             <Box style={{
               position: 'absolute', inset: 0, display: 'flex',
