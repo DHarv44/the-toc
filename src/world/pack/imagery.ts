@@ -53,3 +53,40 @@ export function boxImagery(g: Ground): Promise<HTMLCanvasElement> {
 export function frameImagery(g: Ground, f: Frame): Promise<HTMLCanvasElement> {
   return imagery(`frame:${g.files.manifest.id}`, frameBounds(g, f))
 }
+
+// ---- high fidelity ---------------------------------------------------------
+// One-shot mosaics cap at the intake's tile/pixel budgets, so a whole box
+// lands coarse BY DESIGN. Sharpness comes from SMALLER bounds: the intake
+// picks the deepest zoom that fits, so a window- or ring-sized box fetches at
+// z16–18. These helpers turn sim/norm rects into the lat/lon bounds those
+// fetches want; callers own the refetch cadence (the tile cache underneath
+// makes revisited ground cheap).
+
+/** lat/lon bounds of a sim-world rect (frame coords, clamped to the frame). */
+export function worldRectBounds(
+  g: Ground, f: Frame, x0: number, y0: number, x1: number, y1: number,
+): Bounds {
+  const fb = frameBounds(g, f)
+  const lonAt = (x: number) => fb.west + Math.max(0, Math.min(1, x / f.WORLD)) * (fb.east - fb.west)
+  const latAt = (y: number) => fb.north - Math.max(0, Math.min(1, y / f.WORLD)) * (fb.north - fb.south)
+  return { west: lonAt(x0), east: lonAt(x1), north: latAt(y0), south: latAt(y1) }
+}
+
+/** lat/lon bounds of a pack-norm rect (BOX coords — the engine's UV space). */
+export function normRectBounds(
+  g: Ground, nx0: number, ny0: number, nx1: number, ny1: number,
+): Bounds {
+  const b = g.files.manifest.bounds
+  return {
+    west: b.west + nx0 * (b.east - b.west),
+    east: b.west + nx1 * (b.east - b.west),
+    north: b.north - ny0 * (b.north - b.south),
+    south: b.north - ny1 * (b.north - b.south),
+  }
+}
+
+/** Uncached one-shot mosaic for arbitrary bounds (patches and rings churn —
+ *  the IndexedDB tile cache underneath is the cache that matters). */
+export function rawImagery(bounds: Bounds): Promise<HTMLCanvasElement> {
+  return fetchImagery(bounds).then(r => r.canvas)
+}

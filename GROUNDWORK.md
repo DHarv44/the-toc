@@ -286,11 +286,19 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
 - UAV feed: SAT joined the sensor modes (WHOT/BHOT/EO/NVG/SAT) — the box
   mosaic draped on the engine mesh, EO visual language, credit on the
   picture. Falls back to the painted EO drape until the mosaic lands.
-- Fidelity ceiling, by design: one-shot mosaics cap at 144 tiles/4096 px, so
-  a battalion-sized box lands ~z13. Sharper = smaller bounds at higher zoom:
-  the engine 0.2.0 ships `imageryRings` (a 4-level clipmap in TerrainSurface,
-  eased swaps) for the feed, and the BFT wants a viewport-following patch.
-  NEXT TASK — not yet built.
+- High fidelity (built same day): one-shot mosaics cap at 144 tiles/4096 px
+  by design, so sharpness comes from SMALLER bounds at the zooms they afford.
+  · BFT: a viewport-following patch — once the view outzooms the base
+    mosaic, a padded window-sized box is fetched (z16+) and blitted over it;
+    refetched when the view leaves it, night filter applies to both.
+  · Feed: SAT mode rides the ENGINE's TerrainSurface and its imageryRings
+    clipmap — `drone/satSurface.ts` keeps three nested boxes (1.4/4.2/12.6
+    km) centred on the sensor look-point, each fetched at its natural zoom
+    (inner ring z17–18), rects in pack-norm UV space; the shader samples
+    coarse→fine and eases every swap. Fixed clear-day sky (computeSky),
+    exaggeration 1 to match the ground seam. IR/EO keep the Lambert drape.
+  Verified live: BFT at street zoom is sharp orthoimagery; feed rings fetch
+  z14/z16+ over the base z13 with no console errors.
 
 ## Upstream asks (Groundwork changes, done in terrain-builder + republished)
 

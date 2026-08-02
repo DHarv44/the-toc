@@ -25,6 +25,7 @@ import { hash01 } from '../lib/math'
 import { DroneCamera, type FeedState, type Gimbal } from './DroneCamera'
 import { groundAt, groundCtx } from './ground'
 import { boxImagery } from '../world/pack/imagery'
+import { getSatSurface, satSurfaceFrame } from './satSurface'
 import { playFeedAudio } from './feedAudio'
 import { COMPOSITIONS } from '../domains/forces/composition'
 import { loadFeedVehicleModels } from './vehicle-models'
@@ -252,19 +253,31 @@ function kickSatTex(onReady: () => void): void {
     .catch(e => { satTexKicked = null; console.error('satellite imagery failed', e) })
 }
 
-function TerrainMesh({ mode }: { mode: SensorMode }) {
+function TerrainMesh({ mode, feedRef }: { mode: SensorMode; feedRef: { current: FeedState } }) {
   const detail = useMemo(getDetail, [])
   const [, bump] = useState(0)
   useEffect(() => {
     if (mode === 'SAT' && !getSatTex()) kickSatTex(() => bump(n => n + 1))
   }, [mode])
-  const sat = mode === 'SAT' ? getSatTex() : null
-  const tex = sat ?? (eoLike(mode) ? detail.texEO : detail.texIR)
+  // SAT rides the ENGINE surface — its shader runs the imagery clipmap
+  // (nested close-up rings under the look-point, eased swaps). IR/EO keep
+  // the painted palette drape on the plain mesh.
+  const surface = mode === 'SAT' ? getSatSurface() : null
+  useFrame((_, dt) => {
+    if (mode !== 'SAT') return
+    const feed = feedRef.current
+    satSurfaceFrame(dt, feed.cx, feed.cy, getSatTex())
+  })
+  const tex = eoLike(mode) ? detail.texEO : detail.texIR
   return (
     <>
-      <mesh geometry={detail.geo} position={[detail.offX, 0, detail.offZ]}>
-        <meshLambertMaterial map={tex} />
-      </mesh>
+      {surface ? (
+        <primitive object={surface.mesh} position={[detail.offX, 0, detail.offZ]} />
+      ) : (
+        <mesh geometry={detail.geo} position={[detail.offX, 0, detail.offZ]}>
+          <meshLambertMaterial map={tex} />
+        </mesh>
+      )}
       {/* flat surround just below the box floor — an edge orbit looks out at
           ground tone falling into fog, never into the void */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[detail.offX, detail.skirtY, detail.offZ]}>
@@ -977,7 +990,7 @@ export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = fals
       <ambientLight intensity={eo ? 0.85 : 0.55} />
       <directionalLight position={[3000, 4000, 2000]} intensity={eo ? 1.1 : 0.9} />
       <fog attach="fog" args={[eo ? '#9aacb8' : '#0a0c0d', 3500, eo ? 11000 : 9000]} />
-      <TerrainMesh mode={mode} />
+      <TerrainMesh mode={mode} feedRef={feedRef} />
       <SceneDetail mode={mode} />
       <StructuresLayer feedRef={feedRef} mode={mode} />
       <UnitsLayer feedRef={feedRef} mode={mode} muted={muted} />

@@ -23,7 +23,7 @@ import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domain
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
 import { frameOf } from '../world/pack/frame'
-import { frameImagery, IMAGERY_CREDIT } from '../world/pack/imagery'
+import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../world/pack/imagery'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI } from '../ui/store'
@@ -45,14 +45,32 @@ export default function MapView() {
     // SAT underlay: orthoimagery of the same frame, fetched lazily on first
     // toggle (builder's intake, session-cached) and blitted in the sheet's
     // place. Null until it lands; the sheet keeps drawing meanwhile.
+    const frame = frameOf(ground.files.manifest)
     let satLayer: HTMLCanvasElement | null = null
     let satKicked = false
     const kickSat = () => {
       if (satKicked) return
       satKicked = true
-      frameImagery(ground, frameOf(ground.files.manifest))
+      frameImagery(ground, frame)
         .then(cv => { satLayer = cv })
         .catch(e => { satKicked = false; console.error('satellite imagery failed', e) })
+    }
+    // High-fidelity follow-patch: the base mosaic is budget-capped and lands
+    // coarse over a battalion box, but a WINDOW-sized box fetches deep — so
+    // once the view outzooms the base, a padded patch of the visible ground
+    // is fetched and blitted over it. One patch, refetched when the view
+    // leaves it; the tile cache underneath makes revisited ground cheap.
+    let satPatch: { cv: HTMLCanvasElement; x0: number; y0: number; x1: number; y1: number } | null = null
+    let patchKey = ''
+    let patchBusy = false
+    const kickPatch = (x0: number, y0: number, x1: number, y1: number) => {
+      const key = [x0, y0, x1, y1].map(v => Math.round(v / 250)).join(':')
+      if (patchBusy || key === patchKey) return
+      patchBusy = true
+      patchKey = key
+      rawImagery(worldRectBounds(ground, frame, x0, y0, x1, y1))
+        .then(cv => { satPatch = { cv, x0, y0, x1, y1 }; patchBusy = false })
+        .catch(() => { patchBusy = false; patchKey = '' })
     }
     // the full gazetteer + the licence line the ODbL requires on the sheet
     const packLabels = packPlaceLabels(S.map!, ground)
@@ -551,6 +569,21 @@ export default function MapView() {
         // the sat canvas covers exactly the frame window, whatever its px size
         ctx.drawImage(satLayer!, w2sX(0), w2sY(0),
           S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
+        // past the base mosaic's own resolution, sharpen where the view is
+        const basePpm = satLayer!.width / S.map!.WORLD
+        if (view.ppm > basePpm * 1.3) {
+          const pad = 1.35
+          const hw = (canvas.width / 2 / view.ppm) * pad, hh = (canvas.height / 2 / view.ppm) * pad
+          kickPatch(
+            Math.max(0, view.cx - hw), Math.max(0, view.cy - hh),
+            Math.min(S.map!.WORLD, view.cx + hw), Math.min(S.map!.WORLD, view.cy + hh),
+          )
+        }
+        if (satPatch && view.ppm > basePpm * 1.15) {
+          const p = satPatch
+          ctx.drawImage(p.cv, w2sX(p.x0), w2sY(p.y0),
+            (p.x1 - p.x0) * view.ppm, (p.y1 - p.y0) * view.ppm)
+        }
       } else {
         ctx.drawImage(
           terrainLayer,
