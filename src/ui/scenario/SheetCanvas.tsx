@@ -219,12 +219,33 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
             side: e.side, kind: e.kind,
             label: e.label ?? '', building: !!e.building,
           })
-        } else {
+        } else if (e.ent === 'unit') {
           drawUnitSymbol(ctx, x, y, {
             side: e.side, glyph: UNIT_TYPES[e.type]?.glyph ?? 'inf',
             label: `${UNIT_TYPES[e.type]?.abbr ?? e.type}${e.tag ? ` [${e.tag}]` : ''}`,
             dug: e.dug ? 1 : 0, showStrength: false,
           })
+        } else {
+          // named place — control-measure graphics: amber, dashed zone ring
+          ctx.strokeStyle = '#e8d9a0'
+          ctx.fillStyle = '#e8d9a0'
+          ctx.lineWidth = 1.4
+          if (e.r != null) {
+            ctx.setLineDash([8, 6])
+            ctx.beginPath()
+            ctx.arc(x, y, e.r * view.ppm, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.setLineDash([])
+          }
+          // the point marker: a small open diamond
+          ctx.beginPath()
+          ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y)
+          ctx.closePath()
+          ctx.stroke()
+          ctx.font = '10px Consolas, monospace'
+          ctx.textAlign = 'center'
+          ctx.fillText(e.name, x, y - (e.r != null ? e.r * view.ppm + 6 : 12))
+          ctx.textAlign = 'left'
         }
       }
     }

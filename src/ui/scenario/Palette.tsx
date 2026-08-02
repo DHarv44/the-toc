@@ -10,6 +10,7 @@ import type { ScenarioSide } from '../../scenario/types'
 export type Armed =
   | { ent: 'structure'; kind: StructureTypeKey }
   | { ent: 'unit'; type: string }
+  | { ent: 'place'; zone: boolean }
   | null
 
 const MONO = 'Consolas, monospace'
@@ -41,7 +42,12 @@ export default function Palette({ side, sidePacks, armed, onSide, onArm }: {
 
   return (
     <Box w={210} p="xs" style={{ borderRight: '1px solid #22303d', overflowY: 'auto' }}>
-      <SegmentedControl fullWidth size="xs" mb="xs" value={side}
+      <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>
+        CONTROL MEASURES
+      </Text>
+      {row('p:point', 'PT', 'named point', { ent: 'place', zone: false })}
+      {row('p:zone', 'ZONE', 'named area', { ent: 'place', zone: true })}
+      <SegmentedControl fullWidth size="xs" mt="sm" mb="xs" value={side}
         onChange={v => onSide(v as ScenarioSide)}
         data={[
           { value: 'friend', label: 'BLUFOR' },

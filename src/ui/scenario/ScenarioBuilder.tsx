@@ -120,9 +120,19 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     if (armed.ent === 'structure') {
       const p = snap(wx, wy)
       setEd(s => place(s, { id: freshId(), ent: 'structure', side, kind: armed.kind, x: p.x, y: p.y }))
-    } else {
+    } else if (armed.ent === 'unit') {
       const p = snap(wx, wy, UNIT_TYPES[armed.type]?.mob)
       setEd(s => place(s, { id: freshId(), ent: 'unit', side, type: armed.type, x: p.x, y: p.y }))
+    } else {
+      // control measures go exactly where clicked — a place may sit on water
+      const zone = armed.zone
+      setEd(s => {
+        const n = s.entities.filter(e => e.ent === 'place').length + 1
+        return place(s, {
+          id: freshId(), ent: 'place', x: wx, y: wy,
+          name: zone ? `ZONE ${n}` : `PT ${n}`, ...(zone ? { r: 400 } : {}),
+        })
+      })
     }
   }
 

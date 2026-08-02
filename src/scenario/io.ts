@@ -4,7 +4,7 @@
 // was authored on any rebuild of the same box.
 import type { Ground } from '../world/pack/loadGround'
 import { frameOf, normToWorld, worldToNorm } from '../world/pack/frame'
-import type { ScenarioSpec, ScenarioStructure, ScenarioUnit } from './types'
+import type { ScenarioPlace, ScenarioSpec, ScenarioStructure, ScenarioUnit } from './types'
 import { type Entity, freshId } from './edit'
 
 export function entitiesFromSpec(spec: ScenarioSpec, ground: Ground): Entity[] {
@@ -16,11 +16,13 @@ export function entitiesFromSpec(spec: ScenarioSpec, ground: Ground): Entity[] {
       ...u, id: freshId(), ent: 'unit', ...w(u),
       route: u.route?.map(p => w(p)),
     })),
+    ...(spec.places ?? []).map((p): Entity => ({ ...p, id: freshId(), ent: 'place', ...w(p) })),
   ]
 }
 
 export function specFromEntities(
-  meta: Pick<ScenarioSpec, 'name' | 'map' | 'mode' | 'sides' | 'fog'>,
+  meta: Pick<ScenarioSpec, 'name' | 'map' | 'mode' | 'sides' | 'fog'
+    | 'brief' | 'objectives' | 'triggers' | 'tutorial'>,
   entities: Entity[], ground: Ground,
 ): ScenarioSpec {
   const f = frameOf(ground.files.manifest)
@@ -30,16 +32,20 @@ export function specFromEntities(
   }
   const structures: ScenarioStructure[] = []
   const units: ScenarioUnit[] = []
+  const places: ScenarioPlace[] = []
   for (const e of entities) {
     if (e.ent === 'structure') {
       const { id: _id, ent: _e, x: _x, y: _y, ...rest } = e
       structures.push({ ...rest, ...n(e) })
-    } else {
+    } else if (e.ent === 'unit') {
       const { id: _id, ent: _e, x: _x, y: _y, route, ...rest } = e
       units.push({ ...rest, ...n(e), ...(route?.length ? { route: route.map(p => n(p)) } : {}) })
+    } else {
+      const { id: _id, ent: _e, x: _x, y: _y, ...rest } = e
+      places.push({ ...rest, ...n(e) })
     }
   }
-  return { ...meta, structures, units }
+  return { ...meta, structures, units, ...(places.length ? { places } : {}) }
 }
 
 /** Write through the dev route (pack-io) — dev-only, like every pack save. */

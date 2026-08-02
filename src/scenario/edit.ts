@@ -5,12 +5,14 @@
 // state so the UI stays a dumb shell and the behavior is testable. Entities
 // are edited in WORLD metres (canvas math stays simple); the load/save seam
 // converts to the scenario's pack-norm coords through the map frame.
-import type { ScenarioSide, ScenarioStructure, ScenarioUnit } from './types'
+import type { ScenarioPlace, ScenarioSide, ScenarioStructure, ScenarioUnit } from './types'
 
 // `ent` is the discriminant (a structure entity keeps its catalog `kind`)
 export type Entity =
   | ({ id: number; ent: 'structure' } & Omit<ScenarioStructure, 'x' | 'y'> & { x: number; y: number })
   | ({ id: number; ent: 'unit' } & Omit<ScenarioUnit, 'x' | 'y'> & { x: number; y: number })
+  // a named place/zone — sideless; the scenario's authored gazetteer entry
+  | ({ id: number; ent: 'place' } & Omit<ScenarioPlace, 'x' | 'y'> & { x: number; y: number })
 
 export interface EditorState {
   entities: Entity[]

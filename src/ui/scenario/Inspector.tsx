@@ -19,11 +19,29 @@ export default function Inspector({ e, onPatch, onDelete }: {
       ) : (
         <>
           <Text fz={11} c="#dceeff" mb={6}>
-            {e.ent === 'structure' ? e.kind : (UNIT_TYPES[e.type]?.name ?? e.type)}
-            <Text span fz={9} c={e.side === 'friend' ? '#80c8ff' : '#ff8080'} ml={6}>
-              {e.side === 'friend' ? 'BLUFOR' : 'OPFOR'}
-            </Text>
+            {e.ent === 'structure' ? e.kind
+              : e.ent === 'unit' ? (UNIT_TYPES[e.type]?.name ?? e.type)
+              : (e.r != null ? 'ZONE' : 'POINT')}
+            {e.ent !== 'place' && (
+              <Text span fz={9} c={e.side === 'friend' ? '#80c8ff' : '#ff8080'} ml={6}>
+                {e.side === 'friend' ? 'BLUFOR' : 'OPFOR'}
+              </Text>
+            )}
           </Text>
+          {e.ent === 'place' && (
+            <>
+              <TextInput size="xs" label="NAME" value={e.name} mb={6}
+                placeholder="OBJ KEATON"
+                onChange={ev => onPatch({ name: ev.currentTarget.value.toUpperCase() })} />
+              <NumberInput size="xs" label="ZONE RADIUS M (EMPTY = POINT)" mb={6}
+                value={e.r ?? ''} min={0} step={20}
+                onChange={v => onPatch({ r: typeof v === 'number' && v > 0 ? v : undefined })} />
+              <Text fz={8.5} c="dark.3" mb={4}>
+                THE SCRIPT REFERENCES PLACES BY NAME — OBJECTIVE ZONES, SPAWN
+                ANCHORS, OPFOR OBJECTIVES ALL POINT HERE
+              </Text>
+            </>
+          )}
           {e.ent === 'structure' && (
             <>
               <TextInput size="xs" label="LABEL" value={e.label ?? ''} mb={6}

@@ -8,8 +8,20 @@
 // by the engine — the same boundary rule as every other pack file.
 import type { ModeId } from '../engine/modes'
 import type { StructureTypeKey } from '../domains/installations/catalog'
+import type { MissionObjective, MissionTrigger, TutorialSpec } from '../packs/types'
 
 export type ScenarioSide = 'friend' | 'hostile'
+
+/** An authored NAMED PLACE — the scenario's own gazetteer entry. Everything
+ *  scripted hangs off these: objective zones, trigger spawn anchors, OPFOR
+ *  objectives. Point when `r` is absent; a ZONE (control measure) when set.
+ *  Coordinates pack-norm like everything else; radius in METRES. */
+export interface ScenarioPlace {
+  name: string
+  x: number
+  y: number
+  r?: number
+}
 
 export interface ScenarioStructure {
   side: ScenarioSide
@@ -55,4 +67,16 @@ export interface ScenarioSpec {
   fog?: boolean
   structures: ScenarioStructure[]
   units: ScenarioUnit[]
+  // --- the SCRIPT (optional — a skirmish scenario is just placements) -------
+  // The mission vocabulary rides verbatim (packs/types): a campaign mission IS
+  // a scenario with these sections. H-hour rule: what exists at H-hour is a
+  // placed entity above; what arrives later or conditionally is a trigger
+  // effect referencing `places` by name.
+  places?: ScenarioPlace[]
+  /** opener OPORD text (the VTC brief) */
+  brief?: string
+  objectives?: MissionObjective[]
+  triggers?: MissionTrigger[]
+  /** tutorial curriculum — carried opaque; the builder preserves, never edits */
+  tutorial?: TutorialSpec
 }
