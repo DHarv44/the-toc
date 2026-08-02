@@ -25,7 +25,7 @@
 // overpass that shares no vertex correctly does NOT connect.
 import { MinHeap } from '../minheap'
 import { MOVE_FACTORS, ROAD_NAME, type Mobility } from '../mobility'
-import type { RoadClass, Vec2, WorldMap } from '../WorldMap'
+import { R_MOTORWAY, type RoadClass, type Vec2, type WorldMap } from '../WorldMap'
 
 export type RouteProfile = 'fastest' | 'convoy'
 
@@ -289,7 +289,15 @@ export function routeOnRoads(
       const e = g.edges[ei]!
       const m = e.a === n ? e.b : e.a
       if (closed[m]) continue
-      const nd = dist[n]! + e.len * timeFactor(mob, e.cls, profile)
+      // Dual carriageways are two one-way polylines in OSM and the pack has
+      // no oneway flag (upstream ask #4) — but OSM digitizes one-ways IN the
+      // direction of travel, and the pack keeps point order. Traversing a
+      // motorway edge AGAINST its point order is almost always driving the
+      // opposing carriageway, so it pays a heuristic toll: the with-flow
+      // half wins, traffic keeps to its own side. Lower classes are mostly
+      // two-way single carriageways where point order means nothing.
+      const wrongWay = e.cls === R_MOTORWAY && e.b === n
+      const nd = dist[n]! + e.len * timeFactor(mob, e.cls, profile) * (wrongWay ? 1.6 : 1)
       if (nd < dist[m]!) {
         dist[m] = nd
         prevEdge[m] = ei
