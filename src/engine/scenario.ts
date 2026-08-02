@@ -8,8 +8,7 @@
 import { S } from './state'
 import { makeRng } from './rng'
 import { DEFAULT_MODE, MODES, type ModeId } from './modes'
-import { genMap } from '../world/mapgen'
-import { MAP_SIZES, type WorldMap } from '../world/WorldMap'
+import type { WorldMap } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
 import {
   DIFFICULTIES, DEFAULT_DIFFICULTY, MAP_FORCE_CAP, CAP_MUL,
@@ -126,15 +125,10 @@ export function initGame(
 // full supply, no incoming waves. Both HQs sit in one screen (friendly bottom-left,
 // enemy top-right) with one of every unit type staged near its base, weapons held so
 // nothing attrits until the dev commits to a fight.
-export function initDevGame(map?: WorldMap, seed = 1337): void {
-  // The sandbox plays whatever map it is handed — the App hands it a pack map
-  // (real ground exercises everything procgen never could: dense street
-  // grids, real river lines, names). No map = procgen fallback, for console
-  // callers and for a checkout with no pack maps saved yet.
-  if (!map) {
-    map = genMap(seed, MAP_SIZES.large)
-    map.ref = { kind: 'procgen', seed, gridSize: MAP_SIZES.large }
-  }
+export function initDevGame(map: WorldMap, seed = 1337): void {
+  // The sandbox plays whatever pack map it is handed (the App picks BAGHDAD
+  // by default). Every map is a pack map now (P6) — a checkout with no maps
+  // saved authors one in the MAP EDITOR first.
   initGame(map, seed)
   S.devMode = true         // unlocks the DEV controls in the top bar
   S.fogEnabled = false

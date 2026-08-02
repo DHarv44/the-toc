@@ -196,13 +196,30 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   JSON import stayed stale across reloads. The /__gwmap route now invalidates
   every cached module under the map's folder, not just discovery.
 
-### P6 — the kill
-- [ ] Delete: theaters (`theaters.ts`, `theaterIndex.ts`, `bake-theaters.mjs`,
-      `public/theaters/`), procgen (`mapgen.ts` + skirmish invented-ground UI,
-      golden harness), old terrain underlay path in `mapRender.ts`, `MapLayout`
-      gazetteer fields campaigns no longer use
-- [ ] README pack-law text updated (maps at pack level)
-- Verify: typecheck, full playthrough, bundle size drop.
+### P6 — the kill                            [DONE 2026-08-02]
+- [x] Deleted: theaters (`theaters.ts`, `theaterIndex.ts`, `bake-theaters.mjs`,
+      `public/theaters/` — 8 baked patches), procgen (`mapgen.ts`, the skirmish
+      PROCEDURAL option AND the map-size step — a pack map sets its own size —
+      the golden harness + `?golden` hook), the old raster underlay
+      (`mapRender.ts`; the VTC deck inset now blits the exact pack sheet), and
+      the legacy `CampaignMapSpec` fields (`theater`/`seed`/`layout` and the
+      whole `MapLayout` gazetteer type). `MapRef` is pack-only; `MAP_SIZES`,
+      `Town.stamp`, `WorldMap.theaterId`, `ModeSpec.mapOk` (reroll machinery)
+      all died with it.
+- [x] `connectStructureToRoads` (runtime dirt path to a fresh FOB) was live
+      SIM code trapped in the generator — extracted to `world/access.ts`, and
+      fixed on the way out: it read the generator's 50 m CELL constant, which
+      misaligned on pack ground. Now reads `map.CELL`, stamps `R_TRACK`.
+- [x] IRON TRIANGLE: its ground WAS the chorwon window + authored layout, and
+      its missions reference that invented gazetteer — so the campaign parks
+      on `map.json → { "map": null }` and the splash shows it greyed
+      ("awaiting authored ground") until real ground is authored for it and
+      the mission place refs are re-anchored to real names. The old layout
+      lives in git history. No pack maps installed at all greys DEV SANDBOX
+      and the skirmish map step says to author one.
+- [x] README pack-law text updated (maps at pack level, campaign references
+      by id).
+- Verify: typecheck clean; skirmish playthrough on pack ground in-browser.
 
 ### P7 — UAV on the engine
 - [ ] DroneView terrain = `@dharv44/groundwork-engine` mesh fed by the pack;
@@ -245,6 +262,10 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   convoys have no business in an alley and the sim would price them apart.
   The collapse happens at the builder's Overpass mapping, so only Groundwork
   can undo it. Requested 2026-08-02.
+- **The `oneway` flag on roads.** TOC keeps units on their own motorway
+  carriageway with a heuristic (traversing a motorway edge against its point
+  order costs ×1.6 — OSM digitizes one-ways in the direction of travel), which
+  is a guess, covers only motorways, and should be data. Requested 2026-08-02.
 
 ## Log
 

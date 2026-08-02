@@ -14,7 +14,7 @@
 //   recoveryDeck(r) — a personnel-recovery tasking, built per downed site
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
-import { renderTerrainLayer, TERRAIN_PX } from '../map/mapRender'
+import { renderPackLayer, TERRAIN_PX } from '../map/packRender'
 import { controlField } from '../engine/frontline'
 import { locRef } from '../world/ref'
 import type { RecoveryRef } from '../engine/GameState'
@@ -22,7 +22,9 @@ import type { RecoveryRef } from '../engine/GameState'
 // terrain layer for the slide's map inset — one render per map, shared
 let _terrain: { mapRef: unknown; cv: HTMLCanvasElement } | null = null
 function terrainLayer(): HTMLCanvasElement {
-  if (!_terrain || _terrain.mapRef !== S.map) _terrain = { mapRef: S.map, cv: renderTerrainLayer(S.map!) }
+  if (!_terrain || _terrain.mapRef !== S.map) {
+    _terrain = { mapRef: S.map, cv: renderPackLayer(S.map!, S.map!.ground!) }
+  }
   return _terrain.cv
 }
 

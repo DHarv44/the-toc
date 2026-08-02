@@ -7,10 +7,10 @@
 //
 //   CELL = max(pack resolution, square/GRID_CAP)
 //
-// GRID_CAP exists for the OLD terrain renderer (8 px per cell — 512 cells is
-// already a 4096² canvas) and the O(N) sim arrays. The exact BFT renderer
-// (P4) draws from the pack directly and does not care; when the old renderer
-// dies, the cap can rise or go. Authors who want full resolution author boxes
+// GRID_CAP is the SIM's resolution budget (the old renderer that shared it
+// died in P6): the O(N) rasters, the fog field, the cell-A* fallback and the
+// 8 px/cell baked sheet all scale with it. The exact BFT draws from the pack
+// directly and does not care. Authors who want full resolution author boxes
 // near GRID_CAP × resolution across — ~15 km at 30 m — which is battalion AO
 // sized anyway. Bigger boxes still play, at proportionally coarser cells.
 //

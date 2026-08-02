@@ -14,9 +14,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- migration harness: only fetched when opened with ?golden -->
-    <script type="module">
-      if (new URLSearchParams(location.search).has('golden')) import('/src/devtools/entry.ts')
-    </script>
   </body>
 </html>

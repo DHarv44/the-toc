@@ -1,30 +1,4 @@
 {
-  "_doc": "The campaign's ground: engine theater id + fixed seed + the authored layout. The layout's town/feature NAMES are this campaign's GAZETTEER — missions reference them by name. Geography designed 2026-07-24 (layout-preview harness): the SE window of the chorwon patch — open southern valley walled by the HILL 894 ridge east, a major river system mid-map, opening north toward the plain. The town chain IS the campaign spine, south to north: ASHFORD (the lodgment fight) -> BREVIK (river crossing) -> CALDER (crossroads) -> DORAN (valley mouth) -> the enemy base on the northern edge; ELMSTED hangs west off the MSR as a flank objective. ASHFORD sits 3.1 km up the MSR (~4x the garrison's 800 m envelope, the MSR bridge 1.35 km short of town). Roads/hamlets/features still generate procedurally from these nodes.",
-  "theater": "chorwon",
-  "seed": 1,
-  "layout": {
-    "window": { "ox": 256, "oy": 224 },
-    "fob": { "gx": 128, "gy": 232 },
-    "enemyBase": { "gx": 148, "gy": 18 },
-    "towns": [
-      { "gx": 130, "gy": 170, "name": "ASHFORD", "size": 7 },
-      { "gx": 104, "gy": 143, "name": "BREVIK", "size": 6 },
-      { "gx": 130, "gy": 104, "name": "CALDER", "size": 7 },
-      { "gx": 158, "gy": 60, "name": "DORAN", "size": 6 },
-      { "gx": 62, "gy": 132, "name": "ELMSTED", "size": 5 },
-      { "gx": 52, "gy": 44, "name": "VALEMONT", "size": 11 },
-      { "gx": 38, "gy": 92, "name": "FALKE", "size": 5 },
-      { "gx": 96, "gy": 26, "name": "GARWICK", "size": 6 }
-    ],
-    "msr": [0, 1, 2, 3, 4, 9],
-    "features": [
-      { "gx": 44, "gy": 118, "kind": "dam", "name": "HANGYE DAM" },
-      { "gx": 63, "gy": 52, "kind": "power", "name": "VALEMONT POWER" },
-      { "gx": 108, "gy": 14, "kind": "rail", "name": "NORTH RAILHEAD" },
-      { "gx": 214, "gy": 44, "kind": "depot", "name": "DEPOT 9" },
-      { "gx": 224, "gy": 132, "kind": "comm", "name": "RELAY SITE ECHO" },
-      { "gx": 168, "gy": 186, "kind": "ford", "name": "HORSESHOE FORD" },
-      { "gx": 34, "gy": 110, "kind": "camp", "name": "CAMP HOPE" }
-    ]
-  }
+  "_doc": "The campaign's ground: a pack map id (packs/1cd/maps/<id>/). null = not yet authored — the campaign is greyed on the splash until real ground exists for it. The legacy chorwon-window procgen layout (ASHFORD..GARWICK gazetteer) died with the generator in P6 (GROUNDWORK.md; the old spec lives in git history). When ground is authored, the mission files' place references must be re-anchored to that map's REAL names.",
+  "map": null
 }

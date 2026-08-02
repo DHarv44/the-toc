@@ -20,7 +20,11 @@ import type { PackRoad } from '@dharv44/groundwork-core'
 import type { WorldMap } from '../world/WorldMap'
 import type { Ground } from '../world/pack/loadGround'
 import { frameOf, type Frame } from '../world/pack/frame'
-import { TERRAIN_PX } from './mapRender'
+
+// Layer resolution: pixels per sim cell. The baked sheet is GRID * TERRAIN_PX
+// per side, and every consumer's world→layer math (MapView, the deck inset)
+// scales by TERRAIN_PX / CELL. At a 512-cell frame that is a 4096² sheet.
+export const TERRAIN_PX = 8
 
 // The full gazetteer as screen-space label candidates: every named place in
 // the pack, in world coords, ranked so MapView can gate visibility by zoom —

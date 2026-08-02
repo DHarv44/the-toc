@@ -17,7 +17,6 @@ import type {
 } from '../domains/forces/composition'
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
-import type { MapLayout } from '../world/mapgen'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 
 // how a unit type's parent element is designated inside its battalion:
@@ -376,12 +375,11 @@ export interface MissionSpec {
 }
 
 export interface CampaignMapSpec {
-  /** A pack map id (packs/<pack>/maps/<id>/) — THE ground path. When set,
-   *  theater/seed/layout are ignored: the map file is the map. */
-  map?: string
-  theater: string         // LEGACY: engine theater id (baked DEM patch); dies in P6 (GROUNDWORK.md)
-  seed: number
-  layout: MapLayout       // LEGACY: procgen gazetteer for theater-backed campaigns
+  /** The pack map id (packs/<pack>/maps/<id>/) this campaign plays on — the
+   *  ONLY ground path (P6, GROUNDWORK.md). `null` = the campaign's real
+   *  ground has not been authored yet; it cannot start and the splash says
+   *  so. The map's gazetteer (real names) is what missions reference. */
+  map: string | null
 }
 
 export interface CampaignManifest {

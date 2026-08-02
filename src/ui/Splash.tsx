@@ -1,21 +1,21 @@
 // Start screen. Top level is CAMPAIGN / SKIRMISH / DEV SANDBOX (ROADMAP →
 // Game Modes → main-menu structure): Skirmish is the umbrella for single-match
-// play and runs four steps — mode, map size, terrain, difficulty. Campaign is
-// greyed until it ships; the dev sandbox skips everything.
+// play and runs three steps — mode, map, difficulty. Every map is a pack map
+// (P6): a map sets its own size, and a checkout with none authors one in the
+// MAP EDITOR first.
 import { useState, type ReactNode } from 'react'
-import type { MapSizeKey } from '../world/WorldMap'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
 import { packMaps } from '../packs/map-files'
+import { playerPack } from '../packs'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
 } from '../domains/economy/difficulty'
 
 export type StartFn = (
-  mode: 'dev' | 'new', size?: MapSizeKey, difficulty?: DifficultyKey,
-  gameMode?: ModeId,
-  /** null = procedural ground · 'packId/mapId' = a pack map (the real thing) */
-  terrain?: string | null, tutorial?: boolean,
+  mode: 'dev' | 'new', difficulty?: DifficultyKey, gameMode?: ModeId,
+  /** 'packId/mapId' — the pack map to play (skirmish; the campaign names its own) */
+  terrain?: string, tutorial?: boolean,
 ) => void
 
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
@@ -24,12 +24,6 @@ const COMING_SOON = [
   { label: 'ZONE CAPTURE', sub: 'Contested-line control · push the front zone by zone' },
   { label: 'SPEC OPS', sub: 'Small team, one objective, night · get in, get it done, get out' },
   { label: 'CUSTOM SCENARIO', sub: 'Build your own battle · pick the victory condition, save and share' },
-]
-
-const SIZES: ReadonlyArray<{ key: MapSizeKey; label: string; sub: string }> = [
-  { key: 'small', label: 'SMALL', sub: '4.8 km · quick skirmish' },
-  { key: 'medium', label: 'MEDIUM', sub: '8.0 km' },
-  { key: 'large', label: 'LARGE', sub: '12.8 km · full battalion AO' },
 ]
 
 // difficulty accent runs cool -> hot as it gets harder
@@ -48,16 +42,19 @@ export default function Splash({ onStart, onPacks, onMaps }: {
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
-  const [size, setSize] = useState<MapSizeKey | null>(null)
-  // undefined = not chosen yet · null = procedural · string = 'packId/mapId'
-  const [terrain, setTerrain] = useState<string | null | undefined>(undefined)
+  // undefined = not chosen yet · string = 'packId/mapId'
+  const [terrain, setTerrain] = useState<string | undefined>(undefined)
+
+  const maps = packMaps()
+  // a campaign can only start once its real ground is authored (map.json's
+  // `map` names a pack map) — until then the card is honest about why not
+  const campaignMap = playerPack().campaigns?.[0]?.map.map ?? null
 
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
     : top === 'campaign' ? 'ONE LONG OPERATION — YOUR FORCE AND YOUR LOSSES CARRY MISSION TO MISSION'
     : gameMode == null ? 'THE MODE SETS THE OBJECTIVE — AND WHAT DEFEAT MEANS'
-    : size == null ? 'MAP SIZE SETS THE ROOM — AND THE FORCE CAPS THAT COME WITH IT'
-    : terrain === undefined ? 'REAL GROUND, SEEDED WAR — EVERY THEATER YIELDS MANY BATTLEFIELDS'
+    : terrain === undefined ? 'REAL GROUND, AUTHORED IN THE MAP EDITOR — THE MAP SETS ITS OWN SIZE'
     : 'DIFFICULTY SETS SUPPLY, STARTING FORCE AND HOW LONG FIREFIGHTS RUN'
 
   return (
@@ -85,15 +82,23 @@ export default function Splash({ onStart, onPacks, onMaps }: {
       {top == null ? (
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>NEW GAME</SectionLabel>
-          <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
-            accent="#7ec8ff" onClick={() => setTop('campaign')} />
+          {campaignMap ? (
+            <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
+              accent="#7ec8ff" onClick={() => setTop('campaign')} />
+          ) : (
+            <ComingSoon label="CAMPAIGN" sub="Awaiting authored ground · its map is built in the MAP EDITOR" />
+          )}
           <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
             accent="#2a5a8a" onClick={() => setTop('skirmish')} />
 
           <div style={{ height: 18 }} />
           <SectionLabel>SANDBOX</SectionLabel>
-          <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
-            accent="#3a5a3a" onClick={() => onStart('dev')} />
+          {maps.length ? (
+            <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
+              accent="#3a5a3a" onClick={() => onStart('dev')} />
+          ) : (
+            <ComingSoon label="DEV SANDBOX" sub="Needs a pack map · author one in the MAP EDITOR" />
+          )}
 
           <div style={{ height: 18 }} />
           <SectionLabel>TOOLS</SectionLabel>
@@ -111,7 +116,7 @@ export default function Splash({ onStart, onPacks, onMaps }: {
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={toughness(d.damageMul)}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => { setCampaignCommander(commander); onStart('new', 'large', k, 'campaign', 'chorwon', campaignTut) }} />
+                onClick={() => { setCampaignCommander(commander); onStart('new', k, 'campaign', undefined, campaignTut) }} />
             )
           })}
           {/* the task force commander is YOU — keep the suggested name or type your own */}
@@ -135,7 +140,7 @@ export default function Splash({ onStart, onPacks, onMaps }: {
         </div>
       ) : gameMode == null ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>SKIRMISH · STEP 1 OF 4 · MODE</SectionLabel>
+          <SectionLabel>SKIRMISH · STEP 1 OF 3 · MODE</SectionLabel>
           {MODE_ORDER.map((id) => (
             <SplashButton key={id} label={MODES[id].label} sub={MODES[id].sub} accent="#2a5a8a"
               onClick={() => setGameMode(id)} />
@@ -143,50 +148,37 @@ export default function Splash({ onStart, onPacks, onMaps }: {
           {COMING_SOON.map((m) => <ComingSoon key={m.label} label={m.label} sub={m.sub} />)}
           <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
-      ) : size == null ? (
-        <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>SKIRMISH · STEP 2 OF 4 · MAP SIZE</SectionLabel>
-          {SIZES.map((s) => (
-            <SplashButton key={s.key} label={s.label} sub={s.sub} accent="#2a5a8a"
-              onClick={() => setSize(s.key)} />
-          ))}
-          <BackButton onClick={() => setGameMode(null)}>
-            ← {MODES[gameMode].label} — CHANGE
-          </BackButton>
-        </div>
       ) : terrain === undefined ? (
         <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
-          <SectionLabel>SKIRMISH · STEP 3 OF 4 · TERRAIN</SectionLabel>
-          {/* pack maps first: real ground, authored in the MAP EDITOR, shipped
-              by packs. A pack map sets its own size — the size step's caps
-              still apply, the ground does not stretch. */}
-          {packMaps().map((m) => (
+          <SectionLabel>SKIRMISH · STEP 2 OF 3 · MAP</SectionLabel>
+          {/* real ground, authored in the MAP EDITOR, shipped by packs. A map
+              sets its own size — and the force caps that come with it. */}
+          {maps.map((m) => (
             <SplashButton key={`${m.packId}/${m.mapId}`} label={m.name}
               sub={`${m.packId.toUpperCase()} pack map · real terrain, real roads, real names`}
               accent="#4a6a8a" onClick={() => setTerrain(`${m.packId}/${m.mapId}`)} />
           ))}
-          <SplashButton label="PROCEDURAL" sub="Synthetic terrain · a new map for every seed"
-            accent="#3a5a3a" onClick={() => setTerrain(null)} />
-          <BackButton onClick={() => setSize(null)}>
-            ← {SIZES.find((s) => s.key === size)!.label} MAP — CHANGE
+          {!maps.length && (
+            <ComingSoon label="NO MAPS INSTALLED" sub="Author one in the MAP EDITOR — it saves into a pack" />
+          )}
+          <BackButton onClick={() => setGameMode(null)}>
+            ← {MODES[gameMode].label} — CHANGE
           </BackButton>
         </div>
       ) : (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>SKIRMISH · STEP 4 OF 4 · DIFFICULTY</SectionLabel>
+          <SectionLabel>SKIRMISH · STEP 3 OF 3 · DIFFICULTY</SectionLabel>
           {DIFFICULTY_ORDER.map((k) => {
             const d = DIFFICULTIES[k]
             return (
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={`${d.supplies.toLocaleString()} SUPPLY · ${d.startForce.length} UNIT${d.startForce.length > 1 ? 'S' : ''} · ${toughness(d.damageMul)}`}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart('new', size, k, gameMode, terrain)} />
+                onClick={() => onStart('new', k, gameMode, terrain)} />
             )
           })}
           <BackButton onClick={() => setTerrain(undefined)}>
-            ← {terrain === null
-              ? 'PROCEDURAL'
-              : (packMaps().find((m) => `${m.packId}/${m.mapId}` === terrain)?.name ?? terrain)} — CHANGE
+            ← {maps.find((m) => `${m.packId}/${m.mapId}` === terrain)?.name ?? terrain} — CHANGE
           </BackButton>
         </div>
       )}

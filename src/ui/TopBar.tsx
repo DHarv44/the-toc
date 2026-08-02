@@ -127,13 +127,10 @@ export default function TopBar() {
                 (App listens for toc-remap) so the baked sheet re-bakes. */}
             {packMaps().length > 0 && (
               <NativeSelect size="xs" w={170} title="Dev: switch the sandbox map"
-                value={S.map?.ref?.kind === 'pack' ? `${S.map.ref.packId}/${S.map.ref.mapId}` : ''}
-                data={[
-                  ...(S.map?.ref?.kind !== 'pack' ? [{ value: '', label: 'procgen' }] : []),
-                  ...packMaps().map(m => ({
-                    value: `${m.packId}/${m.mapId}`, label: `${m.packId} · ${m.name}`,
-                  })),
-                ]}
+                value={S.map?.ref ? `${S.map.ref.packId}/${S.map.ref.mapId}` : ''}
+                data={packMaps().map(m => ({
+                  value: `${m.packId}/${m.mapId}`, label: `${m.packId} · ${m.name}`,
+                }))}
                 onChange={(e) => {
                   const v = e.currentTarget.value
                   if (!v) return

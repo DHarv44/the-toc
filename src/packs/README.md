@@ -8,10 +8,12 @@ names, different campaign, different war — without touching engine code.
 ## The law
 
 - **ALL of a pack's content lives under `src/packs/<id>/`.** Catalogs, names,
-  staff sections, audio declarations, assets, formation — and CAMPAIGNS, which
-  own their MAPS and MISSIONS (objectives, triggers, briefs/FRAGO text,
-  tutorial curriculum). If the player reads it, hears it, or fights it, it
-  comes from the pack folder.
+  staff sections, audio declarations, assets, formation — MAPS (real ground
+  authored in the MAP EDITOR, at `maps/<id>/`: `ground.gwpack` geography +
+  `map.json` scenario sidecar; skirmish lists every installed pack's maps) —
+  and CAMPAIGNS, which reference a pack map by id and own their MISSIONS
+  (objectives, triggers, briefs/FRAGO text, tutorial curriculum). If the
+  player reads it, hears it, or fights it, it comes from the pack folder.
 - **Engine = verbs, packs = nouns.** The engine ships kind-keyed registries
   (objective kinds, trigger conditions, effects, spatial queries, tutorial
   anchors). Packs compose them in JSON. The engine NEVER knows a system name,
@@ -34,10 +36,14 @@ src/packs/
   1cd/
     pack.json          ← identity, catalogs ref, staff, assets, audio, formation
     names.json
+    maps/
+      baghdad/
+        ground.gwpack  ← the geography (Groundwork export; carries its own attribution)
+        map.json       ← scenario sidecar: display name, FOB/enemy base, MSR nomination
     campaigns/
       iron-triangle/
         campaign.json  ← manifest: map ref, anchors, mainline order, side-mission pool
-        map.json       ← theater + seed + authored layout (towns/MSR/features = the gazetteer)
+        map.json       ← the pack map id this campaign plays on (null = ground not yet authored)
         missions/
           lodgment.json     ← brief, objectives, triggers, tutorial
           side/             ← repeatable side-mission templates

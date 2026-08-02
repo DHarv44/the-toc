@@ -1,7 +1,7 @@
-// The typed world model: terrain rasters + query surface returned by genMap.
+// The typed world model: terrain rasters + query surface, built from a pack's
+// ground file (world/pack/mapFromPack — GROUNDWORK.md).
 // NOTE: carries closures — never JSON-serialize a WorldMap; persist `map.ref`
-// (see ./mapref) and rebuild through buildGameMap. Procgen rebuilds are
-// deterministic per seed+size; pack maps rebuild by reading their file.
+// (see ./mapref) and rebuild through buildGameMap by re-reading the file.
 import type { MapRef } from './mapref'
 import type { Mobility, RoadName, TerrainName } from './mobility'
 
@@ -20,25 +20,12 @@ export type RoadClass =
   | typeof R_TRACK | typeof R_MINOR | typeof R_SECONDARY
   | typeof R_PRIMARY | typeof R_MOTORWAY
 
-export const GRID_DEFAULT = 256   // default (large) cells per side
-export const CELL = 50            // meters per cell (constant across sizes)
-export const WORLD_DEFAULT = GRID_DEFAULT * CELL
-
-// selectable map sizes — cells per side (world span = size * CELL meters)
-export const MAP_SIZES = {
-  small: 96,    // 4.8 km — dev sandbox / quick skirmish
-  medium: 160,  // 8.0 km
-  large: 256,   // 12.8 km — the original full map
-} as const
-export type MapSizeKey = keyof typeof MAP_SIZES
-
 export interface Vec2 { x: number; y: number }
 
 export interface Town extends Vec2 {
   gx: number
   gy: number
   name: string
-  stamp?: number // authored urban stamp radius in cells (cities); absent = procgen roll
 }
 
 // one road as vector geometry: a Chaikin-smoothed world-space polyline with a
@@ -75,7 +62,7 @@ export interface WorldMap {
   WORLD: number
   elev: Float32Array
   terr: Uint8Array
-  road: Uint8Array          // road class per cell (0 none / 1 path / 2 road / 3 highway)
+  road: Uint8Array          // road class per cell (0 = none, else RoadClass)
   roads: RoadPoly[]
   bridges: BridgeSpan[]
   features: MapFeature[]
@@ -88,7 +75,6 @@ export interface WorldMap {
   /** The opened pack this map was built from — the exact renderer draws from
    *  it directly instead of from the sim rasters (pack maps only). */
   ground?: import('./pack/loadGround').Ground
-  theaterId?: string        // real-DEM theater the elevation came from (absent = procgen noise)
   fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
   enemyBase: Vec2
   devView?: { cx: number; cy: number; fit: number }  // sandbox initial framing

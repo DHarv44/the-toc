@@ -2,7 +2,7 @@
 // settled the hard way): on a pack map, movement IS the road network — every
 // order takes the junction-graph route over the real polylines, full stop.
 // The cell A* exists only as the fallback when the graph has nothing to say
-// (procgen maps until P6 buries them; a map with no network at all).
+// (a map whose box carries no road network at all).
 //
 // There is deliberately NO time-race between the graph and a direct cell
 // route: on a road the cell version prices the same speed but measures

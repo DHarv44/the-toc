@@ -24,11 +24,9 @@ import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
-import { MAP_SIZES } from './world/WorldMap'
 import { buildGameMap, type MapRef } from './world/mapref'
 import { packMap, packMaps } from './packs/map-files'
 import { playerPack } from './packs'
-import type { MapLayout } from './world/mapgen'
 import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 
 export default function App() {
@@ -51,46 +49,33 @@ export default function App() {
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
   if (window.location.search.includes('insignia')) return <InsigniaTest />
 
-  // map building is async (theater fetch today, pack read from P3) — the
-  // splash stays up while buildGameMap resolves the MapRef into ground
-  const begin: StartFn = (mode, size = 'large', difficulty, gameMode, terrain, tutorial) => {
+  // map building is async (the pack file is read and decoded) — the splash
+  // stays up while buildGameMap resolves the MapRef into ground
+  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial) => {
     void (async () => {
       if (mode === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
-        // first pack map installed, else procgen (a checkout with no maps)
+        // first pack map installed (the splash greys the button when none are)
         const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
-        initDevGame(dev
-          ? await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId })
-          : undefined)
+        if (!dev) throw new Error('no pack maps installed — author one in the MAP EDITOR')
+        initDevGame(await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId }))
       } else {
         const isCampaign = gameMode === 'campaign'
-        const seed = isCampaign ? activeCampaign().map.seed : (Date.now() % 100000)
-        // Which ground:
-        //  - campaign referencing a pack map by id → that map (the real thing)
-        //  - campaign on the legacy authored layout → procgen + theater window
-        //  - skirmish on a picked pack map ('packId/mapId') → that map
-        //  - otherwise procgen at the chosen size
-        const campaignMapId = isCampaign ? activeCampaign().map.map : undefined
+        // campaign scenario rng is fixed (reproducible operation); skirmish rolls
+        const seed = isCampaign ? 1 : (Date.now() % 100000)
+        // Which ground: the campaign names its own pack map; skirmish plays
+        // the picked one ('packId/mapId'). There is nothing else (P6).
         let ref: MapRef
-        if (campaignMapId) {
-          ref = { kind: 'pack', packId: playerPack().id, mapId: campaignMapId }
-        } else if (!isCampaign && terrain) {
+        if (isCampaign) {
+          const mapId = activeCampaign().map.map
+          if (!mapId) throw new Error('campaign has no authored ground yet')
+          ref = { kind: 'pack', packId: playerPack().id, mapId }
+          setCampaignTutorial(!!tutorial) // read by startCampaign
+        } else {
+          if (!terrain) throw new Error('skirmish needs a pack map')
           const [packId, mapId] = terrain.split('/') as [string, string]
           ref = { kind: 'pack', packId, mapId }
-        } else {
-          ref = {
-            kind: 'procgen',
-            seed,
-            gridSize: isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large),
-            ...(isCampaign
-              ? {
-                  theaterId: activeCampaign().map.theater,
-                  layout: activeCampaign().map.layout as MapLayout,
-                }
-              : {}),
-          }
         }
-        if (isCampaign) setCampaignTutorial(!!tutorial) // read by startCampaign
         const map = await buildGameMap(ref)
         initGame(map, seed, difficulty, gameMode)
       }
