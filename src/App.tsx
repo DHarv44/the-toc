@@ -1,6 +1,6 @@
 // App shell: splash → top bar over a three-column body (command rail | map |
 // net rail). Ported verbatim from src/App.jsx.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BaseUnderFire, { IncomingBanner } from './ui/BaseUnderFire'
 import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
@@ -35,6 +35,16 @@ export default function App() {
   const [started, setStarted] = useState(() => !!S.map)
   const [packs, setPacks] = useState(false) // PACK BUILDER route (menu-level tool)
   const [maps, setMaps] = useState(false)   // MAP EDITOR route (Groundwork, menu-level tool)
+  // The dev sandbox can swap S.map for another pack map at runtime. Everything
+  // reads S live except mount-time work (MapView's baked layer, the initial
+  // framing) — so a swap bumps this key and the game layout remounts over the
+  // new ground. Dev-only mechanism for a dev-only control.
+  const [mapEpoch, setMapEpoch] = useState(0)
+  useEffect(() => {
+    const bump = () => setMapEpoch(e => e + 1)
+    window.addEventListener('toc-remap', bump)
+    return () => window.removeEventListener('toc-remap', bump)
+  }, [])
   const shakeRef = useRef<HTMLDivElement>(null) // base-under-fire shakes the whole TOC
 
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
@@ -89,7 +99,7 @@ export default function App() {
   // map. The map column is itself a flex COLUMN: the map area (with its
   // overlays) on top, the selection tray as a real row below it.
   return (
-    <div ref={shakeRef} style={{
+    <div ref={shakeRef} key={mapEpoch} style={{
       width: '100vw', height: '100vh', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
       background: '#2a2b2e', // in-game backdrop: neutral dark grey (menu keeps the theme blue)

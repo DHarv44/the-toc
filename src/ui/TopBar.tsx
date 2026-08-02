@@ -1,10 +1,13 @@
 // Top status/control bar. Sits above the three-column body (command rail / map / net rail).
 // Ported verbatim from src/ui/TopBar.jsx.
 import type { ReactNode } from 'react'
-import { Box, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
+import { Box, Group, Text, Button, Divider, NativeSelect, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
 import { devIncomingStrike } from '../devtools/incoming'
+import { initDevGame } from '../engine/scenario'
+import { buildGameMap } from '../world/mapref'
 import { playerPack } from '../packs'
+import { packMaps } from '../packs/map-files'
 import { setMuted as audioSetMuted } from '../audio/audio'
 import { unreadReports } from '../engine/campaign'
 import { UnreadDot } from './S1Console'
@@ -119,6 +122,28 @@ export default function TopBar() {
               onClick={() => ui.setConsole(ui.console === 'packs' ? null : 'packs')}>PACK</Button>
             <Button size="sm" variant="default" title="Dev: drop an IDF strike on the CP"
               onClick={() => devIncomingStrike()}>IDF</Button>
+            {/* swap the ground under the sandbox: any map from any installed
+                pack. Rebuilds the dev scenario on it and remounts the layout
+                (App listens for toc-remap) so the baked sheet re-bakes. */}
+            {packMaps().length > 0 && (
+              <NativeSelect size="xs" w={170} title="Dev: switch the sandbox map"
+                value={S.map?.ref?.kind === 'pack' ? `${S.map.ref.packId}/${S.map.ref.mapId}` : ''}
+                data={[
+                  ...(S.map?.ref?.kind !== 'pack' ? [{ value: '', label: 'procgen' }] : []),
+                  ...packMaps().map(m => ({
+                    value: `${m.packId}/${m.mapId}`, label: `${m.packId} · ${m.name}`,
+                  })),
+                ]}
+                onChange={(e) => {
+                  const v = e.currentTarget.value
+                  if (!v) return
+                  const [packId, mapId] = v.split('/') as [string, string]
+                  void buildGameMap({ kind: 'pack', packId, mapId }).then(map => {
+                    initDevGame(map)
+                    window.dispatchEvent(new Event('toc-remap'))
+                  }).catch(err => console.error('map switch failed', err))
+                }} />
+            )}
           </>
         )}
 
