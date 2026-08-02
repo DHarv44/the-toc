@@ -22,6 +22,44 @@ import type { Ground } from '../world/pack/loadGround'
 import { frameOf, type Frame } from '../world/pack/frame'
 import { TERRAIN_PX } from './mapRender'
 
+// The full gazetteer as screen-space label candidates: every named place in
+// the pack, in world coords, ranked so MapView can gate visibility by zoom —
+// cities always, hamlets only when close, like a chart that declutters
+// itself. The sim's OWN towns/features (the capped 8+18) draw through their
+// existing symbology pass; this list is everything else the ground knows.
+export interface PlaceLabel {
+  x: number
+  y: number
+  name: string
+  kind: string
+  /** min pixels-per-metre before this label draws (0 = always) */
+  minPpm: number
+}
+
+const LABEL_GATE: Record<string, number> = {
+  city: 0, town: 0.015, village: 0.045, hamlet: 0.09, locality: 0.12, water: 0.03, peak: 0.05,
+}
+
+export function packPlaceLabels(map: WorldMap, ground: Ground): PlaceLabel[] {
+  const f = frameOf(ground.files.manifest)
+  const skip = new Set([
+    ...map.towns.map(t => t.name),
+    ...map.features.map(x => x.name),
+  ])
+  const out: PlaceLabel[] = []
+  for (const p of ground.vectors.places) {
+    const gate = LABEL_GATE[p.kind]
+    if (gate === undefined) continue
+    const x = ((p.x - f.x0) / f.spanX) * f.WORLD
+    const y = ((p.y - f.y0) / f.spanY) * f.WORLD
+    if (x < 0 || y < 0 || x > f.WORLD || y > f.WORLD) continue
+    const name = p.name.toUpperCase()
+    if (skip.has(name) || (p.kind === 'peak' && skip.has(`${name} (${Math.round(p.elevation ?? 0)})`))) continue
+    out.push({ x, y, name, kind: p.kind, minPpm: gate })
+  }
+  return out
+}
+
 export function renderPackLayer(map: WorldMap, ground: Ground): HTMLCanvasElement {
   const f = frameOf(ground.files.manifest)
   const size = map.GRID * TERRAIN_PX

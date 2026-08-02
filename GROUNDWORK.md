@@ -138,11 +138,16 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
       vector pass — which was the slowness (51k polylines walked per frame).
       Measured after: ~145 fps on Baghdad. Bake-once/blit-per-frame is the
       architecture, not an optimisation.
-- [ ] Real place labels on the sheet (all pack names, ranked type sizes) —
-      MapView's dynamic town/feature labels cover the sim's 8+10 today
-- [ ] Attribution line surfaced in-game (splash credits + map load)
+- [x] The full gazetteer labels, screen-space, zoom-gated by rank (cities
+      always → hamlets only up close), deduped against the sim's own
+      town/feature labels; peaks ▲, waters italic blue
+- [x] Attribution printed on the sheet, bottom-right, from the pack's own
+      manifest — the ODbL display obligation lives where the data does
 - Note: bake cost is one ~4096² per-pixel pass at map open (~seconds). Fine
   as a one-time cost; tile it later only if it ever hurts.
+- Data note: label density is the pack's place-node coverage — Baghdad's box
+  carries only 27 (city cores are `suburb`/`neighbourhood` nodes in OSM,
+  which Groundwork does not fetch). Front Range carries 610.
 
 ### P5 — skirmish + campaign on packs
 - [ ] Skirmish setup lists installed pack maps (procgen option remains until P6)
@@ -171,6 +176,9 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
   settings, so reopening the editor restores where you were looking, not just
   what was built. The camera lives inside its OrbitControls with no host
   handle — TOC will not reach through globals for it. Requested 2026-08-01.
+- **Fetch `place=suburb`/`neighbourhood` nodes** into pack places. City-core
+  boxes (Baghdad) carry almost no labels without them — districts are the
+  names a COP over a city actually uses. Requested 2026-08-02.
 
 ## Log
 

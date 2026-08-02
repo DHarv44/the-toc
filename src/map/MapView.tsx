@@ -22,7 +22,7 @@ import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderTerrainLayer, TERRAIN_PX } from './mapRender'
-import { renderPackLayer } from './packRender'
+import { renderPackLayer, packPlaceLabels } from './packRender'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
 import { useUI, ROUTE_OPTS } from '../ui/store'
@@ -43,6 +43,11 @@ export default function MapView() {
     const terrainLayer = S.map!.ground
       ? renderPackLayer(S.map!, S.map!.ground)
       : renderTerrainLayer(S.map!)
+    // the full gazetteer + the licence line, both pack-map-only
+    const packLabels = S.map!.ground ? packPlaceLabels(S.map!, S.map!.ground) : null
+    const attribution = S.map!.ground
+      ? S.map!.ground.files.manifest.attribution.map(a => `${a.source} — ${a.licence}`).join('  ·  ')
+      : null
     // dev sandbox frames both bases in one screen; everything else opens on the
     // HQ (campaign included — the whole theater is the playfield, no AO crops)
     const dv = S.map!.devView
@@ -666,6 +671,48 @@ export default function MapView() {
       ctx.fillStyle = night ? 'rgba(160,195,225,0.8)' : 'rgba(40,40,45,0.85)'
       ctx.textAlign = 'center'
       for (const t of S.map!.towns) ctx.fillText(t.name, w2sX(t.x), w2sY(t.y) - 6)
+
+      // the rest of the gazetteer (pack maps): every named place the ground
+      // knows, gated by zoom rank so the chart declutters itself — cities
+      // always, hamlets only up close. Screen-space like all symbology.
+      if (packLabels) {
+        const ppm = view.ppm
+        for (const p of packLabels) {
+          if (ppm < p.minPpm) continue
+          const x = w2sX(p.x), y = w2sY(p.y)
+          if (x < -80 || y < -20 || x > canvas.clientWidth + 80 || y > canvas.clientHeight + 20) continue
+          if (p.kind === 'peak') {
+            ctx.fillStyle = night ? 'rgba(170,150,120,0.5)' : 'rgba(96,72,44,0.7)'
+            ctx.font = '9px Consolas, monospace'
+            ctx.fillText('▲', x, y + 3)
+            ctx.font = '8.5px Consolas, monospace'
+            ctx.fillText(p.name, x, y - 5)
+          } else if (p.kind === 'water') {
+            ctx.fillStyle = night ? 'rgba(120,170,215,0.55)' : 'rgba(36,88,138,0.7)'
+            ctx.font = 'italic 9px Consolas, monospace'
+            ctx.fillText(p.name, x, y - 4)
+          } else {
+            const major = p.kind === 'city' || p.kind === 'town'
+            ctx.fillStyle = night
+              ? `rgba(160,195,225,${major ? 0.75 : 0.55})`
+              : `rgba(40,40,45,${major ? 0.8 : 0.6})`
+            ctx.font = `${major ? 'bold 10px' : '8.5px'} Consolas, monospace`
+            ctx.fillText(p.name, x, y - 5)
+          }
+        }
+        ctx.font = 'bold 10px Consolas, monospace'
+      }
+
+      // the data credit, printed on the sheet like a real map carries it —
+      // ODbL requires the attribution be SHOWN, and the map is where it's true
+      if (attribution) {
+        ctx.save()
+        ctx.font = '8px Consolas, monospace'
+        ctx.textAlign = 'right'
+        ctx.fillStyle = night ? 'rgba(150,170,190,0.45)' : 'rgba(40,50,60,0.5)'
+        ctx.fillText(attribution, canvas.clientWidth - 8, canvas.clientHeight - 6)
+        ctx.restore()
+      }
 
       // named terrain: hills (spot-elevation style), rivers (blue italic), and
       // authored INFRASTRUCTURE (glyph + name — places, not assets). Fainter
