@@ -30,6 +30,7 @@ import { useUI, type Feed, type UiMode } from './store'
 import { PaletteIcon, buildItems } from './palette'
 import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
+import { groundAt } from '../drone/ground'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active: boolean): CSSProperties => ({
@@ -669,10 +670,12 @@ function feedAimPoint(drone: Drone, feed: Feed): Vec2 {
 function feedProjectToScreen(drone: Drone, feed: Feed, wx: number, wy: number, w: number, h: number): Vec2 | null {
   if (!S.map || !w || !h) return null
   const spec = DRONE_TYPES[drone.type]
-  const camPos = { x: drone.x, y: S.map.elevAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
+  // groundAt, NOT elevAt: the sensor camera flies the pack's real-metre
+  // surface (P7) and this projection must match it exactly or reticles drift
+  const camPos = { x: drone.x, y: groundAt(drone.x, drone.y) + spec.alt * (drone.altMul || 1), z: drone.y }
   const aim = feedAimPoint(drone, feed)
   const aimX = aim.x, aimY = aim.y
-  let fwd = { x: aimX - camPos.x, y: S.map.elevAt(aimX, aimY) - camPos.y, z: aimY - camPos.z }
+  let fwd = { x: aimX - camPos.x, y: groundAt(aimX, aimY) - camPos.y, z: aimY - camPos.z }
   const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1
   fwd = { x: fwd.x / fl, y: fwd.y / fl, z: fwd.z / fl }
   let right = { x: -fwd.z, y: 0, z: fwd.x }
@@ -683,7 +686,7 @@ function feedProjectToScreen(drone: Drone, feed: Feed, wx: number, wy: number, w
     y: right.z * fwd.x - right.x * fwd.z,
     z: right.x * fwd.y - right.y * fwd.x,
   }
-  const rel = { x: wx - camPos.x, y: S.map.elevAt(wx, wy) - camPos.y, z: wy - camPos.z }
+  const rel = { x: wx - camPos.x, y: groundAt(wx, wy) - camPos.y, z: wy - camPos.z }
   const depth = rel.x * fwd.x + rel.y * fwd.y + rel.z * fwd.z
   if (depth <= 1) return null
   const tanV = Math.tan((feed.fov * Math.PI / 180) / 2)
