@@ -88,8 +88,10 @@ export function newUnit(
 
 export function spawnEnemy(typeKey: UnitTypeKey, x: number, y: number): Unit {
   // same placement service the player's start force uses: random muster/garrison
-  // offsets never drop a unit into a river or lake
-  const p = S.map ? nearestLand(S.map, x, y) : { x, y }
+  // offsets never drop a unit into a river, a lake — or, for a vehicle, inside
+  // a city block (urban is walls to vics now). Placement uses the unit's OWN
+  // mobility: infantry may legally garrison the blocks, armor takes the street.
+  const p = S.map ? nearestLand(S.map, x, y, UNIT_TYPES[typeKey].mob) : { x, y }
   const u = newUnit(typeKey, 'hostile', p.x, p.y)
   u.aiRole = 'garrison'
   u.anchorX = p.x; u.anchorY = p.y

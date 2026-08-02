@@ -210,6 +210,20 @@ made along the way are recorded under DECISIONS so nobody re-litigates them.
       first pass), units/structures/trees layers; ground height via `sampleBox`
 - Verify: feed over real terrain in WHOT/EO; performance on a full battle.
 
+- **Built-up ground is walls (2026-08-02).** `urban` is impassable to wheeled
+  and tracked — vehicles drive the streets stamped through a district, never
+  the blocks between them; foot passes at 1.3 (alleys, courtyards, rubble).
+  One table entry carries the combined-arms split: dismounts cut blocks, vics
+  own roads. Every placement path snaps through nearestLand with the unit's
+  own mobility so nothing is born inside a wall. Consequence accepted: a
+  block with no OSM-mapped street through it is vehicle-unreachable, which
+  is why the service/alley upstream ask matters.
+- **FASTEST/AUTO are roads-first on pack maps (2026-08-02).** They route on
+  the same graph as ROADS ONLY; a direct cell route (smoothed, any-angle) is
+  computed as a challenger and wins only when an honest clock over the real
+  ground says so — which covers sparse-network maps with no special case.
+  OFF ROAD / CROSS COUNTRY remain deliberate cell moves.
+
 ## Upstream asks (Groundwork changes, done in terrain-builder + republished)
 
 - **Persist the viewer camera** (orbit position + target) with the builder's

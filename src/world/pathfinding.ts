@@ -27,14 +27,51 @@ export function findPath(
   map: WorldMap, sx: number, sy: number, tx: number, ty: number,
   mob: Mobility, opts: PathOpts = {},
 ): Vec2[] | null {
-  // Pack maps route ROADS orders on the real network (GROUNDWORK.md P5b):
-  // time-optimal over the actual polylines — local streets to the on-ramp,
-  // arterials for the trunk, off near the click. The cell A* below remains
-  // the safety net (and the whole story for procgen and every other mode).
-  if (opts.roadsOnly && map.ground) {
-    const r = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
-    if (r) return r
+  if (map.ground) {
+    // Pack maps are ROADS-FIRST (GROUNDWORK.md P5b). ROADS orders route on
+    // the network, period. FASTEST/AUTO route on the network TOO — roads are
+    // assumed faster because they are — and only take the direct cell route
+    // when the clock genuinely says so (a short hop, or a map with barely
+    // any network). In a city, "fastest" IS the streets; cutting a block is
+    // never on offer. OFF ROAD / CROSS COUNTRY stay deliberate cell moves.
+    if (opts.roadsOnly) {
+      const r = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
+      if (r) return r
+    } else if (!opts.offRoad && !opts.crossCountry) {
+      const road = routeOnRoads(map, sx, sy, tx, ty, mob, opts.profile ?? 'fastest')
+      const cell = findPathCells(map, sx, sy, tx, ty, mob, opts)
+      if (road && cell) {
+        return routeTime(map, road, mob, sx, sy) <= routeTime(map, cell, mob, sx, sy) ? road : cell
+      }
+      return road ?? cell
+    }
   }
+  return findPathCells(map, sx, sy, tx, ty, mob, opts)
+}
+
+// Honest clock over a waypoint route: distance × the ground's factor, sampled
+// along each leg. This is what arbitrates network vs direct — an off-network
+// leg through a lake prices Infinity, so a bad shortcut can never win.
+function routeTime(map: WorldMap, pts: Vec2[], mob: Mobility, sx: number, sy: number): number {
+  let t = 0
+  let px = sx, py = sy
+  for (const p of pts) {
+    const len = Math.hypot(p.x - px, p.y - py)
+    const n = Math.max(1, Math.min(24, Math.ceil(len / map.CELL)))
+    for (let k = 0; k < n; k++) {
+      const f = map.moveFactor(px + (p.x - px) * ((k + 0.5) / n), py + (p.y - py) * ((k + 0.5) / n), mob)
+      if (!isFinite(f)) return Infinity
+      t += (len / n) * f
+    }
+    px = p.x; py = p.y
+  }
+  return t
+}
+
+function findPathCells(
+  map: WorldMap, sx: number, sy: number, tx: number, ty: number,
+  mob: Mobility, opts: PathOpts = {},
+): Vec2[] | null {
   const GRID = map.GRID
   // Road penalty. crossCountry (2.2) merely dampens the bonus — enough for the AI's
   // tactical advances, but wheeled roads are 3.1x better than open ground, so a route
@@ -148,5 +185,48 @@ export function findPath(
   }
   out.push(pts[pts.length - 1]!)
   out.shift() // drop the cell we're standing in
-  return out.length ? out : [{ x: gtx, y: gty }]
+  if (!out.length) return [{ x: gtx, y: gty }]
+  return smooth(map, out, mob)
+}
+
+// Any-angle smoothing over a cell route. Grid A* only turns in 45° steps, so
+// an open-field leg comes out as a stair of diagonals — reads as a drunk
+// driver on the exact sheet. This walks the route pulling each waypoint as
+// far ahead as the STRAIGHT line stays honest: every sampled cell passable,
+// and no worse underfoot than the detour it replaces (so a shortcut never
+// silently trades a road for a swamp, and never cuts across water — water is
+// impassable and fails the passability check outright).
+function smooth(map: WorldMap, pts: Vec2[], mob: Mobility): Vec2[] {
+  if (pts.length < 3) return pts
+  const step = map.CELL / 2
+  const worstAlong = (a: Vec2, b: Vec2): number => {
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step))
+    let worst = 0
+    for (let k = 0; k <= n; k++) {
+      const f = map.moveFactor(a.x + (b.x - a.x) * (k / n), a.y + (b.y - a.y) * (k / n), mob)
+      if (!isFinite(f)) return Infinity
+      if (f > worst) worst = f
+    }
+    return worst
+  }
+  // Local by design: the pass kills stair-steps, it does not replan the
+  // route — and unbounded lookahead over a 25 km path is quadratic sampling.
+  const LOOKAHEAD = 40
+  const out: Vec2[] = [pts[0]!]
+  let i = 0
+  while (i < pts.length - 1) {
+    // worst ground of the original detour grows as j advances; track it
+    let detourWorst = 0
+    let best = i + 1
+    for (let j = i + 1; j < Math.min(pts.length, i + 1 + LOOKAHEAD); j++) {
+      const legWorst = worstAlong(pts[j - 1]!, pts[j]!)
+      if (legWorst > detourWorst) detourWorst = legWorst
+      const straight = worstAlong(pts[i]!, pts[j]!)
+      if (straight <= detourWorst * 1.05) best = j
+      // no early break: a blocked shortcut to j can reopen at j+1 around a bend
+    }
+    out.push(pts[best]!)
+    i = best
+  }
+  return out
 }
