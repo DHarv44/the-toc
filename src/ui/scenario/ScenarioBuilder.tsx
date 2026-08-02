@@ -6,7 +6,7 @@
 // with the unit's own mobility), select/inspect/drag/delete/undo. SAVE writes
 // scenario.json through the dev route; discovery picks it up like maps.
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
 import { installedPacks, PACKS } from '../../packs'
 import { packMaps } from '../../packs/map-files'
