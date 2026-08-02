@@ -3,6 +3,8 @@
 // (headless advance(), scripted orders); keep it in step with the old shape.
 import { S } from '../engine/state'
 import { initGame, initDevGame } from '../engine/scenario'
+import { genMap } from '../world/mapgen'
+import { buildGameMap } from '../world/mapref'
 import { advance } from '../engine/SimLoop'
 import { deployUnit, fieldUnit, deployStructure, convertToHq } from '../domains/installations/orders'
 import {
@@ -25,7 +27,7 @@ import { spawnEnemy } from '../domains/forces/factory'
 
 if (typeof window !== 'undefined') {
   ;(window as unknown as { __game?: unknown; __advance?: unknown }).__game = {
-    S, initGame, initDevGame, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
+    S, initGame, initDevGame, genMap, buildGameMap, advance, deployUnit, fieldUnit, deployStructure, deployDrone, droneStrike, droneToggleTarget, droneClearTargets, droneFire, gunshipSelectWeapon, gunshipSetMode, droneFollow, droneLock,
     orderDroneMove, droneDropWp, droneSet, droneRTB, droneSensorMode, fieldAerostat, airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     spawnEnemy,

@@ -24,7 +24,11 @@ export interface GoldenApi {
     radio: unknown[]
     map: { enemyBase: { x: number; y: number } } | null
   }
-  initGame: (seed: number, gridSize: number, difficulty: string) => void
+  // DEPRECATED HARNESS (GROUNDWORK.md): golden gated the procgen sim port and
+  // is no longer a source of truth — maps are pack content now. Kept compiling
+  // until P6 deletes it with the generator it measured.
+  genMap: (seed: number, gridSize: number) => unknown
+  initGame: (map: unknown, seed: number, difficulty: string) => void
   advance: (seconds: number) => void
   fieldUnit: (typeKey: string, structId: number) => unknown
   deployDrone: (typeKey: string, x: number, y: number) => unknown
@@ -75,7 +79,7 @@ export function runGolden(game: GoldenApi): GoldenResult {
   const realRandom = Math.random
   Math.random = makeRng(0xc0ffee)
   try {
-    game.initGame(4242, 96, 'regular')
+    game.initGame(game.genMap(4242, 96), 4242, 'regular')
     const S = game.S
     const hq = S.structures.find((s) => s.side === 'friend' && s.kind === 'HQ')
     const afld = S.structures.find((s) => s.side === 'friend' && s.kind === 'AFLD')

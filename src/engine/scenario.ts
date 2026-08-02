@@ -9,10 +9,7 @@ import { S } from './state'
 import { makeRng } from './rng'
 import { DEFAULT_MODE, MODES, type ModeId } from './modes'
 import { genMap } from '../world/mapgen'
-import type { TheaterData } from '../world/theaters'
-import { activeCampaign } from './campaign'
-import type { MapLayout } from '../world/mapgen'
-import { MAP_SIZES } from '../world/WorldMap'
+import { MAP_SIZES, type WorldMap } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
 import {
   DIFFICULTIES, DEFAULT_DIFFICULTY, MAP_FORCE_CAP, CAP_MUL,
@@ -26,30 +23,21 @@ import { buildDivisionOrg } from '../packs/org'
 import { buildAssetRegistry } from '../domains/assets/registry'
 
 export function initGame(
-  seed = 1337, gridSize: number = MAP_SIZES.large, difficulty: string = DEFAULT_DIFFICULTY,
-  mode: ModeId = DEFAULT_MODE, theater?: TheaterData,
+  map: WorldMap, seed = 1337, difficulty: string = DEFAULT_DIFFICULTY,
+  mode: ModeId = DEFAULT_MODE,
 ): void {
+  // Map construction is the caller's job (world/mapref buildGameMap): which
+  // ground, which source, mode terrain rerolls — all decided before this
+  // runs. initGame is synchronous scenario composition over a finished map;
+  // `seed` seeds the SCENARIO rng (spawns, waves), not the ground.
   // the active packs' catalogs go into the engine registries FIRST — every
   // platform lookup below reads them (idempotent re-install; module load
   // already installed the defaults for pre-init reads)
   installActivePacks()
+  const gridSize = map.GRID
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
-  // mode map recipe: reroll the MAP seed (bounded) until the terrain fits the
-  // mode's objective (e.g. KotH needs a real hill). S.rng keeps the original
-  // seed either way, and modes without a recipe generate exactly once — the
-  // default A&D path is byte-identical to before (golden-gated).
-  // the campaign plays on its PACK's authored layout (fixed window + designed
-  // towns/bases over the real-DEM theater); every other mode rolls procgen
-  // culture. The layout rides in as JSON — same documented boundary cast as
-  // the rest of the pack data.
-  const layout = mode === 'campaign' ? activeCampaign().map.layout as MapLayout : undefined
-  const mapOk = MODES[mode].mapOk
-  let m = genMap(seed, gridSize, theater, layout)
-  if (mapOk) {
-    for (let a = 1; a <= 24 && !mapOk(m); a++) m = genMap((seed + a * 7919) >>> 0, gridSize, theater, layout)
-  }
-  S.map = m
+  S.map = map
   S.t = 0
   S.units = []
   S.structures = []
@@ -139,7 +127,11 @@ export function initGame(
 // enemy top-right) with one of every unit type staged near its base, weapons held so
 // nothing attrits until the dev commits to a fight.
 export function initDevGame(seed = 1337): void {
-  initGame(seed, MAP_SIZES.large) // room to exercise ranges, logistics and recon at scale
+  // room to exercise ranges, logistics and recon at scale. Procgen with no
+  // theater is synchronous, so the dev path stays a plain call.
+  const map = genMap(seed, MAP_SIZES.large)
+  map.ref = { kind: 'procgen', seed, gridSize: MAP_SIZES.large }
+  initGame(map, seed)
   S.devMode = true         // unlocks the DEV controls in the top bar
   S.fogEnabled = false
   S.nextWave = Infinity

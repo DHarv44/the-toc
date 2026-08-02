@@ -25,7 +25,8 @@ import { S } from './engine/state'
 import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
-import { loadTheater } from './world/theaters'
+import { buildGameMap, type MapRef } from './world/mapref'
+import type { MapLayout } from './world/mapgen'
 import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 
 export default function App() {
@@ -38,8 +39,8 @@ export default function App() {
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
   if (window.location.search.includes('insignia')) return <InsigniaTest />
 
-  // theater elevation loads async (a one-time fetch of our own baked asset,
-  // then cached) — the splash stays up for the few ms it takes
+  // map building is async (theater fetch today, pack read from P3) — the
+  // splash stays up while buildGameMap resolves the MapRef into ground
   const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId, tutorial) => {
     void (async () => {
       if (mode === 'dev') initDevGame()
@@ -47,12 +48,21 @@ export default function App() {
         // the campaign is always the same ground: the PACK's campaign ships
         // its theater + fixed seed + authored layout (PACK-MISSIONS.md)
         const isCampaign = gameMode === 'campaign'
-        const tId = isCampaign ? activeCampaign().map.theater : theaterId
-        const gridSize = isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large)
         const seed = isCampaign ? activeCampaign().map.seed : (Date.now() % 100000)
+        const ref: MapRef = {
+          kind: 'procgen',
+          seed,
+          gridSize: isCampaign ? MAP_SIZES.large : (MAP_SIZES[size] ?? MAP_SIZES.large),
+          ...(isCampaign
+            ? {
+                theaterId: activeCampaign().map.theater,
+                layout: activeCampaign().map.layout as MapLayout,
+              }
+            : theaterId ? { theaterId } : {}),
+        }
         if (isCampaign) setCampaignTutorial(!!tutorial) // read by startCampaign
-        const theater = tId ? await loadTheater(tId) : undefined
-        initGame(seed, gridSize, difficulty, gameMode, theater)
+        const map = await buildGameMap(ref)
+        initGame(map, seed, difficulty, gameMode)
       }
       startLoop()
       setStarted(true)

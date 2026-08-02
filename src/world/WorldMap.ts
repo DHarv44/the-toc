@@ -1,6 +1,8 @@
 // The typed world model: terrain rasters + query surface returned by genMap.
-// NOTE: carries closures — never JSON-serialize a WorldMap; persist { seed, GRID }
-// and regenerate (genMap is deterministic per seed+size).
+// NOTE: carries closures — never JSON-serialize a WorldMap; persist `map.ref`
+// (see ./mapref) and rebuild through buildGameMap. Procgen rebuilds are
+// deterministic per seed+size; pack maps rebuild by reading their file.
+import type { MapRef } from './mapref'
 import type { Mobility, RoadName, TerrainName } from './mobility'
 
 // terrain codes (raster values in `terr`)
@@ -77,6 +79,8 @@ export interface WorldMap {
   slope: Float32Array
   towns: Town[]
   seed: number
+  /** How to build this map again — the identity that persists (see ./mapref). */
+  ref?: MapRef
   theaterId?: string        // real-DEM theater the elevation came from (absent = procgen noise)
   fob: Vec2                 // friendly base site (mutable: dev sandbox relocates it)
   enemyBase: Vec2
