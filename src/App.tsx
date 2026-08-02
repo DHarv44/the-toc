@@ -26,6 +26,7 @@ import { initGame, initDevGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
 import { MAP_SIZES } from './world/WorldMap'
 import { buildGameMap, type MapRef } from './world/mapref'
+import { packMap, packMaps } from './packs/map-files'
 import type { MapLayout } from './world/mapgen'
 import { activeCampaign, setCampaignTutorial } from './engine/campaign'
 
@@ -43,8 +44,14 @@ export default function App() {
   // splash stays up while buildGameMap resolves the MapRef into ground
   const begin: StartFn = (mode, size = 'large', difficulty, gameMode, theaterId, tutorial) => {
     void (async () => {
-      if (mode === 'dev') initDevGame()
-      else {
+      if (mode === 'dev') {
+        // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
+        // first pack map installed, else procgen (a checkout with no maps)
+        const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
+        initDevGame(dev
+          ? await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId })
+          : undefined)
+      } else {
         // the campaign is always the same ground: the PACK's campaign ships
         // its theater + fixed seed + authored layout (PACK-MISSIONS.md)
         const isCampaign = gameMode === 'campaign'

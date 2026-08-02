@@ -126,11 +126,15 @@ export function initGame(
 // full supply, no incoming waves. Both HQs sit in one screen (friendly bottom-left,
 // enemy top-right) with one of every unit type staged near its base, weapons held so
 // nothing attrits until the dev commits to a fight.
-export function initDevGame(seed = 1337): void {
-  // room to exercise ranges, logistics and recon at scale. Procgen with no
-  // theater is synchronous, so the dev path stays a plain call.
-  const map = genMap(seed, MAP_SIZES.large)
-  map.ref = { kind: 'procgen', seed, gridSize: MAP_SIZES.large }
+export function initDevGame(map?: WorldMap, seed = 1337): void {
+  // The sandbox plays whatever map it is handed — the App hands it a pack map
+  // (real ground exercises everything procgen never could: dense street
+  // grids, real river lines, names). No map = procgen fallback, for console
+  // callers and for a checkout with no pack maps saved yet.
+  if (!map) {
+    map = genMap(seed, MAP_SIZES.large)
+    map.ref = { kind: 'procgen', seed, gridSize: MAP_SIZES.large }
+  }
   initGame(map, seed)
   S.devMode = true         // unlocks the DEV controls in the top bar
   S.fogEnabled = false
