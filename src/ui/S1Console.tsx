@@ -73,23 +73,23 @@ function groupBy(soldiers: Soldier[], key: (s: Soldier) => string | undefined): 
 
 // the person who ANSWERS for an element — the senior billet in it, by the
 // order billets are handed out (leadership first in every roster)
-const RANKED = ['Platoon Leader', 'Platoon Sergeant', 'Squad Leader']
+const RANKED = ['Platoon Leader', 'Platoon Sergeant', 'Squad Leader', 'Team Leader', 'Vehicle Commander']
 const leaderOf = (ss: Soldier[]): Soldier =>
   RANKED.map(p => ss.find(s => s.pos === p)).find(Boolean) ?? ss[0]!
 
 // A roster is built in CASUALTY order, which is not reading order: the command
-// element is listed last because it falls last. On paper the HQ leads, its
-// squads follow in number, and the mounted element brings up the rear.
-const ELEM_ORDER = (label: string): number =>
-  label.endsWith('HQ') ? 0 : label.includes('MOUNTED') ? 2 : 1
+// element is listed last because it falls last. On paper the HQ leads and its
+// squads follow in number — and inside a squad, ALPHA before BRAVO. Both rungs
+// are sorted by label after the HQ, which puts them in exactly that order.
+const HQ_FIRST = (a: ElemNode, b: ElemNode): number =>
+  Number(b.label.endsWith('HQ')) - Number(a.label.endsWith('HQ')) || a.label.localeCompare(b.label)
 
 function elementsOf(soldiers: Soldier[]): ElemNode[] {
-  const secs = groupBy(soldiers, s => s.sec)
-    .sort((a, b) => ELEM_ORDER(a.label) - ELEM_ORDER(b.label) || a.label.localeCompare(b.label))
+  const secs = groupBy(soldiers, s => s.sec).sort(HQ_FIRST)
   for (const sec of secs) {
     sec.leader = leaderOf(sec.members)
-    const teams = groupBy(sec.members, s => s.team)
-    // one team covering the whole section is the section — not a rung
+    const teams = groupBy(sec.members, s => s.team).sort(HQ_FIRST)
+    // one team covering the whole element is the element — not a rung
     if (teams.length > 1) {
       sec.kids = teams
       for (const t of teams) t.leader = leaderOf(t.members)
