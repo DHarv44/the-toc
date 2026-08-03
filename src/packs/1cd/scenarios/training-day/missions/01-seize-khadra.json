@@ -5,19 +5,19 @@
   "objectives": [
     {
       "id": "scout",
-      "label": "SCOUT OBJ KHADRA",
+      "label": "SCOUT OBJ KEATON",
       "kind": "recon-area",
       "zone": {
-        "place": "OBJ KHADRA",
+        "place": "OBJ KEATON",
         "r": 420
       }
     },
     {
       "id": "clear",
-      "label": "CLEAR OBJ KHADRA",
+      "label": "CLEAR OBJ KEATON",
       "kind": "clear-area",
       "zone": {
-        "place": "OBJ KHADRA",
+        "place": "OBJ KEATON",
         "r": 420
       }
     },
@@ -29,11 +29,11 @@
     },
     {
       "id": "fob",
-      "label": "ESTABLISH FOB KHADRA",
+      "label": "ESTABLISH FOB KEATON",
       "kind": "build",
       "structKind": "FOB",
       "zone": {
-        "place": "OBJ KHADRA",
+        "place": "OBJ KEATON",
         "r": 520
       }
     }
@@ -54,7 +54,7 @@
         },
         {
           "kind": "opfor-objective",
-          "place": "OBJ KHADRA"
+          "place": "OBJ KEATON"
         }
       ]
     },
@@ -73,7 +73,7 @@
             "INF"
           ],
           "at": {
-            "place": "OBJ KHADRA",
+            "place": "OBJ KEATON",
             "toward": "enemy-base",
             "range": 1300
           }
