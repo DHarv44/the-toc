@@ -1,0 +1,40 @@
+{
+  "id": "mission-1",
+  "name": "SCOUT",
+  "objectives": [
+    {
+      "id": "obj-1",
+      "label": "FIND THE BUGS",
+      "kind": "recon-area",
+      "zone": {
+        "place": "ZONE 1",
+        "r": 2500
+      },
+      "reports": [
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ]
+    }
+  ],
+  "triggers": [
+    {
+      "id": "trigger-1",
+      "when": {
+        "kind": "objective-complete",
+        "objective": "obj-1"
+      },
+      "do": [
+        {
+          "kind": "radio",
+          "radio": {
+            "from": "NET",
+            "text": "SCOUT COMPLETE"
+          }
+        }
+      ]
+    }
+  ],
+  "brief": "Go find the bugs"
+}

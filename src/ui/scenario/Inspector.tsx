@@ -1,16 +1,26 @@
 // The attribute inspector: every placed entity is editable here — Eden's
 // grammar. Patches flow up as partial entity updates; DELETE removes.
-import { Box, Button, Checkbox, NumberInput, Select, Text, TextInput } from '@mantine/core'
+import { Box, Button, Checkbox, Group, NumberInput, Select, Text, TextInput } from '@mantine/core'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
+import { PACKS } from '../../packs'
+import { formationOptions, battalionOptions } from '../../packs/orgquery'
 import type { Entity } from '../../scenario/edit'
 
 const MONO = 'Consolas, monospace'
 
-export default function Inspector({ e, onPatch, onDelete }: {
+export default function Inspector({ e, friendPack, playerFormation, onPatch, onDelete }: {
   e: Entity | undefined
+  /** the pack playing BLUFOR — its org drives the formation pickers */
+  friendPack: string
+  /** the scenario's player chair: anything else friendly is allied AI */
+  playerFormation: string
   onPatch: (patch: Partial<Entity>) => void
   onDelete: () => void
 }) {
+  const pack = PACKS[friendPack]
+  const fmOpts = pack ? formationOptions(pack) : []
+  const bnOpts = pack ? battalionOptions(pack) : []
+  const assetKinds = Object.keys(pack?.assets ?? {})
   return (
     <Box w={230} p="xs" style={{ borderLeft: '1px solid #22303d', overflowY: 'auto', fontFamily: MONO }}>
       <Text fz={9} c="dark.3" mb={6} style={{ letterSpacing: 1.5 }}>INSPECTOR</Text>
@@ -44,6 +54,15 @@ export default function Inspector({ e, onPatch, onDelete }: {
           )}
           {e.ent === 'structure' && (
             <>
+              {e.side === 'friend' && fmOpts.length > 0 && (
+                <Select size="xs" label="OWNING FORMATION" mb={6}
+                  value={e.formation ?? playerFormation}
+                  data={fmOpts.map(f => ({ value: f.desig, label: f.label }))}
+                  styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                  onChange={v => onPatch({
+                    formation: v && v !== playerFormation ? v : undefined,
+                  })} />
+              )}
               <TextInput size="xs" label="LABEL" value={e.label ?? ''} mb={6}
                 placeholder="CP GARRYOWEN"
                 onChange={ev => onPatch({ label: ev.currentTarget.value.toUpperCase() || undefined })} />
@@ -59,6 +78,44 @@ export default function Inspector({ e, onPatch, onDelete }: {
                   checked={e.intel === 'known'}
                   onChange={ev => onPatch({ intel: ev.currentTarget.checked ? 'known' : undefined })} />
               )}
+              {/* ASSETS SITED HERE — division enablers already emplaced at
+                  H-hour: a C-RAM section on the FOB, a SHADOW orbit at the CP.
+                  Authored quantities are authored; difficulty never scales
+                  them. */}
+              {e.side === 'friend' && assetKinds.length > 0 && (
+                <>
+                  <Text fz={9} c="dark.3" mt={8} mb={4} style={{ letterSpacing: 1.5 }}>
+                    ASSETS AT H-HOUR
+                  </Text>
+                  {(e.assets ?? []).map((a, i) => (
+                    <Group key={i} gap={4} mb={4} wrap="nowrap">
+                      <Select size="xs" style={{ flex: 1 }} value={a.asset}
+                        data={assetKinds.map(k => ({
+                          value: k, label: pack?.assets?.[k]?.name ?? k,
+                        }))}
+                        styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                        onChange={v => v && onPatch({
+                          assets: (e.assets ?? []).map((x, k) => (k === i ? { ...x, asset: v } : x)),
+                        })} />
+                      <NumberInput size="xs" w={54} min={1} value={a.qty}
+                        styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                        onChange={v => onPatch({
+                          assets: (e.assets ?? []).map((x, k) =>
+                            (k === i ? { ...x, qty: typeof v === 'number' ? v : 1 } : x)),
+                        })} />
+                      <Button size="compact-xs" variant="subtle" c="#e8524a" px={4}
+                        onClick={() => onPatch({
+                          assets: (e.assets ?? []).filter((_, k) => k !== i),
+                        })}>✕</Button>
+                    </Group>
+                  ))}
+                  <Button size="compact-xs" variant="default" mb={6}
+                    disabled={!assetKinds[0]}
+                    onClick={() => onPatch({
+                      assets: [...(e.assets ?? []), { asset: assetKinds[0]!, qty: 1 }],
+                    })}>＋ ASSET</Button>
+                </>
+              )}
             </>
           )}
           {e.ent === 'unit' && (
@@ -71,8 +128,35 @@ export default function Inspector({ e, onPatch, onDelete }: {
               <Checkbox size="xs" label="DUG IN" mb={6} checked={!!e.dug}
                 onChange={ev => onPatch({ dug: ev.currentTarget.checked || undefined })} />
               {e.side === 'friend' ? (
-                <Checkbox size="xs" label="STARTS IN GARRISON" mb={6} checked={!!e.garrison}
-                  onChange={ev => onPatch({ garrison: ev.currentTarget.checked || undefined })} />
+                <>
+                  {bnOpts.length > 0 && (
+                    <Select size="xs" label="OWNING FORMATION" mb={6}
+                      value={e.formation ?? playerFormation}
+                      data={bnOpts.map(f => ({ value: f.desig, label: f.label }))}
+                      styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                      onChange={v => onPatch({
+                        formation: v && v !== playerFormation ? v : undefined,
+                        ...(v === playerFormation ? { attached: undefined } : {}),
+                      })} />
+                  )}
+                  {/* COMMAND DERIVES FROM TASK ORG — a sister formation's
+                      platoon is yours to order only if it is task-organized
+                      to you for this operation. */}
+                  {e.formation && e.formation !== playerFormation ? (
+                    <>
+                      <Checkbox size="xs" mb={4} checked={!!e.attached}
+                        label={`ATTACHED TO ${playerFormation}`}
+                        onChange={ev => onPatch({ attached: ev.currentTarget.checked || undefined })} />
+                      <Text fz={8.5} c={e.attached ? '#7ec8ff' : '#e0b34e'} mb={6}>
+                        {e.attached
+                          ? 'UNDER YOUR COMMAND — FIELDS AND TAKES ORDERS LIKE YOUR OWN'
+                          : 'ALLIED (AI) — ON YOUR MAP, NOT YOURS TO ORDER'}
+                      </Text>
+                    </>
+                  ) : null}
+                  <Checkbox size="xs" label="STARTS IN GARRISON" mb={6} checked={!!e.garrison}
+                    onChange={ev => onPatch({ garrison: ev.currentTarget.checked || undefined })} />
+                </>
               ) : (
                 <>
                   <TextInput size="xs" label="BATTLEGROUP TAG" value={e.tag ?? ''} mb={6}

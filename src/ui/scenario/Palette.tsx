@@ -1,10 +1,11 @@
 // The entity palette: pick a side, arm a structure kind or a unit type, click
 // the sheet to place. Unit rows come from THAT SIDE'S pack catalog — sides
 // are packs (SCENARIO-BUILDER.md), so a faction pack's palette is its own.
-import { Box, Button, SegmentedControl, Text } from '@mantine/core'
+import { Box, Button, Select, SegmentedControl, Text } from '@mantine/core'
 import { STRUCTURES, type StructureTypeKey } from '../../domains/installations/catalog'
-import type { UnitType } from '../../domains/forces/catalog'
+import type { UnitType, UnitTypeKey } from '../../domains/forces/catalog'
 import { PACKS } from '../../packs'
+import { formationOptions, slotBudget } from '../../packs/orgquery'
 import type { ScenarioSide } from '../../scenario/types'
 
 export type Armed =
@@ -15,23 +16,39 @@ export type Armed =
 
 const MONO = 'Consolas, monospace'
 
-export default function Palette({ side, sidePacks, armed, onSide, onArm }: {
+export default function Palette({
+  side, sidePacks, armed, formation, placedByType, playerFormation,
+  onSide, onArm, onFormation,
+}: {
   side: ScenarioSide
   /** which installed pack plays each side (scenario meta) */
   sidePacks: { friend: string; hostile: string }
   armed: Armed
+  /** PLACING AS — the formation new entities are stamped with */
+  formation: string
+  /** how many of each type this formation already has on the sheet */
+  placedByType: Record<string, number>
+  /** the scenario's player chair — what "yours" means on this sheet */
+  playerFormation: string
   onSide: (s: ScenarioSide) => void
   onArm: (a: Armed) => void
+  onFormation: (f: string) => void
 }) {
   const packId = sidePacks[side]
+  const pack = PACKS[packId]
   const units = (PACKS[packId]?.catalogs.units ?? {}) as Record<string, UnitType>
   const structKinds = Object.keys(STRUCTURES) as StructureTypeKey[]
+  // the pack's real division drives the picker; OPFOR has no shipped org yet
+  // (P4), so its palette stays formation-free
+  const formations = side === 'friend' && pack ? formationOptions(pack) : []
+  const mine = formation === playerFormation
 
-  const row = (key: string, label: string, sub: string, a: Armed) => {
+  const row = (key: string, label: string, sub: string, a: Armed, disabled = false) => {
     const active = JSON.stringify(armed) === JSON.stringify(a)
     return (
       <Button key={key} size="compact-sm" fullWidth justify="flex-start" mb={3}
-        variant={active ? 'filled' : 'default'}
+        variant={active ? 'filled' : 'default'} disabled={disabled}
+        title={disabled ? `${formation} fields no ${label}` : undefined}
         onClick={() => onArm(active ? null : a)}
         styles={{ label: { fontFamily: MONO, fontSize: 11 } }}>
         {label}
@@ -53,16 +70,41 @@ export default function Palette({ side, sidePacks, armed, onSide, onArm }: {
           { value: 'friend', label: 'BLUFOR' },
           { value: 'hostile', label: 'OPFOR' },
         ]} />
+      {/* PLACING AS — whose troops these are. Command derives from it: your
+          own battalion is yours to order, a sister formation fights beside
+          you under its own commander. */}
+      {formations.length > 0 && (
+        <>
+          <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>
+            PLACING AS {mine
+              ? <Text span fz={8.5} c="#7ec8ff">· YOUR COMMAND</Text>
+              : <Text span fz={8.5} c="#e0b34e">· ALLIED (AI)</Text>}
+          </Text>
+          <Select size="xs" mb="xs" value={formation}
+            onChange={v => v && onFormation(v)}
+            styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+            data={formations.map(f => ({ value: f.desig, label: f.label }))} />
+        </>
+      )}
       <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>
         INSTALLATIONS
       </Text>
       {structKinds.map(k =>
         row(`s:${k}`, k, STRUCTURES[k].name ?? '', { ent: 'structure', kind: k }))}
       <Text fz={9} c="dark.3" mt="sm" mb={4} style={{ letterSpacing: 1.5 }}>
-        UNITS · {PACKS[packId]?.abbr ?? packId}
+        UNITS · {formations.length ? formation : (PACKS[packId]?.abbr ?? packId)}
       </Text>
-      {Object.values(units).map(u =>
-        row(`u:${u.key}`, u.abbr, u.name, { ent: 'unit', type: u.key }))}
+      {Object.values(units).map(u => {
+        // the formation's REAL strength in this type — you cannot author a
+        // battalion that does not exist
+        const budget = pack && formations.length ? slotBudget(pack, formation, u.key as UnitTypeKey) : 0
+        const used = placedByType[u.key] ?? 0
+        const sub = formations.length
+          ? (budget ? `${Math.max(0, budget - used)}/${budget}` : '— none')
+          : u.name
+        return row(`u:${u.key}`, u.abbr, sub, { ent: 'unit', type: u.key },
+          formations.length > 0 && budget === 0)
+      })}
     </Box>
   )
 }

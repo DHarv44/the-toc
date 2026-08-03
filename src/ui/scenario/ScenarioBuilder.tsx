@@ -10,7 +10,8 @@
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, SegmentedControl, Select, Text, TextInput } from '@mantine/core'
-import { installedPacks } from '../../packs'
+import { installedPacks, PACKS } from '../../packs'
+import { defaultPlayerFormation, playableFormations, slotBudget } from '../../packs/orgquery'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
 import { loadGround, type Ground } from '../../world/pack/loadGround'
@@ -70,6 +71,11 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
   const [type, setType] = useState<ModeId>('attack-defend')
   const [sidePacks] = useState(defaultSides)
   const [side, setSide] = useState<ScenarioSide>('friend')
+  // THE CHAIR the scenario is written for, and the formation the palette is
+  // currently placing as (they start the same: you author your own command
+  // first, then your neighbours)
+  const [player, setPlayer] = useState(() => defaultPlayerFormation(PACKS[defaultSides().friend]!))
+  const [formation, setFormation] = useState(player)
   const [armed, setArmed] = useState<Armed>(null)
   const [ed, setEd] = useState<EditorState>(emptyEditor)
   const [missions, setMissions] = useState<MissionScript[]>([])
@@ -100,6 +106,36 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
       .filter((t): t is { id: number; pts: { x: number; y: number }[] } => t.pts != null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, fobKey])
+
+  // TASK ORG on the sheet: what the formation being placed already has, and
+  // where the author has over-committed a formation beyond its real strength
+  const friendPack = PACKS[sidePacks.friend]
+  const placedByType = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const e of ed.entities) {
+      if (e.ent !== 'unit' || e.side !== 'friend') continue
+      if ((e.formation ?? player) !== formation) continue
+      out[e.type] = (out[e.type] ?? 0) + 1
+    }
+    return out
+  }, [ed.entities, formation, player])
+
+  const overStrength = useMemo(() => {
+    if (!friendPack) return []
+    const counts = new Map<string, number>()
+    for (const e of ed.entities) {
+      if (e.ent !== 'unit' || e.side !== 'friend') continue
+      const key = `${e.formation ?? player}|${e.type}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const bad: string[] = []
+    for (const [key, n] of counts) {
+      const [fm, type] = key.split('|') as [string, string]
+      const budget = slotBudget(friendPack, fm, type as never)
+      if (n > budget) bad.push(`${fm} ${type} ${n}/${budget}`)
+    }
+    return bad
+  }, [ed.entities, friendPack, player])
 
   // what a script place param can name: authored places first, then the map's
   // real gazetteer (OSM towns/features), then the builtin anchors
@@ -156,12 +192,15 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
 
   const onPlace = (wx: number, wy: number) => {
     if (!armed || !world) return
+    // friendly entities are stamped with the formation the palette is placing
+    // as; the player's own chair is the default and stays unwritten
+    const owner = side === 'friend' && formation !== player ? { formation } : {}
     if (armed.ent === 'structure') {
       const p = snap(wx, wy)
-      setEd(s => place(s, { id: freshId(), ent: 'structure', side, kind: armed.kind, x: p.x, y: p.y }))
+      setEd(s => place(s, { id: freshId(), ent: 'structure', side, kind: armed.kind, ...owner, x: p.x, y: p.y }))
     } else if (armed.ent === 'unit') {
       const p = snap(wx, wy, UNIT_TYPES[armed.type]?.mob)
-      setEd(s => place(s, { id: freshId(), ent: 'unit', side, type: armed.type, x: p.x, y: p.y }))
+      setEd(s => place(s, { id: freshId(), ent: 'unit', side, type: armed.type, ...owner, x: p.x, y: p.y }))
     } else {
       // control measures go exactly where clicked — a place may sit on water
       const zone = armed.zone
@@ -204,6 +243,9 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     setMissions(e.spec.missions ?? [])
     setCurM(0)
     setExtras(pickExtras(e.spec))
+    const chair = e.spec.player || defaultPlayerFormation(PACKS[e.spec.sides?.friend ?? sidePacks.friend]!)
+    setPlayer(chair)
+    setFormation(chair)
     setMapRef(map)
     setRail(e.spec.missions?.length ? 'script' : 'inspect')
     setMsg(null)
@@ -226,6 +268,9 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     setMissions(cfg.type === 'campaign' ? [newMission(1)] : [])
     setCurM(0)
     setExtras({})
+    const chair = defaultPlayerFormation(PACKS[cfg.packId] ?? PACKS[sidePacks.friend]!)
+    setPlayer(chair)
+    setFormation(chair)
     setEd(emptyEditor())
     setMapRef(cfg.mapRef)
     setRail('inspect')
@@ -283,6 +328,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     try {
       const spec: ScenarioSpec = {
         type, name: name.trim() || id, map: mapRef, sides: sidePacks,
+        player,
         situation: situationFromEntities(ed.entities, world.ground),
         ...(missions.length ? { missions } : {}),
         ...extras,
@@ -323,7 +369,26 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
             {missions.length > 0 && ` · ${missions.length} MISSION${missions.length > 1 ? 'S' : ''}`}
           </Text>
         </Box>
+        {/* a formation placed beyond its real strength: the division does not
+            have those platoons. Warn, never block — the author decides. */}
+        {overStrength.length > 0 && (
+          <Text fz={9} c="#e0b34e" maw={240}>
+            ⚠ OVER STRENGTH · {overStrength.join(' · ')}
+          </Text>
+        )}
         {msg && <Text fz={10} c={msg.startsWith('FAILED') ? '#e8524a' : '#7ec8ff'}>{msg}</Text>}
+        {/* THE PLAYER'S CHAIR — which battalion this scenario is written for.
+            Everything friendly outside it (and unattached) is allied AI. */}
+        {friendPack && (
+          <Select size="xs" w={150} value={player}
+            title="The battalion the player commands"
+            onChange={v => {
+              if (!v) return
+              if (formation === player) setFormation(v)
+              setPlayer(v)
+            }}
+            data={playableFormations(friendPack).map(f => ({ value: f.desig, label: f.label }))} />
+        )}
         {/* the AUTHORED type — the menu door, the rules, the badge */}
         <Select size="xs" w={140} value={type} onChange={v => v && setType(v as ModeId)}
           data={[
@@ -341,7 +406,8 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
 
       <Box style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <Palette side={side} sidePacks={sidePacks} armed={armed}
-          onSide={setSide} onArm={setArmed} />
+          formation={formation} placedByType={placedByType} playerFormation={player}
+          onSide={setSide} onArm={setArmed} onFormation={setFormation} />
         <Box style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           {world ? (
             <>
@@ -349,7 +415,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
                 map={world.map} ground={world.ground}
                 entities={ed.entities} tracks={tracks}
                 sel={ed.sel} placing={armed != null}
-                night={night} sat={sat}
+                night={night} sat={sat} playerFormation={player}
                 onPick={id => setEd(s => select(s, id))}
                 onPlace={onPlace}
                 onDragStart={() => setEd(beginDrag)}
@@ -389,7 +455,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
               ]} />
           </Box>
           {rail === 'inspect' ? (
-            <Inspector e={selected(ed)}
+            <Inspector e={selected(ed)} friendPack={sidePacks.friend} playerFormation={player}
               onPatch={patch => setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))}
               onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
           ) : (

@@ -28,6 +28,9 @@ export interface SheetProps {
   /** the shared map-control toggles — same semantics as the game's BFT */
   night: boolean
   sat: boolean
+  /** the scenario's chair: friendly entities outside it (and unattached) are
+   *  a sister formation's — drawn dimmed and tagged with their owner */
+  playerFormation: string
   onPick: (id: number | null) => void
   onPlace: (wx: number, wy: number) => void
   onDragStart: (id: number) => void
@@ -214,15 +217,27 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
           ctx.lineWidth = 1.6
           ctx.strokeRect(x - 21, y - 16, 42, 32)
         }
+        // TASK ORG at a glance: a friendly entity that belongs to another
+        // formation (and is not attached to you) is drawn dimmed and carries
+        // its owner's designation — you can see the neighbour without ever
+        // mistaking it for your own.
+        const owner = e.ent !== 'place' && e.side === 'friend'
+          && e.formation && e.formation !== propsRef.current.playerFormation
+          ? e.formation : null
+        const allied = !!owner && !(e.ent === 'unit' && e.attached)
+        if (allied) ctx.globalAlpha = 0.5
         if (e.ent === 'structure') {
           drawStructure(ctx, x, y, {
             side: e.side, kind: e.kind,
-            label: e.label ?? '', building: !!e.building,
+            label: owner ? `${e.label || e.kind} · ${owner}` : (e.label ?? ''),
+            building: !!e.building,
           })
         } else if (e.ent === 'unit') {
+          const abbr = UNIT_TYPES[e.type]?.abbr ?? e.type
           drawUnitSymbol(ctx, x, y, {
             side: e.side, glyph: UNIT_TYPES[e.type]?.glyph ?? 'inf',
-            label: `${UNIT_TYPES[e.type]?.abbr ?? e.type}${e.tag ? ` [${e.tag}]` : ''}`,
+            label: `${abbr}${e.tag ? ` [${e.tag}]` : ''}`
+              + (owner ? ` · ${owner}${e.attached ? ' ATT' : ''}` : ''),
             dug: e.dug ? 1 : 0, showStrength: false,
           })
         } else {
@@ -247,6 +262,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
           ctx.fillText(e.name, x, y - (e.r != null ? e.r * view.ppm + 6 : 12))
           ctx.textAlign = 'left'
         }
+        if (allied) ctx.globalAlpha = 1
       }
     }
     raf = requestAnimationFrame(draw)
