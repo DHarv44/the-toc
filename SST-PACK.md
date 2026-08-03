@@ -138,8 +138,9 @@ startForce. Saving reformats the whole file — the middleware re-serializes.
 
 **Tabs today:** IDENTITY · ECHELON · UNITS · VEHICLES · WEAPONS · AIR ·
 FORMATION · NAMES · **TROOPS** · **COMPS** · **ORG** · **CHARACTER** ·
-ASSETS · **CONTENT**. Editable: IDENTITY, TROOPS, COMPS, ORG, CHARACTER, and
-model assignment. The rest only display.
+**VOICE** · ASSETS · **CONTENT**. Editable: IDENTITY, TROOPS, COMPS, ORG,
+CHARACTER, VOICE, and model assignment. UNITS/VEHICLES/WEAPONS/AIR/FORMATION/
+NAMES/ECHELON/ASSETS still only display.
 
 **Two content bugs the builder found by having to READ the schema**: the MI's
 Wound Stripe was authored `criterion:` when the field is `on` (so no trooper
@@ -168,10 +169,9 @@ S1/R1/G1 are `staff`):
   (ORG is otherwise DONE — `bnKinds` + `rosters` 44488a4, `billets` 0cb79b3.
   A template's company rung is toggleable in the UI rather than implicit in
   whether a JSON key is present.)
-- character: `net`, `reports`, `staff`, `mottos`, `nicks`, `audio`
-  (`ranks`, `awards`, `callsigns` are DONE — the CHARACTER tab, 7453b92.
-  Ranks reorder in the UI because ORDER IS SENIORITY. The remaining three are
-  prose-heavy and want a text-editor shape, not a form.)
+- `mottos`, `nicks`, `audio` — small, per-formation strings
+  (`ranks`/`awards`/`callsigns` DONE — CHARACTER, 7453b92, ranks reorder
+  because ORDER IS SENIORITY. `staff`/`net`/`reports` DONE — VOICE, 965ded8.)
 - content: maps and scenarios
 
 Suggested order: TROOPS+COMPS, then a CONTENT tab that LISTS a pack's maps
