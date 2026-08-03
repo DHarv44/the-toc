@@ -53,82 +53,32 @@ data per unit type). Three mechanics that already exist. Struck.
 
 ---
 
-# IN FLIGHT — the formation refactor (NOT COMMITTED, tsc RED)
+# DONE — the formation refactor (0af31c2) and the nouns pass (48c3fc4)
 
-Discovered by MI research: two fixed levels (`bdes` → `bns`) cannot express
-DIVISION → REGIMENT → COMPANY → PLATOON, a flat swarm, or a militia of cells.
+Both shipped and pushed on 2026-08-03. tsc green, verified in the sandbox.
 
-### The model being built
-
-```
-Formation.under: FormationNode[]     recursive; depth is whatever nests
-Formation.echelons: EchelonDef[]     names + 2525 marks per rung, below the top
-Formation.top: EchelonDef            the top formation's own rung
-Formation.chairRung: number          WHICH RUNG IS PLAYABLE (default 1)
-Formation.chair: string              (was playerBn) default commanded formation
-
-FormationNode { desig, nick, patch, arms, kind?, tfCos?, station?, under? }
-    `kind` = the bnKind template it expands into. A node with children AND a
-    kind is both a headquarters and a commander (a brigade with staff).
-
-OrgSlot.path: string[]   THE ONLY structural truth — ['1ABCT','2-8 CAV','A CO']
-OrgSlot.cmd: string      the formation that commands it, STAMPED BY THE BUILDER
-                         (knows path AND rung, so a fact not a positional guess)
-    bde / bn / co are DELETED. They were right by coincidence.
-
-Unit.cmd (was Unit.bn)   denormalised on the FIELDED unit only — read every
-                         frame by underPlayerCommand, answers one question
-GameState.chair (was playerBn)
-```
-
-Replacements for the deleted fields:
-- `sl.bn === X` → `sl.cmd === X`
-- `sl.bde === 'ATT'` → `sl.path[0] === 'ATT'`
-- `sl.co` → last path element
-- budgets/garrisons → `sl.path.includes(formation)` (works at any rung)
-
-### DONE so far
-- types.ts: FormationNode, EchelonDef, walkFormation, chairRung, playableBns
-- orgquery.ts: echelonAt/echelonMark/rungOf/markOf, formationOptions, orgTree,
-  patchOf, armsOf, defaultStructureLabel, slotBudget, formationSlots — all
-  walk the tree; `Echelon` is now a string
-- symbols.ts: takes the MARK to draw, not an echelon name (ECHELON_MARK gone)
-- MapView / SheetCanvas: `markOf`
-- OrgPicker: TONE indexed by RUNG not by echelon name
-- PackViewer / PackBuilder / BnHeader / S1Console: walk instead of `.bdes`
-- GameState.ts: OrgSlot.path + cmd; Unit.cmd; GameState.chair
-- org.ts: recursive `walk`, builder stamps path + cmd
-- 1cd/pack.json: `bdes`→`under`, `bns`→`under`, `hq`→`kind`, echelon ladder added
-
-### LEFT TO DO  (resume here — tsc is RED, nothing committed)
-
-**1. `src/ui/S1Console.tsx` — 28 errors, THE ONLY FILE LEFT.** Every other
-file is done. All mechanical, same four substitutions:
+**What the nouns pass added**, since the SST packs will lean on it hard:
 
 ```
-sl.bn            ->  sl.cmd
-sl.bde === 'ATT' ->  sl.path[0] === 'ATT'
-sl.bde           ->  sl.path[0]
-sl.co            ->  ownerOf(sl)          // already imported? add from packs/orgquery
-formation?.playerBn -> formation?.chair
-S.playerBn       ->  S.chair
+BnSlotPlan.role     'command' | 'staff'   what an element is to its formation
+StaffSection.desks  ['S1','G1']           every name one desk goes by
+packs/ranks.ts      rankDef / rankW / seniorOf
+packs/orgquery.ts   commandSlot, staffSlots, staffOf, commanderOf,
+                    topCommander, deskNames, deskOf, formationsWithDesk
 ```
-`ownerOf` is exported from `packs/orgquery` (added today). `walkFormation` is
-already imported into S1Console.
 
-**2. `src/packs/1cd/pack.json`** — one rename: `"playerBn": "2-8 CAV"` →
-`"chair": "2-8 CAV"`. (`bdes`→`under`, `bns`→`under`, `hq`→`kind`, and the
-`top`/`echelons`/`chairRung` ladder are ALREADY done.)
+`seniorOf` is the load-bearing one: WHO LEADS an element is the senior
+soldier in it and, among equals, the one listed last (rosters run in
+casualty order). No army has to tell us its leaders' job titles — which is
+what makes a Mobile Infantry platoon led by a Third Lieutenant work.
 
-**3. Verify in browser** (`http://localhost:5187`, hard-reload — Vite serves
-stale modules): build the org and check 331 slots / ~5.4k soldiers, every slot
-has a `path` and a `cmd`, `cmd` is '2-8 CAV' for the chair's own elements,
-attachments still sit under `path[0] === 'ATT'`, and the S1 tree renders.
+Still an engine literal with no home: **COBALT** (`scenario.ts` base names).
+It wants `ScenarioSpec.tf` — a task force's name and its commander's
+callsign are the scenario's to give. S1's TF row now reads `TF <chair>`.
 
-**4. Commit.** Explicit paths only — the user's own training-day scenario edits
-must not be swept in.
+---
 
-### THEN — Pack.side must go (user, and correct)
+# NEXT — Pack.side must go (user, and correct)
 `Pack.side: 'friend'|'hostile'` is baked in. `ScenarioSpec.sides` ALREADY
 assigns packs to sides. A pack is an army; who it fights for is the scenario's
 call. `activePack(side)` should resolve from the installed lineup, which the
@@ -181,6 +131,13 @@ was reverted — it was speculative capability for content that did not exist.)
   would silently lie for any army that is not three rungs deep.
 - 2026-08-03 · MI first, bugs second — sequence by FEEDBACK, not by engineering
   risk.
+- 2026-08-03 · a pack DECLARES which elements command and which staff
+  (`BnSlotPlan.role`) and what each desk is called at each rung
+  (`StaffSection.desks`). Finding a commander by the words 'CMD GRP' was
+  already broken inside 1CD itself, whose division says COMMAND GROUP.
+- 2026-08-03 · WHO LEADS an element is seniority, not a job title: senior
+  first, and among equals the one listed LAST (rosters run in casualty order).
+  The engine keeps that rule and no billet vocabulary at all.
 
 ## Standing rules (bitten by these today)
 
