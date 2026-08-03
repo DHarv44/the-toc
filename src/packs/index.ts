@@ -19,6 +19,8 @@ import cdManifest from './1cd/pack.json'
 import cdNames from './1cd/names.json'
 import opforManifest from './opfor/pack.json'
 import opforNames from './opfor/names.json'
+import miManifest from './mi/pack.json'
+import miNames from './mi/names.json'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
@@ -158,9 +160,15 @@ function buildPack(
 export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
 export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
 
+// The Mobile Infantry takes NO fallback: it is a whole army of its own, and
+// inheriting 1CD's rifles or rank ladder would quietly hide the parts it does
+// not actually ship.
+export const PACK_MI: Pack = buildPack(miManifest as Record<string, unknown>, miNames)
+
 export const PACKS: Record<string, Pack> = {
   [PACK_1CD.id]: PACK_1CD,
   [PACK_OPFOR.id]: PACK_OPFOR,
+  [PACK_MI.id]: PACK_MI,
 }
 
 // the DEFAULT lineup, for a menu screen or a scenario that names no packs.

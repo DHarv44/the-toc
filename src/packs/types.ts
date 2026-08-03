@@ -258,7 +258,16 @@ export interface BilletTables {
 export interface BnKindPlan {
   /** heraldic branch for the S1 header's procedural shield ('inf', 'sus'…) */
   branch?: string
-  companies: BnCoPlan[]
+  /** the rung between this formation and its elements — companies in a US
+   *  battalion, troops in a squadron. OMIT IT and the elements hang directly
+   *  off the formation: a Mobile Infantry company's platoons are its own, with
+   *  nothing in between, and inventing a grouping to hold them would put a
+   *  rung in the lineage that the army does not have. */
+  companies?: BnCoPlan[]
+  /** elements directly under this formation (only when `companies` is absent) */
+  slots?: BnSlotPlan[]
+  /** the platoon shorthand, directly under this formation */
+  plts?: { type: UnitTypeKey; n?: number }
 }
 
 export interface BnPlan {

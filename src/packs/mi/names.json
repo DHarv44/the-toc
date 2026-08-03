@@ -1,0 +1,46 @@
+{
+  "_doc": "Mobile Infantry name pools. The Terran Federation recruits off one planet and every part of it — Juan Rico is Filipino and speaks Tagalog at home, and the novel is quietly insistent that the uniform is the only thing anybody in it has in common. So the pools are deliberately global and heavily mixed, with women throughout: Federal Service takes anyone who volunteers.",
+  "first_names": {
+    "male": [
+      "Juan", "Carl", "Emilio", "Kenji", "Dmitri", "Ahmed", "Bashir", "Cesar",
+      "Diego", "Enrique", "Farid", "Gerhard", "Hasan", "Ibrahim", "Jean",
+      "Kwame", "Lucien", "Mikael", "Nikolai", "Omar", "Pavel", "Rafael",
+      "Sanjay", "Tomas", "Ulrich", "Viktor", "Wen", "Xavier", "Yusuf", "Zoltan",
+      "Anton", "Bruno", "Cyrus", "Dieter", "Eduardo", "Feliks", "Gustavo",
+      "Hiroshi", "Ivan", "Jorge", "Kaleb", "Leandro", "Marek", "Nadir",
+      "Osvaldo", "Piotr", "Quentin", "Ravi", "Salvador", "Tarek", "Ugo",
+      "Vasili", "Wilhelm", "Yannick", "Zheng", "Amir", "Bogdan", "Chen",
+      "Damir", "Esteban", "Fabio", "Georgi", "Halim", "Isamu", "Jarek",
+      "Kofi", "Ladislav", "Mateo", "Nuri", "Oleg", "Paulo", "Rashid",
+      "Sergei", "Thiago", "Umar", "Vicente", "Wojciech", "Yosef", "Zubair"
+    ],
+    "female": [
+      "Isabel", "Dizzy", "Carmen", "Ayako", "Nadia", "Ingrid", "Beatriz",
+      "Chiara", "Danica", "Elena", "Fatima", "Greta", "Hana", "Imani",
+      "Jelena", "Katya", "Leila", "Mireille", "Noor", "Olga", "Paloma",
+      "Rania", "Sofia", "Tanja", "Ulla", "Valentina", "Wilhelmina", "Ximena",
+      "Yelena", "Zora", "Anneke", "Bianca", "Camila", "Dalia", "Esperanza",
+      "Freya", "Gabriela", "Halina", "Iris", "Junko", "Kirsten", "Lucia",
+      "Marisol", "Nilufer", "Oksana", "Priya", "Rosalind", "Sigrid",
+      "Teodora", "Ursula", "Vesna", "Wanda", "Yasmin", "Zdenka"
+    ]
+  },
+  "last_names": [
+    "Rico", "Jenkins", "Flores", "Ibanez", "Rasczak", "Zim", "Frankel",
+    "Dubois", "Hendrick", "Shujumi", "Bergstrom", "Cortez", "Nakamura",
+    "Petrov", "Okonkwo", "Lindqvist", "Vasquez", "Moreau", "Weiss",
+    "Okafor", "Sandoval", "Novotny", "Halloran", "Meyer", "Tanaka",
+    "Ferreira", "Kowalski", "Adeyemi", "Brandt", "Castillo", "Dimitrov",
+    "Espinoza", "Fontaine", "Guzman", "Haas", "Iversen", "Jimenez",
+    "Kaur", "Larsen", "Marchetti", "Nagy", "Ortega", "Pryce", "Quintana",
+    "Rahman", "Salcedo", "Takahashi", "Ulrich", "Varga", "Whitfield",
+    "Yamamoto", "Zabala", "Andersen", "Belanger", "Chaudhry", "Delacroix",
+    "Eriksen", "Faulkner", "Gallardo", "Hoffmann", "Ishikawa", "Jansen",
+    "Kovac", "Laurent", "Mbeki", "Nystrom", "Oyelaran", "Pascal",
+    "Reyes", "Solano", "Thorne", "Uribe", "Vargas", "Wojcik", "Yilmaz",
+    "Zawadzki", "Aguirre", "Bhatt", "Cardoso", "Dvorak", "Enriquez",
+    "Fitzgerald", "Grigoryan", "Hidalgo", "Imamura", "Jovanovic",
+    "Krause", "Lombardi", "Mendoza", "Nilsson", "Ovechkin", "Paredes",
+    "Rosales", "Sorensen", "Trujillo", "Vidal", "Wagner", "Yakov"
+  ]
+}

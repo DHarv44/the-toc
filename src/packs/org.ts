@@ -12,7 +12,7 @@
 import type { DivOrg, OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { buildRoster, type TroopKindKey, type VehicleKey } from '../domains/forces/composition'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import type { BnKind, BnSlotPlan, FormationNode, Pack, SlotRole } from './types'
+import type { BnCoPlan, BnKind, BnSlotPlan, FormationNode, Pack, SlotRole } from './types'
 import { chairRung } from './types'
 import { namePersonnel, nameSoldier } from './personnel'
 import { seniorOf } from './ranks'
@@ -56,7 +56,11 @@ const PLT_ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th'] as const
 type SlotSpec =
   | { name: string; role?: SlotRole; type: UnitTypeKey }
   | { name: string; role?: SlotRole; staff: StaffMember[]; vehicles?: { type: VehicleKey; n: number }[]; crewed?: boolean }
-interface CoSpec { co: string; slots: SlotSpec[] }
+// `co` absent = the slots hang DIRECTLY off the formation, with no rung
+// between. Whether there is one is the army's business: a US battalion puts
+// companies between itself and its platoons, a Mobile Infantry company does
+// not — its platoons are its own.
+interface CoSpec { co?: string; slots: SlotSpec[] }
 
 /** The pack's template for a battalion of this kind, expanded to slots. Throws
  *  on a kind the pack does not ship — a battalion that names a template nobody
@@ -64,7 +68,11 @@ interface CoSpec { co: string; slots: SlotSpec[] }
 function bnTemplate(pack: Pack, kind: BnKind): CoSpec[] {
   const plan = pack.bnKinds?.[kind]
   if (!plan) throw new Error(`pack '${pack.id}': no battalion kind named '${kind}'`)
-  return plan.companies.map(co => {
+  // a kind that names no companies puts its elements straight under itself —
+  // one nameless grouping standing in for the rung it does not have
+  type Group = { co?: string; plts?: BnCoPlan['plts']; slots?: BnSlotPlan[] }
+  const groups: readonly Group[] = plan.companies ?? [{ plts: plan.plts, slots: plan.slots }]
+  return groups.map(co => {
     const slots: SlotSpec[] = []
     // the platoon shorthand first: n numbered platoons of one type
     if (co.plts) {
@@ -76,7 +84,7 @@ function bnTemplate(pack: Pack, kind: BnKind): CoSpec[] {
       if (s.type) slots.push({ name: s.name, role: s.role, type: s.type })
       else if (s.flight) slots.push({ name: s.name, role: s.role, ...expandFlight(pack, s.flight) })
       else if (s.roster) slots.push({ name: s.name, role: s.role, staff: expandStaff(pack, s.roster) })
-      else throw new Error(`pack '${pack.id}': slot '${co.co}/${s.name}' in '${kind}' has no type, roster or flight`)
+      else throw new Error(`pack '${pack.id}': slot '${co.co ?? kind}/${s.name}' in '${kind}' has no type, roster or flight`)
     }
     return { co: co.co, slots }
   })
@@ -132,16 +140,17 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
     const allTf = desig === chair
     const cmd = path[Math.min(chairRung(f), path.length - 1)] ?? desig
     for (const co of bnTemplate(pack, plan.kind)) {
-      const tf = allTf || (plan.tfCos ?? []).includes(co.co)
+      const tf = allTf || (co.co != null && (plan.tfCos ?? []).includes(co.co))
       for (const spec of co.slots) {
-        const id = `${desig}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
+        const id = [desig, co.co, spec.name].filter(Boolean).join(':').replace(/\s+/g, '_')
         // a firing battery IS its unit — "A BTRY, 1-82 FA", not "FIRING BTRY, A BTRY, …"
-        const lin = 'type' in spec && co.co.endsWith('BTRY')
+        const lin = 'type' in spec && co.co?.endsWith('BTRY')
           ? `${co.co}, ${desig}`
-          : `${spec.name}, ${co.co}, ${desig}`
+          : [spec.name, co.co, desig].filter(Boolean).join(', ')
         const fieldable = tf && 'type' in spec
         const base: OrgSlot = {
-          id, path: [...path, co.co], cmd, name: spec.name, lin, role: spec.role,
+          id, path: co.co != null ? [...path, co.co] : [...path],
+          cmd, name: spec.name, lin, role: spec.role,
           // A task-organized slice from a SISTER formation is an ATTACHMENT: it
           // fights for us, it belongs to them. Marking it puts "ATT 91 EN BN"
           // on the call-up row and on the fielded unit — the same treatment a
@@ -200,12 +209,12 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
     for (const co of e.cos) {
       for (const spec of co.slots) {
         if (!('type' in spec)) continue
-        const id = `${bn}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
+        const id = [bn, co.co, spec.name].filter(Boolean).join(':').replace(/\s+/g, '_')
         const r = buildRoster(spec.type)
         namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack)
         slots.push({
-          id, path: ['ATT', bn, co.co], cmd: bn, name: spec.name,
-          lin: `${spec.name}, ${co.co}, ${bn}`, type: spec.type, from: e.from,
+          id, path: co.co != null ? ['ATT', bn, co.co] : ['ATT', bn], cmd: bn, name: spec.name,
+          lin: [spec.name, co.co, bn].filter(Boolean).join(', '), type: spec.type, from: e.from,
           tf: true, unitId: null, soldiers: r.soldiers, vehicles: r.vehicles,
         })
       }
