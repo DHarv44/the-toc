@@ -76,17 +76,16 @@ Still an engine literal with no home: **COBALT** (`scenario.ts` base names).
 It wants `ScenarioSpec.tf` — a task force's name and its commander's
 callsign are the scenario's to give. S1's TF row now reads `TF <chair>`.
 
+**`Pack.side` is gone** (7fce220). The assignment lives with the installed
+lineup — `installLineup({friend, hostile})`, `playerPack() = activePack
+('friend')`, and `initGame` takes `spec.sides`. A scenario can now put the
+player in command of the OPFOR army, and one army can hold both sides.
+personnel.ts takes a `Pack` instead of a side, killing the Pack→side→Pack
+round trip `buildDivisionOrg` used to make.
+
 ---
 
-# NEXT — Pack.side must go (user, and correct)
-`Pack.side: 'friend'|'hostile'` is baked in. `ScenarioSpec.sides` ALREADY
-assigns packs to sides. A pack is an army; who it fights for is the scenario's
-call. `activePack(side)` should resolve from the installed lineup, which the
-scenario/skirmish sets. BLUEFOR/OPFOR are roles, not properties of a pack.
-
----
-
-## Then the packs
+## NEXT — the packs
 
 **Mobile Infantry first** — it needs no new engine features and every hardcode
 it hits is a DISCOVERED one on ground we understand. (Earlier I sequenced by
@@ -138,6 +137,10 @@ was reverted — it was speculative capability for content that did not exist.)
 - 2026-08-03 · WHO LEADS an element is seniority, not a job title: senior
   first, and among equals the one listed LAST (rosters run in casualty order).
   The engine keeps that rule and no billet vocabulary at all.
+- 2026-08-03 · a pack is an ARMY and holds no side. BLUEFOR/OPFOR are roles a
+  SCENARIO assigns, held by the installed lineup. This is what lets the MI and
+  the Arachnids each be authored once and pointed at each other — or at
+  anybody — by the scenario that fields them.
 
 ## Standing rules (bitten by these today)
 
