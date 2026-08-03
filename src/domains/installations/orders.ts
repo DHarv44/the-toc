@@ -10,6 +10,7 @@ import { connectStructureToRoads } from '../../world/access'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
+import { commandsStructure } from '../forces/command'
 import { effStats } from '../forces/elements'
 import { orderMove } from '../forces/orders'
 import { unitAvailability } from '../economy/economy'
@@ -67,7 +68,9 @@ export function installFacility(structId: number, key: FacilityKey): void {
 export function fundingStructure(x: number, y: number): Structure | null {
   let best: Structure | null = null, bd = Infinity
   for (const s of S.structures) {
-    if (s.side !== 'friend' || s.buildT > 0 || !s.deployZone) continue
+    // a sister formation's base is on your map, not in your task
+    // organization — it is not a place YOUR battalion deploys from
+    if (!commandsStructure(s) || s.buildT > 0 || !s.deployZone) continue
     const d = Math.hypot(x - s.x, y - s.y)
     if (d <= s.deployZone && d < bd) { best = s; bd = d }
   }

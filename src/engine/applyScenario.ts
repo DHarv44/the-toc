@@ -15,6 +15,8 @@ import { orderMove } from '../domains/forces/orders'
 import { formBattlegroup } from '../domains/opfor/ai'
 import { siteAssetAt } from '../domains/assets/service'
 import { drawSlotIn } from '../packs/org'
+import { playerPack } from '../packs'
+import { defaultStructureLabel } from '../packs/orgquery'
 
 function applyUnitAttrs(unit: Unit, u: ScenarioUnit): void {
   if (u.heading != null) unit.heading = u.heading
@@ -80,7 +82,13 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
 
   for (const st of sit.structures) {
     const p = w(st)
-    const s = addStructure(st.side, st.kind, p.x, p.y, st.label, !st.building, st.formation)
+    // an unnamed installation belonging to somebody else names itself by
+    // echelon — DIV MAIN, 1ABCT MAIN — rather than HQ-7
+    const label = st.label
+      ?? (st.side === 'friend'
+        ? defaultStructureLabel(playerPack(), st.kind, st.formation, S.playerBn)
+        : undefined)
+    const s = addStructure(st.side, st.kind, p.x, p.y, label, !st.building, st.formation)
     if (st.stock != null) s.stock = st.stock
     if (st.side === 'hostile' && st.intel === 'known') S.structContacts.add(s.id)
     // assets the author sited here are already emplaced and operational — the

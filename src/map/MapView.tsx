@@ -20,6 +20,8 @@ import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '.
 import { fireMission } from '../domains/fires/orders'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
 import { underPlayerCommand } from '../domains/forces/command'
+import { playerPack } from '../packs'
+import { echelonOf } from '../packs/orgquery'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
@@ -1100,6 +1102,10 @@ export default function MapView() {
           building: s.buildT > 0,
           progress: s.buildT > 0 ? 1 - s.buildT / STRUCTURES[s.kind].buildTime : 1,
           hpFrac: s.hp / s.maxHp,
+          // a division main and your own CP are the same box until the size
+          // marker says otherwise — mark anything that is not yours
+          echelon: s.side === 'friend' && s.formation && s.formation !== S.playerBn
+            ? echelonOf(playerPack(), s.formation) : undefined,
         })
       }
 

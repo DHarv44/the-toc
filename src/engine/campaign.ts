@@ -61,6 +61,7 @@ import { radio, toast } from '../domains/comms/radio'
 import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { defaultPlayerFormation } from '../packs/orgquery'
+import { commandsStructure } from '../domains/forces/command'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
@@ -164,7 +165,9 @@ function fireTriggers(S: GameState, mission: MissionScript, kind: 'objective-act
 // Objective evaluation — pure reads of S. Returns 0..1 progress + a done latch.
 // ---------------------------------------------------------------------------
 function friendlyFob(S: GameState): Structure | null {
-  return S.structures.find(s => s.side === 'friend' && s.kind === 'FOB') || null
+  // YOUR forward base — a sister formation's FOB is not the one the tasking
+  // is about (a `deliver` objective must not close on somebody else's stock)
+  return S.structures.find(s => s.kind === 'FOB' && commandsStructure(s)) || null
 }
 
 function inZone(u: { x: number; y: number }, z: { x: number; y: number; r: number }): boolean {

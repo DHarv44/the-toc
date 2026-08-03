@@ -251,11 +251,23 @@ export interface StructureSymbolOpts {
   progress?: number
   hpFrac?: number
   spotted?: boolean
+  /** ECHELON of the owning formation, drawn above the frame the way 2525
+   *  does it — a division main and a battalion CP are the same symbol until
+   *  you read the size marker. Absent = unmarked (your own command post). */
+  echelon?: 'division' | 'brigade' | 'battalion'
+}
+
+// 2525 size markers, coarse → fine
+const ECHELON_MARK: Record<string, string> = {
+  division: 'XX', brigade: 'X', battalion: 'II',
 }
 
 // Static installation symbol: square frame (triangle for OP), abbr text inside.
 export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureSymbolOpts): void {
-  const { side = 'friend', kind = 'FOB', label = '', building = false, progress = 0, hpFrac = 1, spotted = true } = opts
+  const {
+    side = 'friend', kind = 'FOB', label = '', building = false,
+    progress = 0, hpFrac = 1, spotted = true, echelon,
+  } = opts
   if (!spotted) return
   ctx.save()
   ctx.translate(x, y)
@@ -298,6 +310,16 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
       ctx.beginPath()
       ctx.moveTo(-13, -11); ctx.lineTo(-13, -19); ctx.lineTo(-3, -19); ctx.lineTo(-3, -15); ctx.lineTo(-13, -15)
       ctx.stroke()
+    }
+    // ECHELON above the frame — what tells a division main from a brigade
+    // headquarters from your own command post
+    const mark = echelon ? ECHELON_MARK[echelon] : null
+    if (mark) {
+      ctx.fillStyle = edge
+      ctx.font = 'bold 8px Consolas, monospace'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+      ctx.fillText(mark, 0, -14)
+      ctx.textBaseline = 'middle'
     }
   }
   // build progress / hp bar

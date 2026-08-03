@@ -12,6 +12,8 @@ import { terrainOrtho } from '../../map/terrainOrtho'
 import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
 import { drawUnitSymbol, drawStructure } from '../../map/symbols'
+import { PACKS, playerPack } from '../../packs'
+import { echelonOf } from '../../packs/orgquery'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import type { Entity } from '../../scenario/edit'
 
@@ -31,6 +33,8 @@ export interface SheetProps {
   /** the scenario's chair: friendly entities outside it (and unattached) are
    *  a sister formation's — drawn dimmed and tagged with their owner */
   playerFormation: string
+  /** the pack playing BLUFOR — its org names each formation's echelon */
+  friendPack: string
   onPick: (id: number | null) => void
   onPlace: (wx: number, wy: number) => void
   onDragStart: (id: number) => void
@@ -256,6 +260,11 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
             side: e.side, kind: e.kind,
             label: owner ? `${e.label || e.kind} · ${owner}` : (e.label ?? ''),
             building: !!e.building,
+            // the size marker names the echelon: a division main, a brigade
+            // headquarters and your own CP are one symbol until you read it
+            echelon: e.side === 'friend' && owner
+              ? echelonOf(PACKS[propsRef.current.friendPack] ?? playerPack(), owner)
+              : undefined,
           })
         } else if (e.ent === 'unit') {
           const abbr = UNIT_TYPES[e.type]?.abbr ?? e.type

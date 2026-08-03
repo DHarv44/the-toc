@@ -453,6 +453,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
                 entities={ed.entities} tracks={tracks}
                 sel={ed.sel} placing={armed != null}
                 night={night} sat={sat} playerFormation={player}
+                friendPack={sidePacks.friend}
                 onPick={id => setEd(s => select(s, id))}
                 onPlace={onPlace}
                 onDragStart={() => setEd(beginDrag)}

@@ -143,6 +143,25 @@ export const defaultPlayerFormation = (pack: Pack): string =>
 export const isFormation = (pack: Pack, desig: string): boolean =>
   formationOptions(pack).some(o => o.desig === desig)
 
+/** WHAT ECHELON a designation is. This — not a separate structure kind — is
+ *  what tells a division main from a brigade headquarters from a battalion
+ *  command post: a command post is a command post, and whose it is decides
+ *  what it is. Undefined for a designation the pack does not ship. */
+export const echelonOf = (pack: Pack, desig: string | undefined): Echelon | undefined =>
+  desig ? formationOptions(pack).find(o => o.desig === desig)?.echelon : undefined
+
+/** The name an installation takes when the author does not give it one —
+ *  DIV MAIN, 1ABCT MAIN, and nothing for your own (the scenario names that). */
+export function defaultStructureLabel(
+  pack: Pack, kind: string, formation: string | undefined, playerBn: string,
+): string | undefined {
+  if (kind !== 'HQ' || !formation || formation === playerBn) return undefined
+  const ech = echelonOf(pack, formation)
+  if (ech === 'division') return 'DIV MAIN'
+  if (ech === 'brigade') return `${formation} MAIN`
+  return `${formation} CP`
+}
+
 /** How many platoons of `type` the formation actually owns — the authoring
  *  budget ("MECH · 4/6"). A brigade counts its battalions'; the division
  *  counts everything. Zero means the formation has no such element, and the
