@@ -85,12 +85,29 @@ round trip `buildDivisionOrg` used to make.
 
 ---
 
-## NEXT — the packs
+## The Mobile Infantry — AUTHORED (1d28ab4), NOT YET PLAYABLE
 
-**Mobile Infantry first** — it needs no new engine features and every hardcode
-it hits is a DISCOVERED one on ground we understand. (Earlier I sequenced by
-engineering risk and started on swarm groundwork; that was wrong and the work
-was reverted — it was speculative capability for content that did not exist.)
+`src/packs/mi/` ships a whole army: own weapons, troop kinds, units,
+compositions, rank ladder, billets, staff desks, rosters, reports, awards,
+callsigns, net voice and formation. No fallback from 1CD. 75 slots, 1684
+troopers, 0 vehicles, DIVISION → REGIMENT → COMPANY → PLATOON, `chairRung: 1`
+on a COMPANY. Renders in the real S1 console unmodified.
+
+**ONE engine gap found**, which is the whole point of the exercise:
+`BnKindPlan` demanded a `companies` rung. An MI company's platoons are its
+own. A kind may now declare `slots` directly; the builder no longer assumes
+the rung exists (organic AND attachment paths).
+
+### To make it PLAYABLE (next)
+1. **No way to launch it.** `initDevGame`/App pass no `sides`, and the splash
+   only lists packs that ship maps. Cheapest honest route: let the sandbox
+   take a lineup, since a map is terrain and not an army.
+2. **No maps, no campaign, no scenarios** under `mi/`.
+3. **Orbital drop is not modelled** — the MI arrives by capsule and leaves by
+   retrieval boat. That is the DELIVERY VERBS item below, and it is the one
+   piece of MI canon the engine genuinely cannot express yet.
+4. Cosmetic: with no `arms` art the procedural crest prints the motto, which
+   the header already prints — MI shows it twice.
 
 **Arachnids second**, once there is a working faction to fight.
 
@@ -137,6 +154,11 @@ was reverted — it was speculative capability for content that did not exist.)
 - 2026-08-03 · WHO LEADS an element is seniority, not a job title: senior
   first, and among equals the one listed LAST (rosters run in casualty order).
   The engine keeps that rule and no billet vocabulary at all.
+- 2026-08-03 · whether a rung exists between a formation and its elements is
+  the ARMY's business. `BnKindPlan.slots` (no `companies`) says there is none.
+- 2026-08-03 · the chair designation must be UNIQUE in a formation. MI company
+  letters repeat across regiments, so they are written G/3 — which is how the
+  novel writes them anyway. No engine change; the naming was the answer.
 - 2026-08-03 · a pack is an ARMY and holds no side. BLUEFOR/OPFOR are roles a
   SCENARIO assigns, held by the installed lineup. This is what lets the MI and
   the Arachnids each be authored once and pointed at each other — or at
