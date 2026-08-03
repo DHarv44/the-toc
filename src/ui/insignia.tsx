@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { playerPack } from '../packs'
 import type { Pack, RankDef, RankInsignia } from '../packs/types'
 import { patchOf, armsOf } from '../packs/orgquery'
+import { rankDef, rankW } from '../packs/ranks'
 
 // --- shoulder-sleeve insignia ----------------------------------------------
 // '1cd' — the 1st Cavalry Division shield, stylized: yellow Norman shield,
@@ -204,15 +205,10 @@ export function RibbonIcon({ stripes, w = 18, h = 6 }: { stripes: readonly strin
   )
 }
 
-/** A rank's entry in its army's ladder. */
-export const rankDef = (rank?: string, pack: Pack = playerPack()): RankDef | undefined =>
-  rank ? pack.ranks?.find(r => r.key === rank) : undefined
-
-/** SENIORITY — the rank's place in its army's ladder, junior first. Unknown
- *  ranks answer -1 so they sort BELOW the most junior soldier rather than
- *  silently landing wherever a missing table put them. */
-export const rankW = (rank?: string, pack: Pack = playerPack()): number =>
-  rank ? (pack.ranks?.findIndex(r => r.key === rank) ?? -1) : -1
+// seniority moved to packs/ranks.ts — the org asks who commands a formation
+// long before anything is drawn. Re-exported here because this is where the
+// UI has always reached for a rank.
+export { rankDef, rankW }
 
 export function RankIcon({ rank, h = 15 }: { rank?: string; h?: number }) {
   const glyph = rankGlyph(rankDef(rank)?.insignia)

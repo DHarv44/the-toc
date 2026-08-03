@@ -16,8 +16,9 @@ import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { openReport, queueReport, unreadReports } from '../engine/campaign'
 import { awardDef, type AwardKey } from '../packs/awards'
-import { walkFormation } from '../packs/types'
-import { ownerOf } from '../packs/orgquery'
+import { chairRung, walkFormation } from '../packs/types'
+import { commanderOf, deskOf, echelonAt, formationsWithDesk, ownerOf, rungOf } from '../packs/orgquery'
+import { seniorOf } from '../packs/ranks'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
@@ -80,11 +81,10 @@ function groupBy(soldiers: Soldier[], key: (s: Soldier) => string | undefined): 
   return out
 }
 
-// the person who ANSWERS for an element — the senior billet in it, by the
-// order billets are handed out (leadership first in every roster)
-const RANKED = ['Platoon Leader', 'Platoon Sergeant', 'Squad Leader', 'Team Leader', 'Vehicle Commander']
-const leaderOf = (ss: Soldier[]): Soldier =>
-  RANKED.map(p => ss.find(s => s.pos === p)).find(Boolean) ?? ss[0]!
+// the person who ANSWERS for an element — the senior soldier in it (packs/
+// ranks.ts). This used to be a list of US Army billet titles, which meant a
+// platoon led by anything else had no leader at all.
+const leaderOf = (ss: Soldier[]): Soldier => seniorOf(ss) ?? ss[0]!
 
 // A roster is built in CASUALTY order, which is not reading order: the command
 // element is listed last because it falls last. On paper the HQ leads and its
@@ -325,15 +325,20 @@ const donorOf = (sl: OrgSlot, bn: string): string | null =>
 type S1Tab = 'bn' | 'tf' | 'div' | 'perstats'
 
 
-// The personnel chain BEYOND this battalion: the division G1 and the other
-// battalions' S1 sections. Collapsed by default — it is reference, not the
-// commander's own shop.
-function S1PersonnelChain({ slots, playerBn, open, toggle }: {
-  slots: OrgSlot[]
-  playerBn?: string
+// THE PERSONNEL CHAIN BEYOND OUR OWN SHOP: every other formation in this army
+// that stands up the same desk — the one above us and the ones beside us.
+// Collapsed by default; it is reference, not the commander's own section.
+//
+// Nothing here names a formation, an echelon or a billet. The pack declares
+// which elements are staff (BnSlotPlan.role) and what its personnel desk is
+// called at each rung (StaffSection.desks), and the chain falls out.
+function S1PersonnelChain({ chair, open, toggle }: {
+  chair?: string
   open: Set<string>
   toggle: (k: string) => void
 }) {
+  const pack = playerPack()
+  const org = S.org
   const rankTree = (soldiers: Soldier[], base: number) => {
     const sorted = [...soldiers].sort((a, b) => rankW(b.rank) - rankW(a.rank))
     const weights = [...new Set(sorted.map(s => rankW(s.rank)))]
@@ -348,32 +353,27 @@ function S1PersonnelChain({ slots, playerBn, open, toggle }: {
       <Text span fz="xs" c="dark.3">{sub}</Text>
     </Group>
   )
-  const g1 = slots.find(sl => sl.name === 'G1 SECTION')
-  const bnS1 = (bn: string) => slots
-    .filter(sl => sl.cmd === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
-    .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
-  const bns = [...new Set(slots.filter(sl => sl.path[0] !== 'ATT').map(sl => sl.cmd))]
-    .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
+  const shop = pack.staff?.s1
+  // the desk at every OTHER formation, most senior desk first — the division's
+  // G1 outranks a sister battalion's S1, so seniority alone orders the chain
+  const others = formationsWithDesk(pack, org, 's1')
+    .filter(f => f !== chair)
+    .map(f => ({ f, crew: deskOf(pack, org, f, 's1') }))
+    .sort((a, b) => rankW(b.crew[0]?.rank) - rankW(a.crew[0]?.rank))
   return (
     <>
-      <SectionDivider label="PERSONNEL SERVICES — REST OF THE DIVISION"
+      <SectionDivider label={`${(shop?.name ?? 'PERSONNEL').toUpperCase()} — ELSEWHERE IN ${pack.abbr}`}
         open={open.has('shopdiv')} onToggle={() => toggle('shopdiv')} />
-      {open.has('shopdiv') && (
-        <>
-          {g1 && (
-            <>
-              {secHeader('DIVISION G1', 'HHBN 1CD · PERSONNEL', 0)}
-              {rankTree(g1.soldiers, 1)}
-            </>
-          )}
-          {bns.map(bn => (
-            <div key={bn}>
-              {secHeader(`${bn} S1`, 'BATTALION PERSONNEL SECTION', 0)}
-              {rankTree(bnS1(bn), 1)}
-            </div>
-          ))}
-        </>
-      )}
+      {open.has('shopdiv') && others.map(({ f, crew }) => (
+        <div key={f}>
+          {/* the desk names ITSELF: its officer's billet is 'S1 — Personnel'
+              at a battalion and 'G1 — Personnel' at a division, and the
+              senior person on it is holding whichever one this is */}
+          {secHeader(`${f} ${(crew[0]?.pos ?? '').split(/[—-]/)[0]!.trim()}`,
+            `${echelonAt(pack, rungOf(pack, f) ?? 0)} · ${(shop?.name ?? '').toUpperCase()}`, 0)}
+          {rankTree(crew, 1)}
+        </div>
+      ))}
     </>
   )
 }
@@ -432,6 +432,10 @@ export default function S1Console() {
   const slotAggs = new Map<string, Agg>(slots.map(sl => [sl.id, aggSlot(sl)]))
   const divAgg = aggSum([...slotAggs.values()])
   const cmdr = S.campaign?.commander
+  // what this army calls the rung it is commanded at, and who is sitting in
+  // the chair — the rank is the commander's own, not a letter we picked
+  const chairEch = echelonAt(pack, chairRung(pack.formation))
+  const chairCdr = playerBn ? commanderOf(org, playerBn) : undefined
 
   // top-rung display order = formation order, attachments last
   const bdeOrder: { desig: string; nick?: string }[] = [
@@ -445,9 +449,10 @@ export default function S1Console() {
     const u = sl.unitId != null ? S.units.find(x => x.id === sl.unitId) : undefined
     const down = sl.unitId != null && !u ? S.downed.find(d => d.unitId === sl.unitId && !d.resolved) : undefined
     const lost = sl.unitId != null && !u
-    const ldr = sl.soldiers.find(s => (s.pos === 'Platoon Leader' || s.pos === 'Battalion Commander'
-      || s.pos === 'Flight Lead' || s.pos === 'Commanding General') && s.status === 'FIT')
-      ?? sl.soldiers.find(s => s.status === 'FIT') ?? sl.soldiers[0]
+    // who answers for the element: its senior soldier still in the fight —
+    // no list of billet titles, so it holds for a platoon, a command group or
+    // a flight, in any army
+    const ldr = seniorOf(sl.soldiers, true) ?? sl.soldiers[0]
     const status = u ? `FIELDED · ${u.label} · ${Math.max(0, Math.round(u.strength))}%`
       : down ? 'DUSTWUN — STATUS UNKNOWN, SECURE THE LKP'
         : lost ? 'COMBAT LOSS' : slotLocation(sl)
@@ -555,15 +560,15 @@ export default function S1Console() {
 
       {/* the section that runs this console, always visible above the tabs */}
       <ShopSection shop="s1">
-        {org && <S1PersonnelChain slots={slots} playerBn={playerBn} open={open} toggle={toggle} />}
+        {org && <S1PersonnelChain chair={playerBn} open={open} toggle={toggle} />}
       </ShopSection>
 
       {/* view tabs: your battalion outward — TF slice, then the whole division */}
       <StaffTabs active={tab} onTab={(k) => switchTab(k as S1Tab)}
         tabs={[
-          { key: 'bn', label: playerBn ?? 'BATTALION' },
+          { key: 'bn', label: playerBn ?? chairEch },
           { key: 'tf', label: 'TASK FORCE' },
-          { key: 'div', label: 'DIVISION' },
+          { key: 'div', label: echelonAt(pack, -1) },
           { key: 'perstats', label: 'PERSTATS', dot: unreadReports(S, 's1'), right: true },
         ] satisfies StaffTab[]} />
 
@@ -580,13 +585,13 @@ export default function S1Console() {
       </Group>
 
       {!org && (
-        <Text fz="sm" c="dark.3" p="md">NO DIVISION ORGANIZATION — PACK HAS NO FORMATION DATA.</Text>
+        <Text fz="sm" c="dark.3" p="md">NO ORGANIZATION — PACK HAS NO FORMATION DATA.</Text>
       )}
 
       {tab === 'div' && org && (
         <NodeRow depth={0} open={open.has('div')} onToggle={() => toggle('div')}
           label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{pack.name.toUpperCase()}</Text>}
-          sub={cmdr && playerBn ? `YOU COMMAND ${playerBn} · LTC ${cmdr}` : undefined}
+          sub={cmdr && playerBn ? `YOU COMMAND ${playerBn} · ${chairCdr?.rank ?? ''} ${cmdr}`.trim() : undefined}
           a={divAgg} />
       )}
 
@@ -614,7 +619,7 @@ export default function S1Console() {
                   <NodeRow depth={2} open={open.has(bnKey)} onToggle={() => toggle(bnKey)}
                     label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
                     att={att}
-                    sub={[mine ? 'YOUR BATTALION' : !att ? 'ORGANIC' : '', pack.mottos?.[bn] ? `“${pack.mottos[bn]}”` : '']
+                    sub={[mine ? `YOUR ${chairEch}` : !att ? 'ORGANIC' : '', pack.mottos?.[bn] ? `“${pack.mottos[bn]}”` : '']
                       .filter(Boolean).join(' · ')}
                     a={bnAgg} />
                   {open.has(bnKey) && renderCos(bnSlots, bn, 3)}
@@ -629,9 +634,10 @@ export default function S1Console() {
       {tab === 'tf' && org && (
         <>
           <NodeRow depth={0} open={open.has('tfroot')} onToggle={() => toggle('tfroot')}
-            label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>TF COBALT</Text>}
-            sub={playerBn ? `TASK-ORGANIZED ON ${playerBn} · 1CD + ATTACHMENTS` : undefined}
-            leader={cmdr ? `LTC ${cmdr} · COBALT 6` : undefined}
+            label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>
+              {playerBn ? `TF ${playerBn}` : 'TASK FORCE'}</Text>}
+            sub={playerBn ? `TASK-ORGANIZED ON ${playerBn} · ${pack.abbr} + ATTACHMENTS` : undefined}
+            leader={cmdr ? `${chairCdr?.rank ?? ''} ${cmdr}`.trim() : undefined}
             a={aggSum(tfSlots.map(sl => slotAggs.get(sl.id)!))} />
           {open.has('tfroot') && tfBns.map(bn => {
             const bnSlots = tfSlots.filter(sl => sl.cmd === bn)
@@ -644,7 +650,7 @@ export default function S1Console() {
                   label={<Text span fz="md" fw={600} c={att ? '#c8a25f' : mine ? '#7ec8ff' : '#9fd0f5'}>{bn}</Text>}
                   att={att}
                   sub={[
-                    mine ? 'YOUR BATTALION — FULL ALLOCATION'
+                    mine ? `YOUR ${chairEch} — FULL ALLOCATION`
                       : `${bnSlots.length} ELEMENT${bnSlots.length === 1 ? '' : 'S'} ATTACHED TO TF`,
                     pack.mottos?.[bn] ? `“${pack.mottos[bn]}”` : '',
                   ].filter(Boolean).join(' · ')}
@@ -659,13 +665,12 @@ export default function S1Console() {
       {/* the player's battalion, complete — the whole 2-8 roster */}
       {tab === 'bn' && org && playerBn && (() => {
         const bnSlots = slots.filter(sl => sl.cmd === playerBn)
-        const cdrS = bnSlots.find(sl => sl.name === 'CMD GRP')
-          ?.soldiers.find(s => s.pos === 'Battalion Commander')
+        const cdrS = commanderOf(org, playerBn)
         return (
           <>
             <NodeRow depth={0} open={open.has('bnroot')} onToggle={() => toggle('bnroot')}
               label={<Text span fz="md" fw={700} c="#dceeff" style={{ letterSpacing: 1 }}>{playerBn}</Text>}
-              sub={['YOUR BATTALION', pack.mottos?.[playerBn] ? `“${pack.mottos[playerBn]}”` : '']
+              sub={[`YOUR ${chairEch}`, pack.mottos?.[playerBn] ? `“${pack.mottos[playerBn]}”` : '']
                 .filter(Boolean).join(' · ')}
               leader={cdrS ? `${cdrS.rank} ${cdrS.name}` : undefined}
               a={aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))} />

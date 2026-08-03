@@ -19,6 +19,7 @@ import type { AmmoKey, TroopKindKey, VehicleKey } from '../domains/forces/compos
 import type { DroneTypeKey } from '../domains/air/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
 import type { DifficultyKey } from '../domains/economy/difficulty'
+import type { SlotRole } from '../packs/types'
 
 export type Side = 'friend' | 'hostile'
 
@@ -146,6 +147,11 @@ export interface OrgSlot {
   // what THE CHAIR is compared against, at whatever echelon a pack commands.
   cmd: string
   name: string               // slot name inside the company ('1st PLT', 'CMD GRP')
+  // WHAT IT IS TO ITS FORMATION where that is not a line element: the command
+  // group the commander stands in, or a section of the headquarters. The pack
+  // declares it (BnSlotPlan.role) because the name never could — 1CD's
+  // battalions say CMD GRP and its division says COMMAND GROUP.
+  role?: SlotRole
   lin: string                // full display lineage ('1st PLT, A CO, 2-8 CAV')
   type?: UnitTypeKey         // fieldable game unit type (staff/aviation slots have none)
   from?: string              // donor formation for attachments ('2ID')

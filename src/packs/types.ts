@@ -68,12 +68,22 @@ export interface StaffBillet {
   n?: number              // repeat count, default 1
 }
 
+/** WHAT AN ELEMENT IS TO ITS FORMATION, where that is something other than a
+ *  line element. `command` — the element the commander stands in; `staff` — a
+ *  section of the headquarters. The engine asks two questions of any army —
+ *  who commands this formation, and where is its staff — and only the army can
+ *  say which of its elements answer. 1CD's battalions call the first one CMD
+ *  GRP and its division calls the same thing COMMAND GROUP, which is exactly
+ *  why the name cannot be the answer. */
+export type SlotRole = 'command' | 'staff'
+
 /** ONE SLOT inside a company. Exactly one of `type` / `roster` / `flight`:
  *   type   — a FIELDABLE game unit; its people come from the composition
  *   roster — a hand-rostered element, naming an entry in Pack.rosters
  *   flight — airframes and their crews (a crew roster, repeated per airframe) */
 export interface BnSlotPlan {
   name: string            // 'CMD GRP', '1st PLT', 'FLT 1'
+  role?: SlotRole         // command group / staff section; absent = line
   type?: UnitTypeKey
   roster?: string         // key into Pack.rosters
   flight?: {
@@ -452,6 +462,13 @@ export interface StaffSection {
   // `full` is the officer's billet; this is the next person on it. Absent = a
   // desk that goes quiet when its officer does.
   alt?: string
+  // EVERY NAME THIS DESK GOES BY, across the rungs that hold one: a US
+  // battalion's S1 and its division's G1 are one function under two letters,
+  // and nothing but the army itself can say so. Absent = `label` alone.
+  // Used to find a desk's people — a billet on a desk NAMES the desk first
+  // ('S1 — Personnel', 'G1 NCO'), which is the only structural rule the
+  // engine keeps about staff titles; every word of them is the pack's.
+  desks?: string[]
 }
 
 // --- campaigns (campaign-down content: see src/PACK-MISSIONS.md) ------------

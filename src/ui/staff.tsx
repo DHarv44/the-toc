@@ -13,13 +13,15 @@ import type { StaffShop } from '../engine/GameState'
 import { openReport, queueReport } from '../engine/campaign'
 import { playerPack } from '../packs'
 import { awardDef, type AwardKey } from '../packs/awards'
+import { deskOf } from '../packs/orgquery'
 import { Portrait } from './portrait'
-import { RankIcon, RibbonIcon, rankW } from './insignia'
+import { RankIcon, RibbonIcon } from './insignia'
+import { rankW } from '../packs/ranks'
 import BnHeader from './BnHeader'
 
 // rank seniority — the shop's chief reads first. The LADDER is the pack's
-// (ui/insignia.tsx rankW reads it); this re-export is just where the staff
-// consoles have always reached for it.
+// (packs/ranks.ts reads it); this re-export is just where the staff consoles
+// have always reached for it.
 export { rankW }
 
 const STATUS_COL: Record<string, string> = {
@@ -197,11 +199,10 @@ export function SectionDivider({ label, open, onToggle, right }: {
 export function ShopSection({ shop, children }: { shop: StaffShop; children?: ReactNode }) {
   const pack = playerPack()
   const bn = pack.formation?.chair
-  const key = shop.toUpperCase()
-  const crew = (S.org?.slots ?? [])
-    .filter(sl => sl.cmd === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
-    .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith(key)))
-    .sort((a, b) => rankW(b.rank) - rankW(a.rank))
+  const key = (pack.staff?.[shop]?.label ?? shop).toUpperCase()
+  // which elements are STAFF is the pack's declaration, and which billets sit
+  // on this desk is the pack's too — deskOf answers both (packs/orgquery)
+  const crew = bn ? deskOf(pack, S.org, bn, shop) : []
   return (
     <>
       <SectionDivider label={`${key} STAFF`} right={<RequestReport shop={shop} />} />

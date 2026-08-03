@@ -16,6 +16,7 @@ import { useUI } from './store'
 import { ackBriefing, ackFrago, shopOfficer } from '../engine/campaign'
 import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/audio'
 import { playerPack } from '../packs'
+import { commanderOf, topCommander } from '../packs/orgquery'
 import { operationDeck, recoveryDeck, SlideDeck } from './deck'
 import type { CampaignState, RecoveryRef, StaffShop } from '../engine/GameState'
 
@@ -106,15 +107,9 @@ function bnStaff(pos: string) {
   return undefined
 }
 const seedOf = (s?: { pid?: string; id: number }) => s ? (s.pid ?? `s:${s.id}`) : undefined
-// division-wide billet lookup: the CG is a REAL person on the division roster
-// (org.ts generates the Commanding General with the rest of the formation)
-function divStaff(pos: string) {
-  for (const sl of S.org?.slots ?? []) {
-    const s = sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
-    if (s) return s
-  }
-  return undefined
-}
+// (the army's own commander comes from orgquery topCommander — a billet-title
+// lookup for 'Commanding General' used to live here, which only ever worked
+// for one army)
 const staffTile = (short: string, pos: string) => {
   const s = bnStaff(pos)
   return {
@@ -232,16 +227,18 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
           {!review && (
           <div style={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {/* the speaker: a staff report call puts the REAL shop officer's
-                photo up (resolved from the org via the report's shop); a CG
-                call puts up the ACTUAL Commanding General from the division
-                roster — everyone on the net is a real person */}
+                photo up (resolved from the org via the report's shop); a call
+                from higher puts up whoever actually commands this army — the
+                senior soldier in any command element, which for a pack that
+                ships a division is its general. Everyone on the net is a real
+                person, and nobody's job title is written down here. */}
             {(() => {
-              const cg = entry.speaker ? undefined : divStaff('Commanding General')
+              const cg = entry.speaker ? undefined : topCommander(S.org, true)
               return (
                 <CamTile
                   label={entry.speaker ? entry.speaker.name
-                    : cg ? `${cg.rank} ${(cg.name ?? '').split(' ').pop()}` : 'CG'}
-                  sub={entry.speaker?.title ?? `CG · ${playerPack().abbr}`}
+                    : cg ? `${cg.rank} ${(cg.name ?? '').split(' ').pop()}` : 'HIGHER'}
+                  sub={entry.speaker?.title ?? `${cg?.pos ?? 'HIGHER'} · ${playerPack().abbr}`}
                   h={390} bars speaking={speaking}
                   seed={entry.shop ? seedOf(shopOfficer(S, entry.shop) ?? undefined) : seedOf(cg)} />
               )
@@ -253,10 +250,17 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
               })()}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {/* your own preview tile, like any real VTC client — you are COBALT 6,
-                  and your soldier exists in the org (the battalion commander) */}
-              <CamTile label={`LTC ${S.campaign?.commander ?? 'ACTUAL'}`} sub="COBALT 6" h={124}
-                seed={seedOf(bnStaff('Battalion Commander'))} />
+              {/* your own preview tile, like any real VTC client — your soldier
+                  exists in the org, standing in the chair's command element,
+                  and wears the rank and billet the pack gave that seat */}
+              {(() => {
+                const me = commanderOf(S.org, S.chair)
+                return (
+                  <CamTile h={124} seed={seedOf(me)}
+                    label={`${me?.rank ?? ''} ${S.campaign?.commander ?? me?.name ?? 'ACTUAL'}`.trim()}
+                    sub={[S.chair, me?.pos].filter(Boolean).join(' · ')} />
+                )
+              })()}
               {attendees.map(a => <CamTile key={a.label} label={a.label} sub={a.sub} seed={a.seed} h={124} />)}
             </div>
           </div>

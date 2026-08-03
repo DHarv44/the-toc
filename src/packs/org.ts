@@ -12,9 +12,10 @@
 import type { DivOrg, OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { buildRoster, type TroopKindKey, type VehicleKey } from '../domains/forces/composition'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import type { BnKind, BnSlotPlan, FormationNode, Pack } from './types'
+import type { BnKind, BnSlotPlan, FormationNode, Pack, SlotRole } from './types'
 import { chairRung } from './types'
 import { namePersonnel, nameSoldier } from './personnel'
+import { seniorOf } from './ranks'
 
 // --- template expansion (VERBS) ---------------------------------------------
 // Everything below turns the PACK'S templates into slots. What a battalion is
@@ -53,8 +54,8 @@ const PLT_ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th'] as const
 // staff/aviation element. Produced from the PACK'S template — never written
 // here.
 type SlotSpec =
-  | { name: string; type: UnitTypeKey }
-  | { name: string; staff: StaffMember[]; vehicles?: { type: VehicleKey; n: number }[]; crewed?: boolean }
+  | { name: string; role?: SlotRole; type: UnitTypeKey }
+  | { name: string; role?: SlotRole; staff: StaffMember[]; vehicles?: { type: VehicleKey; n: number }[]; crewed?: boolean }
 interface CoSpec { co: string; slots: SlotSpec[] }
 
 /** The pack's template for a battalion of this kind, expanded to slots. Throws
@@ -72,9 +73,9 @@ function bnTemplate(pack: Pack, kind: BnKind): CoSpec[] {
       }
     }
     for (const s of co.slots ?? []) {
-      if (s.type) slots.push({ name: s.name, type: s.type })
-      else if (s.flight) slots.push({ name: s.name, ...expandFlight(pack, s.flight) })
-      else if (s.roster) slots.push({ name: s.name, staff: expandStaff(pack, s.roster) })
+      if (s.type) slots.push({ name: s.name, role: s.role, type: s.type })
+      else if (s.flight) slots.push({ name: s.name, role: s.role, ...expandFlight(pack, s.flight) })
+      else if (s.roster) slots.push({ name: s.name, role: s.role, staff: expandStaff(pack, s.roster) })
       else throw new Error(`pack '${pack.id}': slot '${co.co}/${s.name}' in '${kind}' has no type, roster or flight`)
     }
     return { co: co.co, slots }
@@ -140,7 +141,7 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
           : `${spec.name}, ${co.co}, ${desig}`
         const fieldable = tf && 'type' in spec
         const base: OrgSlot = {
-          id, path: [...path, co.co], cmd, name: spec.name, lin,
+          id, path: [...path, co.co], cmd, name: spec.name, lin, role: spec.role,
           // A task-organized slice from a SISTER formation is an ATTACHMENT: it
           // fights for us, it belongs to them. Marking it puts "ATT 91 EN BN"
           // on the call-up row and on the fielded unit — the same treatment a
@@ -304,11 +305,11 @@ export function drawSlotIn(org: DivOrg, type: UnitTypeKey, formation: string): O
 }
 
 // campaign hook: the player IS this formation's commander — put their name on
-// its command group. The commander is the FIRST billet in that roster, because
-// a command group is written senior first; the engine does not need to know
-// what an army calls the job.
+// its command group. The command element is the one the PACK marked as such
+// (BnSlotPlan.role), and the commander is the senior soldier standing in it;
+// the engine never has to know what an army calls either.
 export function setBnCommander(org: DivOrg, cmd: string, name: string): void {
-  const slot = org.slots.find(sl => sl.cmd === cmd && sl.name === 'CMD GRP')
-  const cdr = slot?.soldiers[0]
+  const slot = org.slots.find(sl => sl.cmd === cmd && sl.role === 'command')
+  const cdr = seniorOf(slot?.soldiers ?? [])
   if (cdr) cdr.name = name.toUpperCase()
 }

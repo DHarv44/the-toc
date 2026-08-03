@@ -10,11 +10,12 @@
 // slots from a BATTALION (that is where fieldable platoons live); structures
 // may belong to any echelon (DIV MAIN is the division's, a FOB may be a
 // sister brigade's).
-import type { DivOrg, OrgSlot } from '../engine/GameState'
+import type { DivOrg, OrgSlot, Soldier } from '../engine/GameState'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { EchelonDef, FormationNode, Pack } from './types'
 import { chairRung, isPlayableBn, walkFormation } from './types'
 import { buildDivisionOrg } from './org'
+import { rankW, seniorOf } from './ranks'
 
 /** A rung's NAME in this army — 'BRIGADE', 'REGIMENT', 'BROOD'. The top
  *  formation is rung -1 and always the pack itself; everything below is an
@@ -69,6 +70,64 @@ export const divisionDesig = (pack: Pack): string => pack.abbr || pack.id.toUppe
 /** THE ELEMENT THAT OWNS A SLOT — the last rung of its lineage ('A CO', 'HHC').
  *  What a call-up row groups under and what `tfCos` names. */
 export const ownerOf = (sl: OrgSlot): string => sl.path[sl.path.length - 1] ?? sl.cmd
+
+// --- who commands, and who staffs ------------------------------------------
+// A headquarters is two things: the element the commander stands in, and the
+// sections that do the work. Both are asked for constantly — the VTC wants the
+// commander's face, the S1 wants every shop in the division, a campaign puts
+// the player's name on the command group. None of those callers should have to
+// know that this army writes 'CMD GRP' on one and 'COMMAND GROUP' on another.
+
+/** THE ELEMENT A FORMATION IS COMMANDED FROM. */
+export const commandSlot = (org: DivOrg | null, formation: string): OrgSlot | undefined =>
+  org?.slots.find(sl => sl.cmd === formation && sl.role === 'command')
+
+/** THE SECTIONS OF A FORMATION'S HEADQUARTERS — its staff, in slot order. */
+export const staffSlots = (org: DivOrg | null, formation: string): OrgSlot[] =>
+  org?.slots.filter(sl => sl.cmd === formation && sl.role === 'staff') ?? []
+
+/** EVERY PERSON ON A FORMATION'S STAFF, senior first. */
+export const staffOf = (org: DivOrg | null, formation: string): Soldier[] =>
+  staffSlots(org, formation).flatMap(sl => sl.soldiers)
+    .sort((a, b) => rankW(b.rank) - rankW(a.rank))
+
+/** WHO COMMANDS A FORMATION — the senior soldier in its command group. `fit`
+ *  skips the casualties, which is how a command group is meant to work. */
+export const commanderOf = (org: DivOrg | null, formation: string, fit = false): Soldier | undefined =>
+  seniorOf(commandSlot(org, formation)?.soldiers ?? [], fit)
+
+/** WHO COMMANDS THIS ARMY — the senior soldier standing in any command
+ *  element. A pack that ships a whole division answers with its CG; a pack
+ *  that ships one battalion answers with that battalion's commander. Nobody
+ *  has to name the top formation, which is just as well: 1CD's own general
+ *  sits in its headquarters battalion, not in anything called '1CD'. */
+export const topCommander = (org: DivOrg | null, fit = false): Soldier | undefined =>
+  seniorOf((org?.slots ?? []).filter(sl => sl.role === 'command').flatMap(sl => sl.soldiers), fit)
+
+/** THE NAMES ONE STAFF DESK GOES BY — 'S1' at a battalion, 'G1' at a division.
+ *  The pack says (StaffSection.desks); absent, a desk goes by its label. */
+export const deskNames = (pack: Pack, shop: string): string[] => {
+  const sec = pack.staff?.[shop]
+  return (sec?.desks ?? [sec?.label ?? shop]).map(n => n.toUpperCase())
+}
+
+/** THE PEOPLE OF ONE DESK on a formation's staff, senior first. A billet on a
+ *  desk NAMES the desk first ('S1 — Personnel', 'G1 NCO'); that is the only
+ *  thing the engine assumes about a staff title, and every word is the pack's. */
+export const deskOf = (pack: Pack, org: DivOrg | null, formation: string, shop: string): Soldier[] => {
+  const names = deskNames(pack, shop)
+  return staffOf(org, formation).filter(s => {
+    const pos = s.pos?.toUpperCase() ?? ''
+    return names.some(n => pos.startsWith(n))
+  })
+}
+
+/** EVERY FORMATION IN THIS ARMY THAT STANDS UP A GIVEN DESK, in org order.
+ *  This is how a shop finds its own chain — the desk above it and the ones
+ *  beside it — without being told a single formation designation. */
+export const formationsWithDesk = (pack: Pack, org: DivOrg | null, shop: string): string[] =>
+  [...new Set((org?.slots ?? []).filter(sl => sl.role === 'staff').map(sl => sl.cmd))]
+    .filter(f => deskOf(pack, org, f, shop).length > 0)
 
 /** Every formation an entity may belong to, top formation first and then the
  *  whole tree in the pack's own declaration order, however deep it goes. */
