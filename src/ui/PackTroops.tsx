@@ -19,7 +19,7 @@ import { useState } from 'react'
 import { libraryIds } from '../packs'
 import type { Pack } from '../packs/types'
 import { catalogForm, catalogLibrary, type ManifestEditor } from './usePackManifest'
-import { SaveBar, SourceBadge, SUBSET_NOTE } from './packEdit'
+import { ManifestNotice, SaveBar, SourceBadge, SUBSET_NOTE } from './packEdit'
 
 const MONO = 'Consolas, monospace'
 
@@ -27,7 +27,7 @@ interface TroopKind { key: string; name: string; weapons?: string[]; expend?: st
 
 export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
   const [newKey, setNewKey] = useState('')
-  if (!ed.manifest) return <Text fz="sm" c="dark.3" p="md">{ed.msg ?? 'READING pack.json…'}</Text>
+  if (!ed.manifest) return <ManifestNotice ed={ed} />
 
   const cat = (ed.value('catalogs') as Record<string, unknown>) ?? {}
   const form = catalogForm({ ...ed.manifest, catalogs: cat }, 'troops')

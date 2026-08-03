@@ -22,7 +22,7 @@ import { Badge, Box, Button, Group, NumberInput, Select, Text, TextInput } from 
 import { useState } from 'react'
 import type { Pack } from '../packs/types'
 import type { ManifestEditor } from './usePackManifest'
-import { SaveBar } from './packEdit'
+import { ManifestNotice, SaveBar } from './packEdit'
 
 const MONO = 'Consolas, monospace'
 const CARD = { border: '1px solid #22303d', borderRadius: 3, background: 'rgba(16,26,36,0.6)' }
@@ -61,7 +61,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
   const [section, setSection] = useState<'templates' | 'rosters' | 'billets'>('templates')
   const [newKind, setNewKind] = useState('')
   const [newRoster, setNewRoster] = useState('')
-  if (!ed.manifest) return <Text fz="sm" c="dark.3" p="md">{ed.msg ?? 'READING pack.json…'}</Text>
+  if (!ed.manifest) return <ManifestNotice ed={ed} />
 
   const kinds = (ed.value('bnKinds') as Record<string, KindPlan>) ?? {}
   const rosters = (ed.value('rosters') as Record<string, Billet[]>) ?? {}

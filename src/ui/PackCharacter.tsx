@@ -12,7 +12,7 @@ import { Badge, Box, Button, Group, NumberInput, Switch, Text, TextInput } from 
 import { useState } from 'react'
 import type { Pack } from '../packs/types'
 import type { ManifestEditor } from './usePackManifest'
-import { SaveBar } from './packEdit'
+import { ManifestNotice, SaveBar } from './packEdit'
 import { RankIcon, RibbonIcon } from './insignia'
 
 const MONO = 'Consolas, monospace'
@@ -29,7 +29,7 @@ interface Callsigns { pool?: string[]; prefix?: string; pad?: number }
 export default function PackCharacter({ p, ed }: { p: Pack; ed: ManifestEditor }) {
   const [section, setSection] = useState<'ranks' | 'awards' | 'callsigns'>('ranks')
   const [newRank, setNewRank] = useState('')
-  if (!ed.manifest) return <Text fz="sm" c="dark.3" p="md">{ed.msg ?? 'READING pack.json…'}</Text>
+  if (!ed.manifest) return <ManifestNotice ed={ed} />
 
   const ranks = (ed.value('ranks') as Rank[] | undefined) ?? []
   const awards = (ed.value('awards') as Record<string, Award> | undefined) ?? {}

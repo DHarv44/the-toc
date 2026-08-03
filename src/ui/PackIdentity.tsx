@@ -14,6 +14,7 @@ import { allPacks } from '../packs'
 import type { Pack } from '../packs/types'
 import type { ManifestEditor } from './usePackManifest'
 import { PatchIcon } from './insignia'
+import { ManifestNotice } from './packEdit'
 
 const MONO = 'Consolas, monospace'
 
@@ -35,13 +36,7 @@ function Field({ label, hint, own, inherited, children }: {
 }
 
 export default function PackIdentity({ p, ed }: { p: Pack; ed: ManifestEditor }) {
-  if (!ed.manifest) {
-    return (
-      <Text fz="sm" c="dark.3" p="md">
-        {ed.msg ?? 'READING pack.json…'}
-      </Text>
-    )
-  }
+  if (!ed.manifest) return <ManifestNotice ed={ed} />
 
   const str = (k: string) => String(ed.value(k) ?? '')
   const text = (k: string, placeholder?: string) => (

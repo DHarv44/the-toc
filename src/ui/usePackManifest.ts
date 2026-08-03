@@ -8,7 +8,7 @@
 // So the manifest is re-read from DISK, edits are applied field by field, and
 // everything the builder does not touch passes through untouched.
 import { useCallback, useEffect, useState } from 'react'
-import { loadPackManifest, savePackManifest, type PackManifest } from '../packs/io'
+import { canAuthor, loadPackManifest, savePackManifest, type PackManifest } from '../packs/io'
 
 export interface ManifestEditor {
   /** the manifest as it sits on disk — null while loading, or on failure */
@@ -67,6 +67,9 @@ export function usePackManifest(packId: string): ManifestEditor {
   useEffect(() => {
     let live = true
     setManifest(null); setEdits({}); setMsg(null)
+    // a built game has no write path at all, so do not even ask — the request
+    // would fall through to the SPA and come back as index.html
+    if (!canAuthor) return () => { live = false }
     loadPackManifest(packId)
       .then(m => { if (live) setManifest(m) })
       .catch(e => { if (live) setMsg(`FAILED to read pack.json: ${String((e as Error).message ?? e)}`) })

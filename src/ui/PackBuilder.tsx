@@ -23,6 +23,7 @@ import PackOrg from './PackOrg'
 import PackCharacter from './PackCharacter'
 import PackVoice from './PackVoice'
 import { usePackManifest } from './usePackManifest'
+import { canAuthor } from '../packs/io'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
 import { StaffTable, Td, Th } from './staff'
@@ -657,8 +658,9 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
               </Box>
               {view === 'pack' && (
                 <Badge size="sm" variant="outline" ml="auto"
-                  color={ed.dirty || dirty ? 'yellow' : 'gray'}>
-                  {ed.dirty || dirty ? 'UNSAVED CHANGES' : 'SAVED'}
+                  color={!canAuthor ? 'gray' : ed.dirty || dirty ? 'yellow' : 'green'}>
+                  {!canAuthor ? 'READ ONLY'
+                    : ed.dirty || dirty ? 'UNSAVED CHANGES' : 'SAVED'}
                 </Badge>
               )}
             </Group>

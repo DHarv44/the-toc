@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Group, Text } from '@mantine/core'
 import type { PackMapEntry, PackMapSidecar } from '../packs/map-files'
+import { AUTHORING_OFF, canAuthor } from '../packs/io'
 import { loadGround, type Ground } from '../world/pack/loadGround'
 import { mapFromPack } from '../world/pack/mapFromPack'
 import { frameOf, worldToNorm, normToWorld } from '../world/pack/frame'
@@ -89,6 +90,7 @@ export default function MapDefaultsEditor({ entry, onClose }: {
 
   const save = async () => {
     try {
+      if (!canAuthor) throw new Error(AUTHORING_OFF)
       const put = await fetch(`/__gwmap?pack=${entry.packId}&map=${entry.mapId}&file=meta`, {
         method: 'PUT', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(sidecar),

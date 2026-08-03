@@ -12,6 +12,7 @@ import type {
   ScenarioPlace, ScenarioSituation, ScenarioSpec, ScenarioStructure, ScenarioUnit,
 } from './types'
 import { type Entity, freshId } from './edit'
+import { AUTHORING_OFF, canAuthor } from '../packs/io'
 
 export function entitiesFromSituation(sit: ScenarioSituation, ground: Ground): Entity[] {
   const f = frameOf(ground.files.manifest)
@@ -54,6 +55,10 @@ export function situationFromEntities(entities: Entity[], ground: Ground): Scena
  *  pack save. The server picks the disk form: flat file, or folder with
  *  missions as NN-id.json files when the scenario has missions. */
 export async function saveScenario(packId: string, scenarioId: string, spec: ScenarioSpec): Promise<void> {
+  // the route is a dev-only middleware; in a built game the request falls
+  // through to the SPA and comes back as index.html with a 200, so `res.ok`
+  // proves nothing. Ask first rather than trusting the status.
+  if (!canAuthor) throw new Error(AUTHORING_OFF)
   const res = await fetch(`/__gwscenario?pack=${packId}&id=${scenarioId}`, {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(spec),

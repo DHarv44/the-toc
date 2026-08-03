@@ -3,11 +3,38 @@
 // written a third time, and the badge especially needs to say the same thing
 // everywhere: whether you are editing this pack's own content or looking at
 // somebody else's.
-import { Badge, Button, Group, Text } from '@mantine/core'
+import { Badge, Box, Button, Group, Text } from '@mantine/core'
+import { canAuthor } from '../packs/io'
 import type { Pack } from '../packs/types'
 import type { CatalogForm, ManifestEditor } from './usePackManifest'
 
+/** WHY AN EDITING TAB HAS NOTHING TO EDIT. The write path is a dev-only Vite
+ *  middleware, so a BUILT game cannot author — and saying that plainly is the
+ *  whole job here. Shipped, this used to surface as
+ *  "Unexpected token '<'" because the request fell through to the SPA and the
+ *  UI tried to parse index.html as a manifest. */
+export function ManifestNotice({ ed }: { ed: ManifestEditor }) {
+  if (ed.manifest) return null
+  if (canAuthor) {
+    return <Text fz="sm" c={ed.msg ? '#e8524a' : 'dark.3'} p="md">{ed.msg ?? 'READING pack.json…'}</Text>
+  }
+  return (
+    <Box maw={620} p={14} style={{ border: '1px solid #2a3a48', borderRadius: 3 }}>
+      <Group gap={8} mb={6}>
+        <Badge size="sm" variant="outline" color="gray">READ ONLY</Badge>
+        <Text fz={11} c="#9ab8d0">this is a built game</Text>
+      </Group>
+      <Text fz={10} c="dark.3" style={{ lineHeight: 1.7 }}>
+        Pack authoring writes files through the dev server, which a shipped build does not
+        have — it reads packs, it does not write them. Run the project locally to edit
+        content. Every tab that only DISPLAYS a pack works here as normal.
+      </Text>
+    </Box>
+  )
+}
+
 export function SaveBar({ ed }: { ed: ManifestEditor }) {
+  if (!canAuthor) return null
   return (
     <Group gap={10} mt="lg" pt={12} style={{ borderTop: '1px solid #22303d' }}>
       <Button size="xs" variant={ed.dirty ? 'filled' : 'default'}

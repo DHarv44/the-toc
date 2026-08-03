@@ -23,6 +23,7 @@ import { packFromBytes } from '@dharv44/groundwork-core'
 import '@dharv44/groundwork-builder/styles.css'
 import koppenUrl from '@dharv44/groundwork-builder/assets/koppen_0p1.png'
 import { allPacks } from '../packs'
+import { AUTHORING_OFF, canAuthor } from '../packs/io'
 import { packMaps, type PackMapEntry } from '../packs/map-files'
 import MapDefaultsEditor from './MapDefaultsEditor'
 
@@ -116,6 +117,9 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
     if (!mapId || !packId) { setMsg('FAILED: pick a pack and name the map'); return }
     setBusy(true); setMsg(null)
     try {
+      // dev-only write route: a built game has no server to answer it and the
+      // request would come back as index.html with a 200
+      if (!canAuthor) throw new Error(AUTHORING_OFF)
       const bytes = await packBytesFrom({
         heightField: s.heightField,
         osm: s.roads,

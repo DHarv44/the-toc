@@ -13,9 +13,27 @@
  *  inheritance resolved, no catalogs merged). The builder edits this. */
 export type PackManifest = Record<string, unknown>
 
+/** CAN THIS BUILD AUTHOR AT ALL. The write path is a dev-only Vite middleware
+ *  (tools/pack-io.mjs, `apply: 'serve'`), so a BUILT game has no server to
+ *  answer it — the request falls through to the SPA and comes back as
+ *  index.html. Callers must ask before offering to edit; a UI that assumes the
+ *  endpoint exists reports a JSON parse error on '<!doctype' in production,
+ *  which tells the user nothing. */
+export const canAuthor: boolean = import.meta.env.DEV
+
+/** the one sentence every authoring seam says when it cannot write */
+export const AUTHORING_OFF =
+  'Pack authoring runs through the dev server and is not available in a built game. '
+  + 'Run the project locally to edit content; a shipped build reads packs, it does not write them.'
+
 export async function loadPackManifest(id: string): Promise<PackManifest> {
+  if (!canAuthor) throw new Error(AUTHORING_OFF)
   const res = await fetch(`/__pack?id=${encodeURIComponent(id)}`)
   if (!res.ok) throw new Error(await errorOf(res))
+  // belt and braces: even in dev a 404 fallback would hand back the SPA, and
+  // parsing that produces a message about '<' rather than about the endpoint
+  const type = res.headers.get('content-type') ?? ''
+  if (!type.includes('json')) throw new Error(AUTHORING_OFF)
   return await res.json() as PackManifest
 }
 
@@ -23,6 +41,7 @@ export async function loadPackManifest(id: string): Promise<PackManifest> {
  *  The app must RELOAD to see a new pack: discovery is a build-time glob, so
  *  a manifest that did not exist when the page loaded is not in it yet. */
 export async function savePackManifest(id: string, man: PackManifest): Promise<void> {
+  if (!canAuthor) throw new Error(AUTHORING_OFF)
   const res = await fetch(`/__pack?id=${encodeURIComponent(id)}`, {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(man),
