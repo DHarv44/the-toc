@@ -41,6 +41,7 @@
   },
   "troops": {
     "LEADER": { "key": "LEADER", "name": "Leader", "weapons": ["M4"], "expend": ["M83_SMOKE", "M67_FRAG"] },
+    "TEAM_LEADER": { "key": "TEAM_LEADER", "name": "Team Leader", "weapons": ["M4"], "expend": ["M83_SMOKE", "M67_FRAG"] },
     "RIFLEMAN": { "key": "RIFLEMAN", "name": "Rifleman", "weapons": ["M4"], "expend": ["M67_FRAG"] },
     "RIFLEMAN_AT": { "key": "RIFLEMAN_AT", "name": "Rifleman (AT4)", "weapons": ["M4", "AT4"], "expend": ["M67_FRAG"] },
     "AUTO_RIFLEMAN": { "key": "AUTO_RIFLEMAN", "name": "Automatic Rifleman", "weapons": ["M249"], "expend": ["M67_FRAG"] },
@@ -91,7 +92,7 @@
     "MECH": {
       "key": "MECH", "name": "Mech Inf Platoon", "abbr": "MI", "cat": "INFANTRY", "mob": "foot", "speed": 3.2,
       "sight": 900, "range": 900, "dpsSoft": 4.6, "dpsHard": 2.4, "soft": 0.8,
-      "cost": 250, "veh": 0, "troops": 24, "glyph": "mech", "carries": ["RAVEN"],
+      "cost": 250, "veh": 0, "troops": 30, "glyph": "mech", "carries": ["RAVEN"],
       "carrier": { "name": "IFV", "mob": "tracked", "speed": 10, "veh": 4, "soft": 0.5, "fireMul": 1.0 },
       "def": { "time": 90, "factor": 0.6, "name": "HULL DEFILADE" }
     },
@@ -163,27 +164,27 @@
       "unit": "INF",
       "vehicles": [{ "type": "HMMWV", "n": 4 }],
       "dismounts": [
-        { "kind": "RIFLEMAN", "n": 12 }, { "kind": "RIFLEMAN_AT", "n": 4 },
+        { "kind": "RIFLEMAN", "n": 6 }, { "kind": "RIFLEMAN_AT", "n": 4 },
         { "kind": "AUTO_RIFLEMAN", "n": 6 }, { "kind": "MG_GUNNER", "n": 2 }, { "kind": "AT_GUNNER", "n": 2 },
-        { "kind": "MEDIC", "n": 1 }, { "kind": "LEADER", "n": 5 }
+        { "kind": "MEDIC", "n": 1 }, { "kind": "TEAM_LEADER", "n": 6 }, { "kind": "LEADER", "n": 5 }
       ]
     },
     "STRY": {
       "unit": "STRY",
       "vehicles": [{ "type": "STRYKER", "n": 4 }],
       "dismounts": [
-        { "kind": "RIFLEMAN", "n": 14 }, { "kind": "RIFLEMAN_AT", "n": 6 },
+        { "kind": "RIFLEMAN", "n": 8 }, { "kind": "RIFLEMAN_AT", "n": 6 },
         { "kind": "AUTO_RIFLEMAN", "n": 6 }, { "kind": "MG_GUNNER", "n": 2 }, { "kind": "AT_GUNNER", "n": 2 },
-        { "kind": "MEDIC", "n": 1 }, { "kind": "LEADER", "n": 5 }
+        { "kind": "MEDIC", "n": 1 }, { "kind": "TEAM_LEADER", "n": 6 }, { "kind": "LEADER", "n": 5 }
       ]
     },
     "MECH": {
       "unit": "MECH",
       "vehicles": [{ "type": "BRADLEY", "n": 4 }],
       "dismounts": [
-        { "kind": "RIFLEMAN", "n": 5 }, { "kind": "RIFLEMAN_AT", "n": 4 },
-        { "kind": "AUTO_RIFLEMAN", "n": 4 }, { "kind": "MG_GUNNER", "n": 2 }, { "kind": "AT_GUNNER", "n": 3 },
-        { "kind": "MEDIC", "n": 1 }, { "kind": "LEADER", "n": 5 }
+        { "kind": "RIFLEMAN", "n": 6 }, { "kind": "RIFLEMAN_AT", "n": 2 },
+        { "kind": "AUTO_RIFLEMAN", "n": 6 }, { "kind": "MG_GUNNER", "n": 2 }, { "kind": "AT_GUNNER", "n": 2 },
+        { "kind": "MEDIC", "n": 1 }, { "kind": "TEAM_LEADER", "n": 6 }, { "kind": "LEADER", "n": 5 }
       ]
     },
     "ARM": { "unit": "ARM", "vehicles": [{ "type": "ABRAMS", "n": 4 }], "dismounts": [] },

@@ -58,6 +58,10 @@ export function dismountBillet(kind: TroopKindKey, idx: number, groupN: number, 
       if (idx === groupN - 1) return { pos: 'Platoon Leader', rank: pick(['2LT', '2LT', '1LT'], h) }
       if (idx === groupN - 2) return { pos: 'Platoon Sergeant', rank: 'SFC' }
       return { pos: 'Squad Leader', rank: 'SSG' }
+    // a squad's two fire teams each have a leader, and he is NOT a squad
+    // leader — separating the kinds is what lets three squads and six teams
+    // come out of one roster
+    case 'TEAM_LEADER': return { pos: 'Team Leader', rank: 'SGT' }
     case 'MEDIC': return { pos: 'Platoon Medic', rank: 'SPC' }
     case 'AUTO_RIFLEMAN': return { pos: 'Automatic Rifleman', rank: 'SPC' }
     case 'MG_GUNNER': return { pos: 'Machine Gunner', rank: pick(['SPC', 'CPL'], h) }
@@ -113,46 +117,46 @@ export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hosti
 const ORD = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'] as const
 
 function assignElements(soldiers: Soldier[], vehicles: Unit['vehicles']): void {
-  const crews = vehicles.map(v => soldiers.filter(s => s.vehId === v.id))
   const dis = soldiers.filter(s => s.vehId == null)
   const sqLeaders = dis.filter(s => s.pos === 'Squad Leader')
-
-  // MOUNTED: a crew is the smallest real element and it has a name of its own.
-  // Crews pair into SECTIONS when they are the whole platoon (a tank platoon
-  // fights as two sections of two); when there are dismounts to carry, the
-  // crews are the platoon's mounted element under the PSG.
-  const crewOnly = !sqLeaders.length
-  crews.forEach((crew, i) => {
-    for (const s of crew) {
-      s.sec = crewOnly && crews.length > 2 ? `${ORD[Math.floor(i / 2)]} SEC` : 'MOUNTED SEC'
-      s.team = `${ORD[i]} CREW`
-    }
-  })
-
-  // DISMOUNTED: PLT HQ takes the platoon leadership and the medic; every squad
-  // leader takes a squad, split into its two fire teams. A body of troops with
-  // no squad leadership (a mortar section, a signal team) is ONE element and
-  // gets no invented rungs — its people hang off it directly.
+  // A platoon with no squad leadership — a mortar section, a signal team, a
+  // tank platoon whose crews ARE the platoon — is one element. It gets no
+  // invented rungs; its people hang off it directly.
   if (!sqLeaders.length) return
+
+  // PLT HQ takes the platoon leadership and the medic.
   const hq = dis.filter(s =>
     s.pos === 'Platoon Leader' || s.pos === 'Platoon Sergeant' || s.pos === 'Platoon Medic')
   for (const s of hq) s.sec = 'PLT HQ'
-  // squads are DEALT ROUND-ROBIN, not sliced. The roster is listed in casualty
-  // order (like kinds together), so slicing it hands one squad every rifleman
-  // and another every Javelin — squads that could not fight. Dealing gives each
-  // one the same mix, which is what cross-loading a platoon actually looks like.
-  const squads: Soldier[][] = sqLeaders.map(() => [])
-  dis.filter(s => !hq.includes(s) && !sqLeaders.includes(s))
-    .forEach((s, k) => squads[k % squads.length]!.push(s))
-  sqLeaders.forEach((sl, i) => {
-    const sqd = `${ORD[i]} SQD`
-    sl.sec = sqd                      // the SL leads the squad; he is in neither team
-    const members = squads[i]!
-    const half = Math.ceil(members.length / 2)
-    members.forEach((s, k) => {
-      s.sec = sqd
-      s.team = k < half ? 'ALPHA TM' : 'BRAVO TM'
-    })
+
+  // Every squad is TWO FIRE TEAMS, and a team leader leads each. People are
+  // DEALT round-robin across the teams, never sliced: the roster is listed in
+  // casualty order (like kinds together), so slicing hands one team every
+  // rifleman and another every Javelin — teams that could not fight. Dealing
+  // gives each the same mix, which is what cross-loading actually looks like.
+  const teams: Soldier[][] = Array.from({ length: sqLeaders.length * 2 }, () => [])
+  const tls = dis.filter(s => s.pos === 'Team Leader')
+  tls.forEach((tl, k) => teams[k % teams.length]!.push(tl))
+  dis.filter(s => !hq.includes(s) && !sqLeaders.includes(s) && !tls.includes(s))
+    .forEach((s, k) => teams[k % teams.length]!.push(s))
+  teams.forEach((members, k) => {
+    for (const s of members) {
+      s.sec = `${ORD[Math.floor(k / 2)]} SQD`
+      s.team = k % 2 === 0 ? 'ALPHA TM' : 'BRAVO TM'
+    }
+  })
+  // the squad leader leads both teams, so he stands in neither
+  sqLeaders.forEach((sl, i) => { sl.sec = `${ORD[i]} SQD` })
+
+  // THE CARRIERS' CREWS. Crewing a track is a JOB, not a place in the org —
+  // there is no crew rung and no vehicle ever names an element. The crews are
+  // simply people in the platoon's elements: the first carries the platoon
+  // headquarters, the rest carry a squad each, and each crewman stands in that
+  // element beside its leader, in no fire team. Change who rides in what and
+  // the org chart does not move.
+  vehicles.forEach((v, i) => {
+    const sec = i === 0 ? 'PLT HQ' : `${ORD[Math.min(i - 1, sqLeaders.length - 1)]} SQD`
+    for (const s of soldiers) if (s.vehId === v.id) s.sec = sec
   })
 }
 
