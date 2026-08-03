@@ -290,10 +290,10 @@ function slotLocation(sl: OrgSlot): string {
     const hq = S.structures.find(st => st.side === 'friend' && st.kind === 'HQ')
     return `GARRISON — ${hq?.label ?? 'CP'}`
   }
-  if (sl.bde === 'HHBN' || sl.bde === 'DIVARTY') return 'DIV MAIN'
-  if (sl.bde === '1CD SUST') return 'DIV SUPPORT AREA'
-  if (sl.bde === '1ACB') return 'THEATER AVN COMPLEX'
-  return `${sl.bde} AO`
+  // a sister formation's station is the PACK's to name — the engine has no
+  // opinion about where a division parks its aviation brigade
+  const bde = playerPack().formation?.bdes.find(b => b.desig === sl.bde)
+  return bde?.station ?? `${sl.bde} AO`
 }
 
 // The donor a battalion ROW should show. A slice the brigade task-organized to

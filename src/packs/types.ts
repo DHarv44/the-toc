@@ -13,7 +13,8 @@
 // change the entire game.
 import type { UnitType, UnitTypeKey } from '../domains/forces/catalog'
 import type {
-  AmmoType, WeaponType, ExpendableType, TroopKind, VehicleType, UnitComposition,
+  AmmoType, WeaponType, ExpendableType, TroopKind, TroopKindKey, VehicleType,
+  VehicleKey, UnitComposition,
 } from '../domains/forces/composition'
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
@@ -47,10 +48,54 @@ export interface AttachedSlot extends OrganicSlot {
 // (packs/org.ts). `tfCos` lists the companies allocated to the player's task
 // force (fieldable, garrisoned in theater); the player battalion contributes
 // everything. Skirmish later opens the whole tree; campaign stays on playerBn.
-export type BnKind =
-  | 'CAB' | 'ARMOR' | 'RECON' | 'FA' | 'BEB' | 'BSB' | 'SIG'   // ground
-  | 'ARB' | 'AHB' | 'GSAB' | 'ASB'                              // air cav
-  | 'CSSB' | 'HHBN' | 'HHB-DIVARTY' | 'STB'                     // support/staff
+// WHAT KIND OF BATTALION — a key into the pack's OWN `bnKinds` table, never an
+// engine enum. What a combined arms battalion is made of is a fact about an
+// army, not about this game: the engine knows how to BUILD a battalion from a
+// template (verb), the pack says what the templates ARE (noun). A pack that
+// fields motor rifle battalions declares those and nothing here changes.
+export type BnKind = string
+
+/** ONE PERSON on a rostered element: their troop kind, billet and rank, and
+ *  the sub-element they stand in. `n` repeats the entry — nine snipers are one
+ *  line, not nine. */
+export interface StaffBillet {
+  kind: TroopKindKey
+  pos: string             // 'S3 — Operations', 'Crew Chief'
+  rank: string            // 'MAJ'
+  // the SUB-ELEMENT inside the slot ('S3 SEC', 'FS ELEMENT'). Absent = the
+  // person hangs directly off the element. See Soldier.sec.
+  sec?: string
+  n?: number              // repeat count, default 1
+}
+
+/** ONE SLOT inside a company. Exactly one of `type` / `roster` / `flight`:
+ *   type   — a FIELDABLE game unit; its people come from the composition
+ *   roster — a hand-rostered element, naming an entry in Pack.rosters
+ *   flight — airframes and their crews (a crew roster, repeated per airframe) */
+export interface BnSlotPlan {
+  name: string            // 'CMD GRP', '1st PLT', 'FLT 1'
+  type?: UnitTypeKey
+  roster?: string         // key into Pack.rosters
+  flight?: {
+    air: VehicleKey
+    n: number             // airframes
+    crew: string          // Pack.rosters entry for ONE airframe's crew
+    attach?: string       // extra roster added once (flight medics)
+  }
+}
+
+export interface BnCoPlan {
+  co: string              // 'HHC', 'A CO', 'A TRP', 'FSC'
+  /** shorthand for n numbered platoons of one type — '1st PLT'…'4th PLT' */
+  plts?: { type: UnitTypeKey; n?: number }
+  slots?: BnSlotPlan[]
+}
+
+export interface BnKindPlan {
+  /** heraldic branch for the S1 header's procedural shield ('inf', 'sus'…) */
+  branch?: string
+  companies: BnCoPlan[]
+}
 
 export interface BnPlan {
   desig: string           // '2-8 CAV'
@@ -72,6 +117,10 @@ export interface BdePlan {
   desig: string           // '1ABCT'
   nick?: string           // 'IRONHORSE'
   patch?: string          // brigade insignia art file (see BnPlan.patch)
+  // WHERE this formation sits when it is not yours to see — what the S1 writes
+  // in the location column for a sister formation's elements ('DIV MAIN'). A
+  // name for a place in someone's army, so the pack says it. Absent = '<desig> AO'.
+  station?: string
   bns: BnPlan[]
 }
 
@@ -423,6 +472,13 @@ export interface Pack {
   // this pack (not enforced in P1 — the palette still offers everything)
   organic: Partial<Record<UnitTypeKey, OrganicSlot>>
   attached: Partial<Record<UnitTypeKey, AttachedSlot>>
+  // WHAT THIS ARMY'S ELEMENTS ARE MADE OF — the rostered elements every
+  // template draws on (command groups, staffs, maintenance platoons, aircrews)
+  // and the battalion templates themselves, keyed by this pack's own kind
+  // names. The engine builds from these; it does not know what is in them.
+  // (`staff` above is a different thing — the S-shop identities.)
+  rosters?: Record<string, StaffBillet[]>
+  bnKinds?: Record<string, BnKindPlan>
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

@@ -127,9 +127,10 @@ organization + identity). `Pack {organic, attached}` per unit type with parent
 battalion + lineage style ('plt'/'btry'/'hhc'); `lineageFor(pack, type, n)` and
 a plain `S.counters.lineage` counter (rng-free, golden-safe; reset in initGame
 AND startCampaign — the staged pre-campaign force must not burn slots). 1CD
-pack: MECH=2-8 CAV C/D CO, ARM=2-8 CAV A/B CO (one COMBINED ARMS battalion —
-`cos` says which letters a type draws), CAV=4-9 CAV, SCT/MOR=HHC 2-8 CAV,
-ARTY=1-82 FA (btry), ENG=91 BEB, SIG=91 BEB C CO, LOG=115 BSB; attachments
+pack: MECH=2-8 CAV B/C CO, ARM=2-8 CAV A CO (ONE combined arms battalion —
+`cos` says which company letters a type draws), CAV=1-7 CAV, SCT/MOR=HHC
+2-8 CAV, ARTY=1-82 FA (btry), ENG=91 EN BN, SIG=91 EN BN C CO, LOG=FSC/115
+BSB (a battalion's own forward support company); attachments
 STRY=5-20 IN (2ID), INF/AT=1-506 IN (101 ABN). Unit gains `lineage`/`attFrom`
 (tray chip + context menu show them; palette rows tag "ATT — <donor>").
 COMMANDER box on the campaign screen → `CampaignState.commander` (the player IS

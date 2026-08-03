@@ -124,6 +124,12 @@ function buildPack(
     cats: man.cats ?? fallback?.cats,
     organic: man.organic ?? {},
     attached: man.attached ?? {},
+    // element rosters + battalion templates. A pack that ships none falls back
+    // to the canonical pack's, exactly like the platform catalogs above: a
+    // variant pack that only re-designates battalions should not have to
+    // restate what a command group is.
+    rosters: man.rosters ?? fallback?.rosters,
+    bnKinds: man.bnKinds ?? fallback?.bnKinds,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

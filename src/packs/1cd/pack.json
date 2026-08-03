@@ -68,14 +68,351 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "_bnKinds_doc": "WHAT A BATTALION IS MADE OF — companies and the slots inside them. A slot is either a FIELDABLE unit type, a `roster` naming an element above, or a `flight` (airframes plus a crew roster repeated per airframe). `plts` is shorthand for n numbered platoons of one type. A COMBINED ARMS BATTALION is three maneuver companies and it is NOT symmetrical: an ABCT fields two armor-heavy CABs (two tank companies, one mech) and one infantry-heavy (two mech, one tank) — the brigade's balance comes from the mix across battalions. The FORWARD SUPPORT COMPANY is assigned to the BSB and attached forward to a CAB, so it lives in the BSB and `tfCos` attaches it, exactly as the real paperwork runs.",
+  "bnKinds": {
+    "CAB-ARMOR": {
+      "branch": "cav",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" },
+          { "name": "SCT PLT", "type": "SCT" },
+          { "name": "MORT PLT", "type": "MOR" },
+          { "name": "SNIPER SQD", "roster": "SNIPER_SQD" },
+          { "name": "MED PLT", "type": "MED" },
+          { "name": "RETRANS TM", "roster": "RETRANS_TM" }
+        ] },
+        { "co": "A CO", "plts": { "type": "ARM" } },
+        { "co": "B CO", "plts": { "type": "ARM" } },
+        { "co": "C CO", "plts": { "type": "MECH" } }
+      ]
+    },
+    "CAB-INF": {
+      "branch": "in",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" },
+          { "name": "SCT PLT", "type": "SCT" },
+          { "name": "MORT PLT", "type": "MOR" },
+          { "name": "SNIPER SQD", "roster": "SNIPER_SQD" },
+          { "name": "MED PLT", "type": "MED" },
+          { "name": "RETRANS TM", "roster": "RETRANS_TM" }
+        ] },
+        { "co": "A CO", "plts": { "type": "ARM" } },
+        { "co": "B CO", "plts": { "type": "MECH" } },
+        { "co": "C CO", "plts": { "type": "MECH" } }
+      ]
+    },
+    "ARMOR": {
+      "branch": "cav",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "plts": { "type": "ARM" } },
+        { "co": "B CO", "plts": { "type": "ARM" } },
+        { "co": "C CO", "plts": { "type": "ARM" } }
+      ]
+    },
+    "RECON": {
+      "branch": "cav",
+      "companies": [
+        { "co": "HHT", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "SQDN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A TRP", "plts": { "type": "CAV" } },
+        { "co": "B TRP", "plts": { "type": "CAV" } },
+        { "co": "C TRP", "plts": { "type": "CAV" } }
+      ]
+    },
+    "FA": {
+      "branch": "fa",
+      "companies": [
+        { "co": "HHB", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A BTRY", "slots": [{ "name": "FIRING BTRY", "type": "ARTY" }] },
+        { "co": "B BTRY", "slots": [{ "name": "FIRING BTRY", "type": "ARTY" }] },
+        { "co": "C BTRY", "slots": [{ "name": "FIRING BTRY", "type": "ARTY" }] }
+      ]
+    },
+    "BEB": {
+      "branch": "en",
+      "companies": [
+        { "co": "HSC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "plts": { "type": "ENG" } },
+        { "co": "B CO", "plts": { "type": "ENG" } },
+        { "co": "C CO", "slots": [
+          { "name": "1st PLT", "type": "SIG" },
+          { "name": "2nd PLT", "type": "SIG" },
+          { "name": "NETOPS", "roster": "NETOPS" }
+        ] }
+      ]
+    },
+    "BSB": {
+      "branch": "sus",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "plts": { "type": "LOG" } },
+        { "co": "B CO", "slots": [
+          { "name": "MAINT PLT", "roster": "MAINT_PLT" },
+          { "name": "RECOVERY PLT", "roster": "MAINT_PLT" }
+        ] },
+        { "co": "C CO", "slots": [
+          { "name": "MED PLT", "roster": "MED_PLT" },
+          { "name": "TREATMENT PLT", "roster": "MED_PLT" }
+        ] },
+        { "co": "FSC", "slots": [
+          { "name": "DISTRO PLT", "type": "LOG" },
+          { "name": "MAINT PLT", "roster": "MAINT_PLT" },
+          { "name": "FIELD FEEDING", "roster": "FIELD_FEEDING" }
+        ] }
+      ]
+    },
+    "SIG": {
+      "branch": "sig",
+      "companies": [
+        { "co": "HHC", "slots": [{ "name": "CMD GRP", "roster": "BN_CMD_GRP" }] },
+        { "co": "A CO", "slots": [
+          { "name": "1st PLT", "type": "SIG" },
+          { "name": "2nd PLT", "type": "SIG" }
+        ] },
+        { "co": "B CO", "slots": [{ "name": "NETOPS", "roster": "NETOPS" }] }
+      ]
+    },
+    "ARB": {
+      "branch": "av",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "slots": [
+          { "name": "FLT 1", "flight": { "air": "AH64", "n": 4, "crew": "AH64_CREW" } },
+          { "name": "FLT 2", "flight": { "air": "AH64", "n": 4, "crew": "AH64_CREW" } }
+        ] },
+        { "co": "B CO", "slots": [
+          { "name": "FLT 1", "flight": { "air": "AH64", "n": 4, "crew": "AH64_CREW" } },
+          { "name": "FLT 2", "flight": { "air": "AH64", "n": 4, "crew": "AH64_CREW" } }
+        ] },
+        { "co": "C CO", "slots": [
+          { "name": "FLT 1", "flight": { "air": "AH64", "n": 4, "crew": "AH64_CREW" } }
+        ] }
+      ]
+    },
+    "AHB": {
+      "branch": "av",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "slots": [
+          { "name": "FLT 1", "flight": { "air": "UH60", "n": 4, "crew": "UH60_CREW" } },
+          { "name": "FLT 2", "flight": { "air": "UH60", "n": 4, "crew": "UH60_CREW" } }
+        ] },
+        { "co": "B CO", "slots": [
+          { "name": "FLT 1", "flight": { "air": "UH60", "n": 4, "crew": "UH60_CREW" } },
+          { "name": "FLT 2", "flight": { "air": "UH60", "n": 4, "crew": "UH60_CREW" } }
+        ] }
+      ]
+    },
+    "GSAB": {
+      "branch": "av",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "slots": [
+          { "name": "HVY LIFT FLT", "flight": { "air": "CH47", "n": 4, "crew": "CH47_CREW" } }
+        ] },
+        { "co": "C CO", "slots": [
+          { "name": "MEDEVAC FLT", "flight": { "air": "UH60", "n": 4, "crew": "UH60_CREW", "attach": "MEDEVAC_TEAM" } }
+        ] }
+      ]
+    },
+    "ASB": {
+      "branch": "sus",
+      "companies": [
+        { "co": "HSC", "slots": [
+          { "name": "CMD GRP", "roster": "BN_CMD_GRP" },
+          { "name": "BN STAFF", "roster": "BN_STAFF" }
+        ] },
+        { "co": "A CO", "slots": [
+          { "name": "AVIM PLT", "roster": "MAINT_PLT" },
+          { "name": "COMPONENT PLT", "roster": "MAINT_PLT" }
+        ] }
+      ]
+    },
+    "HHBN": {
+      "branch": "hq",
+      "companies": [
+        { "co": "DIV CMD GRP", "slots": [{ "name": "COMMAND GROUP", "roster": "DIV_CMD_GRP" }] },
+        { "co": "DIV STAFF", "slots": [
+          { "name": "G1 SECTION", "roster": "G1_SEC" },
+          { "name": "G2 SECTION", "roster": "G2_SEC" },
+          { "name": "G3 SECTION", "roster": "G3_SEC" },
+          { "name": "G4 SECTION", "roster": "G4_SEC" },
+          { "name": "G6 SECTION", "roster": "G6_SEC" }
+        ] },
+        { "co": "SIGNAL CO", "slots": [
+          { "name": "1st PLT", "type": "SIG" },
+          { "name": "NETOPS", "roster": "NETOPS" }
+        ] }
+      ]
+    },
+    "HHB-DIVARTY": {
+      "branch": "fa",
+      "companies": [
+        { "co": "HHB", "slots": [
+          { "name": "CMD GRP", "roster": "DIVARTY_CMD_GRP" },
+          { "name": "FIRES CELL", "roster": "BN_STAFF" }
+        ] }
+      ]
+    }
+  },
+  "_rosters_doc": "WHO IS IN AN ELEMENT — every hand-rostered element this army fields, by billet, rank and staff section. `n` repeats a line. These are NOUNS: the engine knows how to build an element from a roster, not what a US battalion staff holds. `sec` is the sub-element a person stands in inside the slot (the S1 shop, the fire support element).",
+  "rosters": {
+    "BN_CMD_GRP": [
+      { "kind": "STAFF", "pos": "Battalion Commander", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Executive Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Command Sergeant Major", "rank": "CSM" },
+      { "kind": "STAFF", "pos": "Commander’s Driver", "rank": "SPC" },
+      { "kind": "STAFF", "pos": "Command RTO", "rank": "SPC" }
+    ],
+    "DIVARTY_CMD_GRP": [
+      { "kind": "STAFF", "pos": "DIVARTY Commander", "rank": "COL" },
+      { "kind": "STAFF", "pos": "Executive Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Command Sergeant Major", "rank": "CSM" },
+      { "kind": "STAFF", "pos": "Commander’s Driver", "rank": "SPC" },
+      { "kind": "STAFF", "pos": "Command RTO", "rank": "SPC" }
+    ],
+    "BN_STAFF": [
+      { "kind": "STAFF", "pos": "S1 — Personnel", "rank": "CPT", "sec": "S1 SEC" },
+      { "kind": "STAFF", "pos": "S1 NCOIC", "rank": "SSG", "sec": "S1 SEC" },
+      { "kind": "STAFF", "pos": "S1 Clerk", "rank": "SPC", "sec": "S1 SEC" },
+      { "kind": "STAFF", "pos": "S2 — Intelligence", "rank": "CPT", "sec": "S2 SEC" },
+      { "kind": "STAFF", "pos": "S2 Analyst", "rank": "SGT", "sec": "S2 SEC" },
+      { "kind": "STAFF", "pos": "S3 — Operations", "rank": "MAJ", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Operations NCO", "rank": "SFC", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Battle Captain RTO", "rank": "SPC", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "S4 — Logistics", "rank": "CPT", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "S4 NCOIC", "rank": "SSG", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "S6 — Signal", "rank": "CPT", "sec": "S6 SEC" },
+      { "kind": "STAFF", "pos": "Fire Support Officer", "rank": "CPT", "sec": "FS ELEMENT" },
+      { "kind": "STAFF", "pos": "Fire Support NCO", "rank": "SSG", "sec": "FS ELEMENT" },
+      { "kind": "STAFF", "pos": "Chaplain", "rank": "CPT", "sec": "UMT" },
+      { "kind": "STAFF", "pos": "Religious Affairs NCO", "rank": "SGT", "sec": "UMT" }
+    ],
+    "DIV_CMD_GRP": [
+      { "kind": "STAFF", "pos": "Commanding General", "rank": "MG" },
+      { "kind": "STAFF", "pos": "Deputy CG (Maneuver)", "rank": "BG" },
+      { "kind": "STAFF", "pos": "Deputy CG (Support)", "rank": "BG" },
+      { "kind": "STAFF", "pos": "Division Command Sergeant Major", "rank": "CSM" },
+      { "kind": "STAFF", "pos": "Aide-de-Camp", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "CG’s Driver", "rank": "SPC" }
+    ],
+    "G1_SEC": [
+      { "kind": "STAFF", "pos": "G1 — Personnel", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G1 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G1 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G1 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G1 NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "G1 Clerk", "rank": "SPC" }
+    ],
+    "G2_SEC": [
+      { "kind": "STAFF", "pos": "G2 — Intelligence", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G2 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G2 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G2 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G2 NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "G2 Clerk", "rank": "SPC" }
+    ],
+    "G3_SEC": [
+      { "kind": "STAFF", "pos": "G3 — Operations", "rank": "COL" },
+      { "kind": "STAFF", "pos": "G3 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G3 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G3 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G3 NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "G3 Clerk", "rank": "SPC" }
+    ],
+    "G4_SEC": [
+      { "kind": "STAFF", "pos": "G4 — Logistics", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G4 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G4 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G4 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G4 NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "G4 Clerk", "rank": "SPC" }
+    ],
+    "G6_SEC": [
+      { "kind": "STAFF", "pos": "G6 — Signal", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G6 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G6 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G6 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G6 NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "G6 Clerk", "rank": "SPC" }
+    ],
+    "MED_PLT": [
+      { "kind": "STAFF", "pos": "Medical Officer", "rank": "CPT" },
+      { "kind": "MEDIC", "pos": "Medic", "rank": "SPC", "n": 8 }
+    ],
+    "MAINT_PLT": [
+      { "kind": "STAFF", "pos": "Maintenance Technician", "rank": "CW2" },
+      { "kind": "MECHANIC", "pos": "Mechanic", "rank": "SPC", "n": 10 }
+    ],
+    "NETOPS": [
+      { "kind": "STAFF", "pos": "NETOPS Officer", "rank": "CPT" },
+      { "kind": "SIGNALLER", "pos": "Signaller", "rank": "SPC", "n": 8 }
+    ],
+    "SNIPER_SQD": [
+      { "kind": "LEADER", "pos": "Sniper Section Leader", "rank": "SSG" },
+      { "kind": "RIFLEMAN", "pos": "Sniper", "rank": "SGT", "n": 9 }
+    ],
+    "RETRANS_TM": [
+      { "kind": "SIGNALLER", "pos": "Retrans Operator", "rank": "SPC", "n": 3 }
+    ],
+    "FIELD_FEEDING": [
+      { "kind": "STAFF", "pos": "Food Operations Sergeant", "rank": "SSG" },
+      { "kind": "STAFF", "pos": "Culinary Specialist", "rank": "SPC", "n": 14 }
+    ],
+    "AH64_CREW": [
+      { "kind": "PILOT", "pos": "Pilot in Command", "rank": "CW3" },
+      { "kind": "PILOT", "pos": "Pilot", "rank": "CW2" },
+      { "kind": "CREW_CHIEF", "pos": "Crew Chief", "rank": "SGT" }
+    ],
+    "UH60_CREW": [
+      { "kind": "PILOT", "pos": "Pilot in Command", "rank": "CW3" },
+      { "kind": "PILOT", "pos": "Pilot", "rank": "CW2" },
+      { "kind": "CREW_CHIEF", "pos": "Crew Chief", "rank": "SGT", "n": 2 }
+    ],
+    "CH47_CREW": [
+      { "kind": "PILOT", "pos": "Pilot in Command", "rank": "CW3" },
+      { "kind": "PILOT", "pos": "Pilot", "rank": "CW2" },
+      { "kind": "CREW_CHIEF", "pos": "Crew Chief", "rank": "SGT", "n": 2 }
+    ],
+    "MEDEVAC_TEAM": [
+      { "kind": "MEDIC", "pos": "Flight Medic", "rank": "SGT", "n": 4 }
+    ]
+  },
   "organic": {
     "MECH": {
       "bn": "2-8 CAV",
-      "cos": ["C", "D"]
+      "cos": ["B", "C"]
     },
     "ARM": {
       "bn": "2-8 CAV",
-      "cos": ["A", "B"]
+      "cos": ["A"]
     },
     "CAV": {
       "bn": "4-9 CAV"
@@ -100,14 +437,15 @@
       "style": "btry"
     },
     "ENG": {
-      "bn": "91 BEB"
+      "bn": "91 EN BN"
     },
     "SIG": {
-      "bn": "91 BEB",
+      "bn": "91 EN BN",
       "cos": ["C"]
     },
     "LOG": {
-      "bn": "115 BSB"
+      "bn": "115 BSB",
+      "cos": ["FSC"]
     }
   },
   "attached": {
@@ -136,19 +474,20 @@
     "2-7 CAV": "GARRYOWEN",
     "4-9 CAV": "WE CAN, WE WILL",
     "6-9 CAV": "WE CAN, WE WILL",
+    "2-12 CAV": "SEMPER PARATUS",
     "1-12 CAV": "SEMPER PARATUS",
+    "1-9 CAV": "WE CAN, WE WILL",
     "1-82 FA": "CAN AND WILL",
     "2-82 FA": "CAN AND WILL",
-    "3-16 FA": "MACTE NOVA VIRTUTE",
-    "91 BEB": "ACTS NOT WORDS",
-    "8 BEB": "ESSAYONS",
-    "3 BEB": "ESSAYONS",
+    "3-82 FA": "CAN AND WILL",
+    "91 EN BN": "ACTS NOT WORDS",
+    "8 EN BN": "ESSAYONS",
+    "3 EN BN": "ESSAYONS",
     "115 BSB": "MULE SKINNERS",
-    "13 SIG BN": "VOICE OF COMMAND",
-    "1-227 ARB": "POUVOIR",
-    "2-227 AHB": "POUVOIR",
-    "3-227 GSAB": "POUVOIR",
-    "7-17 CAV": "FORWARD",
+    "1-227 AVN": "POUVOIR",
+    "2-227 AVN": "POUVOIR",
+    "3-227 AVN": "POUVOIR",
+    "4-227 AVN": "POUVOIR",
     "615 ASB": "COLD STEEL",
     "5-20 IN": "TANT QUE JE PUIS",
     "1-506 IN": "CURRAHEE"
@@ -156,9 +495,9 @@
   "nicks": {
     "2-8 CAV": "STALLIONS",
     "1-82 FA": "DRAGONS",
-    "91 BEB": "SABERS",
+    "91 EN BN": "SABERS",
     "115 BSB": "MULESKINNERS",
-    "1-227 ARB": "FIRST ATTACK",
+    "1-227 AVN": "FIRST ATTACK",
     "1-506 IN": "RED CURRAHEE"
   },
   "models": {
@@ -214,28 +553,28 @@
         "bns": [
           {
             "desig": "2-8 CAV",
-            "kind": "CAB",
+            "kind": "CAB-INF",
             "nick": "STALLION",
             "patch": "/crests/2-8cav-dui.png",
             "arms": "/crests/8cav.svg"
           },
           {
-            "desig": "1-7 CAV",
-            "kind": "CAB",
-            "nick": "GARRYOWEN",
+            "desig": "2-5 CAV",
+            "kind": "CAB-ARMOR",
+            "nick": "LANCER",
             "tfCos": [
               "A CO"
             ]
           },
           {
-            "desig": "2-5 CAV",
-            "kind": "CAB",
-            "nick": "LANCER"
+            "desig": "2-12 CAV",
+            "kind": "CAB-ARMOR",
+            "nick": "THUNDERHORSE"
           },
           {
-            "desig": "4-9 CAV",
+            "desig": "1-7 CAV",
             "kind": "RECON",
-            "nick": "DARKHORSE",
+            "nick": "GARRYOWEN",
             "tfCos": [
               "A TRP"
             ]
@@ -249,7 +588,7 @@
             ]
           },
           {
-            "desig": "91 BEB",
+            "desig": "91 EN BN",
             "kind": "BEB",
             "tfCos": [
               "A CO",
@@ -261,7 +600,7 @@
             "kind": "BSB",
             "nick": "MULESKINNER",
             "tfCos": [
-              "A CO"
+              "FSC"
             ]
           }
         ]
@@ -271,32 +610,32 @@
         "nick": "BLACK JACK",
         "bns": [
           {
-            "desig": "1-5 CAV",
-            "kind": "CAB",
-            "nick": "BLACK KNIGHT"
-          },
-          {
             "desig": "1-8 CAV",
-            "kind": "CAB",
+            "kind": "CAB-ARMOR",
             "nick": "MUSTANG"
           },
           {
-            "desig": "2-12 CAV",
-            "kind": "CAB",
-            "nick": "THUNDERHORSE"
+            "desig": "1-5 CAV",
+            "kind": "CAB-ARMOR",
+            "nick": "BLACK KNIGHT"
           },
           {
             "desig": "1-9 CAV",
-            "kind": "RECON",
+            "kind": "CAB-INF",
             "nick": "HEADHUNTER"
           },
           {
-            "desig": "3-16 FA",
-            "kind": "FA",
-            "nick": "ROLLING THUNDER"
+            "desig": "4-9 CAV",
+            "kind": "RECON",
+            "nick": "DARKHORSE"
           },
           {
-            "desig": "8 BEB",
+            "desig": "3-82 FA",
+            "kind": "FA",
+            "nick": "RED DRAGON"
+          },
+          {
+            "desig": "8 EN BN",
             "kind": "BEB"
           },
           {
@@ -311,18 +650,18 @@
         "bns": [
           {
             "desig": "1-12 CAV",
-            "kind": "CAB",
+            "kind": "CAB-ARMOR",
             "nick": "CHARGER"
           },
           {
-            "desig": "2-7 CAV",
-            "kind": "CAB",
-            "nick": "GHOST"
+            "desig": "3-8 CAV",
+            "kind": "CAB-ARMOR",
+            "nick": "WARHORSE"
           },
           {
-            "desig": "3-8 CAV",
-            "kind": "CAB",
-            "nick": "WARHORSE"
+            "desig": "2-7 CAV",
+            "kind": "CAB-INF",
+            "nick": "GHOST"
           },
           {
             "desig": "6-9 CAV",
@@ -335,7 +674,7 @@
             "nick": "STEEL DRAGON"
           },
           {
-            "desig": "3 BEB",
+            "desig": "3 EN BN",
             "kind": "BEB"
           },
           {
@@ -348,21 +687,23 @@
       {
         "desig": "1ACB",
         "nick": "WARRIOR",
+        "station": "DIV AVN COMPLEX",
         "bns": [
           {
-            "desig": "1-227 ARB",
+            "desig": "1-227 AVN",
+            "kind": "ARB",
+            "nick": "FIRST ATTACK"
+          },
+          {
+            "desig": "4-227 AVN",
             "kind": "ARB"
           },
           {
-            "desig": "7-17 CAV",
-            "kind": "ARB"
-          },
-          {
-            "desig": "2-227 AHB",
+            "desig": "2-227 AVN",
             "kind": "AHB"
           },
           {
-            "desig": "3-227 GSAB",
+            "desig": "3-227 AVN",
             "kind": "GSAB"
           },
           {
@@ -374,6 +715,7 @@
       {
         "desig": "DIVARTY",
         "nick": "RED TEAM",
+        "station": "DIV MAIN",
         "bns": [
           {
             "desig": "HHB DIVARTY",
@@ -382,27 +724,9 @@
         ]
       },
       {
-        "desig": "1CD SUST",
-        "nick": "WAGONMASTER",
-        "bns": [
-          {
-            "desig": "STB",
-            "kind": "STB"
-          },
-          {
-            "desig": "553 CSSB",
-            "kind": "CSSB"
-          },
-          {
-            "desig": "13 SIG BN",
-            "kind": "SIG",
-            "nick": "VOICE OF COMMAND"
-          }
-        ]
-      },
-      {
         "desig": "HHBN",
         "nick": "MAVERICK",
+        "station": "DIV MAIN",
         "bns": [
           {
             "desig": "HHBN 1CD",

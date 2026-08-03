@@ -12,208 +12,74 @@
 import type { DivOrg, OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { buildRoster, type TroopKindKey, type VehicleKey } from '../domains/forces/composition'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import type { BnKind, BnPlan, Pack } from './types'
+import type { BnKind, BnPlan, BnSlotPlan, Pack } from './types'
 import { namePersonnel, nameSoldier } from './personnel'
 
-// --- staff/aviation slot recipes -------------------------------------------
-// `sec` is the SUB-ELEMENT this person belongs to inside the slot — the rung
-// below a staff element is its SECTIONS, and a battalion staff is not nine
-// people in a heap: it is the S1 shop, the S2 shop, the S3 shop and so on,
-// each with an officer and their NCOs. Untagged members hang directly off the
-// slot (a command group IS the element; it has nothing under it).
+// --- template expansion (VERBS) ---------------------------------------------
+// Everything below turns the PACK'S templates into slots. What a battalion is
+// made of, what a staff section holds, how many snipers a battalion keeps —
+// all of that is the pack's (Pack.staff / Pack.bnKinds). This file knows only
+// how to expand a template, not what any template says.
 interface StaffMember { kind: TroopKindKey; pos: string; rank: string; sec?: string }
 
-const BN_CMD_GRP: StaffMember[] = [
-  { kind: 'STAFF', pos: 'Battalion Commander', rank: 'LTC' },
-  { kind: 'STAFF', pos: 'Executive Officer', rank: 'MAJ' },
-  { kind: 'STAFF', pos: 'Command Sergeant Major', rank: 'CSM' },
-  { kind: 'STAFF', pos: 'Commander’s Driver', rank: 'SPC' },
-  { kind: 'STAFF', pos: 'Command RTO', rank: 'SPC' },
-]
-const BN_STAFF: StaffMember[] = [
-  { kind: 'STAFF', pos: 'S1 — Personnel', rank: 'CPT', sec: 'S1 SEC' },
-  { kind: 'STAFF', pos: 'S1 NCOIC', rank: 'SSG', sec: 'S1 SEC' },
-  { kind: 'STAFF', pos: 'S1 Clerk', rank: 'SPC', sec: 'S1 SEC' },
-  { kind: 'STAFF', pos: 'S2 — Intelligence', rank: 'CPT', sec: 'S2 SEC' },
-  { kind: 'STAFF', pos: 'S2 Analyst', rank: 'SGT', sec: 'S2 SEC' },
-  { kind: 'STAFF', pos: 'S3 — Operations', rank: 'MAJ', sec: 'S3 SEC' },
-  { kind: 'STAFF', pos: 'Operations NCO', rank: 'SFC', sec: 'S3 SEC' },
-  { kind: 'STAFF', pos: 'Battle Captain RTO', rank: 'SPC', sec: 'S3 SEC' },
-  { kind: 'STAFF', pos: 'S4 — Logistics', rank: 'CPT', sec: 'S4 SEC' },
-  { kind: 'STAFF', pos: 'S4 NCOIC', rank: 'SSG', sec: 'S4 SEC' },
-  { kind: 'STAFF', pos: 'S6 — Signal', rank: 'CPT', sec: 'S6 SEC' },
-  // the FIRE SUPPORT ELEMENT: the battalion's own fires cell, and the reason
-  // a call for fire has anyone to answer it. A CAB staff without an FSO is
-  // missing the officer who plans every target on the sheet.
-  { kind: 'STAFF', pos: 'Fire Support Officer', rank: 'CPT', sec: 'FS ELEMENT' },
-  { kind: 'STAFF', pos: 'Fire Support NCO', rank: 'SSG', sec: 'FS ELEMENT' },
-  // the UNIT MINISTRY TEAM — a real two-person section on every battalion MTOE
-  { kind: 'STAFF', pos: 'Chaplain', rank: 'CPT', sec: 'UMT' },
-  { kind: 'STAFF', pos: 'Religious Affairs NCO', rank: 'SGT', sec: 'UMT' },
-]
-const DIV_CMD_GRP: StaffMember[] = [
-  { kind: 'STAFF', pos: 'Commanding General', rank: 'MG' },
-  { kind: 'STAFF', pos: 'Deputy CG (Maneuver)', rank: 'BG' },
-  { kind: 'STAFF', pos: 'Deputy CG (Support)', rank: 'BG' },
-  { kind: 'STAFF', pos: 'Division Command Sergeant Major', rank: 'CSM' },
-  { kind: 'STAFF', pos: 'Aide-de-Camp', rank: 'CPT' },
-  { kind: 'STAFF', pos: 'CG’s Driver', rank: 'SPC' },
-]
-const gSection = (g: string, name: string): StaffMember[] => [
-  { kind: 'STAFF', pos: `${g} — ${name}`, rank: g === 'G3' ? 'COL' : 'LTC' },
-  { kind: 'STAFF', pos: `${g} Deputy`, rank: 'MAJ' },
-  { kind: 'STAFF', pos: `${g} Plans Officer`, rank: 'CPT' },
-  { kind: 'STAFF', pos: `${g} Sergeant Major`, rank: 'SGM' },
-  { kind: 'STAFF', pos: `${g} NCO`, rank: 'SFC' },
-  { kind: 'STAFF', pos: `${g} Clerk`, rank: 'SPC' },
-]
-const medPlt = (): StaffMember[] => [
-  { kind: 'STAFF', pos: 'Medical Officer', rank: 'CPT' },
-  ...Array.from({ length: 8 }, () => ({ kind: 'MEDIC' as TroopKindKey, pos: 'Medic', rank: 'SPC' })),
-]
-const maintPlt = (): StaffMember[] => [
-  { kind: 'STAFF', pos: 'Maintenance Technician', rank: 'CW2' },
-  ...Array.from({ length: 10 }, () => ({ kind: 'MECHANIC' as TroopKindKey, pos: 'Mechanic', rank: 'SPC' })),
-]
-const netOps = (): StaffMember[] => [
-  { kind: 'STAFF', pos: 'NETOPS Officer', rank: 'CPT' },
-  ...Array.from({ length: 8 }, () => ({ kind: 'SIGNALLER' as TroopKindKey, pos: 'Signaller', rank: 'SPC' })),
-]
-
-// an aviation flight: n airframes, 2 pilots per airframe + crew chiefs (and
-// medevac flights carry flight medics)
-function flight(air: VehicleKey, n: number, chiefsPer: number, medics = 0):
-  { staff: StaffMember[]; vehicles: { type: VehicleKey; n: number }[]; crewed: true } {
-  const staff: StaffMember[] = []
-  for (let i = 0; i < n; i++) {
-    staff.push({ kind: 'PILOT', pos: i === 0 ? 'Flight Lead' : 'Pilot in Command', rank: i === 0 ? 'CPT' : 'CW3' })
-    staff.push({ kind: 'PILOT', pos: 'Pilot', rank: 'CW2' })
-    for (let k = 0; k < chiefsPer; k++) staff.push({ kind: 'CREW_CHIEF', pos: 'Crew Chief', rank: 'SGT' })
+/** A rostered element, from the pack's own roster table. `n` repeats a billet
+ *  (ten snipers are one line in the pack, ten people here). */
+function expandStaff(pack: Pack, key: string): StaffMember[] {
+  const roster = pack.rosters?.[key]
+  if (!roster) throw new Error(`pack '${pack.id}': no roster named '${key}'`)
+  const out: StaffMember[] = []
+  for (const b of roster) {
+    for (let i = 0; i < (b.n ?? 1); i++) {
+      out.push({ kind: b.kind, pos: b.pos, rank: b.rank, ...(b.sec ? { sec: b.sec } : {}) })
+    }
   }
-  for (let i = 0; i < medics; i++) staff.push({ kind: 'MEDIC', pos: 'Flight Medic', rank: 'SGT' })
-  return { staff, vehicles: [{ type: air, n }], crewed: true }
+  return out
 }
 
+/** An aviation flight: n airframes, each manned by one crew roster, plus any
+ *  element that rides the flight rather than an airframe (medics). */
+function expandFlight(pack: Pack, f: NonNullable<BnSlotPlan['flight']>):
+  { staff: StaffMember[]; vehicles: { type: VehicleKey; n: number }[]; crewed: true } {
+  const staff: StaffMember[] = []
+  for (let i = 0; i < f.n; i++) staff.push(...expandStaff(pack, f.crew))
+  if (f.attach) staff.push(...expandStaff(pack, f.attach))
+  return { staff, vehicles: [{ type: f.air, n: f.n }], crewed: true }
+}
+
+const PLT_ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th'] as const
 // --- battalion templates ----------------------------------------------------
-// A slot spec inside a company: either a fieldable game unit type, or a
-// hand-rostered staff/aviation element.
+// A slot spec inside a company: a fieldable game unit type, or a hand-rostered
+// staff/aviation element. Produced from the PACK'S template — never written
+// here.
 type SlotSpec =
   | { name: string; type: UnitTypeKey }
   | { name: string; staff: StaffMember[]; vehicles?: { type: VehicleKey; n: number }[]; crewed?: boolean }
 interface CoSpec { co: string; slots: SlotSpec[] }
 
-const plts = (type: UnitTypeKey, n = 3): SlotSpec[] =>
-  Array.from({ length: n }, (_, i) => ({ name: `${['1st', '2nd', '3rd', '4th'][i]} PLT`, type }))
-
-function bnTemplate(kind: BnKind): CoSpec[] {
-  switch (kind) {
-    // A COMBINED ARMS BATTALION is exactly what it says: tank companies and
-    // mechanized infantry companies under ONE commander. The ABCT builds them
-    // 'double-double' — two armor, two mech — precisely so the battalion can
-    // cross-attach into company teams without asking brigade for anything.
-    // (A pure tank battalion is the ARMOR kind; no ABCT fields one.)
-    case 'CAB': return [
-      { co: 'HHC', slots: [
-        { name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF },
-        { name: 'SCT PLT', type: 'SCT' }, { name: 'MORT PLT', type: 'MOR' },
-        // the battalion aid station: fieldable as a MED detachment (P2.5 v2 —
-        // it mans the HQ AID facility while garrisoned, treats forward when out)
-        { name: 'MED PLT', type: 'MED' },
-      ] },
-      { co: 'A CO', slots: plts('ARM') },
-      { co: 'B CO', slots: plts('ARM') },
-      { co: 'C CO', slots: plts('MECH') },
-      { co: 'D CO', slots: plts('MECH') },
-    ]
-    case 'ARMOR': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: plts('ARM') },
-      { co: 'B CO', slots: plts('ARM') },
-      { co: 'C CO', slots: plts('ARM') },
-    ]
-    case 'RECON': return [
-      { co: 'HHT', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'SQDN STAFF', staff: BN_STAFF }] },
-      { co: 'A TRP', slots: plts('CAV') },
-      { co: 'B TRP', slots: plts('CAV') },
-      { co: 'C TRP', slots: plts('CAV') },
-    ]
-    case 'FA': return [
-      { co: 'HHB', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A BTRY', slots: [{ name: 'FIRING BTRY', type: 'ARTY' }] },
-      { co: 'B BTRY', slots: [{ name: 'FIRING BTRY', type: 'ARTY' }] },
-      { co: 'C BTRY', slots: [{ name: 'FIRING BTRY', type: 'ARTY' }] },
-    ]
-    // The BRIGADE ENGINEER BATTALION is not only engineers: the ABCT's organic
-    // signal and military-intelligence companies live here too, which is where
-    // a brigade's own network and collection actually come from. (The MI
-    // company is absent until there is a unit type with something to do —
-    // collection/EW is unbuilt; see the pack's S6 note.)
-    case 'BEB': return [
-      { co: 'HSC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: plts('ENG') },
-      { co: 'B CO', slots: plts('ENG') },
-      { co: 'C CO', slots: [
-        { name: '1st PLT', type: 'SIG' }, { name: '2nd PLT', type: 'SIG' },
-        { name: 'NETOPS', staff: netOps() },
-      ] },
-    ]
-    case 'BSB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: plts('LOG') },
-      { co: 'B CO', slots: [{ name: 'MAINT PLT', staff: maintPlt() }, { name: 'RECOVERY PLT', staff: maintPlt() }] },
-      { co: 'C CO', slots: [{ name: 'MED PLT', staff: medPlt() }, { name: 'TREATMENT PLT', staff: medPlt() }] },
-    ]
-    case 'SIG': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }] },
-      { co: 'A CO', slots: [{ name: '1st PLT', type: 'SIG' }, { name: '2nd PLT', type: 'SIG' }] },
-      { co: 'B CO', slots: [{ name: 'NETOPS', staff: netOps() }] },
-    ]
-    case 'ARB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: [{ name: 'FLT 1', ...flight('AH64', 4, 1) }, { name: 'FLT 2', ...flight('AH64', 4, 1) }] },
-      { co: 'B CO', slots: [{ name: 'FLT 1', ...flight('AH64', 4, 1) }, { name: 'FLT 2', ...flight('AH64', 4, 1) }] },
-      { co: 'C CO', slots: [{ name: 'FLT 1', ...flight('AH64', 4, 1) }] },
-    ]
-    case 'AHB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: [{ name: 'FLT 1', ...flight('UH60', 4, 2) }, { name: 'FLT 2', ...flight('UH60', 4, 2) }] },
-      { co: 'B CO', slots: [{ name: 'FLT 1', ...flight('UH60', 4, 2) }, { name: 'FLT 2', ...flight('UH60', 4, 2) }] },
-    ]
-    case 'GSAB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: [{ name: 'HVY LIFT FLT', ...flight('CH47', 4, 2) }] },
-      { co: 'C CO', slots: [{ name: 'MEDEVAC FLT', ...flight('UH60', 4, 1, 4) }] },
-    ]
-    case 'ASB': return [
-      { co: 'HSC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: [{ name: 'AVIM PLT', staff: maintPlt() }, { name: 'COMPONENT PLT', staff: maintPlt() }] },
-    ]
-    case 'CSSB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-      { co: 'A CO', slots: plts('LOG') },
-      { co: 'B CO', slots: [{ name: 'SUPPLY PLT', staff: maintPlt() }] },
-    ]
-    case 'HHBN': return [
-      { co: 'DIV CMD GRP', slots: [{ name: 'COMMAND GROUP', staff: DIV_CMD_GRP }] },
-      { co: 'DIV STAFF', slots: [
-        { name: 'G1 SECTION', staff: gSection('G1', 'Personnel') },
-        { name: 'G2 SECTION', staff: gSection('G2', 'Intelligence') },
-        { name: 'G3 SECTION', staff: gSection('G3', 'Operations') },
-        { name: 'G4 SECTION', staff: gSection('G4', 'Logistics') },
-        { name: 'G6 SECTION', staff: gSection('G6', 'Signal') },
-      ] },
-    ]
-    case 'HHB-DIVARTY': return [
-      { co: 'HHB', slots: [
-        { name: 'CMD GRP', staff: [{ kind: 'STAFF', pos: 'DIVARTY Commander', rank: 'COL' }, ...BN_CMD_GRP.slice(1)] },
-        { name: 'FIRES CELL', staff: BN_STAFF },
-      ] },
-    ]
-    case 'STB': return [
-      { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
-    ]
-  }
+/** The pack's template for a battalion of this kind, expanded to slots. Throws
+ *  on a kind the pack does not ship — a battalion that names a template nobody
+ *  wrote is a content error, and a silent empty battalion would hide it. */
+function bnTemplate(pack: Pack, kind: BnKind): CoSpec[] {
+  const plan = pack.bnKinds?.[kind]
+  if (!plan) throw new Error(`pack '${pack.id}': no battalion kind named '${kind}'`)
+  return plan.companies.map(co => {
+    const slots: SlotSpec[] = []
+    // the platoon shorthand first: n numbered platoons of one type
+    if (co.plts) {
+      for (let i = 0; i < (co.plts.n ?? 3); i++) {
+        slots.push({ name: `${PLT_ORD[i] ?? `${i + 1}th`} PLT`, type: co.plts.type })
+      }
+    }
+    for (const s of co.slots ?? []) {
+      if (s.type) slots.push({ name: s.name, type: s.type })
+      else if (s.flight) slots.push({ name: s.name, ...expandFlight(pack, s.flight) })
+      else if (s.roster) slots.push({ name: s.name, staff: expandStaff(pack, s.roster) })
+      else throw new Error(`pack '${pack.id}': slot '${co.co}/${s.name}' in '${kind}' has no type, roster or flight`)
+    }
+    return { co: co.co, slots }
+  })
 }
+
 
 // --- builder ----------------------------------------------------------------
 function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotId: string, side: 'friend' | 'hostile'):
@@ -255,7 +121,7 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
 
   const addBn = (bde: string, bn: BnPlan, from?: string) => {
     const allTf = bn.desig === chair
-    for (const co of bnTemplate(bn.kind)) {
+    for (const co of bnTemplate(pack, bn.kind)) {
       const tf = allTf || (bn.tfCos ?? []).includes(co.co)
       for (const spec of co.slots) {
         const id = `${bn.desig}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
@@ -302,7 +168,10 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
       if (!hhc) { hhc = { co: 'HHC', slots: [] }; entry.cos.push(hhc) }
       hhc.slots.push({ name: slot.hhcName ?? 'SCT PLT', type: type as UnitTypeKey })
     } else {
-      entry.cos.push({ co: 'A CO', slots: plts(type as UnitTypeKey) })
+      entry.cos.push({
+        co: 'A CO',
+        slots: PLT_ORD.slice(0, 3).map(o => ({ name: `${o} PLT`, type: type as UnitTypeKey })),
+      })
     }
   }
   for (const [bn, e] of attBns) {

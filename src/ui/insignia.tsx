@@ -102,19 +102,12 @@ const BRANCH: Record<string, { field: string; chief: string; charge: string }> =
   in: { field: '#5b84b1', chief: '#e8e4da', charge: 'muskets' },   // infantry blue
   hq: { field: '#3c6e6e', chief: '#c8a83c', charge: 'star' },      // division troops
 }
-// pack BnKind → branch key
-export const bnBranch = (kind?: string): string => {
-  switch (kind) {
-    case 'CAB': case 'ARMOR': case 'RECON': return 'cav'
-    case 'FA': case 'HHB-DIVARTY': return 'fa'
-    case 'BEB': return 'en'
-    case 'SIG': return 'sig'
-    case 'ARB': case 'AHB': case 'GSAB': case 'ASB': return 'av'
-    case 'BSB': case 'CSSB': case 'STB': return 'sus'
-    case 'HHBN': return 'hq'
-    default: return 'in'
-  }
-}
+// A battalion kind's BRANCH — from the kind's own entry in the pack, because
+// which branch a cavalry squadron belongs to is a fact about that army, not
+// about this game. Unknown/absent falls back to infantry, which is what every
+// soldier is before they are anything else.
+export const bnBranch = (kind?: string, pack: Pack = playerPack()): string =>
+  (kind ? pack.bnKinds?.[kind]?.branch : undefined) ?? 'in'
 
 function crestCharge(kind: string, ink: string): ReactNode {
   const sw = { stroke: ink, strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' as const }

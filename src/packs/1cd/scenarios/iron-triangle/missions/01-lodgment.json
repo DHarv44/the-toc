@@ -326,7 +326,7 @@
               { "kind": "not", "of": { "kind": "callup-co", "cat": "ENGINEER" } }
             ] },
             "text": "ATTACHED, NOT ORGANIC — the engineers are not yours. They belong to the brigade engineer battalion and are attached to you for this operation, so they hang off THEIR company, not one of yours.",
-            "action": "CLICK the A CO · 91 BEB row.",
+            "action": "CLICK the A CO · 91 EN BN row.",
             "anchor": { "kind": "ui", "sel": "callup-co-ENGINEER-A CO" } },
           { "when": { "kind": "not", "of": { "kind": "fielded", "type": "ENG", "min": 1 } },
             "text": "ENGINEERS FIRST — the engineer platoon does the building. Nothing goes up without them.",
@@ -337,9 +337,9 @@
             "action": "OPEN SUSTAINMENT in the garrison list.",
             "anchor": { "kind": "ui", "sel": "callup-cat-SUSTAINMENT" } },
           { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "SUSTAINMENT" } },
-            "text": "THE BSB HAULS IT — distribution is a brigade job. Your own headquarters company keeps the medics; the trucks belong to the brigade support battalion.",
-            "action": "CLICK the A CO · 115 BSB row.",
-            "anchor": { "kind": "ui", "sel": "callup-co-SUSTAINMENT-A CO" } },
+            "text": "YOUR OWN FORWARD SUPPORT COMPANY — the FSC belongs to the brigade support battalion on paper, but it is attached to this battalion for good. Its trucks are the reason you can fight without asking brigade for every gallon of fuel.",
+            "action": "CLICK the FSC · 115 BSB row.",
+            "anchor": { "kind": "ui", "sel": "callup-co-SUSTAINMENT-FSC" } },
           { "text": "NOW THE TRUCKS — the logistics platoon hauls the stores forward and keeps the FOB stocked.",
             "action": "CLICK the LOG PLT row.",
             "anchor": { "kind": "ui", "sel": "field-LOG" } }
