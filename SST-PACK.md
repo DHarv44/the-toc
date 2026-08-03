@@ -137,8 +137,9 @@ variant. IDENTITY tab covers name/abbr/nick/motto/patch/inherits/cats/
 startForce. Saving reformats the whole file — the middleware re-serializes.
 
 **Tabs today:** IDENTITY · ECHELON · UNITS · VEHICLES · WEAPONS · AIR ·
-FORMATION · NAMES · **TROOPS** · **COMPS** · ASSETS · **CONTENT**. Editable:
-IDENTITY, TROOPS, COMPS, and model assignment. The rest only display.
+FORMATION · NAMES · **TROOPS** · **COMPS** · **ORG** · ASSETS · **CONTENT**.
+Editable: IDENTITY, TROOPS, COMPS, ORG, and model assignment. The rest only
+display.
 
 CONTENT lists a pack's maps and scenarios and HANDS OFF to the MAP EDITOR /
 SCENARIO BUILDER — it does not reimplement them. It marks borrowed ground
@@ -158,9 +159,10 @@ source badge must read the same on every tab.
 MI the MI (its Third Lieutenant is `ranks`, its company is `bnKinds`, its
 S1/R1/G1 are `staff`):
 - catalogs: `expendables`, `facilities`
-- organisation: `rosters`, `bnKinds`, `billets`, `organic`, `attached`
-  — the heaviest, and the one that would let a formation be authored rather
-  than hand-written; ORG is the next real tab
+- organisation: `billets`, `organic`, `attached`
+  (`rosters` and `bnKinds` are DONE — the ORG tab, 44488a4. A template's
+  company rung is now toggleable in the UI rather than implicit in whether a
+  JSON key is present.)
 - character: `ranks`, `awards`, `callsigns`, `net`, `reports`, `staff`,
   `mottos`, `nicks`, `audio`
 - content: maps and scenarios
