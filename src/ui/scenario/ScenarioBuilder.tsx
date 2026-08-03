@@ -7,7 +7,7 @@
 // scenario.json through the dev route; discovery picks it up like maps.
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
+import { Box, Button, Group, SegmentedControl, Select, Text, TextInput } from '@mantine/core'
 import { installedPacks, PACKS } from '../../packs'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios } from '../../packs/scenario-files'
@@ -28,6 +28,7 @@ import { MapButton, MapControlStack } from '../MapControls'
 import SheetCanvas, { type SheetHandle } from './SheetCanvas'
 import Palette, { type Armed } from './Palette'
 import Inspector from './Inspector'
+import ScriptPanel, { emptyScript, type ScriptState } from './ScriptPanel'
 
 const MONO = 'Consolas, monospace'
 const slugify = (s: string) =>
@@ -48,6 +49,8 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
   const [side, setSide] = useState<ScenarioSide>('friend')
   const [armed, setArmed] = useState<Armed>(null)
   const [ed, setEd] = useState<EditorState>(emptyEditor)
+  const [script, setScript] = useState<ScriptState>(emptyScript)
+  const [rail, setRail] = useState<'inspect' | 'script'>('inspect')
   const [world, setWorld] = useState<{ map: WorldMap; ground: Ground } | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -71,6 +74,16 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
       .filter((t): t is { id: number; pts: { x: number; y: number }[] } => t.pts != null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, fobKey])
+
+  // what a script place param can name: authored places first, then the map's
+  // real gazetteer (OSM towns/features), then the builtin anchors
+  const placeNames = useMemo(() => {
+    const authored = ed.entities.filter(e => e.ent === 'place').map(e => e.name)
+    const gaz = world
+      ? [...world.map.towns.map(t => t.name), ...world.map.features.map(f => f.name)]
+      : []
+    return [...new Set([...authored, ...gaz, 'player-hq', 'enemy-base'])]
+  }, [ed.entities, world])
 
   // load the picked map's ground — the sheet and the snapping surface
   useEffect(() => {
@@ -143,6 +156,12 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     setName(entry.name.toUpperCase())
     setMode(entry.spec.mode ?? 'attack-defend')
     setMapRef(entry.spec.map)
+    setScript({
+      brief: entry.spec.brief,
+      objectives: entry.spec.objectives ?? [],
+      triggers: entry.spec.triggers ?? [],
+      tutorial: entry.spec.tutorial,
+    })
     // entities need the ground for norm→world; defer until the map loads
     const [p, m] = entry.spec.map.split('/') as [string, string]
     const mapEntry = packMaps(p).find(e => e.mapId === m)
@@ -159,7 +178,13 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     setBusy(true); setMsg(null)
     try {
       const spec = specFromEntities(
-        { name: name.trim() || id, map: mapRef, mode, sides: sidePacks },
+        {
+          name: name.trim() || id, map: mapRef, mode, sides: sidePacks,
+          ...(script.brief ? { brief: script.brief } : {}),
+          ...(script.objectives.length ? { objectives: script.objectives } : {}),
+          ...(script.triggers.length ? { triggers: script.triggers } : {}),
+          ...(script.tutorial ? { tutorial: script.tutorial } : {}),
+        },
         ed.entities, world.ground,
       )
       await saveScenario(ownerPack, id, spec)
@@ -248,9 +273,25 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
             </Box>
           )}
         </Box>
-        <Inspector e={selected(ed)}
-          onPatch={patch => setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))}
-          onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
+        <Box w={rail === 'script' ? 340 : 230}
+          style={{ borderLeft: '1px solid #22303d', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <Box p={6} pb={0}>
+            <SegmentedControl fullWidth size="xs" value={rail}
+              onChange={v => setRail(v as 'inspect' | 'script')}
+              data={[
+                { value: 'inspect', label: 'INSPECTOR' },
+                { value: 'script', label: 'SCRIPT' },
+              ]} />
+          </Box>
+          {rail === 'inspect' ? (
+            <Inspector e={selected(ed)}
+              onPatch={patch => setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))}
+              onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
+          ) : (
+            <ScriptPanel script={script} placeNames={placeNames}
+              onChange={patch => setScript(s => ({ ...s, ...patch }))} />
+          )}
+        </Box>
       </Box>
     </Box>
   )
