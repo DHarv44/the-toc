@@ -14,11 +14,12 @@
 //             one would silently rearm somebody else's army.
 //   inherited nothing authored — say where it comes from, and offer to take
 //             ownership by copying the resolved table in.
-import { Badge, Box, Button, Group, MultiSelect, Text, TextInput } from '@mantine/core'
+import { Box, Button, Group, MultiSelect, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { libraryIds } from '../packs'
 import type { Pack } from '../packs/types'
 import { catalogForm, catalogLibrary, type ManifestEditor } from './usePackManifest'
+import { SaveBar, SourceBadge, SUBSET_NOTE } from './packEdit'
 
 const MONO = 'Consolas, monospace'
 
@@ -38,26 +39,11 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
   const weaponOpts = Object.keys(p.catalogs?.weapons ?? {})
   const expendOpts = Object.keys(p.catalogs?.expendables ?? {})
 
-  const SaveBar = () => (
-    <Group gap={10} mt="lg" pt={12} style={{ borderTop: '1px solid #22303d' }}>
-      <Button size="xs" variant={ed.dirty ? 'filled' : 'default'}
-        disabled={!ed.dirty || ed.busy} onClick={() => void ed.save()}>
-        {ed.busy ? 'SAVING…' : 'SAVE TO pack.json'}
-      </Button>
-      {ed.msg && <Text fz={10} c={ed.msg.startsWith('FAILED') ? '#e8524a' : '#7ec87e'}>{ed.msg}</Text>}
-    </Group>
-  )
-
   // --- inherited: nothing authored -----------------------------------------
   if (form === 'inherited') {
     return (
       <Box maw={700}>
-        <Group gap={8} mb={6}>
-          <Badge size="sm" variant="outline" color="yellow">INHERITED</Badge>
-          <Text fz={11} c="#9ab8d0">
-            {lib ? `from the '${lib}' library` : `from ${p.inherits ?? 'the canonical pack'}`}
-          </Text>
-        </Group>
+        <SourceBadge form={form} lib={lib} p={p} />
         <Text fz={10} c="dark.3" mb={12} maw={560}>
           This pack authors no troop kinds of its own, so it fields somebody else's —
           {' '}{Object.keys(p.catalogs?.troops ?? {}).length} of them. Taking ownership copies
@@ -68,7 +54,7 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           onClick={() => setTroops({ ...(p.catalogs?.troops ?? {}) })}>
           AUTHOR OWN TABLE ({Object.keys(p.catalogs?.troops ?? {}).length} KINDS)
         </Button>
-        <SaveBar />
+        <SaveBar ed={ed} />
       </Box>
     )
   }
@@ -76,22 +62,14 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
   // --- subset: choose which library entries this pack fields ---------------
   if (form === 'subset') {
     const chosen = (cat.troops as string[]) ?? []
-    const available = libraryIds(lib, 'troops')
     return (
       <Box maw={700}>
-        <Group gap={8} mb={6}>
-          <Badge size="sm" variant="outline" color="blue">SUBSET</Badge>
-          <Text fz={11} c="#9ab8d0">of the '{lib}' library</Text>
-        </Group>
-        <Text fz={10} c="dark.3" mb={12} maw={560}>
-          This pack picks which library entries it fields. The entries themselves belong to
-          the library and are shared by reference with every pack that draws on it, so they
-          cannot be edited here — changing one would rearm somebody else's army.
-        </Text>
-        <MultiSelect size="xs" data={available} value={chosen} searchable
+        <SourceBadge form={form} lib={lib} p={p} />
+        <Text fz={10} c="dark.3" mb={12} maw={560}>{SUBSET_NOTE}</Text>
+        <MultiSelect size="xs" data={libraryIds(lib, 'troops')} value={chosen} searchable
           label="KINDS THIS PACK FIELDS" styles={{ input: { fontFamily: MONO } }}
           onChange={v => setTroops(v.length ? v : undefined)} />
-        <SaveBar />
+        <SaveBar ed={ed} />
       </Box>
     )
   }
@@ -114,10 +92,7 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
 
   return (
     <Box maw={860}>
-      <Group gap={8} mb={10}>
-        <Badge size="sm" variant="outline" color="green">OWN TABLE</Badge>
-        <Text fz={11} c="#9ab8d0">{keys.length} KIND{keys.length === 1 ? '' : 'S'}</Text>
-      </Group>
+      <SourceBadge form={form} p={p} count={keys.length} />
 
       {keys.length === 0 && (
         <Text fz={10} c="dark.3" mb={10}>
@@ -168,7 +143,7 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
         </Text>
       </Group>
 
-      <SaveBar />
+      <SaveBar ed={ed} />
     </Box>
   )
 }

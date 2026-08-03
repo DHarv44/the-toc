@@ -17,6 +17,7 @@ import { allPacks, type Pack } from '../packs'
 import PackLibrary from './PackLibrary'
 import PackIdentity from './PackIdentity'
 import PackTroops from './PackTroops'
+import PackComps from './PackComps'
 import { usePackManifest } from './usePackManifest'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
@@ -38,7 +39,7 @@ const BAD_C = '#e8524a'
 // a builder-only thing (see EchelonTree).
 // The pack's own content views. MODELS is NOT here — art is a section of the
 // builder in its own right (left nav), not one more table about the pack.
-const BUILDER_TABS = ['IDENTITY', 'ECHELON', ...PACK_TABS, 'TROOPS', 'ASSETS'] as const
+const BUILDER_TABS = ['IDENTITY', 'ECHELON', ...PACK_TABS, 'TROOPS', 'COMPS', 'ASSETS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
 
 // ---------------------------------------------------------------------------
@@ -686,6 +687,7 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
                 <Box mt="md">
                   {tab === 'IDENTITY' ? <PackIdentity p={p} ed={ed} />
                     : tab === 'TROOPS' ? <PackTroops p={p} ed={ed} />
+                    : tab === 'COMPS' ? <PackComps p={p} ed={ed} />
                     : tab === 'ECHELON' ? <EchelonTree p={p} />
                     : tab === 'ASSETS' ? <AssetsTable p={p} />
                       : (

@@ -7,8 +7,22 @@
   "inherits": "1cd",
   "catalogs": {
     "extends": "us-platforms",
-    "units": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"],
-    "comps": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"]
+    "units": [
+      "INF",
+      "MECH",
+      "ARM",
+      "AT",
+      "CAV",
+      "ARTY"
+    ],
+    "comps": [
+      "INF",
+      "MECH",
+      "ARM",
+      "AT",
+      "CAV",
+      "ARTY"
+    ]
   },
   "_callsigns_doc": "The opposition is COUNTED, not named — E01, E02. That is the COP's own convention for a force whose designations we do not know, and it is why hostile tracks never read like friendly ones.",
   "callsigns": {
