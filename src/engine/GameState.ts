@@ -103,10 +103,17 @@ export interface Soldier {
   name?: string              // "MARCUS DELACRUZ" — player-renamable from the troop card
   rank?: string              // "SGT" (pack rank table)
   pos?: string               // billet: "Team Leader", "Gunner", "Platoon Medic"…
-  // the SUB-ELEMENT inside the slot — 'S3 SEC', 'FS ELEMENT'. The rung between
-  // an element and its people, where one exists; absent means the person hangs
-  // directly off the element (a command group has nothing under it).
+  // THE CHAIN OF COMMAND this soldier stands in, two rungs below their element:
+  // `sec` is the sub-element ('1ST SQD', 'S3 SEC', 'MOUNTED SEC'), `team` the
+  // one below it ('ALPHA TM', '2ND CREW'). Assigned with the billet
+  // (packs/personnel.ts) so the two always agree. Absent = the person hangs
+  // directly off the element, because there is genuinely nothing in between.
+  //
+  // NOTE this is INDEPENDENT of `vehId`. What a soldier rides in is a vehicle
+  // assignment, not a place in the org — the two must never be derived from
+  // each other.
   sec?: string
+  team?: string
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
   pid?: string               // stable personnel identity (portrait seed) — survives fielding
   wound?: Wound              // current (or last) injury report

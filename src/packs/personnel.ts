@@ -99,6 +99,63 @@ export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hosti
   s.pid = `${seedKey}:${s.id}`
 }
 
+// --- chain of command ------------------------------------------------------
+// THE PLATOON'S ELEMENTS. A platoon is not a bag of people to be sorted by
+// what they are riding in — it is a HQ and its squads, and squads are fire
+// teams. Who rides in which track is a SEPARATE assignment laid on top of
+// that structure and changes nothing about it: the S1 does not care what
+// vehicle a soldier is on, and neither does this.
+//
+// Assigned here, beside the billets, because the two must agree by
+// construction — the soldier who is the Platoon Sergeant is the soldier in
+// PLT HQ. Every consumer (the roster tree, PERSTAT, anything later) reads
+// `sec`/`team` and derives nothing of its own.
+const ORD = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'] as const
+
+function assignElements(soldiers: Soldier[], vehicles: Unit['vehicles']): void {
+  const crews = vehicles.map(v => soldiers.filter(s => s.vehId === v.id))
+  const dis = soldiers.filter(s => s.vehId == null)
+  const sqLeaders = dis.filter(s => s.pos === 'Squad Leader')
+
+  // MOUNTED: a crew is the smallest real element and it has a name of its own.
+  // Crews pair into SECTIONS when they are the whole platoon (a tank platoon
+  // fights as two sections of two); when there are dismounts to carry, the
+  // crews are the platoon's mounted element under the PSG.
+  const crewOnly = !sqLeaders.length
+  crews.forEach((crew, i) => {
+    for (const s of crew) {
+      s.sec = crewOnly && crews.length > 2 ? `${ORD[Math.floor(i / 2)]} SEC` : 'MOUNTED SEC'
+      s.team = `${ORD[i]} CREW`
+    }
+  })
+
+  // DISMOUNTED: PLT HQ takes the platoon leadership and the medic; every squad
+  // leader takes a squad, split into its two fire teams. A body of troops with
+  // no squad leadership (a mortar section, a signal team) is ONE element and
+  // gets no invented rungs — its people hang off it directly.
+  if (!sqLeaders.length) return
+  const hq = dis.filter(s =>
+    s.pos === 'Platoon Leader' || s.pos === 'Platoon Sergeant' || s.pos === 'Platoon Medic')
+  for (const s of hq) s.sec = 'PLT HQ'
+  // squads are DEALT ROUND-ROBIN, not sliced. The roster is listed in casualty
+  // order (like kinds together), so slicing it hands one squad every rifleman
+  // and another every Javelin — squads that could not fight. Dealing gives each
+  // one the same mix, which is what cross-loading a platoon actually looks like.
+  const squads: Soldier[][] = sqLeaders.map(() => [])
+  dis.filter(s => !hq.includes(s) && !sqLeaders.includes(s))
+    .forEach((s, k) => squads[k % squads.length]!.push(s))
+  sqLeaders.forEach((sl, i) => {
+    const sqd = `${ORD[i]} SQD`
+    sl.sec = sqd                      // the SL leads the squad; he is in neither team
+    const members = squads[i]!
+    const half = Math.ceil(members.length / 2)
+    members.forEach((s, k) => {
+      s.sec = sqd
+      s.team = k < half ? 'ALPHA TM' : 'BRAVO TM'
+    })
+  })
+}
+
 // Names + billets for a composition-built roster, seeded by any stable key —
 // units pass their id, division-org slots pass the slot path (so a platoon
 // keeps its exact people whether garrisoned or fielded).
@@ -142,6 +199,8 @@ export function namePersonnel(
     pl.pos = 'Platoon Leader'; pl.rank = pick(['2LT', '2LT', '1LT'], hashStr(`${seedKey}:pl`))
     psg.pos = 'Platoon Sergeant'; psg.rank = 'SFC'
   }
+
+  assignElements(soldiers, vehicles)
 
   // EXPLICIT pins (Pack.people): a pack can put a real person on a billet —
   // keyed '<seedKey>/<pos>' — and generation fills everything it doesn't pin

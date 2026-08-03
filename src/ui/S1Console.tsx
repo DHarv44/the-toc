@@ -9,8 +9,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Badge, Box, Button, Group, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
 import { useUI } from './store'
-import { VEHICLES, TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
-import type { OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
+import { TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
+import type { OrgSlot, Soldier } from '../engine/GameState'
 import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { openReport, queueReport, unreadReports } from '../engine/campaign'
@@ -51,45 +51,51 @@ function aggSum(list: Agg[]): Agg {
   return a
 }
 
-// --- sub-element derivation ------------------------------------------------
-// THE RUNG BELOW AN ELEMENT, when there is one. Three cases, in order:
-//
-//   1. The roster SAYS so (Soldier.sec) — staff sections, the fire support
-//      element. Authored structure always wins over anything derived.
-//   2. Rifle platoons — no formal squad assignment exists yet (that lands with
-//      the task-org pass), so derive it deterministically from the billets:
-//      PL/PSG/medic make the PLT HQ, each Squad Leader takes an even slice.
-//   3. Everyone else — NOTHING. An element whose only sub-element would be
-//      itself does not get one: a command group IS its five people, and a rung
-//      that repeats its parent's name, count and leader tells you nothing.
-interface SquadNode { label: string; leader: Soldier | null; members: Soldier[] }
-function deriveSquads(soldiers: Soldier[]): SquadNode[] {
-  const dis = soldiers.filter(s => s.vehId == null)
-  if (!dis.length) return []
-  // 1 — authored sections, in first-appearance order
-  if (dis.some(s => s.sec)) {
-    const out: SquadNode[] = []
-    for (const s of dis) {
-      const label = s.sec ?? 'SECTION'
-      const node = out.find(n => n.label === label)
-      if (node) node.members.push(s)
-      else out.push({ label, leader: s, members: [s] })
-    }
-    return out
+// --- sub-elements ----------------------------------------------------------
+// THE CHAIN OF COMMAND, read straight off the roster (Soldier.sec / .team,
+// assigned with the billets in packs/personnel.ts). Nothing is derived here
+// and nothing is grouped by vehicle: this is the S1's view, and the S1 does
+// not care what a soldier is riding in. An element with no sub-elements shows
+// its people directly — a rung that repeats its parent tells you nothing.
+interface ElemNode { label: string; leader: Soldier | null; members: Soldier[]; kids: ElemNode[] }
+
+function groupBy(soldiers: Soldier[], key: (s: Soldier) => string | undefined): ElemNode[] {
+  const out: ElemNode[] = []
+  for (const s of soldiers) {
+    const label = key(s)
+    if (!label) continue
+    const node = out.find(n => n.label === label)
+    if (node) node.members.push(s)
+    else out.push({ label, leader: s, members: [s], kids: [] })
   }
-  // 2 — derived rifle squads
-  const hq = dis.filter(s => s.pos === 'Platoon Leader' || s.pos === 'Platoon Sergeant' || s.pos === 'Platoon Medic')
-  const sls = dis.filter(s => s.pos === 'Squad Leader')
-  const rest = dis.filter(s => !hq.includes(s) && !sls.includes(s))
-  if (!sls.length) return []   // 3 — no squads to speak of; the people ARE the element
-  const out: SquadNode[] = []
-  if (hq.length) out.push({ label: 'PLT HQ', leader: hq.find(s => s.pos === 'Platoon Leader') ?? hq[0]!, members: hq })
-  const per = Math.ceil(rest.length / sls.length)
-  sls.forEach((sl, i) => {
-    const slice = rest.slice(i * per, (i + 1) * per)
-    out.push({ label: `${i + 1}${['ST', 'ND', 'RD'][i] ?? 'TH'} SQD`, leader: sl, members: [sl, ...slice] })
-  })
   return out
+}
+
+// the person who ANSWERS for an element — the senior billet in it, by the
+// order billets are handed out (leadership first in every roster)
+const RANKED = ['Platoon Leader', 'Platoon Sergeant', 'Squad Leader']
+const leaderOf = (ss: Soldier[]): Soldier =>
+  RANKED.map(p => ss.find(s => s.pos === p)).find(Boolean) ?? ss[0]!
+
+// A roster is built in CASUALTY order, which is not reading order: the command
+// element is listed last because it falls last. On paper the HQ leads, its
+// squads follow in number, and the mounted element brings up the rear.
+const ELEM_ORDER = (label: string): number =>
+  label.endsWith('HQ') ? 0 : label.includes('MOUNTED') ? 2 : 1
+
+function elementsOf(soldiers: Soldier[]): ElemNode[] {
+  const secs = groupBy(soldiers, s => s.sec)
+    .sort((a, b) => ELEM_ORDER(a.label) - ELEM_ORDER(b.label) || a.label.localeCompare(b.label))
+  for (const sec of secs) {
+    sec.leader = leaderOf(sec.members)
+    const teams = groupBy(sec.members, s => s.team)
+    // one team covering the whole section is the section — not a rung
+    if (teams.length > 1) {
+      sec.kids = teams
+      for (const t of teams) t.leader = leaderOf(t.members)
+    }
+  }
+  return secs
 }
 
 // --- loadout chips ---------------------------------------------------------
@@ -233,49 +239,45 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
 }
 
 // --- slot roster (vehicles + squads) ----------------------------------------
+function ElemRows({ nodes, keyBase, depth, open, toggle }: {
+  nodes: ElemNode[]; keyBase: string; depth: number; open: Set<string>; toggle: (k: string) => void
+}) {
+  return (
+    <>
+      {nodes.map(n => {
+        const k = `${keyBase}:${n.label}`
+        const a = zero(); aggSoldiers(a, n.members)
+        return (
+          <div key={n.label}>
+            <NodeRow depth={depth} open={open.has(k)} onToggle={() => toggle(k)}
+              label={<Text span fz="sm" c="#b8cede">{n.label}</Text>}
+              leader={n.leader ? `${n.leader.rank} ${n.leader.name}` : undefined} a={a} />
+            {open.has(k) && <>
+              {/* the squad leader is in NEITHER fire team — he leads both, so
+                  he stands above them rather than being dropped */}
+              {n.members.filter(s => !n.kids.some(t => t.members.includes(s)))
+                .map(s => <SoldierRow key={s.id} s={s} depth={depth + 1} />)}
+              {n.kids.length > 0 &&
+                <ElemRows nodes={n.kids} keyBase={k} depth={depth + 1} open={open} toggle={toggle} />}
+            </>}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 function SlotRoster({ sl, depth, open, toggle }: {
   sl: OrgSlot; depth: number; open: Set<string>; toggle: (k: string) => void
 }) {
-  const squads = deriveSquads(sl.soldiers)
-  const grouped = new Set(squads.flatMap(sq => sq.members))
-  const loose = sl.soldiers.filter(s => s.vehId == null && !grouped.has(s))
+  const elems = elementsOf(sl.soldiers)
+  const placed = new Set(elems.flatMap(e => e.members))
+  const loose = sl.soldiers.filter(s => !placed.has(s))
   return (
     <>
-      {sl.vehicles.map((v: UnitVehicle) => {
-        const vKey = `v:${sl.id}:${v.id}`
-        const crew = sl.soldiers.filter(s => s.vehId === v.id)
-        const va = zero(); aggSoldiers(va, crew)
-        va.vTot = 1; va.vOk = v.status === 'OK' ? 1 : 0
-        const vc = crew[0]
-        return (
-          <div key={v.id}>
-            <NodeRow depth={depth} open={open.has(vKey)} onToggle={() => toggle(vKey)}
-              label={<Group gap={5} wrap="nowrap">
-                <Text span fz="sm" c={v.status === 'DESTROYED' ? COL.kia : v.status === 'DAMAGED' ? COL.wia : '#b8cede'}>
-                  {(VEHICLES[v.type]?.name ?? v.type).toUpperCase()} #{v.id}
-                  {v.status === 'DESTROYED' ? ' — DESTROYED' : v.status === 'DAMAGED' ? ' — DAMAGED (REPAIRABLE)' : ''}
-                </Text>
-                {VEHICLES[v.type]?.weapons.map(w => <Chip key={w} label={WPN_SHORT[w] ?? w} />)}
-              </Group>}
-              leader={vc ? `${vc.rank} ${vc.name}` : undefined} a={va} />
-            {open.has(vKey) && crew.map(s => <SoldierRow key={s.id} s={s} depth={depth + 1} />)}
-          </div>
-        )
-      })}
-      {squads.map(sq => {
-        const sqKey = `sq:${sl.id}:${sq.label}`
-        const sa = zero(); aggSoldiers(sa, sq.members)
-        return (
-          <div key={sq.label}>
-            <NodeRow depth={depth} open={open.has(sqKey)} onToggle={() => toggle(sqKey)}
-              label={<Text span fz="sm" c="#b8cede">{sq.label}</Text>}
-              leader={sq.leader ? `${sq.leader.rank} ${sq.leader.name}` : undefined} a={sa} />
-            {open.has(sqKey) && sq.members.map(s => <SoldierRow key={s.id} s={s} depth={depth + 1} />)}
-          </div>
-        )
-      })}
-      {/* people who belong to no sub-element and crew no vehicle hang straight
-          off the element — that IS the structure, not a missing rung */}
+      <ElemRows nodes={elems} keyBase={`e:${sl.id}`} depth={depth} open={open} toggle={toggle} />
+      {/* people with nothing between them and their element hang straight off
+          it — that IS the structure, not a missing rung */}
       {loose.map(s => <SoldierRow key={s.id} s={s} depth={depth} />)}
     </>
   )

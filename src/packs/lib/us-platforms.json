@@ -181,9 +181,9 @@
       "unit": "MECH",
       "vehicles": [{ "type": "BRADLEY", "n": 4 }],
       "dismounts": [
-        { "kind": "RIFLEMAN", "n": 6 }, { "kind": "RIFLEMAN_AT", "n": 4 },
+        { "kind": "RIFLEMAN", "n": 5 }, { "kind": "RIFLEMAN_AT", "n": 4 },
         { "kind": "AUTO_RIFLEMAN", "n": 4 }, { "kind": "MG_GUNNER", "n": 2 }, { "kind": "AT_GUNNER", "n": 3 },
-        { "kind": "MEDIC", "n": 1 }, { "kind": "LEADER", "n": 4 }
+        { "kind": "MEDIC", "n": 1 }, { "kind": "LEADER", "n": 5 }
       ]
     },
     "ARM": { "unit": "ARM", "vehicles": [{ "type": "ABRAMS", "n": 4 }], "dismounts": [] },
