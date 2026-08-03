@@ -119,11 +119,37 @@ verb needs one descriptor row, no bespoke UI.
 - Snapshot: save the current battlefield as a scenario (play god, freeze it
   into content) — decision pending on timing; forces the serializer early.
 
-### E4 — Campaign assembly + THE TEST                  [ ]
-- Assemble missions into a campaign: manifest (operation name, HQ/airfield
-  labels, div HQ, anchors, pre-allocations), mainline order, per-mission
-  briefs/FRAGOs. Campaign picker on the splash lists every installed pack's
-  campaigns (retires the first-campaign-only `activeCampaign()`).
+### E4 — Campaign assembly + THE TEST                  [~] spine shipped 2026-08-02
+
+**Settled tree (2026-08-02):** `PACK → campaigns/<id>/` = `campaign.json`
+(manifest: identity, THE map — a pack map ref, cross-pack allowed —, anchors,
+pre-allocations, mainline order, S4 side pool) + optional `opening.json` (the
+CAMPAIGN SCENARIO: H-hour entities for the whole arc — the campaign is
+continuous, so only this one moment places a world) + `missions/*.json`
+(script-heavy scenarios). Standalone `scenarios/` stay self-contained
+skirmishes. Main menu: CAMPAIGNS → choose → CONTINUE (needs the battlefield
+serializer — shared ground with Zeus snapshot) or NEW (difficulty).
+
+- [x] One content type end-to-end: MissionSpec and map.json DIED —
+  CampaignSpec.missions are ScenarioSpecs, the manifest owns the map,
+  `opening.json` supported and authoritative when shipped.
+- [x] `packs/campaigns.ts` discovery service + splash CAMPAIGNS picker
+  (every installed pack's campaigns; unauthored ground greyed and honest;
+  CONTINUE stub until the serializer). `setActiveCampaign` retires the
+  first-campaign-only assumption.
+- [x] `engine/applyScenario.ts` — THE apply path (opening, skirmish
+  scenarios, builder PLAY, Zeus): player-order verbs only, authored
+  gazetteer into `S.scenarioPlaces` (place resolver checks it), tagged
+  hostiles form battlegroups in place, H-HOUR INTEL per hostile
+  (known / suspected-with-scatter — the last-known marker is deliberately
+  off truth) seeds the COP.
+- [x] Legacy map-editor SCENARIO step rewritten as MAP DEFAULTS (sidecar
+  fallback bases only; the word scenario now means the one content type).
+- CONTINUE: the battlefield serializer (units/structures/contacts/org/
+  assets/rng position/CampaignState) — next big rock; one save slot per
+  campaign.
+- Builder campaign context: open a campaign → its opening scenario on the
+  sheet, mainline listed, missions editable in place.
 - **Rebuild IRON TRIANGLE**: real ground authored in the MAP EDITOR (the actual
   Chorwon valley, if the user wants the name to be true), M1 LODGMENT and M2
   LINES OF SUPPLY recreated in Eden against the real gazetteer, campaign
