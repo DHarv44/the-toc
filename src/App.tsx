@@ -54,37 +54,38 @@ export default function App() {
 
   // map building is async (the pack file is read and decoded) — the splash
   // stays up while buildGameMap resolves the MapRef into ground
-  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial, scenario) => {
+  const begin: StartFn = (req) => {
     void (async () => {
-      if (mode === 'dev') {
+      if (req.kind === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
         // first pack map installed (the splash greys the button when none are)
         const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
         if (!dev) throw new Error('no pack maps installed — author one in the MAP EDITOR')
         initDevGame(await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId }))
-      } else if (scenario) {
+      } else if (req.kind === 'scenario') {
         // an AUTHORED scenario ('packId/scenarioId') — its type IS the mode
         // (SCENARIO-MODEL.md): campaign-typed plays the campaign runner,
         // skirmish types run their ruleset over the authored situation
-        const [sp, sid] = scenario.split('/') as [string, string]
+        const [sp, sid] = req.scenario.split('/') as [string, string]
         const entry = packScenario(sp, sid)
-        if (!entry) throw new Error(`scenario '${scenario}' is not installed`)
-        if (!entry.spec.map) throw new Error(`scenario '${scenario}' has no authored ground`)
+        if (!entry) throw new Error(`scenario '${req.scenario}' is not installed`)
+        if (!entry.spec.map) throw new Error(`scenario '${req.scenario}' has no authored ground`)
         const [mp, mid] = entry.spec.map.split('/') as [string, string]
         const map = await buildGameMap({ kind: 'pack', packId: mp, mapId: mid })
         const isCampaign = entry.spec.type === 'campaign'
         if (isCampaign) {
           setActiveScenario(entry.spec)       // read by startCampaign
-          setCampaignTutorial(!!tutorial)
+          setCampaignTutorial(!!req.tutorial)
         }
-        // campaign rng is fixed (reproducible operation); skirmish rolls
-        initScenarioGame(map, entry.spec, isCampaign ? 1 : (Date.now() % 100000), difficulty)
+        // campaign rng is fixed (reproducible operation); skirmish rolls.
+        // The chair is the scenario's unless a skirmish player took another.
+        initScenarioGame(map, entry.spec, isCampaign ? 1 : (Date.now() % 100000),
+          req.difficulty, req.chair)
       } else {
         // QUICK BATTLE — a bare pack map under the picked ruleset, default staging
-        if (!terrain || !gameMode) throw new Error('quick battle needs a mode and a pack map')
-        const [packId, mapId] = terrain.split('/') as [string, string]
+        const [packId, mapId] = req.terrain.split('/') as [string, string]
         const map = await buildGameMap({ kind: 'pack', packId, mapId })
-        initGame(map, Date.now() % 100000, difficulty, gameMode)
+        initGame(map, Date.now() % 100000, req.difficulty, req.gameMode)
       }
       startLoop()
       setStarted(true)
