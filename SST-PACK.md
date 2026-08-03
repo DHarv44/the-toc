@@ -137,13 +137,23 @@ variant. IDENTITY tab covers name/abbr/nick/motto/patch/inherits/cats/
 startForce. Saving reformats the whole file — the middleware re-serializes.
 
 **Tabs today:** IDENTITY · ECHELON · UNITS · VEHICLES · WEAPONS · AIR ·
-FORMATION · NAMES · ASSETS. Only IDENTITY and model assignment are editable;
-the rest still only display.
+FORMATION · NAMES · **TROOPS** · **COMPS** · ASSETS. Editable: IDENTITY,
+TROOPS, COMPS, and model assignment. The rest still only display.
 
-**No tab at all** — the sharp bit, because it is most of what makes the MI
-the MI (its suits are `troops`, its Third Lieutenant is `ranks`, its company
-is `bnKinds`, its S1/R1/G1 are `staff`):
-- catalogs: `troops`, `expendables`, `facilities` (`comps` only summarised)
+TROOPS and COMPS respect the three authoring forms (`catalogForm`): OWN
+(edit it), SUBSET (pick which library ids — the entries are shared BY
+REFERENCE, so editing one would rearm another army), INHERITED (say where
+from, offer to take ownership). COMPS also flags when a unit type's declared
+`troops` disagrees with the sum of its dismounts — strength comes from the
+roster, so the declaration is the wrong one.
+
+Shared furniture in `ui/packEdit` (SaveBar, SourceBadge, SUBSET_NOTE) — the
+source badge must read the same on every tab.
+
+**No tab at all** — the sharp bit, because it is still most of what makes the
+MI the MI (its Third Lieutenant is `ranks`, its company is `bnKinds`, its
+S1/R1/G1 are `staff`):
+- catalogs: `expendables`, `facilities`
 - organisation: `rosters`, `bnKinds`, `billets`, `organic`, `attached`
 - character: `ranks`, `awards`, `callsigns`, `net`, `reports`, `staff`,
   `mottos`, `nicks`, `audio`
