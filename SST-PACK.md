@@ -137,8 +137,12 @@ variant. IDENTITY tab covers name/abbr/nick/motto/patch/inherits/cats/
 startForce. Saving reformats the whole file — the middleware re-serializes.
 
 **Tabs today:** IDENTITY · ECHELON · UNITS · VEHICLES · WEAPONS · AIR ·
-FORMATION · NAMES · **TROOPS** · **COMPS** · ASSETS. Editable: IDENTITY,
-TROOPS, COMPS, and model assignment. The rest still only display.
+FORMATION · NAMES · **TROOPS** · **COMPS** · ASSETS · **CONTENT**. Editable:
+IDENTITY, TROOPS, COMPS, and model assignment. The rest only display.
+
+CONTENT lists a pack's maps and scenarios and HANDS OFF to the MAP EDITOR /
+SCENARIO BUILDER — it does not reimplement them. It marks borrowed ground
+from both ends, flags groundless scenarios, and shows each scenario's sides.
 
 TROOPS and COMPS respect the three authoring forms (`catalogForm`): OWN
 (edit it), SUBSET (pick which library ids — the entries are shared BY
@@ -155,6 +159,8 @@ MI the MI (its Third Lieutenant is `ranks`, its company is `bnKinds`, its
 S1/R1/G1 are `staff`):
 - catalogs: `expendables`, `facilities`
 - organisation: `rosters`, `bnKinds`, `billets`, `organic`, `attached`
+  — the heaviest, and the one that would let a formation be authored rather
+  than hand-written; ORG is the next real tab
 - character: `ranks`, `awards`, `callsigns`, `net`, `reports`, `staff`,
   `mottos`, `nicks`, `audio`
 - content: maps and scenarios
