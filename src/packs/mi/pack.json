@@ -1263,7 +1263,7 @@
       "key": "WOUND",
       "name": "Wound Stripe",
       "abbr": "WS",
-      "criterion": "wound",
+      "on": "wound",
       "ribbon": [
         "#7a1c1c",
         "#d8d2c4",
