@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
 import { packMaps } from '../packs/map-files'
-import { playerPack } from '../packs'
+import { installedCampaigns, type CampaignEntry } from '../packs/campaigns'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
 } from '../domains/economy/difficulty'
@@ -16,6 +16,8 @@ export type StartFn = (
   mode: 'dev' | 'new', difficulty?: DifficultyKey, gameMode?: ModeId,
   /** 'packId/mapId' — the pack map to play (skirmish; the campaign names its own) */
   terrain?: string, tutorial?: boolean,
+  /** 'packId/campaignId' — which campaign (campaign mode) */
+  campaign?: string,
 ) => void
 
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
@@ -39,6 +41,7 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   onStart: StartFn; onPacks: () => void; onMaps: () => void; onScenarios: () => void
 }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
+  const [campaignSel, setCampaignSel] = useState<CampaignEntry | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
@@ -46,9 +49,9 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   const [terrain, setTerrain] = useState<string | undefined>(undefined)
 
   const maps = packMaps()
-  // a campaign can only start once its real ground is authored (map.json's
-  // `map` names a pack map) — until then the card is honest about why not
-  const campaignMap = playerPack().campaigns?.[0]?.map.map ?? null
+  // every installed pack's campaigns — a campaign only starts once its real
+  // ground is authored (the manifest's `map`); until then its card says why not
+  const campaigns = installedCampaigns()
 
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
@@ -82,11 +85,11 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
       {top == null ? (
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>NEW GAME</SectionLabel>
-          {campaignMap ? (
-            <SplashButton label="CAMPAIGN" sub="One battalion's war · missions and losses carry forward"
+          {campaigns.length ? (
+            <SplashButton label="CAMPAIGNS" sub="One battalion's war · missions and losses carry forward"
               accent="#7ec8ff" onClick={() => setTop('campaign')} />
           ) : (
-            <ComingSoon label="CAMPAIGN" sub="Awaiting authored ground · its map is built in the MAP EDITOR" />
+            <ComingSoon label="CAMPAIGNS" sub="No installed pack ships a campaign" />
           )}
           <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
             accent="#2a5a8a" onClick={() => setTop('skirmish')} />
@@ -109,16 +112,39 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
           <SplashButton label="SCENARIO BUILDER" sub="Place the war on a pack map · units, bases, objectives · ships in the pack"
             accent="#8a6a2a" onClick={onScenarios} />
         </div>
+      ) : top === 'campaign' && campaignSel == null ? (
+        <div style={{ position: 'relative', width: 340 }}>
+          <SectionLabel>CAMPAIGNS · CHOOSE</SectionLabel>
+          {campaigns.map((e) => {
+            const m = e.campaign.manifest
+            return e.map ? (
+              <SplashButton key={`${e.packId}/${m.id}`} label={m.name}
+                sub={`${e.packAbbr} · OPERATION ${m.operation} · ${e.map.name.toUpperCase()}`}
+                accent="#7ec8ff" onClick={() => setCampaignSel(e)} />
+            ) : (
+              <ComingSoon key={`${e.packId}/${m.id}`} label={m.name}
+                sub={`${e.packAbbr} · Awaiting authored ground — its map is built in the MAP EDITOR`} />
+            )
+          })}
+          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
+        </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>CAMPAIGN · DIFFICULTY</SectionLabel>
+          <SectionLabel>{campaignSel!.campaign.manifest.name} · NEW CAMPAIGN</SectionLabel>
+          {/* CONTINUE lands with the battlefield serializer (Save/Continue) —
+              greyed until a save exists for this campaign */}
+          <ComingSoon label="CONTINUE" sub="No save on file · Save/Continue is in the works" />
           {DIFFICULTY_ORDER.map((k) => {
             const d = DIFFICULTIES[k]
             return (
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
                 stats={toughness(d.damageMul)}
                 recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => { setCampaignCommander(commander); onStart('new', k, 'campaign', undefined, campaignTut) }} />
+                onClick={() => {
+                  setCampaignCommander(commander)
+                  onStart('new', k, 'campaign', undefined, campaignTut,
+                    `${campaignSel!.packId}/${campaignSel!.campaign.manifest.id}`)
+                }} />
             )
           })}
           {/* the task force commander is YOU — keep the suggested name or type your own */}
@@ -134,7 +160,7 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
+              <BackButton onClick={() => setCampaignSel(null)}>← CAMPAIGNS</BackButton>
             </div>
             <CheckRow checked={campaignTut} onToggle={() => setCampaignTut(v => !v)}
               label="TUTORIAL HINTS" sub="On-screen prompts teach each action as it comes up" />

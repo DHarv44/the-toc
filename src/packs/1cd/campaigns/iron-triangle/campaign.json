@@ -1,6 +1,7 @@
 {
-  "_doc": "Campaign manifest: identity, the map, campaign anchors (resolved once at start), division pre-allocations (scarcity at H-hour; mission triggers release them), and the mainline mission order. Side-mission pool lands with stage S4 (see src/PACK-MISSIONS.md).",
+  "_doc": "Campaign manifest: identity, THE MAP (a pack map ref — null until the campaign's real ground is authored; the legacy chorwon procgen layout died with the generator in P6, and mission place refs re-anchor to the real map's names when ground exists), campaign anchors (resolved once at start), division pre-allocations (scarcity at H-hour; mission triggers release them), and the mainline order of mission scenarios. Side-mission pool lands with stage S4 (see src/PACK-MISSIONS.md).",
   "id": "iron-triangle",
+  "map": null,
   "name": "IRON TRIANGLE",
   "operation": "LODGMENT",
   "hqLabel": "CP GARRYOWEN",

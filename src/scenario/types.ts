@@ -56,9 +56,13 @@ export interface ScenarioUnit {
 }
 
 export interface ScenarioSpec {
+  /** campaign-mission id (what the manifest's mainline names); standalone
+   *  scenarios are identified by their folder and don't carry one */
+  id?: string
   name: string
-  /** the ground: "packId/mapId" */
-  map: string
+  /** the ground: "packId/mapId". ABSENT on a campaign mission or portable
+   *  template — the campaign binds the ground (its manifest's `map`) */
+  map?: string
   /** which ModeSpec plays it; absent = attack-defend */
   mode?: ModeId
   /** which installed pack plays each side; absent = the default lineup */
@@ -75,6 +79,8 @@ export interface ScenarioSpec {
   places?: ScenarioPlace[]
   /** opener OPORD text (the VTC brief) */
   brief?: string
+  /** tasking card dropped when this mission activates mid-campaign */
+  frago?: { title: string; text: string }
   objectives?: MissionObjective[]
   triggers?: MissionTrigger[]
   /** tutorial curriculum — carried opaque; the builder preserves, never edits */

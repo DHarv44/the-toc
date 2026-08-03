@@ -28,7 +28,8 @@ import { startLoop } from './engine/SimLoop'
 import { buildGameMap, type MapRef } from './world/mapref'
 import { packMap, packMaps } from './packs/map-files'
 import { playerPack } from './packs'
-import { activeCampaign, setCampaignTutorial } from './engine/campaign'
+import { setActiveCampaign, setCampaignTutorial } from './engine/campaign'
+import { campaignEntry } from './packs/campaigns'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
@@ -53,7 +54,7 @@ export default function App() {
 
   // map building is async (the pack file is read and decoded) — the splash
   // stays up while buildGameMap resolves the MapRef into ground
-  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial) => {
+  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial, campaign) => {
     void (async () => {
       if (mode === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
@@ -69,9 +70,13 @@ export default function App() {
         // the picked one ('packId/mapId'). There is nothing else (P6).
         let ref: MapRef
         if (isCampaign) {
-          const mapId = activeCampaign().map.map
-          if (!mapId) throw new Error('campaign has no authored ground yet')
-          ref = { kind: 'pack', packId: playerPack().id, mapId }
+          // the splash picked a campaign ('packId/campaignId'); the discovery
+          // service resolved its ground — bind both before the world builds
+          const [cp, cid] = (campaign ?? '').split('/') as [string, string]
+          const entry = campaignEntry(cp, cid)
+          if (!entry?.map) throw new Error(`campaign '${campaign}' has no authored ground`)
+          setActiveCampaign(entry.campaign)
+          ref = { kind: 'pack', packId: entry.map.packId, mapId: entry.map.mapId }
           setCampaignTutorial(!!tutorial) // read by startCampaign
         } else {
           if (!terrain) throw new Error('skirmish needs a pack map')

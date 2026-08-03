@@ -16,11 +16,16 @@ import type { GameState, CampaignState, Soldier, StaffShop, Structure } from './
 // (theater + seed + authored layout = the gazetteer), the missions (objectives,
 // triggers, briefs), and every word of the story. This file keeps the VERBS:
 // objective evaluation, the trigger/effect moments, the runner, the reports.
-import type { CampaignSpec, MissionSpec, MissionCondition, PlaceRef } from '../packs/types'
+import type { CampaignSpec, MissionCondition, PlaceRef } from '../packs/types'
+import type { ScenarioSpec } from '../scenario/types'
 
-// the campaign being played: the player pack's first campaign (a campaign
-// PICKER lands when a pack ships more than one)
+// The campaign being played — set by the splash's campaign picker before the
+// game starts (same pre-init pattern as the tutorial/commander flags below).
+// Falls back to the player pack's first campaign so nothing pre-picker breaks.
+let _activeCampaign: CampaignSpec | null = null
+export function setActiveCampaign(spec: CampaignSpec | null): void { _activeCampaign = spec }
 export function activeCampaign(): CampaignSpec {
+  if (_activeCampaign) return _activeCampaign
   const list = playerPack().campaigns
   if (!list?.length) throw new Error(`pack '${playerPack().id}' ships no campaigns`)
   return list[0]!
@@ -114,7 +119,7 @@ function buildOperation(): void {
   for (const mid of spec.manifest.mainline) {
     const m = spec.missions[mid]
     if (!m) throw new Error(`campaign '${spec.manifest.id}': mainline mission '${mid}' not found`)
-    m.objectives.forEach((o, i) => {
+    ;(m.objectives ?? []).forEach((o, i) => {
       objectives.push({
         id: o.id, label: o.label, kind: o.kind, groupTag: o.groupTag,
         structKind: o.structKind, amount: o.amount, reports: o.reports,
@@ -139,8 +144,8 @@ function momentMatches(when: MissionCondition, kind: 'objective-active' | 'objec
   if (when.kind === 'any') return when.of.some(w => momentMatches(w, kind, objective))
   return when.kind === kind && when.objective === objective
 }
-function fireTriggers(S: GameState, mission: MissionSpec, kind: 'objective-active' | 'objective-complete', objective: string): void {
-  for (const t of mission.triggers) {
+function fireTriggers(S: GameState, mission: ScenarioSpec, kind: 'objective-active' | 'objective-complete', objective: string): void {
+  for (const t of mission.triggers ?? []) {
     if (momentMatches(t.when, kind, objective)) runEffects(S, t.do)
   }
 }
@@ -305,7 +310,7 @@ function activateObjective(S: GameState, c: CampaignState): void {
     const fob = friendlyFob(S)
     c.deliverBase = fob ? (fob.stock || 0) : 0
   }
-  if (mission.frago && mission.objectives[0]!.id === obj.id && c.briefed) {
+  if (mission.frago && mission.objectives?.[0]?.id === obj.id && c.briefed) {
     c.frago = { title: mission.frago.title, text: mission.frago.text }
     c.fragoLog.push({ ...mission.frago, t: S.t })
     radio('NET', 'arrive', `FRAGO — ${mission.frago.title}. DIV HQ ON THE VTC.`, undefined, undefined)

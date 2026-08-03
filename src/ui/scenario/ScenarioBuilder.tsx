@@ -153,10 +153,15 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
   const open = (packId: string, scenarioId: string) => {
     const entry = packScenarios(packId).find(s => s.scenarioId === scenarioId)
     if (!entry) return
+    // a mapless scenario is a campaign mission/template — it opens on whatever
+    // map is already loaded (IMPORT covers the campaign flow); standalone
+    // scenarios always carry their ground
+    if (!entry.spec.map) { setMsg('SCENARIO NAMES NO MAP — USE IMPORT MISSION FOR CAMPAIGN CONTENT'); return }
+    const specMap = entry.spec.map
     setOwnerPack(entry.packId)
     setName(entry.name.toUpperCase())
     setMode(entry.spec.mode ?? 'attack-defend')
-    setMapRef(entry.spec.map)
+    setMapRef(specMap)
     setScript({
       brief: entry.spec.brief,
       objectives: entry.spec.objectives ?? [],
@@ -164,9 +169,9 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
       tutorial: entry.spec.tutorial,
     })
     // entities need the ground for norm→world; defer until the map loads
-    const [p, m] = entry.spec.map.split('/') as [string, string]
+    const [p, m] = specMap.split('/') as [string, string]
     const mapEntry = packMaps(p).find(e => e.mapId === m)
-    if (!mapEntry) { setMsg(`SCENARIO'S MAP ${entry.spec.map} IS NOT INSTALLED`); return }
+    if (!mapEntry) { setMsg(`SCENARIO'S MAP ${specMap} IS NOT INSTALLED`); return }
     void loadGround(mapEntry.groundUrl).then(g => {
       setEd({ ...emptyEditor(), entities: entitiesFromSpec(entry.spec, g) })
     })

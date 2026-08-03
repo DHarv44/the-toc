@@ -5,7 +5,7 @@
 // reference in the vocabulary and reports the names the map can't resolve;
 // the builder turns each into an authored place the author drags into
 // position. Logic transfers; geography is re-authored. (SCENARIO-BUILDER.md)
-import type { MissionSpec } from '../packs/types'
+import type { ScenarioSpec } from './types'
 import { installedPacks, PACKS } from '../packs'
 
 export interface MissionEntry {
@@ -14,7 +14,7 @@ export interface MissionEntry {
   missionId: string
   /** '1CD · IRON TRIANGLE · LODGMENT' */
   label: string
-  spec: MissionSpec
+  spec: ScenarioSpec
 }
 
 /** every campaign mission every installed pack ships */
@@ -53,7 +53,7 @@ function walk(v: unknown, out: Set<string>): void {
 }
 
 /** every place NAME the mission's script references */
-export function referencedPlaces(spec: MissionSpec): string[] {
+export function referencedPlaces(spec: ScenarioSpec): string[] {
   const out = new Set<string>()
   walk(spec.objectives, out)
   walk(spec.triggers, out)

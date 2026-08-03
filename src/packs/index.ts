@@ -20,10 +20,10 @@ import cdNames from './1cd/names.json'
 import opforManifest from './opfor/pack.json'
 import opforNames from './opfor/names.json'
 // campaign-down content (PACK-MISSIONS.md): each campaign folder ships its
-// manifest + map + mission files. Static imports per folder until the P4
-// runtime loader serves pack folders directly.
+// manifest (which names its map) + mission scenarios (+ optional opening.json,
+// the campaign scenario). Static imports per folder until the P4 runtime
+// loader serves pack folders directly.
 import itManifest from './1cd/campaigns/iron-triangle/campaign.json'
-import itMap from './1cd/campaigns/iron-triangle/map.json'
 import itLodgment from './1cd/campaigns/iron-triangle/missions/lodgment.json'
 
 export { lineageFor } from './types'
@@ -144,16 +144,18 @@ function buildPack(
   } as Pack
 }
 
-// assemble a campaign folder's files into a CampaignSpec (missions keyed by id;
-// the same documented JSON->typed boundary cast as buildPack)
-function buildCampaign(manifest: unknown, map: unknown, missions: unknown[]): CampaignSpec {
+// assemble a campaign folder's files into a CampaignSpec (missions keyed by
+// id — missions ARE scenarios with script sections; the optional `opening` is
+// the campaign scenario, H-hour placements for the whole arc. The same
+// documented JSON->typed boundary cast as buildPack)
+function buildCampaign(manifest: unknown, missions: unknown[], opening?: unknown): CampaignSpec {
   const byId: Record<string, unknown> = {}
   for (const m of missions) byId[(m as { id: string }).id] = m
-  return { manifest, map, missions: byId } as CampaignSpec
+  return { manifest, missions: byId, ...(opening ? { opening } : {}) } as CampaignSpec
 }
 
 export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
-PACK_1CD.campaigns = [buildCampaign(itManifest, itMap, [itLodgment])]
+PACK_1CD.campaigns = [buildCampaign(itManifest, [itLodgment])]
 export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
 
 export const PACKS: Record<string, Pack> = {

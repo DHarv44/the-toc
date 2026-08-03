@@ -18,6 +18,9 @@ import type {
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
+// type-only, cycle-safe: scenario/types imports this module's mission
+// vocabulary; both directions erase at runtime
+import type { ScenarioSpec } from '../scenario/types'
 
 // how a unit type's parent element is designated inside its battalion:
 //  - 'plt'  — numbered platoon in a lettered company ("1st PLT, A CO, 2-8 CAV")
@@ -364,25 +367,19 @@ export interface TutReactive {
 }
 export interface TutorialSpec { steps: TutStep[]; reactive?: TutReactive[] }
 
-export interface MissionSpec {
-  id: string
-  name: string
-  brief?: string          // opener OPORD (campaign's first mission)
-  frago?: { title: string; text: string } // tasking card dropped when the mission activates
-  objectives: MissionObjective[]
-  triggers: MissionTrigger[]
-  tutorial?: TutorialSpec // curriculum rides with the mission
-}
-
-export interface CampaignMapSpec {
-  /** The pack map id (packs/<pack>/maps/<id>/) this campaign plays on — the
-   *  ONLY ground path (P6, GROUNDWORK.md). `null` = the campaign's real
-   *  ground has not been authored yet; it cannot start and the splash says
-   *  so. The map's gazetteer (real names) is what missions reference. */
-  map: string | null
-}
+// A campaign MISSION is a SCENARIO (SCENARIO-BUILDER.md, settled 2026-08-02):
+// one content type for skirmishes, campaign missions and (S4) side templates.
+// Missions are script-heavy scenarios — the campaign is continuous, so only
+// the campaign's OPENING scenario places entities; follow-on missions arrive
+// into a world in motion and speak in trigger effects.
 
 export interface CampaignManifest {
+  /** The ground this campaign plays on: 'packId/mapId', or a bare pack map id
+   *  meaning the OWNING pack's map — the ONLY ground path (P6, GROUNDWORK.md).
+   *  `null` = the campaign's real ground has not been authored yet; it cannot
+   *  start and the splash says so. The map's gazetteer (real names) is what
+   *  missions reference. */
+  map: string | null
   id: string
   name: string            // campaign display name
   operation: string       // the operation the mainline constitutes ('LODGMENT')
@@ -395,11 +392,14 @@ export interface CampaignManifest {
   sideMissions?: Array<{ mission: string; weight: number; cooldownS: number; when: MissionCondition }>
 }
 
-// a fully-loaded campaign: manifest + map + its mission files
+// a fully-loaded campaign: manifest + its scenario files
 export interface CampaignSpec {
   manifest: CampaignManifest
-  map: CampaignMapSpec
-  missions: Record<string, MissionSpec>
+  /** the CAMPAIGN SCENARIO — H-hour placements for the whole arc. Absent =
+   *  mission 1's triggers place the world (today's LODGMENT shape). */
+  opening?: ScenarioSpec
+  /** the missions, keyed by id — scenarios with script sections */
+  missions: Record<string, ScenarioSpec>
 }
 
 export interface Pack {

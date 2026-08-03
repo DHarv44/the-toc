@@ -1,4 +1,0 @@
-{
-  "_doc": "The campaign's ground: a pack map id (packs/1cd/maps/<id>/). null = not yet authored — the campaign is greyed on the splash until real ground exists for it. The legacy chorwon-window procgen layout (ASHFORD..GARWICK gazetteer) died with the generator in P6 (GROUNDWORK.md; the old spec lives in git history). When ground is authored, the mission files' place references must be re-anchored to that map's REAL names.",
-  "map": null
-}
