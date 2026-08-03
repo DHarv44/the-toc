@@ -89,7 +89,7 @@ function fillVacancies(soldiers: Soldier[], type: Unit['type'], seedKey: string,
     const id = Math.max(0, ...soldiers.map(x => x.id)) + 1
     const kindN = comp.dismounts.find(d => d.kind === s.kind)?.n ?? 1
     const nu: Soldier = { id, kind: s.kind, status: 'FIT', vehId: null, repl: true, xp: 0 }
-    nameSoldier(nu, `${seedKey}:repl`, 'friend')
+    nameSoldier(nu, `${seedKey}:repl`)
     const b = dismountBillet(s.kind, 0, kindN + 1, hashStr(`${seedKey}:${id}:rb`))
     nu.pos = b.pos; nu.rank = b.rank
     soldiers.push(nu)
@@ -112,7 +112,7 @@ function fillStaffVacancies(soldiers: Soldier[], seedKey: string, n: number): nu
     if (!(s.status === 'KIA' || s.status === 'MIA' || (s.status === 'WIA' && s.evac))) continue
     const id = Math.max(0, ...soldiers.map(x => x.id)) + 1
     const nu: Soldier = { id, kind: s.kind, status: 'FIT', vehId: null, pos: s.pos, rank: s.rank, repl: true, xp: 0 }
-    nameSoldier(nu, `${seedKey}:repl`, 'friend')
+    nameSoldier(nu, `${seedKey}:repl`)
     soldiers.push(nu)
     s.replaced = true
     filled++
@@ -129,7 +129,7 @@ function backfillContractors(soldiers: Soldier[], seedKey: string): void {
     if (!(s.status === 'KIA' || s.status === 'MIA' || (s.status === 'WIA' && s.evac))) continue
     const id = Math.max(0, ...soldiers.map(x => x.id)) + 1
     const nu: Soldier = { id, kind: 'CIV', status: 'FIT', vehId: null, pos: s.pos, rank: 'CIV', repl: true }
-    nameSoldier(nu, `${seedKey}:fsr`, 'friend')
+    nameSoldier(nu, `${seedKey}:fsr`)
     soldiers.push(nu)
     s.replaced = true
   }

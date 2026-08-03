@@ -5,7 +5,6 @@
   "abbr": "1CD",
   "nick": "First Team",
   "motto": "First Team",
-  "side": "friend",
   "patch": "1cd",
   "catalogs": {
     "extends": "us-platforms"

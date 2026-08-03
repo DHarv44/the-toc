@@ -3,7 +3,6 @@
   "id": "opfor",
   "name": "OPFOR",
   "abbr": "OPFOR",
-  "side": "hostile",
   "catalogs": {
     "extends": "us-platforms",
     "units": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"],

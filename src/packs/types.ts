@@ -666,7 +666,10 @@ export interface Pack {
   abbr: string            // '1CD'
   nick?: string           // formation nickname: 'First Team'
   motto?: string          // formation motto: 'America's First Team' (division-level heraldry)
-  side: 'friend' | 'hostile'
+  // NOTE there is no `side` here, and there must not be. A pack is an ARMY.
+  // Which side it fights on is the SCENARIO's call (ScenarioSpec.sides) and
+  // lives with the installed lineup — the same army can be the enemy in one
+  // scenario and the player's in the next, or both at once in a civil war.
   catalogs: PackCatalogs  // the platforms this pack's world is made of
   // The capability groups the CALL UP drills through, in briefing order. Each
   // one answers a question a commander asks under contact ("what kills that

@@ -230,7 +230,7 @@ export default function PackViewer() {
                 background: i === packIdx ? '#14202c' : '#0d141c',
               }}>
               <Text fz={13} fw={700} c={i === packIdx ? '#dceeff' : 'dark.2'}>
-                {pk.abbr} <Text span fz={9} c={pk.side === 'friend' ? '#7ec8ff' : '#ff8a7e'}>{pk.side === 'friend' ? 'BLUFOR' : 'OPFOR'}</Text>
+                {pk.abbr} <Text span fz={9} c="dark.2">{pk.nick ?? pk.id}</Text>
               </Text>
             </UnstyledButton>
           ))}

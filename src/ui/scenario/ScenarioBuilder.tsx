@@ -10,7 +10,7 @@
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, SegmentedControl, Select, Text, TextInput } from '@mantine/core'
-import { installedPacks, PACKS } from '../../packs'
+import { activePack, installedPacks, PACKS } from '../../packs'
 import { defaultPlayerFormation, playableFormations, slotBudget } from '../../packs/orgquery'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
@@ -54,10 +54,12 @@ const pickExtras = (s: ScenarioSpec): Extras => ({
   ...(s.fog != null ? { fog: s.fog } : {}),
 })
 
-// default lineup is data-driven: the first installed pack of each side
+// a new scenario starts from whatever lineup is currently installed — the
+// assignment is the SCENARIO's to make, so this is a starting point to edit,
+// not a property read off either army
 const defaultSides = () => ({
-  friend: installedPacks().find(p => p.side === 'friend')?.id ?? installedPacks()[0]?.id ?? '',
-  hostile: installedPacks().find(p => p.side === 'hostile')?.id ?? installedPacks()[0]?.id ?? '',
+  friend: activePack('friend')?.id ?? installedPacks()[0]?.id ?? '',
+  hostile: activePack('hostile')?.id ?? installedPacks()[0]?.id ?? '',
 })
 
 const newMission = (n: number): MissionScript =>

@@ -84,7 +84,7 @@ function bnTemplate(pack: Pack, kind: BnKind): CoSpec[] {
 
 
 // --- builder ----------------------------------------------------------------
-function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotId: string, side: 'friend' | 'hostile'):
+function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotId: string, pack: Pack):
   { soldiers: Soldier[]; vehicles: UnitVehicle[] } {
   const vehicles: UnitVehicle[] = []
   let vid = 1
@@ -94,7 +94,7 @@ function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotI
       id: i + 1, kind: m.kind, status: 'FIT', vehId: null, pos: m.pos, rank: m.rank,
       ...(m.sec ? { sec: m.sec } : {}),
     }
-    nameSoldier(s, slotId, side)
+    nameSoldier(s, slotId, pack)
     return s
   })
   // aviation crews ride their airframes: pilots/chiefs are dealt to vehicles in
@@ -153,10 +153,10 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
         if ('type' in spec) {
           base.type = spec.type
           const r = buildRoster(spec.type)
-          namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack.side)
+          namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack)
           base.soldiers = r.soldiers; base.vehicles = r.vehicles
         } else {
-          const r = buildStaffSlot(spec, id, pack.side)
+          const r = buildStaffSlot(spec, id, pack)
           base.soldiers = r.soldiers; base.vehicles = r.vehicles
         }
         slots.push(base)
@@ -202,7 +202,7 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
         if (!('type' in spec)) continue
         const id = `${bn}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
         const r = buildRoster(spec.type)
-        namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack.side)
+        namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack)
         slots.push({
           id, path: ['ATT', bn, co.co], cmd: bn, name: spec.name,
           lin: `${spec.name}, ${co.co}, ${bn}`, type: spec.type, from: e.from,
@@ -225,12 +225,12 @@ export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | nul
       let sid = 1
       for (const [rank, pos] of def.crew.billets) {
         const s: Soldier = { id: sid++, kind: 'STAFF', status: 'FIT', vehId: null, pos, rank }
-        nameSoldier(s, id, pack.side)
+        nameSoldier(s, id, pack)
         soldiers.push(s)
       }
       for (let c = 0; c < (def.crew.civ ?? 0); c++) {
         const s: Soldier = { id: sid++, kind: 'CIV', status: 'FIT', vehId: null, pos: 'Field Service Rep', rank: 'CIV' }
-        nameSoldier(s, id, pack.side)
+        nameSoldier(s, id, pack)
         soldiers.push(s)
       }
       slots.push({

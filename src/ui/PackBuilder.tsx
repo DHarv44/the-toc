@@ -598,9 +598,8 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
                 {pk.patch && <PatchIcon id={pk.patch} h={26} />}
                 <Box miw={0}>
                   <Text fz={13} fw={700} c={i === idx ? '#dceeff' : 'dark.1'}>{pk.abbr}</Text>
-                  <Text fz={9} c={pk.side === 'friend' ? '#7ec8ff' : '#ff8a7e'}
-                    style={{ letterSpacing: 1 }}>
-                    {pk.side === 'friend' ? 'BLUFOR' : 'OPFOR'} · {pk.id}
+                  <Text fz={9} c="dark.2" style={{ letterSpacing: 1 }}>
+                    {pk.nick ? `${pk.nick} · ` : ''}{pk.id}
                   </Text>
                 </Box>
               </Group>
@@ -636,7 +635,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
                   {p.nick && <Text fz={12} c="#e8c547">“{p.nick}”</Text>}
                 </Group>
                 <Text fz={10} c="dark.3">
-                  {p.motto ? `${p.motto} · ` : ''}{p.id} · {p.side === 'friend' ? 'BLUFOR' : 'OPFOR'}
+                  {p.motto ? `${p.motto} · ` : ''}{p.id}
                 </Text>
               </Box>
               {view === 'pack' && (

@@ -31,15 +31,19 @@ export function initGame(
   // it, a skirmish player picks it; the division's task-force marking is built
   // around it, so it must be known BEFORE the org is materialized.
   playerBn?: string,
+  // WHICH ARMY FIGHTS FOR WHICH SIDE, by pack id (ScenarioSpec.sides). The
+  // scenario decides; a pack has no opinion. Absent = the default lineup.
+  sides?: { friend?: string; hostile?: string },
 ): void {
   // Map construction is the caller's job (world/mapref buildGameMap): which
   // ground, which source, mode terrain rerolls — all decided before this
   // runs. initGame is synchronous scenario composition over a finished map;
   // `seed` seeds the SCENARIO rng (spawns, waves), not the ground.
-  // the active packs' catalogs go into the engine registries FIRST — every
-  // platform lookup below reads them (idempotent re-install; module load
-  // already installed the defaults for pre-init reads)
-  installActivePacks()
+  // the lineup is assigned and its catalogs go into the engine registries
+  // FIRST — every platform lookup below reads them, and playerPack() itself
+  // now answers from the lineup (module load already installed the defaults
+  // for pre-init reads)
+  installActivePacks(sides)
   const gridSize = map.GRID
   const diff: Difficulty = (DIFFICULTIES as Record<string, Difficulty>)[difficulty]
     || DIFFICULTIES[DEFAULT_DIFFICULTY]
@@ -143,7 +147,7 @@ export function initScenarioGame(
   // scenario's default. A campaign's chair is scripted and never overridden.
   chair?: string,
 ): void {
-  initGame(map, seed, difficulty, spec.type, chair || spec.player)
+  initGame(map, seed, difficulty, spec.type, chair || spec.player, spec.sides)
   if (spec.type === 'campaign') return // startCampaign applied the situation
   S.units = []
   S.structures = []

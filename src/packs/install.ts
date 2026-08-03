@@ -48,18 +48,34 @@ function merge<T>(reg: Mut<T>, table: Record<string, T> | undefined, what: strin
   }
 }
 
-// the currently installed packs, by side (readable via activePack)
-let installed: Pack[] = []
+// WHO IS FIGHTING FOR WHOM this game. A pack is an ARMY; BLUEFOR and OPFOR are
+// roles a scenario hands out, and the same army can be either in two different
+// scenarios (or both, in a civil war). So the assignment lives HERE, with the
+// installed lineup, and never as a property of the pack.
+export type Side = 'friend' | 'hostile'
+export type Lineup = Record<Side, Pack>
 
-export function activePack(side: 'friend' | 'hostile'): Pack | null {
-  return installed.find(p => p.side === side) ?? null
+// the currently installed lineup (readable via activePack)
+let lineup: Lineup | null = null
+
+export function activePack(side: Side): Pack | null {
+  return lineup?.[side] ?? null
 }
 
+/** the installed packs, in install order, without repeats — one army may hold
+ *  both sides, and then there is one pack installed, not two */
 export function installedPacks(): readonly Pack[] {
-  return installed
+  return lineup ? [...new Set([lineup.friend, lineup.hostile])] : []
 }
 
-export function installPacks(packs: Pack[]): void {
+/** Install a lineup. The FRIEND pack installs first, which fixes registry
+ *  iteration order (golden-relevant). */
+export function installLineup(next: Lineup): void {
+  lineup = next
+  installPacks(installedPacks())
+}
+
+function installPacks(packs: readonly Pack[]): void {
   for (const reg of [mUnits, mAmmo, mWeapons, mExpend, mTroops, mVehicles, mComps, mDrones, mFacilities]) wipe(reg)
   clearCompositionCaches()
   for (const p of packs) {
@@ -74,5 +90,4 @@ export function installPacks(packs: Pack[]): void {
     merge(mDrones, c.drones, 'drones', p.id)
     merge(mFacilities, c.facilities, 'facilities', p.id)
   }
-  installed = packs
 }

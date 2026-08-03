@@ -13,7 +13,7 @@
 //   validator replaces it with real checks + readable errors for mod packs.
 import type { Pack, PackCatalogs, NamePools } from './types'
 import type { DroneType } from '../domains/air/catalog'
-import { installPacks } from './install'
+import { activePack, installLineup, type Lineup } from './install'
 import usPlatforms from './lib/us-platforms.json'
 import cdManifest from './1cd/pack.json'
 import cdNames from './1cd/names.json'
@@ -22,7 +22,7 @@ import opforNames from './opfor/names.json'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
-export { activePack, installedPacks } from './install'
+export { activePack, installedPacks, type Lineup, type Side } from './install'
 
 type AnyTable = Record<string, unknown>
 interface RawLib { [table: string]: AnyTable | string }
@@ -115,7 +115,6 @@ function buildPack(
     abbr: man.abbr,
     nick: man.nick,
     motto: man.motto,
-    side: man.side,
     patch: man.patch,
     catalogs: resolveCatalogs(m, fallback),
     // capability groups follow the catalog: a pack that inherits 1CD's
@@ -164,18 +163,35 @@ export const PACKS: Record<string, Pack> = {
   [PACK_OPFOR.id]: PACK_OPFOR,
 }
 
-// the default lineup: player pack FIRST (fixes registry iteration order —
-// golden-relevant), then the OPFOR
-const DEFAULT_PACKS = [PACK_1CD, PACK_OPFOR]
+// the DEFAULT lineup, for a menu screen or a scenario that names no packs.
+// It is a default, not a fact about either army: 1CD is the canonical pack so
+// it takes the player's side, and the OPFOR pack opposes it.
+const DEFAULT_LINEUP: Lineup = { friend: PACK_1CD, hostile: PACK_OPFOR }
 
+/** THE ARMY THE PLAYER IS COMMANDING — whichever pack the scenario put on the
+ *  friendly side. Not a property of any pack; a pack does not know whose war
+ *  it is. */
 export function playerPack(): Pack {
-  return PACK_1CD
+  return activePack('friend') ?? PACK_1CD
 }
 
-// (Re)install the active lineup into the engine registries. initGame calls
-// this; the module-load call below covers any pre-init reads (menu screens).
-export function installActivePacks(): void {
-  installPacks(DEFAULT_PACKS)
+/** (Re)install a lineup into the engine registries. `sides` is the scenario's
+ *  assignment by pack id; anything it leaves out keeps the default. initGame
+ *  calls this; the module-load call below covers pre-init reads (menu
+ *  screens). Throws on a pack id nobody ships — a scenario naming an army
+ *  that is not installed is a content error, and silently fielding 1CD in its
+ *  place would hide it. */
+export function installActivePacks(sides?: { friend?: string; hostile?: string }): void {
+  const pick = (id: string | undefined, fallback: Pack): Pack => {
+    if (!id) return fallback
+    const p = PACKS[id]
+    if (!p) throw new Error(`scenario names pack '${id}', which is not installed`)
+    return p
+  }
+  installLineup({
+    friend: pick(sides?.friend, DEFAULT_LINEUP.friend),
+    hostile: pick(sides?.hostile, DEFAULT_LINEUP.hostile),
+  })
 }
 
 installActivePacks()

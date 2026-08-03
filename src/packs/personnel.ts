@@ -14,7 +14,8 @@ import type { Unit, Soldier } from '../engine/GameState'
 import { VEHICLES, COMPOSITIONS, type TroopKindKey } from '../domains/forces/composition'
 import { hashStr } from '../lib/math'
 import { activePack } from './install'
-import type { BilletPlan, BilletTables } from './types'
+import { playerPack } from './index'
+import type { BilletPlan, BilletTables, Pack } from './types'
 
 // --- name pools ------------------------------------------------------------
 // Pools come from the SIDE'S PACK (Pack.names — pack folder's names.json,
@@ -34,10 +35,10 @@ const DEFAULT_LAST = [
 // realistic force mix: heavy male majority when the pack provides both pools
 const FEMALE_PCT = 12
 
-function pools(side: 'friend' | 'hostile'): { male: readonly string[]; female: readonly string[]; last: readonly string[] } {
-  // side's pack → 1CD (the canonical fallback, baked in at pack build) →
-  // this tiny neutral list only if everything else is somehow empty
-  const n = activePack(side)?.names
+function pools(pack: Pack): { male: readonly string[]; female: readonly string[]; last: readonly string[] } {
+  // the pack's names → 1CD's (the canonical fallback, baked in at pack build)
+  // → this tiny neutral list only if everything else is somehow empty
+  const n = pack.names
   return {
     male: n?.male?.length ? n.male : DEFAULT_MALE,
     female: n?.female ?? [],
@@ -52,9 +53,9 @@ const pick = <T,>(arr: readonly T[], h: number): T => arr[Math.abs(h) % arr.leng
 const held = (b: BilletPlan, h: number): { pos: string; rank: string } =>
   ({ pos: b.pos, rank: Array.isArray(b.rank) ? pick(b.rank, h) : b.rank })
 
-const billetsOf = (side: 'friend' | 'hostile'): BilletTables => {
-  const t = activePack(side)?.billets
-  if (!t) throw new Error(`pack for side '${side}' ships no billet table`)
+const billetsOf = (pack: Pack): BilletTables => {
+  const t = pack.billets
+  if (!t) throw new Error(`pack '${pack.id}' ships no billet table`)
   return t
 }
 
@@ -66,9 +67,9 @@ const billetsOf = (side: 'friend' | 'hostile'): BilletTables => {
 // the junior end of their kind, so they never inherit a command billet.)
 export function dismountBillet(
   kind: TroopKindKey, idx: number, groupN: number, h: number,
-  side: 'friend' | 'hostile' = 'friend',
+  pack: Pack = playerPack(),
 ): { pos: string; rank: string } {
-  const t = billetsOf(side)
+  const t = billetsOf(pack)
   const b = t.dismount[kind]
   if (!b) return held(t.default, h)
   const fromEnd = b.fromEnd ?? []
@@ -83,10 +84,10 @@ export function dismountBillet(
 // are commanded from seat 0, seats fill in order, and a crew larger than its
 // table repeats the last seat — while what each seat is CALLED is the pack's.
 function crewBillet(
-  vehType: string, seat: number, h: number, side: 'friend' | 'hostile',
+  vehType: string, seat: number, h: number, pack: Pack,
 ): { pos: string; rank: string } {
   const spec = VEHICLES[vehType]
-  const table = billetsOf(side).crew[spec.weapons.length > 0 ? 'armed' : 'unarmed']
+  const table = billetsOf(pack).crew[spec.weapons.length > 0 ? 'armed' : 'unarmed']
   const seats = table[String(spec.crew)] ?? table['*']
   if (!seats?.length) throw new Error(`no crew billets for a ${spec.crew}-hand crew`)
   return held(seats[Math.min(seat, seats.length - 1)]!, h)
@@ -94,8 +95,8 @@ function crewBillet(
 
 // Name a soldier from the seed key (also stamps the stable personnel identity
 // `pid`, which seeds the portrait — so a face survives fielding transfers).
-export function nameSoldier(s: Soldier, seedKey: string, side: 'friend' | 'hostile' = 'friend'): void {
-  const p = pools(side)
+export function nameSoldier(s: Soldier, seedKey: string, pack: Pack = playerPack()): void {
+  const p = pools(pack)
   const h = hashStr(`${seedKey}:${s.id}`)
   // gender split is deterministic and male-heavy; a pack with no female pool
   // (or an all-male force) simply always draws male
@@ -189,7 +190,7 @@ function assignElements(soldiers: Soldier[], vehicles: Unit['vehicles']): void {
 // keeps its exact people whether garrisoned or fielded).
 export function namePersonnel(
   soldiers: Soldier[], vehicles: Unit['vehicles'], type: Unit['type'],
-  seedKey: string, side: 'friend' | 'hostile',
+  seedKey: string, pack: Pack,
 ): void {
   const comp = COMPOSITIONS[type]
   const noDismountLeaders = !comp.dismounts.some(d => d.kind === 'LEADER')
@@ -204,18 +205,18 @@ export function namePersonnel(
   const vehCommanders: Soldier[] = []
   for (const s of soldiers) {
     const h = hashStr(`${seedKey}:${s.id}`)
-    nameSoldier(s, seedKey, side)
+    nameSoldier(s, seedKey, pack)
     if (s.vehId != null) {
       const seat = perVeh.get(s.vehId) ?? 0
       perVeh.set(s.vehId, seat + 1)
       const veh = vehicles.find(v => v.id === s.vehId)
-      const b = crewBillet(veh!.type, seat, h, side)
+      const b = crewBillet(veh!.type, seat, h, pack)
       s.pos = b.pos; s.rank = b.rank
       if (seat === 0) vehCommanders.push(s)
     } else {
       const idx = kindIdx.get(s.kind) ?? 0
       kindIdx.set(s.kind, idx + 1)
-      const b = dismountBillet(s.kind, idx, kindTotal.get(s.kind) ?? 1, h, side)
+      const b = dismountBillet(s.kind, idx, kindTotal.get(s.kind) ?? 1, h, pack)
       s.pos = b.pos; s.rank = b.rank
     }
   }
@@ -232,7 +233,7 @@ export function namePersonnel(
 
   // EXPLICIT pins (Pack.people): a pack can put a real person on a billet —
   // keyed '<seedKey>/<pos>' — and generation fills everything it doesn't pin
-  const people = activePack(side)?.people
+  const people = pack.people
   if (people) {
     for (const s of soldiers) {
       const pin = s.pos && people[`${seedKey}/${s.pos}`]
@@ -257,6 +258,8 @@ export function assignCallsigns(u: Unit): void {
 // (Enemy units + the slot-exhausted fallback path; slot-drawn friendlies keep
 // their garrison personnel and only take callsigns.)
 export function assignPersonnel(u: Unit): void {
-  namePersonnel(u.soldiers, u.vehicles, u.type, `${u.id}`, u.side)
+  // a FIELDED unit knows which side it is on — that is a fact about this
+  // battle, not about the army — so the lineup answers which pack it is from
+  namePersonnel(u.soldiers, u.vehicles, u.type, `${u.id}`, activePack(u.side) ?? playerPack())
   assignCallsigns(u)
 }
