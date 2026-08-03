@@ -35,7 +35,11 @@ export interface Difficulty {
   supplyLift: number
   enemySupplyLift: number
   enemyStart: number
-  startForce: readonly UnitTypeKey[]
+  // HOW MANY elements are already on the ground next to the HQ. WHICH ones is
+  // the pack's to say (Pack.startForce, in the order it wants them fielded) —
+  // a difficulty tier that named unit types could only ever describe one army,
+  // and handed a Mobile Infantry player an Abrams.
+  startForce: number
   damageMul: number
   casualty: CasualtyDials
 }
@@ -48,7 +52,7 @@ export const DIFFICULTIES = {
     supplyLift: 45,          // 900/min
     enemySupplyLift: 12,     // 240/min — sustains roughly 2 battlegroups
     enemyStart: 400,         // can't afford a group yet; a few minutes of grace
-    startForce: ['SCT', 'INF', 'INF', 'MECH', 'ARM', 'LOG'],
+    startForce: 6,
     damageMul: 0.55,
     casualty: { kiaFrac: 0.15, vehRepairFrac: 0.65, lightFrac: 0.75, rtdMin: 3 },
   },
@@ -59,7 +63,7 @@ export const DIFFICULTIES = {
     supplyLift: 30,          // 600/min
     enemySupplyLift: 22,     // 440/min — roughly 4 battlegroups
     enemyStart: 900,
-    startForce: ['SCT', 'INF', 'INF', 'MECH'],
+    startForce: 4,
     damageMul: 0.75,
     // the "realistic" anchor: ~3:1 WIA:KIA, half of vehicle kills recoverable
     casualty: { kiaFrac: 0.25, vehRepairFrac: 0.5, lightFrac: 0.6, rtdMin: 5 },
@@ -71,7 +75,7 @@ export const DIFFICULTIES = {
     supplyLift: 22,          // 440/min
     enemySupplyLift: 32,     // 640/min — out-earns you
     enemyStart: 1400,
-    startForce: ['SCT', 'INF'],
+    startForce: 2,
     damageMul: 1,
     casualty: { kiaFrac: 0.3, vehRepairFrac: 0.4, lightFrac: 0.5, rtdMin: 6 },
   },
@@ -82,7 +86,7 @@ export const DIFFICULTIES = {
     supplyLift: 16,          // 320/min
     enemySupplyLift: 45,     // 900/min — nearly 3x your rate
     enemyStart: 2000,        // a battlegroup on the board almost immediately
-    startForce: ['INF'],
+    startForce: 1,
     damageMul: 1.35,
     casualty: { kiaFrac: 0.35, vehRepairFrac: 0.3, lightFrac: 0.45, rtdMin: 8 },
   },

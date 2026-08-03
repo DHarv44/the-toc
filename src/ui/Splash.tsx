@@ -8,7 +8,7 @@ import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
 import { packMap, packMaps } from '../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../packs/scenario-files'
-import { PACKS, playerPack } from '../packs'
+import { allPacks, PACKS, playerPack } from '../packs'
 import { playableFormations } from '../packs/orgquery'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
@@ -18,7 +18,13 @@ import {
 // six optional positional arguments: the sandbox, an AUTHORED scenario (its
 // own type is the ruleset), or a QUICK BATTLE on a bare map under a picked mode.
 export type StartReq =
-  | { kind: 'dev' }
+  | {
+      kind: 'dev'
+      /** the ARMY the sandbox plays, by pack id. The ground is separate — a
+       *  map is terrain, not a nationality — so any pack drops onto any map.
+       *  Absent = the bootstrap lineup. */
+      army?: string
+    }
   | {
       kind: 'scenario'
       /** 'packId/scenarioId' */
@@ -65,7 +71,10 @@ const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SL
 export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   onStart: StartFn; onPacks: () => void; onMaps: () => void; onScenarios: () => void
 }) {
-  const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
+  const [top, setTop] = useState<'skirmish' | 'campaign' | 'sandbox' | null>(null)
+  // every army this build ships — the sandbox lets you play ANY of them, since
+  // the ground and the army are independent
+  const armies = allPacks()
   const [campaignSel, setCampaignSel] = useState<PackScenarioEntry | null>(null)
   const [skirmishSel, setSkirmishSel] = useState<PackScenarioEntry | null>(null)
   // which battalion the player takes for a skirmish scenario (null = not yet
@@ -92,6 +101,7 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
     : top === 'campaign' ? 'ONE LONG OPERATION — YOUR FORCE AND YOUR LOSSES CARRY MISSION TO MISSION'
+    : top === 'sandbox' ? 'THE GROUND AND THE ARMY ARE SEPARATE — ANY PACK DROPS ONTO ANY MAP'
     : gameMode == null ? 'THE MODE SETS THE OBJECTIVE — AND WHAT DEFEAT MEANS'
     : terrain === undefined ? 'REAL GROUND, AUTHORED IN THE MAP EDITOR — THE MAP SETS ITS OWN SIZE'
     : 'DIFFICULTY SETS SUPPLY, STARTING FORCE AND HOW LONG FIREFIGHTS RUN'
@@ -134,7 +144,8 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
           <SectionLabel>SANDBOX</SectionLabel>
           {maps.length ? (
             <SplashButton label="DEV SANDBOX" sub="Staged test map · fog off · full supply · dev controls"
-              accent="#3a5a3a" onClick={() => onStart({ kind: 'dev' })} />
+              accent="#3a5a3a"
+              onClick={() => (armies.length > 1 ? setTop('sandbox') : onStart({ kind: 'dev' }))} />
           ) : (
             <ComingSoon label="DEV SANDBOX" sub="Needs a pack map · author one in the MAP EDITOR" />
           )}
@@ -147,6 +158,17 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
             accent="#4a6a8a" onClick={onMaps} />
           <SplashButton label="SCENARIO BUILDER" sub="Place the war on a pack map · units, bases, objectives · ships in the pack"
             accent="#8a6a2a" onClick={onScenarios} />
+        </div>
+      ) : top === 'sandbox' ? (
+        <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
+          <SectionLabel>SANDBOX · WHOSE ARMY</SectionLabel>
+          {armies.map((p) => (
+            <SplashButton key={p.id} label={p.abbr ?? p.id}
+              sub={`${p.name}${p.nick ? ` · ${p.nick}` : ''} · ${p.formation?.chair ?? 'NO FORMATION'}`}
+              accent="#3a5a3a"
+              onClick={() => onStart({ kind: 'dev', army: p.id })} />
+          ))}
+          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
       ) : top === 'campaign' && campaignSel == null ? (
         <div style={{ position: 'relative', width: 340 }}>
@@ -294,7 +316,7 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
             const d = DIFFICULTIES[k]
             return (
               <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
-                stats={`${d.supplies.toLocaleString()} SUPPLY · ${d.startForce.length} UNIT${d.startForce.length > 1 ? 'S' : ''} · ${toughness(d.damageMul)}`}
+                stats={`${d.supplies.toLocaleString()} SUPPLY · ${d.startForce} UNIT${d.startForce > 1 ? 'S' : ''} · ${toughness(d.damageMul)}`}
                 recommended={k === DEFAULT_DIFFICULTY}
                 onClick={() => onStart({
                   kind: 'quick', difficulty: k, gameMode, terrain,

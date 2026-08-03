@@ -680,6 +680,11 @@ export interface Pack {
   // army of its own names none, so that anything it fails to ship is missing
   // rather than silently borrowed.
   inherits?: string
+  // THE ELEMENTS THIS ARMY PUTS ON THE GROUND FIRST, in the order it wants
+  // them fielded — recon before the line, in most armies. The difficulty tier
+  // says how many of them (Difficulty.startForce); this says what they are,
+  // because only the army knows what it fields.
+  startForce?: readonly UnitTypeKey[]
   // NOTE there is no `side` here, and there must not be. A pack is an ARMY.
   // Which side it fights on is the SCENARIO's call (ScenarioSpec.sides) and
   // lives with the installed lineup — the same army can be the enemy in one

@@ -106,6 +106,9 @@
 
   "cats": ["MOBILE INFANTRY", "RECONNAISSANCE"],
 
+  "_startForce_doc": "What is already down when the fight opens, in fielding order. Scouts first — the MI drops blind and the scout suits are what make the ground legible — then the line platoons, then the heavy weapons.",
+  "startForce": ["MI_SCOUT", "MI_PLT", "MI_PLT", "MI_HVY", "MI_PLT", "MI_HVY"],
+
   "_ranks_doc": "Junior first — ORDER IS SENIORITY, and the engine reads nothing else. Third Lieutenant is Heinlein's own invention: a cadet officer on trial, who outranks every sergeant on paper and is expected to listen to all of them. It sits above Fleet Sergeant because command authority is what the ladder measures.",
   "ranks": [
     { "key": "RCT", "name": "Recruit" },

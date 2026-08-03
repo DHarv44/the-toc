@@ -6,6 +6,8 @@
   "nick": "First Team",
   "motto": "First Team",
   "patch": "1cd",
+  "_startForce_doc": "What is already on the ground beside the CP when a battle opens, in fielding order — scouts out first, then the line, then armour and the log package. The DIFFICULTY decides how many of these get fielded, so the tiers are prefixes of this one list.",
+  "startForce": ["SCT", "INF", "INF", "MECH", "ARM", "LOG"],
   "catalogs": {
     "extends": "us-platforms"
   },

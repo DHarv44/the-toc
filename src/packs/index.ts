@@ -112,6 +112,7 @@ function buildPack(
     nick: man.nick,
     motto: man.motto,
     inherits: man.inherits,
+    startForce: man.startForce ?? fallback?.startForce,
     patch: man.patch,
     catalogs: resolveCatalogs(m, fallback),
     // capability groups follow the catalog: a pack that inherits 1CD's

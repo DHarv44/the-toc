@@ -61,7 +61,11 @@ export default function App() {
         // first pack map installed (the splash greys the button when none are)
         const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
         if (!dev) throw new Error('no pack maps installed — author one in the MAP EDITOR')
-        initDevGame(await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId }))
+        initDevGame(
+          await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId }), 1337,
+          // the army the splash picked; its opponent stays the bootstrap one
+          req.army ? { friend: req.army } : undefined,
+        )
       } else if (req.kind === 'scenario') {
         // an AUTHORED scenario ('packId/scenarioId') — its type IS the mode
         // (SCENARIO-MODEL.md): campaign-typed plays the campaign runner,

@@ -19,7 +19,7 @@ import { spawnEnemy } from '../domains/forces/factory'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { ScenarioSpec } from '../scenario/types'
 import { applyScenario } from './applyScenario'
-import { playerPack, installActivePacks } from '../packs'
+import { activePack, playerPack, installActivePacks } from '../packs'
 import { buildDivisionOrg } from '../packs/org'
 import { defaultPlayerFormation } from '../packs/orgquery'
 import { buildAssetRegistry } from '../domains/assets/registry'
@@ -124,8 +124,12 @@ export function initGame(
   // Player starter force near the HQ, laid out in a shallow arc so nothing overlaps.
   // Slots that land on no-go terrain (a lake against the base) are nudged to the nearest
   // spot the unit can actually sit on, so the force is never short a vic.
-  diff.startForce.forEach((typeKey, i) => {
-    const n = diff.startForce.length
+  // WHICH elements is the player pack's (its own platforms, in its own order);
+  // HOW MANY is the difficulty's. A tier that named unit types could only
+  // describe one army — it handed a Mobile Infantry company an Abrams.
+  const startForce = (playerPack().startForce ?? []).slice(0, diff.startForce)
+  startForce.forEach((typeKey, i) => {
+    const n = startForce.length
     const a = -Math.PI / 2 + (n > 1 ? (i / (n - 1) - 0.5) * 1.5 : 0)
     const p = nearestLand(S.map!, S.map!.fob.x + Math.cos(a) * 260, S.map!.fob.y + Math.sin(a) * 260)
     deployUnit(typeKey, p.x, p.y, true)
@@ -158,11 +162,17 @@ export function initScenarioGame(
 // full supply, no incoming waves. Both HQs sit in one screen (friendly bottom-left,
 // enemy top-right) with one of every unit type staged near its base, weapons held so
 // nothing attrits until the dev commits to a fight.
-export function initDevGame(map: WorldMap, seed = 1337): void {
+export function initDevGame(
+  map: WorldMap, seed = 1337,
+  // WHICH ARMY the sandbox plays, by pack id. The ground and the army are
+  // independent — a map is terrain, not a nationality — so the sandbox can
+  // drop any pack onto any pack's map. Absent = the bootstrap lineup.
+  sides?: { friend?: string; hostile?: string },
+): void {
   // The sandbox plays whatever pack map it is handed (the App picks BAGHDAD
   // by default). Every map is a pack map now (P6) — a checkout with no maps
   // saved authors one in the MAP EDITOR first.
-  initGame(map, seed)
+  initGame(map, seed, undefined, undefined, undefined, sides)
   S.devMode = true         // unlocks the DEV controls in the top bar
   S.fogEnabled = false
   S.nextWave = Infinity
@@ -188,17 +198,18 @@ export function initDevGame(map: WorldMap, seed = 1337): void {
   const rfb = nearestLand(S.map!, red.x + 700, red.y + 350); addStructure('hostile', 'FOB', rfb.x, rfb.y, 'RED FOB', true)
   const rop = nearestLand(S.map!, red.x - 250, red.y - 750); addStructure('hostile', 'OP', rop.x, rop.y, 'RED OP', true)
 
-  // one of every friendly unit type, in a tidy block forward of the friendly HQ
-  // one of every fieldable type in the DIVISION PACKAGE (incl. the MED det) —
-  // each draws its real 1CD/attachment slot from S.org
-  const BLUE: readonly UnitTypeKey[] = ['INF', 'STRY', 'MECH', 'ARM', 'AT', 'SCT', 'CAV', 'MOR', 'ARTY', 'ENG', 'SIG', 'LOG', 'MED']
+  // ONE OF EVERYTHING THE PLAYER'S ARMY FIELDS, in a tidy block forward of the
+  // friendly HQ — each drawing its real slot from S.org. Read off the pack's
+  // own catalog, so the sandbox stages a Mobile Infantry company's platoons
+  // for the MI and a division package for 1CD, without naming either.
+  const BLUE: readonly UnitTypeKey[] = Object.keys(playerPack().catalogs?.units ?? {})
   BLUE.forEach((k, i) => {
     const c = i % 4, r = (i / 4) | 0
     const p = nearestLand(S.map!, blue.x - 240 + c * 200, blue.y - 200 + r * 200)
     deployUnit(k, p.x, p.y, true)
   })
-  // one of every hostile type, in a block forward of the enemy HQ
-  const RED: readonly UnitTypeKey[] = ['INF', 'MECH', 'ARM', 'AT', 'CAV', 'ARTY']
+  // one of everything the OPPOSING army fields, in a block forward of its HQ
+  const RED: readonly UnitTypeKey[] = Object.keys(activePack('hostile')?.catalogs?.units ?? {})
   RED.forEach((k, i) => {
     const c = i % 3, r = (i / 3) | 0
     const p = nearestLand(S.map!, red.x - 200 + c * 200, red.y + 200 - r * 200)

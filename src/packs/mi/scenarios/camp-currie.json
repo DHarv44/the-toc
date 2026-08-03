@@ -1,0 +1,43 @@
+{
+  "_doc": "LIVE FIRE AT CAMP CURRIE — the Mobile Infantry's first playable ground. Camp Arthur Currie is the novel's boot camp, and a live-fire exercise against an opposing force is the honest thing to ship first: it is canon that the MI trains this way, and it does not pretend the enemy is Arachnid when the Arachnids do not exist yet. Two things here are borrowed and marked as such — the GROUND is 1CD's Kabul map, because a map is terrain and not a nationality and the MI ships no maps of its own; and the OPPOSING FORCE is the OPFOR pack, standing in as the exercise's aggressors. Both are named in `sides`/`map` rather than assumed, which is the whole point of those fields.",
+
+  "type": "attack-defend",
+  "name": "LIVE FIRE — CAMP CURRIE",
+  "map": "1cd/kabul",
+
+  "_sides_doc": "The pack that ships this scenario is the MI, and the MI takes the friendly side — but that is this scenario's decision, written here. Nothing in either pack says whose war it is.",
+  "sides": {
+    "friend": "mi",
+    "hostile": "opfor"
+  },
+
+  "_player_doc": "G/3 — George Company, Third Regiment. The chair is a COMPANY because the MI's formation says chairRung 1, and what the player fields from it is a platoon.",
+  "player": "G/3",
+
+  "_situation_doc": "ATTACK & DEFEND judges on the ENEMY COMMAND POST, so a scenario under that ruleset must author one. The first cut of this file did not, and the match was won at 00:00:00Z before a single trooper moved.",
+  "situation": {
+    "structures": [
+      { "side": "friend", "kind": "HQ", "x": 0.1445, "y": 0.7889 },
+      { "side": "friend", "kind": "AFLD", "x": 0.0565, "y": 0.8985 },
+      { "side": "friend", "kind": "FOB", "x": 0.1144, "y": 0.6965 },
+      { "side": "friend", "kind": "OP", "x": 0.2428, "y": 0.7243 },
+      { "side": "hostile", "kind": "HQ", "x": 0.4180, "y": 0.4520 },
+      { "side": "hostile", "kind": "FOB", "x": 0.3620, "y": 0.5480 },
+      { "side": "hostile", "kind": "OP", "x": 0.2980, "y": 0.6180 }
+    ],
+    "units": [
+      { "side": "hostile", "type": "INF", "x": 0.3143, "y": 0.5788 },
+      { "side": "hostile", "type": "INF", "x": 0.2133, "y": 0.5683 },
+      { "side": "hostile", "type": "INF", "x": 0.2256, "y": 0.5547 },
+      { "side": "hostile", "type": "MECH", "x": 0.3241, "y": 0.5671 },
+      { "side": "hostile", "type": "MECH", "x": 0.3414, "y": 0.6420 },
+      { "side": "hostile", "type": "INF", "x": 0.3555, "y": 0.6429 },
+      { "side": "hostile", "type": "INF", "x": 0.3687, "y": 0.6481 },
+      { "side": "hostile", "type": "ARM", "x": 0.3477, "y": 0.6346 },
+      { "side": "hostile", "type": "INF", "x": 0.3373, "y": 0.6238 }
+    ],
+    "places": [
+      { "name": "DROP ZONE", "r": 1800, "x": 0.2343, "y": 0.6207 }
+    ]
+  }
+}
