@@ -42,9 +42,13 @@
    who is speaking, to whom, whether a range is worth saying — and no words.
    Not inherited: a pack with no voice is not heard, so the OPFOR net cannot
    sound like Fort Cavazos by default.
-7. **Milspeak strings across services** (campaign FRAGOs, asset desk names
-   DIV G3/CORPS G3/ASOC, PERSTAT format) — fine for the US pack today, but
-   they live in engine files; missions-in-packs (roadmap) is the real fix.
+7. **PARTLY DONE** (2026-08-03) — the STAFF REPORTS are pack data now:
+   `Pack.reports` holds each desk's form (heading, numbered paragraphs,
+   sign-off) plus the alternative `phrases` a paragraph needs; the composers
+   in engine/campaign.ts count and fill, and no longer contain a sentence.
+   Campaign FRAGOs already moved with missions-in-packs. STILL ENGINE-SIDE:
+   the asset desk names (DIV G3 / CORPS G3 / ASOC) in domains/assets, and the
+   personnel-recovery FRAGO prose in campaign.ts runCampaign.
 
 ## Force lists & missions
 8. **Campaign mission content** — `engine/campaign.ts` OPERATION table,

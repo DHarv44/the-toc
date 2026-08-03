@@ -141,6 +141,7 @@ function buildPack(
     // split exists to prevent. A pack with none is simply not heard on the net
     // (only friendly elements transmit today — see comms/radio.ts).
     net: man.net,
+    reports: man.reports ?? fallback?.reports,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

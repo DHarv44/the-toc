@@ -71,6 +71,67 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "_reports_doc": "THE FORM EACH STAFF DESK WRITES ON — heading, numbered paragraphs, sign-off, joined by blank lines. Fields fill by name and an absent one resolves empty. `phrases` are the alternative wordings a paragraph needs (no open cases vs. a list of them); the composer picks WHICH, this file says WHAT. Plural suffixes arrive as their own fields ({fobsS}, {promosS}) because the engine counts and does not conjugate.",
+  "reports": {
+    "s1": {
+      "head": "{report} AS OF {dtg}.",
+      "paras": [
+        "1. STRENGTH. Task force assigned {asg}, fit for duty {fit} — {pct} percent.",
+        "2. LOSSES. {kia} KIA. {wia} WIA — {wiaRtd} under care expected to return, {wiaEvac} evacuated out of the AO. {mia} MIA.",
+        "3. DUSTWUN. {dustwun}",
+        "4. REPLACEMENTS. {backlog} billets requested with rear detachment. {repl} replacements integrated to date. Next packet estimated {nextPkt} minutes. Units absorb at a friendly base only.",
+        "5. PERSONNEL ACTIONS. {promos} battlefield promotion{promosS} processed. {ph} {phName}{phS} awarded to date."
+      ],
+      "sign": "S1 SENDS. {signer}",
+      "phrases": {
+        "dustwunNone": "No open cases.",
+        "dustwunOpen": "{list}. Recovery is the fastest thing we can do for those soldiers.",
+        "dustwunItem": "{label} unresolved, LKP {lkp}"
+      }
+    },
+    "s2": {
+      "head": "{report} AS OF {dtg}.",
+      "paras": [
+        "1. ENEMY. {live} contacts held LIVE, {stale} stale last-known, {unknown} assessed but unidentified. {destroyed} enemy elements destroyed to date.",
+        "2. CURRENT TRACKS. {tracks}",
+        "3. COLLECTION. {drones} UAS airborne{aerostat}. Assessment confidence follows coverage — what we cannot see, we do not know."
+      ],
+      "sign": "S2 SENDS.",
+      "phrases": {
+        "tracksNone": "No live tracks this period.",
+        "tracksHeld": "{list}.",
+        "aerostat": ", aerostat coverage over the base network"
+      }
+    },
+    "s3": {
+      "head": "{report} AS OF {dtg}.",
+      "paras": [
+        "1. OPERATION {operation}. {done}/{total} objectives complete. Current: {current}.",
+        "2. FORCES. {fielded} elements fielded, {inContact} in contact this hour.",
+        "3. INCIDENTS. {incidents}"
+      ],
+      "sign": "S3 SENDS.",
+      "phrases": {
+        "operationComplete": "OPERATION COMPLETE",
+        "incidentsNone": "No open recovery tasks.",
+        "incidentsOpen": "{n} personnel recovery site{s} OPEN."
+      }
+    },
+    "s4": {
+      "head": "{report} AS OF {dtg}.",
+      "paras": [
+        "1. EQUIPMENT. {ok} vehicles mission capable, {dam} in maintenance, {dest} combat losses — OR rate {orPct} percent.",
+        "2. CLASS V. Fires basic load {idfRounds} rounds across the tubes. Stowage on hand: {stow}.",
+        "3. FORWARD STOCK. {stock} at {fobs} FOB{fobsS}; {convoys} convoy{convoysS} running.",
+        "4. DIVISION ASSETS. {alloc} allocated to the task force, {moving} inbound or emplacing, {queued} on the waiting list{favor}."
+      ],
+      "sign": "S4 SENDS.",
+      "phrases": {
+        "stowNominal": "nominal",
+        "favor": "; command favor is working for us"
+      }
+    }
+  },
   "_net_doc": "HOW THIS ARMY TALKS ON THE RADIO — net procedure is culture, not machinery. Templates fill by field name: {control} {higher} {callsign} {msg} {range} {closing}, and {n} inside `range`. `higher` is drawn per callsign and held, so a given element always addresses the same station; `closings` are drawn per transmission from the seeded rng, which is why a battle replays with identical chatter.",
   "net": {
     "higher": ["COMMAND", "BASE", "TOC", "MOTHER", "NET CONTROL"],

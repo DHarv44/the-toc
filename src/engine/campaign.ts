@@ -63,6 +63,7 @@ import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { defaultPlayerFormation } from '../packs/orgquery'
 import { commandsStructure } from '../domains/forces/command'
 import { awardDef, awardFor } from '../packs/awards'
+import type { ReportTemplate } from '../packs/types'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
@@ -479,6 +480,39 @@ export function queueReport(S: GameState, auto = false, shop: StaffShop = 's1'):
   }
 }
 
+// --- report composition -----------------------------------------------------
+// A staff report is the pack's FORM filled with the engine's FIGURES. Each
+// composer below counts what its desk is about and hands the numbers over; not
+// one of them knows a word of the report it produces.
+type Fields = Record<string, string | number>
+
+/** the desk's form, or a bare fallback so a pack that ships none still files */
+function reportForm(shop: StaffShop): ReportTemplate {
+  return playerPack().reports?.[shop]
+    ?? { head: `${reportName(shop)} {dtg}`, paras: [], sign: `${shop.toUpperCase()} SENDS.` }
+}
+
+const fillTpl = (tpl: string, f: Fields): string =>
+  tpl.replace(/\{(\w+)\}/g, (_, k: string) => String(f[k] ?? ''))
+
+/** ONE report: heading, paragraphs, sign-off — blank-line separated, which is
+ *  the shape every staff product on this net has. */
+function fileReport(shop: StaffShop, f: Fields): string {
+  const form = reportForm(shop)
+  return [form.head, ...form.paras, form.sign]
+    .map(line => fillTpl(line, f))
+    .join('\n\n')
+}
+
+/** an alternative wording by name, itself filled — the composer picks WHICH,
+ *  the pack wrote WHAT */
+const phrase = (shop: StaffShop, key: string, f: Fields = {}): string =>
+  fillTpl(reportForm(shop).phrases?.[key] ?? '', f)
+
+/** English plural suffix for a count, as a field the templates append */
+const s = (n: number): string => (n === 1 ? '' : 'S')
+const lower = (n: number): string => (n === 1 ? '' : 's')
+
 // The PERSTAT: personnel ONLY (vics belong to the S4's LOGSTAT). Composed from
 // the live roster the moment it lands.
 function composePerstat(S: GameState): string {
@@ -505,20 +539,19 @@ function composePerstat(S: GameState): string {
   const promos = S.stats.promotions ?? 0
   const s1 = s1Officer(S)
   const pct = asg ? Math.round(fit / asg * 100) : 100
-  return (
-    `PERSTAT AS OF ${dtgOf(S.t)}.\n\n`
-    + `1. STRENGTH. Task force assigned ${asg}, fit for duty ${fit} — ${pct} percent.\n\n`
-    + `2. LOSSES. ${kia} KIA. ${wiaRtd + wiaEvac} WIA — ${wiaRtd} under care expected to return, `
-    + `${wiaEvac} evacuated out of theater. ${mia} MIA.\n\n`
-    + `3. DUSTWUN. ${dustwun.length ? dustwun.map(d => `${d.label} unresolved, LKP ${locRef(S.map!, d.x, d.y)}`).join('; ') + '. Recovery is the fastest thing we can do for those soldiers.'
-      : 'No open cases.'}\n\n`
-    + `4. REPLACEMENTS. ${backlog} billets requested with rear detachment. `
-    + `${repl} replacements integrated to date. Next packet estimated ${nextPkt} minutes. `
-    + 'Units absorb at a friendly base only.\n\n'
-    + `5. PERSONNEL ACTIONS. ${promos} battlefield promotion${promos === 1 ? '' : 's'} processed. `
-    + `${ph} ${awardDef(woundAward ?? '')?.name ?? 'wound decoration'}${ph === 1 ? '' : 's'} awarded to date.\n\n`
-    + `S1 SENDS. ${s1 ? `${(s1.name ?? '').split(' ').pop()}, ${s1.rank}.` : ''}`
-  )
+  const open = dustwun
+    .map(d => phrase('s1', 'dustwunItem', { label: d.label, lkp: locRef(S.map!, d.x, d.y) }))
+    .join('; ')
+  return fileReport('s1', {
+    report: reportName('s1'), dtg: dtgOf(S.t),
+    asg, fit, pct,
+    kia, mia, wia: wiaRtd + wiaEvac, wiaRtd, wiaEvac,
+    dustwun: dustwun.length ? phrase('s1', 'dustwunOpen', { list: open }) : phrase('s1', 'dustwunNone'),
+    backlog, repl, nextPkt,
+    promos, promosS: lower(promos),
+    ph, phS: lower(ph), phName: awardDef(woundAward ?? '')?.name ?? '',
+    signer: s1 ? `${(s1.name ?? '').split(' ').pop()}, ${s1.rank}.` : '',
+  })
 }
 
 // The LOGSTAT: materiel ONLY — motorpool, munitions posture, forward stock,
@@ -546,17 +579,15 @@ function composeLogstat(S: GameState): string {
   const A = S.assets
   const alloc = A.pool.filter(a => a.holder === 'TF' && a.state === 'allocated').length
   const moving = A.pool.filter(a => a.state === 'enroute' || a.state === 'setup').length
-  return (
-    `LOGSTAT AS OF ${dtgOf(S.t)}.\n\n`
-    + `1. EQUIPMENT. ${ok} vehicles mission capable, ${dam} in maintenance, ${dest} combat losses — `
-    + `OR rate ${orPct} percent.\n\n`
-    + `2. CLASS V. Fires basic load ${idfRounds} rounds across the tubes. `
-    + `Stowage on hand: ${clv || 'nominal'}.\n\n`
-    + `3. FORWARD STOCK. ${stock} at ${fobs.length} FOB${fobs.length === 1 ? '' : 'S'}; ${convoys} convoy${convoys === 1 ? '' : 's'} running.\n\n`
-    + `4. DIVISION ASSETS. ${alloc} allocated to the task force, ${moving} inbound or emplacing, `
-    + `${A.queue.length} on the waiting list${A.favor > 0 ? `; command favor is working for us` : ''}.\n\n`
-    + `S4 SENDS.`
-  )
+  return fileReport('s4', {
+    report: reportName('s4'), dtg: dtgOf(S.t),
+    ok, dam, dest, orPct,
+    idfRounds, stow: clv || phrase('s4', 'stowNominal'),
+    stock, fobs: fobs.length, fobsS: s(fobs.length),
+    convoys, convoysS: lower(convoys),
+    alloc, moving, queued: A.queue.length,
+    favor: A.favor > 0 ? phrase('s4', 'favor') : '',
+  })
 }
 
 // The INTSUM: the enemy picture as the COP actually knows it.
@@ -571,15 +602,15 @@ function composeIntsum(S: GameState): string {
   }
   const drones = S.drones.filter(d => !d.tether)
   const aero = S.drones.some(d => d.tether != null)
-  return (
-    `INTSUM AS OF ${dtgOf(S.t)}.\n\n`
-    + `1. ENEMY. ${live} contacts held LIVE, ${stale} stale last-known, ${unknown} assessed but unidentified. `
-    + `${S.stats.enemyDestroyed} enemy elements destroyed to date.\n\n`
-    + `2. CURRENT TRACKS. ${notable.length ? notable.join('; ') + '.' : 'No live tracks this period.'}\n\n`
-    + `3. COLLECTION. ${drones.length} UAS airborne${aero ? ', aerostat coverage over the base network' : ''}. `
-    + 'Assessment confidence follows coverage — what we cannot see, we do not know.\n\n'
-    + `S2 SENDS.`
-  )
+  return fileReport('s2', {
+    report: reportName('s2'), dtg: dtgOf(S.t),
+    live, stale, unknown, destroyed: S.stats.enemyDestroyed,
+    tracks: notable.length
+      ? phrase('s2', 'tracksHeld', { list: notable.join('; ') })
+      : phrase('s2', 'tracksNone'),
+    drones: drones.length,
+    aerostat: aero ? phrase('s2', 'aerostat') : '',
+  })
 }
 
 // The OPSUM: the fight as it stands — objectives, posture, forces committed.
@@ -589,14 +620,16 @@ function composeOpsum(S: GameState, c: CampaignState): string {
   const inContact = S.units.filter(u => u.side === 'friend' && S.t - u.lastCombatT < 60).length
   const fielded = S.units.filter(u => u.side === 'friend' && !u.respFrom).length
   const dustwun = S.downed.filter(d => d.side === 'friend' && !d.resolved).length
-  return (
-    `OPSUM AS OF ${dtgOf(S.t)}.\n\n`
-    + `1. OPERATION ${operation().name}. ${done}/${operation().objectives.length} objectives complete. `
-    + `Current: ${obj ? obj.label : 'OPERATION COMPLETE'}.\n\n`
-    + `2. FORCES. ${fielded} elements fielded, ${inContact} in contact this hour.\n\n`
-    + `3. INCIDENTS. ${dustwun ? `${dustwun} personnel recovery site${dustwun === 1 ? '' : 's'} OPEN.` : 'No open recovery tasks.'}\n\n`
-    + `S3 SENDS.`
-  )
+  return fileReport('s3', {
+    report: reportName('s3'), dtg: dtgOf(S.t),
+    operation: operation().name,
+    done, total: operation().objectives.length,
+    current: obj ? obj.label : phrase('s3', 'operationComplete'),
+    fielded, inContact,
+    incidents: dustwun
+      ? phrase('s3', 'incidentsOpen', { n: dustwun, s: lower(dustwun) })
+      : phrase('s3', 'incidentsNone'),
+  })
 }
 
 const COMPOSERS: Record<StaffShop, (S: GameState, c: CampaignState) => string> = {

@@ -123,6 +123,23 @@ export interface CrewBillets {
   unarmed: Record<string, BilletPlan[]>
 }
 
+// --- staff reports ----------------------------------------------------------
+// THE PRODUCT EACH DESK WRITES. A staff report is a form: a heading with the
+// time on it, numbered paragraphs in a fixed order, and a sign-off. Which
+// paragraphs, in what order, and every word of them is the army's own — the
+// engine only counts the things they are about and fills the blanks.
+//
+// Templates fill by field name ({asg}, {kia}); a field with nothing to say
+// resolves empty. `phrases` holds the ALTERNATIVE wordings a paragraph needs —
+// what to write when there are no open cases as against when there are. The
+// composer CHOOSES between them (a rule); the words are never its own.
+export interface ReportTemplate {
+  head: string
+  paras: string[]
+  sign: string
+  phrases?: Record<string, string>
+}
+
 // --- the net ----------------------------------------------------------------
 // HOW THIS ARMY TALKS ON THE RADIO. Net procedure is culture: who you address,
 // what you call the station above you, how you sign off, and the shape of the
@@ -620,6 +637,7 @@ export interface Pack {
   ranks?: RankDef[]       // the rank ladder, junior first (order IS seniority)
   awards?: Record<string, AwardDef> // decorations, and what earns them
   net?: NetVoice          // how this army talks on the radio
+  reports?: Record<string, ReportTemplate> // the form each staff desk writes on
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)
