@@ -8,14 +8,20 @@ import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
 import { playerPack, lineageFor } from '../../packs'
+import { activePack } from '../../packs/install'
 import { assignPersonnel, assignCallsigns } from '../../packs/personnel'
 import { drawSlot } from '../../packs/org'
 
-const FRIEND_CALLS = [
-  'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOX', 'GOLF', 'HOTEL', 'INDIA',
-  'JULIET', 'KILO', 'LIMA', 'MIKE', 'NOVA', 'OSCAR', 'PAPA', 'QUEBEC', 'ROMEO',
-  'SIERRA', 'TANGO',
-]
+// WHAT A FIELDED ELEMENT IS CALLED ON THE NET. The style is the side's own
+// (Pack.callsigns): a force that NAMES its elements cycles a pool and numbers
+// them — ALPHA-1, BRAVO-2 — while a force that only COUNTS them takes a
+// prefix and a zero-padded number. The engine owns the counter, never the
+// vocabulary; a pack with neither falls back to the plain count.
+function designator(side: Side, n: number): string {
+  const cs = activePack(side)?.callsigns
+  if (cs?.pool?.length) return `${cs.pool[(n - 1) % cs.pool.length]}-${n}`
+  return `${cs?.prefix ?? ''}${String(n).padStart(cs?.pad ?? 0, '0')}`
+}
 
 export function newUnit(
   typeKey: UnitTypeKey, side: Side, x: number, y: number,
@@ -27,9 +33,7 @@ export function newUnit(
 ): Unit {
   const type = UNIT_TYPES[typeKey]
   S.counters.designators[side]++
-  const label = side === 'friend'
-    ? FRIEND_CALLS[(S.counters.designators.friend - 1) % FRIEND_CALLS.length] + '-' + S.counters.designators.friend
-    : 'E' + String(S.counters.designators.hostile).padStart(2, '0')
+  const label = designator(side, S.counters.designators[side])
   // Fielding a friendly unit DRAWS a garrisoned slot from the division org:
   // the unit takes the slot's lineage and its roster (same records — shared
   // by reference, so the S1 garrison view and the fielded unit never diverge).

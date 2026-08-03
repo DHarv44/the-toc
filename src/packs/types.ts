@@ -123,6 +123,17 @@ export interface CrewBillets {
   unarmed: Record<string, BilletPlan[]>
 }
 
+/** HOW THIS ARMY DESIGNATES A FIELDED ELEMENT on the net. A `pool` is cycled
+ *  and numbered — ALPHA-1, BRAVO-2 — which is how a force that names things
+ *  talks; `prefix` + a zero-padded count is how a force that only counts them
+ *  does (E01, E02). Every net call, map label and callsign derives from this,
+ *  so a pack that wants its opposition to sound different changes it here. */
+export interface CallsignStyle {
+  pool?: string[]
+  prefix?: string
+  pad?: number
+}
+
 export interface BilletTables {
   /** any troop kind the table does not name */
   default: BilletPlan
@@ -291,6 +302,10 @@ export interface StaffSection {
   report: string          // the report this desk produces: 'PERSTAT'
   desc: string            // short description (tooltips)
   detail: string          // fleshed-out description (console sub-header/help)
+  // the NCO who answers for the desk when the officer is down ('S1 NCOIC').
+  // `full` is the officer's billet; this is the next person on it. Absent = a
+  // desk that goes quiet when its officer does.
+  alt?: string
 }
 
 // --- campaigns (campaign-down content: see src/PACK-MISSIONS.md) ------------
@@ -519,6 +534,7 @@ export interface Pack {
   rosters?: Record<string, StaffBillet[]>
   bnKinds?: Record<string, BnKindPlan>
   billets?: BilletTables  // what each job is called, and who holds it
+  callsigns?: CallsignStyle // how this army designates a fielded element
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

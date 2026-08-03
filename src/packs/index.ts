@@ -131,6 +131,10 @@ function buildPack(
     rosters: man.rosters ?? fallback?.rosters,
     bnKinds: man.bnKinds ?? fallback?.bnKinds,
     billets: man.billets ?? fallback?.billets,
+    // NO FALLBACK for callsigns: inheriting the canonical pack's would have
+    // the opposition answering to ALPHA and BRAVO. A pack that declares none
+    // gets a plain count, which reads as unset rather than as somebody else.
+    callsigns: man.callsigns,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

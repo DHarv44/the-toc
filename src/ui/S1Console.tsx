@@ -10,6 +10,7 @@ import { Badge, Box, Button, Group, Text, TextInput, UnstyledButton } from '@man
 import { S } from '../engine/state'
 import { useUI } from './store'
 import { TROOP_KINDS, type WeaponKey } from '../domains/forces/composition'
+import { UNIT_TYPES } from '../domains/forces/catalog'
 import type { OrgSlot, Soldier } from '../engine/GameState'
 import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
@@ -445,7 +446,7 @@ export default function S1Console() {
             {sl.name}
           </Text>}
           att={sl.from ?? null}
-          sub={status}
+          sub={[pltType(sl), status].filter(Boolean).join(' · ')}
           leader={ldr ? `${ldr.rank} ${ldr.name}${ldr.cs ? ` · ${ldr.cs}` : ''}` : '— NONE FIT —'}
           a={a} highlight={!!u} />
         {open.has(key) && <SlotRoster sl={sl} depth={depth + 1} open={open} toggle={toggle} />}
@@ -456,6 +457,22 @@ export default function S1Console() {
   // a slot whose platoon is DUSTWUN — awaiting a recovery sweep
   const slotDown = (sl: OrgSlot): boolean =>
     sl.unitId != null && S.downed.some(d => d.unitId === sl.unitId && !d.resolved)
+
+  // WHAT KIND OF ELEMENT this is, from the platform's own catalog entry. Worth
+  // saying on every row: it is what makes a tank platoon's SECTIONS read
+  // correctly beside a rifle platoon's SQUADS, instead of looking like two
+  // renderings of the same thing.
+  const pltType = (sl: OrgSlot): string | undefined =>
+    sl.type ? (UNIT_TYPES[sl.type]?.name ?? sl.type).toUpperCase() : undefined
+
+  // A COMPANY IS ITS PLATOONS: three tank platoons make a tank company. Named
+  // by the capability its platoons belong to, so it holds for a troop or a
+  // battery as well as a company. A mixed company (an HHC) says nothing rather
+  // than picking one of its parts to speak for the whole.
+  const coType = (coSlots: OrgSlot[]): string | undefined => {
+    const types = [...new Set(coSlots.map(s => s.type).filter(Boolean))]
+    return types.length === 1 ? UNIT_TYPES[types[0]!]?.cat : undefined
+  }
 
   // company rows for a battalion (or a battalion's TF slice) — shared by all
   // tabs. The company LABEL carries its platoons' state: amber when any platoon
@@ -475,7 +492,7 @@ export default function S1Console() {
               c={coDown ? COL.mia : coCas ? COL.wia : '#b8cede'}
               style={coDown ? { animation: 's1pulse 1.2s ease-in-out infinite' } : undefined}>
               {co}{coDown ? ' — RECOVERY REQ' : coCas ? ' — CASUALTIES' : ''}
-            </Text>} a={coAgg} />
+            </Text>} sub={coType(coSlots)} a={coAgg} />
           {open.has(coKey) && coSlots.map(sl => renderSlot(sl, depth + 1))}
         </div>
       )

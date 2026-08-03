@@ -128,19 +128,22 @@ function assignElements(soldiers: Soldier[], vehicles: Unit['vehicles']): void {
   // NO SQUADS. Two shapes end up here:
   //
   // A platoon whose CREWS ARE THE PLATOON — armour, guns, scouts — has no
-  // squads because it has no dismounts to put in them. It fights in SECTIONS,
-  // a pair of vehicles each, and that is a real rung: the section is what
-  // manoeuvres, and its leader is the senior crew commander in it. (The
-  // vehicles do not name it and there is no rung per crew — a track is a
-  // thing a soldier is assigned to, not a place in the org.)
+  // squads because it has no dismounts to put in them. Its echelon is SECTION
+  // then CREW: the section (a pair of vehicles) is what manoeuvres, and the
+  // crew is the smallest thing with a commander. Here the crew IS an element
+  // — four people who fight one weapon system together — which is a different
+  // claim from a rifle platoon, where the carrier's crew is a job its
+  // passengers' squad happens to include.
   //
   // Anything else — a mortar section, a signal team, a retrans crew — IS one
   // element already. It gets no invented rungs; its people hang off it.
   if (!sqLeaders.length) {
     if (vehicles.length < 2) return
     vehicles.forEach((v, i) => {
-      const sec = `${ORD[Math.floor(i / 2)]} SEC`
-      for (const s of soldiers) if (s.vehId === v.id) s.sec = sec
+      for (const s of soldiers) if (s.vehId === v.id) {
+        s.sec = `${ORD[Math.floor(i / 2)]} SEC`
+        s.team = `${ORD[i]} CREW`
+      }
     })
     return
   }

@@ -23,6 +23,7 @@
       "name": "Personnel",
       "full": "S1 — Personnel",
       "report": "PERSTAT",
+      "alt": "S1 NCOIC",
       "desc": "Strength, casualties, replacements",
       "detail": "The S1 shop tracks every soldier in the task force: assigned strength, wounded and killed, the DUSTWUN board, the replacement pipeline from rear detachment, promotions and awards. Its PERSTAT is the commander's honest picture of the people."
     },
@@ -31,6 +32,7 @@
       "name": "Intelligence",
       "full": "S2 — Intelligence",
       "report": "INTSUM",
+      "alt": "S2 Analyst",
       "desc": "Enemy picture, tracks, collection",
       "detail": "The S2 shop owns the enemy picture as the COP actually knows it: live tracks, stale last-knowns, assessed-but-unidentified contacts, and the collection plan that feeds them. What the sensors cannot see, the S2 will not claim."
     },
@@ -39,6 +41,7 @@
       "name": "Operations",
       "full": "S3 — Operations",
       "report": "OPSUM",
+      "alt": "Operations NCO",
       "desc": "Objectives, orders, the fight",
       "detail": "The S3 shop runs the current fight: the operation's objectives, orders received, task organization, unit states and ROE, and open incidents like personnel recovery. The OPSUM is the fight as it stands, no varnish."
     },
@@ -47,6 +50,7 @@
       "name": "Logistics",
       "full": "S4 — Logistics",
       "report": "LOGSTAT",
+      "alt": "S4 NCOIC",
       "desc": "Motorpool, munitions, division assets",
       "detail": "The S4 shop keeps the iron running: vehicle operational-readiness and the motorpool queue, Class V posture across the tubes, forward stock at the FOBs, convoys on the road, and the division asset board — what is allocated, inbound, or on the waiting list."
     },
@@ -68,6 +72,13 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "callsigns": {
+    "pool": [
+      "ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOX", "GOLF", "HOTEL",
+      "INDIA", "JULIET", "KILO", "LIMA", "MIKE", "NOVA", "OSCAR", "PAPA",
+      "QUEBEC", "ROMEO", "SIERRA", "TANGO"
+    ]
+  },
   "_billets_doc": "WHAT EACH JOB IS CALLED AND WHO HOLDS IT. A rank LIST is drawn by hash, so the same billet is not the same rank in every platoon. `fromEnd` names the billets at the END of a kind's group — rosters are listed in casualty order, so the last leader standing is the platoon leader and the one before is the platoon sergeant. `fromStart` is the same from the other end. Crew billets are keyed by CREW SIZE ('*' = any size not named) and the last seat repeats.",
   "billets": {
     "default": { "pos": "Rifleman", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },

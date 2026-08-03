@@ -9,7 +9,7 @@
 // a `kind` plus flat params — evaluated by the pure `evalObjective` switch. That
 // keeps campaign state fully serializable for the (deferred) Save/Continue.
 import { S } from './state'
-import type { GameState, CampaignState, Soldier, StaffShop, Structure } from './GameState'
+import type { GameState, CampaignState, OrgSlot, Soldier, StaffShop, Structure } from './GameState'
 
 // The campaign is CONTENT, and content lives in the PACK (packs/README.md,
 // src/PACK-MISSIONS.md): the active pack's campaign folder ships the map
@@ -438,28 +438,23 @@ export function recallFrago(S: GameState, idx: number): void {
 const dtgOf = (t: number): string =>
   `${String(Math.floor(t / 3600)).padStart(2, '0')}${String(Math.floor(t / 60) % 60).padStart(2, '0')}Z`
 
-// the BILLET that owns each shop (org-structure wiring — engine machinery);
-// everything human-facing (names, report titles, descriptions) is PACK data
-const SHOPS: Record<StaffShop, { pos: string; alt?: string }> = {
-  s1: { pos: 'S1 — Personnel', alt: 'S1 NCOIC' },
-  s2: { pos: 'S2 — Intelligence' },
-  s3: { pos: 'S3 — Operations', alt: 'Operations NCO' },
-  s4: { pos: 'S4 — Logistics' },
-}
-
 const reportName = (shop: StaffShop): string =>
   playerPack().staff?.[shop]?.report ?? shop.toUpperCase()
 const shopTitle = (shop: StaffShop): string =>
   (playerPack().staff?.[shop]?.full ?? shop).toUpperCase()
 
-// the officer holding a shop's billet (or its NCOIC when the OIC is down)
+// The officer holding a shop's billet, or its NCOIC when the officer is down.
+// WHICH billet that is comes from the pack's own staff table — `full` is the
+// officer's ('S3 — Operations'), `alt` the NCO behind them. The engine knows
+// only that a desk has an officer and a fallback, never what they are called.
 export function shopOfficer(S: GameState, shop: StaffShop): Soldier | null {
   const bn = playerPack().formation?.playerBn
-  const spec = SHOPS[shop]
+  const desk = playerPack().staff?.[shop]
+  if (!desk) return null
+  const fit = (sl: OrgSlot, pos: string) => sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
   for (const sl of S.org?.slots ?? []) {
     if (sl.bn !== bn) continue
-    const s = sl.soldiers.find(x => x.pos === spec.pos && x.status === 'FIT')
-      ?? (spec.alt ? sl.soldiers.find(x => x.pos === spec.alt && x.status === 'FIT') : undefined)
+    const s = fit(sl, desk.full) ?? (desk.alt ? fit(sl, desk.alt) : undefined)
     if (s) return s
   }
   return null
