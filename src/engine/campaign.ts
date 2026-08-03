@@ -95,6 +95,7 @@ export interface ObjectiveSpec {
   structKind?: StructureTypeKey                 // build: what to stand up
   amount?: number                               // deliver: supply to land at the target
   reports?: StaffShop[]                         // which shops draft when it closes (mission content)
+  notes?: string[]                              // authored TASKS lines for the briefing slide (else generated)
 }
 
 // The runtime operation view: the campaign's MAINLINE missions flattened into
@@ -134,6 +135,7 @@ function buildOperation(): void {
       objectives.push({
         id: o.id, label: o.label, kind: o.kind, groupTag: o.groupTag,
         structKind: o.structKind, amount: o.amount, reports: o.reports,
+        notes: o.notes,
         missionId: m.id, zoneSpec: o.zone,
         revealPoint: i === 0 && !!m.frago,
       })
@@ -144,6 +146,65 @@ function buildOperation(): void {
     brief: spec.missions?.[0]?.brief ?? '',
     objectives,
   }
+}
+
+/** How far down the objective stream the commander is allowed to SEE: taskings
+ *  pop up, they aren't a spoiler list, so a FRAGO-bearing objective marks a
+ *  reveal point and everything from it onward stays off the board until the
+ *  stream reaches it. (Index of the first unreached frago objective.) ONE
+ *  definition — the objective tracker and the briefing deck both show exactly
+ *  this much of the operation, and cannot disagree about it. */
+export function revealedEnd(objIdx: number): number {
+  const objectives = operation().objectives
+  for (let i = objIdx + 1; i < objectives.length; i++) {
+    if (objectives[i]!.revealPoint) return i
+  }
+  return objectives.length
+}
+
+/** WHERE an objective is — the ground a briefing slide frames and draws its
+ *  graphic about. Unlike `obj.zone` this answers for an objective that has NOT
+ *  been activated yet (a deck briefs phases the stream has not reached), by
+ *  resolving the same spec activation will. Each verb knows where it lives:
+ *  a zone-bearing task is its zone, a defeat task is where that enemy group
+ *  actually is, a delivery is the forward base it stocks — and if that base is
+ *  not built yet, the site the operation says will build it.
+ *
+ *  Null means the ground cannot be known yet (a place this map does not carry,
+ *  an enemy group not spawned); the caller falls back rather than guessing. */
+export function objectiveFocus(S: GameState, o: RuntimeObjective): { x: number; y: number; r: number } | null {
+  if (o.zone) return o.zone
+  if (o.zoneSpec) {
+    try {
+      const p = resolvePlace(S, o.zoneSpec.place)
+      return { x: p.x, y: p.y, r: o.zoneSpec.r }
+    } catch {
+      return null // a place name this map does not carry — not the deck's problem to solve
+    }
+  }
+  if (o.kind === 'defeat-group') {
+    const g = S.enemyGroups.find(g => !g.dead && g.name === o.groupTag)
+    if (!g) return null
+    const live = S.units.filter(u => g.members.includes(u.id) && u.strength > 0)
+    if (live.length) {
+      const cx = live.reduce((n, u) => n + u.x, 0) / live.length
+      const cy = live.reduce((n, u) => n + u.y, 0) / live.length
+      return { x: cx, y: cy, r: 500 }
+    }
+    return g.objective ? { x: g.objective.x, y: g.objective.y, r: 500 } : null
+  }
+  if (o.kind === 'deliver') {
+    const fob = friendlyFob(S)
+    if (fob) return { x: fob.x, y: fob.y, r: 400 }
+    // nothing built yet: the operation's own BUILD phase says where it goes
+    const objs = operation().objectives
+    const mine = objs.indexOf(o)
+    for (let i = mine - 1; i >= 0; i--) {
+      const b = objs[i]!
+      if (b.kind === 'build') return objectiveFocus(S, b)
+    }
+  }
+  return null
 }
 
 // Fire a mission's triggers for an objective MOMENT (activation/completion).

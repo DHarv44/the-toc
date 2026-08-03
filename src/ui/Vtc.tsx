@@ -16,7 +16,7 @@ import { useUI } from './store'
 import { ackBriefing, ackFrago, shopOfficer } from '../engine/campaign'
 import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/audio'
 import { playerPack } from '../packs'
-import { OPERATION_DECK, recoveryDeck, SlideDeck } from './deck'
+import { operationDeck, recoveryDeck, SlideDeck } from './deck'
 import type { CampaignState, RecoveryRef, StaffShop } from '../engine/GameState'
 
 // What the hosts hand to VtcWindow: an entry out of the orders log or the
@@ -145,7 +145,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
   // small operation, so it brings its own slides instead of showing the
   // mainline scheme of maneuver, which has nothing to do with it.
   const deck = useMemo(
-    () => (entry.recovery ? recoveryDeck(entry.recovery) : OPERATION_DECK),
+    () => (entry.recovery ? recoveryDeck(entry.recovery) : operationDeck()),
     [entry],
   )
 

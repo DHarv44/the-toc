@@ -346,6 +346,7 @@ export default function ScriptPanel({ mission, placeNames, onChange, onCenter }:
               objectives: patchItem(objectives, i, {
                 ...objectiveDefault(k as MissionObjectiveKind, i + 1),
                 id: o.id, label: o.label, ...(o.reports ? { reports: o.reports } : {}),
+                ...(o.notes ? { notes: o.notes } : {}),
               }),
             })} />
           {OBJECTIVE_FIELDS[o.kind].map(f => (
@@ -362,6 +363,22 @@ export default function ScriptPanel({ mission, placeNames, onChange, onCenter }:
                 ...o, reports: v.length ? (v as MissionObjective['reports']) : undefined,
               }),
             })} />
+          {/* The TASKS column on this objective's briefing slide. LEAVE IT
+              EMPTY: the deck writes those lines from the objective's own
+              parameters, so they cannot go stale when the objective changes.
+              Words typed here override that and are yours to maintain. */}
+          <Textarea size="xs" label="BRIEFING NOTES · ONE PER LINE" mb={2}
+            autosize minRows={2} value={(o.notes ?? []).join('\n')}
+            placeholder="empty — the deck writes the tasks from the objective"
+            styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+            onChange={ev => {
+              const lines = ev.currentTarget.value.split('\n')
+              onChange({
+                objectives: patchItem(objectives, i, {
+                  ...o, notes: lines.some(l => l.trim()) ? lines : undefined,
+                }),
+              })
+            }} />
         </Box>
       ))}
       <Button size="compact-xs" variant="default" mb="sm"

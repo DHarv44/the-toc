@@ -232,6 +232,12 @@ export interface MissionObjective {
   // nothing else — nobody is hurt yet, nothing has been shot. A fight closes
   // with the whole staff writing. Absent = no reports for this objective.
   reports?: ('s1' | 's2' | 's3' | 's4')[]
+  // the TASKS column on this objective's briefing slide, IN THE AUTHOR'S OWN
+  // WORDS. Absent — the normal case — and the deck generates the lines from
+  // the objective's own parameters, which cannot go stale. Set it only when
+  // the phase needs saying differently, and remember that authored words do
+  // NOT follow the objective when it is edited.
+  notes?: string[]
 }
 
 // trigger conditions — stage-1 executor fires on objective moments; the wider

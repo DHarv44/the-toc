@@ -10,13 +10,24 @@
 // happening at all. Vtc.tsx renders <SlideDeck/>; it does not own it.
 //
 // Decks shipped here:
-//   OPERATION_DECK  — the mainline: CLEAR the town, DEFEND it, BUILD the FOB
+//   operationDeck() — the mainline, GENERATED from the scenario's objectives
 //   recoveryDeck(r) — a personnel-recovery tasking, built per downed site
+//
+// Neither one is a written list of pages. A deck is a RENDERING of something
+// the world already knows — the operation's objectives, a downed site — so it
+// cannot drift from what the tracker, the map and the fight actually say.
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import { renderPackLayer, TERRAIN_PX } from '../map/packRender'
 import { controlField } from '../engine/frontline'
 import { locRef } from '../world/ref'
+import {
+  operation, objectiveFocus, revealedEnd,
+  type ObjKind, type RuntimeObjective,
+} from '../engine/campaign'
+import { commandsStructure } from '../domains/forces/command'
+import { STRUCTURES } from '../domains/installations/catalog'
+import type { Vec2 } from '../world/WorldMap'
 import type { RecoveryRef } from '../engine/GameState'
 
 // terrain layer for the slide's map inset — one render per map, shared
@@ -28,11 +39,25 @@ function terrainLayer(): HTMLCanvasElement {
   return _terrain.cv
 }
 
-const townName = (): string => {
-  const t = S.campaign?.strongpoint
-  if (!t || !S.map) return 'THE TOWN'
-  const tw = S.map.towns.find(x => Math.hypot(x.x - t.x, x.y - t.y) < 200)
-  return tw?.name ?? 'THE TOWN'
+// WHAT TO CALL A PIECE OF GROUND on paper: the gazetteer name if the map has
+// one there, otherwise the grid reference. Never 'THE TOWN' — a slide that
+// cannot name the ground it is about gives the commander a grid instead.
+function groundName(p: Vec2): string {
+  const m = S.map
+  if (!m) return ''
+  const near = <T extends { name: string; x: number; y: number }>(list: T[]): T | undefined =>
+    list.find(t => Math.hypot(t.x - p.x, t.y - p.y) < 600)
+  return near(m.towns)?.name ?? near(m.features)?.name ?? locRef(m, p.x, p.y)
+}
+
+// YOUR command post — the base every scheme of maneuver is drawn from. The one
+// you COMMAND, not merely the friendly one nearest the top of the list: a
+// sister formation's headquarters is not where your supply line starts.
+function playerHq(): { x: number; y: number; label: string } {
+  const st = S.structures.find(s => s.kind === 'HQ' && commandsStructure(s))
+  if (st) return { x: st.x, y: st.y, label: st.label || 'HQ' }
+  const f = S.map!.fob
+  return { x: f.x, y: f.y, label: 'HQ' }
 }
 
 // ---------------------------------------------------------------------------
@@ -74,27 +99,42 @@ function drawFlot(i: Inset): void {
   trace(cf.blue, 'rgba(25,80,170,0.9)')
 }
 
-function drawObjective(i: Inset, label: string): void {
-  const t = S.campaign!.strongpoint
-  const { ctx } = i
-  ctx.strokeStyle = '#a01414'
-  ctx.lineWidth = 1.8
-  ctx.beginPath(); ctx.ellipse(i.x(t.x), i.y(t.y), 24, 17, 0, 0, Math.PI * 2); ctx.stroke()
-  ctx.fillStyle = '#a01414'
-  ctx.font = 'bold 9px Arial, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.fillText(label, i.x(t.x), i.y(t.y) - 21)
-}
+// metres → slide pixels, read off the page's OWN projection, so a graphic
+// scales with whatever frame it lands in instead of guessing at one
+const scale = (i: Inset): number => (i.x(1000) - i.x(0)) / 1000
 
-function drawHq(i: Inset): void {
-  const hq = S.map!.fob
+// a base stamp — the little filled block an installation gets on paper
+function drawBase(i: Inset, p: Vec2, abbr: string): void {
   const { ctx } = i
+  const x = i.x(p.x), y = i.y(p.y)
   ctx.fillStyle = '#1e50a0'
-  ctx.fillRect(i.x(hq.x) - 6, i.y(hq.y) - 4, 12, 8)
+  ctx.fillRect(x - 7, y - 5, 14, 10)
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 6px Arial, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('HQ', i.x(hq.x), i.y(hq.y) + 2)
+  ctx.fillText(abbr, x, y + 2)
+}
+
+const drawHq = (i: Inset): void => drawBase(i, playerHq(), 'HQ')
+
+// The objective itself: the ring at its REAL radius, its name above it. Drawn
+// DASHED while the task is still an assumption — a ring nobody has stood on is
+// what intelligence believes, and paper should say which one it is.
+function drawObjective(
+  i: Inset, at: { x: number; y: number; r: number }, label: string, assumed = false,
+): void {
+  const { ctx } = i
+  const x = i.x(at.x), y = i.y(at.y)
+  const r = Math.max(11, at.r * scale(i))
+  ctx.strokeStyle = '#a01414'
+  ctx.lineWidth = 1.8
+  if (assumed) ctx.setLineDash([5, 4])
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke()
+  ctx.setLineDash([])
+  ctx.fillStyle = '#a01414'
+  ctx.font = 'bold 9px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(label, x, y - r - 5)
 }
 
 function drawContacts(i: Inset): void {
@@ -130,106 +170,236 @@ function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: nu
   ctx.restore()
 }
 
-const corridorFrame = () => {
-  const hq = S.map!.fob, t = S.campaign!.strongpoint
-  return {
-    cx: (hq.x + t.x) / 2, cy: (hq.y + t.y) / 2,
-    span: Math.max(Math.hypot(t.x - hq.x, t.y - hq.y) * 1.7, 3600),
-  }
+// an axis of advance in WORLD terms, stopped short of whatever it points at
+// (an arrow should reach the objective, not sit on top of it)
+function drawAxis(i: Inset, from: Vec2, to: Vec2, stop = 0, enemy = false): void {
+  const x0 = i.x(from.x), y0 = i.y(from.y)
+  let x1 = i.x(to.x), y1 = i.y(to.y)
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy)
+  if (L < stop + 20) return              // too close to draw an honest arrow
+  x1 -= (dx / L) * stop; y1 -= (dy / L) * stop
+  drawArrow(i.ctx, x0, y0, x1, y1, enemy)
 }
 
+// WHICH WAY THE ENEMY IS from a piece of ground — the bearing to their base,
+// and the word for it. The counterattack graphic and the bullet that warns
+// about it both come off this, so they can never point different ways.
+const threatDir = (at: Vec2): number =>
+  Math.atan2(S.map!.enemyBase.y - at.y, S.map!.enemyBase.x - at.x)
+const COMPASS = ['EAST', 'SOUTHEAST', 'SOUTH', 'SOUTHWEST', 'WEST', 'NORTHWEST', 'NORTH', 'NORTHEAST']
+const compassOf = (rad: number): string =>
+  COMPASS[Math.round(((rad + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8]!
+
+// how many contacts the COP holds inside a piece of ground (what the S2 can
+// actually say about it — not what is really there)
+const contactsIn = (at: { x: number; y: number; r: number }): number =>
+  [...S.contacts.values()].filter(c => Math.hypot(c.x - at.x, c.y - at.y) <= at.r).length
+
 // ---------------------------------------------------------------------------
-// OPERATION deck — the mainline scheme of maneuver
+// OPERATION deck — one page per objective, GENERATED from the scenario. The
+// missions ARE the scheme of maneuver, so the deck renders them rather than
+// restating them; nothing below names a place, a town or an operation.
+//
+// Each objective VERB brings its own operational graphic and its own TASKS
+// lines. That is the extension point: a new objective kind ships its slide
+// here, beside the rule that evaluates it, and every scenario using that verb
+// gets a briefing page for free.
 // ---------------------------------------------------------------------------
-export const OPERATION_DECK: Slide[] = [
-  // 1 — CLEAR: the approach and the objective
-  {
-    title: () => `CLEAR OBJ KEATON — ${townName()}`,
-    frame: corridorFrame,
-    body(i) {
+type Focus = { x: number; y: number; r: number } | null
+
+interface ObjGraphic {
+  /** the page's operational graphic, drawn about the objective's own ground */
+  body(i: Inset, o: RuntimeObjective, at: Focus): void
+  /** the TASKS column, read off the objective's own parameters */
+  bullets(o: RuntimeObjective, at: Focus): string[]
+  /** how much ground the page shows — ZONE frames the objective itself,
+   *  CORRIDOR frames base → objective (a phase that is about getting there) */
+  frame: 'zone' | 'corridor'
+}
+
+const OBJ_GRAPHICS: Record<ObjKind, ObjGraphic> = {
+  // FIND THEM — a screen forward onto ground nobody has stood on yet
+  'recon-area': {
+    frame: 'corridor',
+    body(i, o, at) {
       drawFlot(i)
-      const hq = S.map!.fob, t = S.campaign!.strongpoint
-      drawArrow(i.ctx, i.x(hq.x), i.y(hq.y), i.x(t.x), i.y(t.y) + 20)
-      drawObjective(i, 'OBJ KEATON')
+      if (at) {
+        drawAxis(i, playerHq(), at, Math.max(11, at.r * scale(i)) + 6)
+        drawObjective(i, at, o.label, true)
+      }
       drawContacts(i)
       drawHq(i)
     },
-    bullets: () => [
-      `UNKNOWN enemy contacts reported in ${townName()} — SCT locate and identify.`,
-      `Platoons follow the MSR, FIX and CLEAR the town.`,
-      `No fielding, no fires this phase — organic UAS only.`,
-    ],
-  },
-  // 2 — DEFEND: battle positions facing the enemy, expected counterattack
-  {
-    title: () => 'DEFEND OBJ KEATON',
-    frame: () => {
-      const t = S.campaign!.strongpoint
-      return { cx: t.x, cy: t.y - 200, span: 3000 }
+    bullets(o, at) {
+      const held = at ? contactsIn(at) : 0
+      return [
+        `SCREEN forward and IDENTIFY what holds ${at ? groundName(at) : 'the objective'}.`,
+        at ? `Area of interest — ${Math.round(at.r)} m about ${locRef(S.map!, at.x, at.y)}.`
+          : 'Area of interest not yet fixed.',
+        held ? `${held} contact${held === 1 ? '' : 's'} on the board, none of them confirmed.`
+          : 'Nothing held on the board — expect to be surprised.',
+        'RECON task: eyes on the objective, not decisive engagement.',
+      ]
     },
-    body(i) {
+  },
+  // CLEAR — the assault: axis of advance onto the objective
+  'clear-area': {
+    frame: 'corridor',
+    body(i, o, at) {
       drawFlot(i)
-      const t = S.campaign!.strongpoint
+      if (at) {
+        drawAxis(i, playerHq(), at, Math.max(11, at.r * scale(i)) + 6)
+        drawObjective(i, at, o.label)
+      }
+      drawContacts(i)
+      drawHq(i)
+    },
+    bullets(o, at) {
+      const held = at ? contactsIn(at) : 0
+      return [
+        `CLEAR ${at ? groundName(at) : 'the objective'} — nothing hostile left inside it.`,
+        `Assault axis runs from ${playerHq().label}; the objective is ${at ? `${Math.round(at.r)} m` : 'as marked'}.`,
+        held ? `${held} contact${held === 1 ? '' : 's'} held inside the objective at this hour.`
+          : 'No contacts held inside the objective at this hour.',
+      ]
+    },
+  },
+  // HOLD — the ground is yours; the graphic is the counterattack coming for it
+  'defeat-group': {
+    frame: 'zone',
+    body(i, o, at) {
+      drawFlot(i)
+      if (!at) { drawContacts(i); return }
       const { ctx } = i
-      // battle-position arc on the enemy-ward (north) side of the town
+      const x = i.x(at.x), y = i.y(at.y)
+      const dir = threatDir(at)                       // toward the enemy base
+      const R = Math.max(26, at.r * scale(i) * 0.9)
+      // battle position: an arc facing the way they are coming from
       ctx.strokeStyle = 'rgba(20,60,130,0.95)'
       ctx.lineWidth = 2.4
       ctx.beginPath()
-      ctx.arc(i.x(t.x), i.y(t.y) + 8, 34, Math.PI * 1.12, Math.PI * 1.88)
+      ctx.arc(x, y, R, dir - Math.PI * 0.38, dir + Math.PI * 0.38)
       ctx.stroke()
       ctx.fillStyle = '#1e50a0'
       ctx.font = 'bold 8px Arial, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText('BP 1', i.x(t.x), i.y(t.y) - 34)
-      // the expected counterattack: enemy arrow in from the north
-      drawArrow(ctx, i.x(t.x) + 26, i.y(t.y) - 105, i.x(t.x) + 6, i.y(t.y) - 34, true)
+      ctx.fillText('BP', x + Math.cos(dir) * (R + 9), y + Math.sin(dir) * (R + 9))
+      // the counterattack itself, in from their side of the map
+      const from = { x: at.x + Math.cos(dir) * at.r * 4, y: at.y + Math.sin(dir) * at.r * 4 }
+      drawAxis(i, from, at, R + 8, true)
       ctx.fillStyle = '#a01414'
-      ctx.fillText('CATK', i.x(t.x) + 40, i.y(t.y) - 96)
-      drawObjective(i, 'OBJ KEATON')
+      ctx.fillText(o.groupTag ? `CATK · ${o.groupTag}` : 'CATK',
+        i.x(at.x + Math.cos(dir) * at.r * 3.2), i.y(at.y + Math.sin(dir) * at.r * 3.2) - 8)
+      drawObjective(i, at, o.label)
+      drawContacts(i)
     },
-    bullets: () => [
-      `Occupy the town — platoons ON LINE through the buildings.`,
-      `EXPECT a counterattack from the north.`,
-      `DIG IN — urban cover + prepared positions.`,
-      `HOLD until FOB KEATON is built.`,
-    ],
+    bullets(o, at) {
+      return [
+        `HOLD what you have taken — ${at ? groundName(at) : 'the objective'} does not change hands.`,
+        at ? `Counterattack expected from the ${compassOf(threatDir(at))}.`
+          : 'Counterattack expected — direction unconfirmed.',
+        'DIG IN. Prepared positions stack with whatever cover the ground gives.',
+        `${o.groupTag ?? 'The attacking force'} is defeated when it is destroyed OR broken — a group that`
+        + ' runs is beaten, and chasing its last vehicle is not the mission.',
+      ]
+    },
   },
-  // 3 — BUILD FOB: sustainment forward, the supply line
-  {
-    title: () => `ESTABLISH FOB KEATON — ${townName()}`,
-    frame: corridorFrame,
-    body(i) {
+  // BUILD — sustainment forward: the site and what goes on it
+  build: {
+    frame: 'zone',
+    body(i, o, at) {
       drawFlot(i)
-      const hq = S.map!.fob, t = S.campaign!.strongpoint
-      const { ctx } = i
-      // the supply route: dashed friendly line HQ → FOB along the corridor
-      ctx.strokeStyle = 'rgba(20,60,130,0.9)'
-      ctx.lineWidth = 2
-      ctx.setLineDash([7, 5])
-      ctx.beginPath()
-      ctx.moveTo(i.x(hq.x), i.y(hq.y))
-      ctx.lineTo(i.x(t.x), i.y(t.y) + 14)
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.fillStyle = '#1e50a0'
-      ctx.font = 'bold 8px Arial, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText('MSR', i.x((hq.x + t.x) / 2) + 16, i.y((hq.y + t.y) / 2))
-      // FOB symbol in the town
-      ctx.fillStyle = '#1e50a0'
-      ctx.fillRect(i.x(t.x) - 7, i.y(t.y) - 5, 14, 10)
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 6px Arial, sans-serif'
-      ctx.fillText('FOB', i.x(t.x), i.y(t.y) + 2)
+      if (!at) { drawHq(i); return }
+      drawObjective(i, at, o.label)
+      drawBase(i, at, o.structKind ? STRUCTURES[o.structKind].abbr : 'BASE')
+      drawContacts(i)
+    },
+    bullets(o, at) {
+      const st = o.structKind ? STRUCTURES[o.structKind] : null
+      return [
+        `ENGINEERS establish ${st ? st.name.toUpperCase() : 'the installation'}`
+        + ` at ${at ? groundName(at) : 'the marked site'}.`,
+        at ? `Site is the marked ground — ${Math.round(at.r)} m about ${locRef(S.map!, at.x, at.y)}.`
+          : 'Site as marked.',
+        'It goes up where the engineers are standing. Bring them forward, and keep them covered.',
+      ]
+    },
+  },
+  // DELIVER — the supply line: base to forward base, running on its own
+  deliver: {
+    frame: 'corridor',
+    body(i, o, at) {
+      drawFlot(i)
+      const hq = playerHq()
+      if (at) {
+        const { ctx } = i
+        ctx.strokeStyle = 'rgba(20,60,130,0.9)'
+        ctx.lineWidth = 2
+        ctx.setLineDash([7, 5])
+        ctx.beginPath()
+        ctx.moveTo(i.x(hq.x), i.y(hq.y))
+        ctx.lineTo(i.x(at.x), i.y(at.y))
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = '#1e50a0'
+        ctx.font = 'bold 8px Arial, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('MSR', i.x((hq.x + at.x) / 2) + 16, i.y((hq.y + at.y) / 2))
+        drawBase(i, at, 'FOB')
+      }
+      drawContacts(i)
       drawHq(i)
     },
-    bullets: () => [
-      `ENG establish FOB KEATON inside ${townName()}.`,
-      `LOG open a standing supply run, HQ → KEATON.`,
-      `Deliver 200 supply to stock KEATON.`,
-    ],
+    bullets(o, at) {
+      return [
+        `Deliver ${o.amount ?? 0} supply forward to ${at ? groundName(at) : 'the forward base'}.`,
+        `Standing convoy — ${playerHq().label} to the forward base, running without further orders.`,
+        'The trucks do not fight. Route security is the task force’s problem.',
+      ]
+    },
   },
-]
+}
+
+/** ONE PAGE for one objective. Every part of it is a thunk over live state
+ *  (the deck draws what is true when you look at it, not when it was built),
+ *  so an objective whose ground moves — a FOB that gets built, a counterattack
+ *  that arrives — redraws itself. */
+function objectiveSlide(o: RuntimeObjective): Slide {
+  const g = OBJ_GRAPHICS[o.kind]
+  const at = (): Focus => objectiveFocus(S, o)
+  return {
+    title: () => {
+      const p = at()
+      const ground = p ? groundName(p) : ''
+      return ground && !o.label.includes(ground) ? `${o.label} — ${ground}` : o.label
+    },
+    frame: () => {
+      const p = at(), hq = playerHq()
+      if (!p) return { cx: hq.x, cy: hq.y, span: 6000 }
+      if (g.frame === 'zone') return { cx: p.x, cy: p.y, span: Math.max(p.r * 6, 2400) }
+      return {
+        cx: (hq.x + p.x) / 2, cy: (hq.y + p.y) / 2,
+        span: Math.max(Math.hypot(p.x - hq.x, p.y - hq.y) * 1.7, 3600),
+      }
+    },
+    body: (i) => g.body(i, o, at()),
+    // AUTHORED WORDS WIN. Absent — the normal case — the lines come off the
+    // objective's own parameters and cannot go stale when it is edited.
+    bullets: () => {
+      const notes = o.notes?.filter(n => n.trim())
+      return notes?.length ? notes : g.bullets(o, at())
+    },
+  }
+}
+
+/** The mainline scheme of maneuver, as far down the stream as the commander is
+ *  allowed to see it (revealedEnd — the same rule the objective tracker uses,
+ *  so a slide can never brief a tasking the board is still hiding). */
+export function operationDeck(): Slide[] {
+  const objs = operation().objectives
+  const end = S.campaign ? revealedEnd(S.campaign.objIdx) : objs.length
+  return objs.slice(0, end).map(objectiveSlide)
+}
 
 // ---------------------------------------------------------------------------
 // RECOVERY deck — a personnel-recovery tasking is its own small operation and

@@ -4,23 +4,13 @@
 import { S } from '../engine/state'
 import { useUI } from './store'
 import {
-  operation, evalObjective, openReport, recallFrago, type ObjectiveSpec,
+  operation, evalObjective, openReport, recallFrago, revealedEnd,
+  type ObjectiveSpec,
 } from '../engine/campaign'
 import type { CampaignState } from '../engine/GameState'
 
 const ACCENT = '#7ec8ff'
 const bump = () => useUI.setState((s) => ({ tick: s.tick + 1 }))
-
-// Taskings pop up, they aren't a spoiler list: a FRAGO-bearing objective marks
-// a REVEAL POINT — everything from it onward stays off the board until the
-// stream reaches it. (Index of the first unreached frago objective.)
-function revealedEnd(objIdx: number): number {
-  const objectives = operation().objectives
-  for (let i = objIdx + 1; i < objectives.length; i++) {
-    if (objectives[i]!.revealPoint) return i
-  }
-  return objectives.length
-}
 
 // progress suffix for the objective row, by verb
 function progressText(o: ObjectiveSpec, c: CampaignState): string {
