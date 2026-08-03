@@ -13,7 +13,7 @@ import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
 import { drawUnitSymbol, drawStructure, drawPlace } from '../../map/symbols'
 import { PACKS, playerPack } from '../../packs'
-import { echelonOf, patchOf } from '../../packs/orgquery'
+import { markOf, patchOf } from '../../packs/orgquery'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import type { Entity } from '../../scenario/edit'
 
@@ -266,7 +266,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
             // the size marker names the echelon: a division main, a brigade
             // headquarters and your own CP are one symbol until you read it
             echelon: e.side === 'friend' && owner
-              ? echelonOf(PACKS[propsRef.current.friendPack] ?? playerPack(), owner)
+              ? markOf(PACKS[propsRef.current.friendPack] ?? playerPack(), owner)
               : undefined,
             patch: e.side === 'friend' && owner
               ? patchOf(PACKS[propsRef.current.friendPack] ?? playerPack(), owner)

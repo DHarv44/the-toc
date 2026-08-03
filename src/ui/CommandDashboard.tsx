@@ -39,7 +39,7 @@ export default function CommandDashboard() {
   if (ui.console !== 'dash') return null
 
   const pack = playerPack()
-  const playerBn = pack.formation?.playerBn
+  const playerBn = pack.formation?.chair
   const c = S.campaign
 
   // personnel rollup (fielded + garrisoned TF slots)

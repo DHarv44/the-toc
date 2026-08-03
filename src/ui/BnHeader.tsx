@@ -12,6 +12,7 @@
 import { Box, Group, HoverCard, Text } from '@mantine/core'
 import { playerPack } from '../packs'
 import type { StaffSection } from '../packs/types'
+import { walkFormation } from '../packs/types'
 import { BnCrest, BnDui, PatchIcon } from './insignia'
 
 const TONES = {
@@ -34,7 +35,7 @@ export default function BnHeader({ plate, sub, about, division, tone = 'dark' }:
 }) {
   const pack = playerPack()
   const t = TONES[tone]
-  const playerBn = division ? undefined : pack.formation?.playerBn
+  const playerBn = division ? undefined : pack.formation?.chair
   const desig = division ? pack.abbr : playerBn ?? pack.abbr
   const nick = division ? pack.nick : playerBn ? pack.nicks?.[playerBn] : undefined
   const motto = division ? pack.motto : playerBn ? pack.mottos?.[playerBn] : undefined
@@ -84,7 +85,7 @@ export default function BnHeader({ plate, sub, about, division, tone = 'dark' }:
       )}
       {playerBn && (
         <BnCrest bn={playerBn} motto={pack.mottos?.[playerBn]} h={54}
-          kind={pack.formation?.bdes.flatMap(b => b.bns).find(b => b.desig === playerBn)?.kind} />
+          kind={walkFormation(pack.formation).find(w => w.node.desig === playerBn)?.node.kind} />
       )}
     </Group>
   )

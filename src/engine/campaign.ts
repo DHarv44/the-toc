@@ -317,12 +317,12 @@ export function startCampaign(S: GameState): void {
   // Player's name goes on the command group (the player IS that battalion's CO).
   S.units = []
   S.counters.lineage = {}
-  // THE CHAIR is scenario data: the campaign's author says which battalion
+  // THE CHAIR is scenario data: the campaign's author says which formation
   // this operation is about. The task-force marking is built around it, and
-  // the player's name goes on that battalion's command group.
-  S.playerBn = spec.player || defaultPlayerFormation(playerPack())
-  S.org = buildDivisionOrg(playerPack(), S.playerBn)
-  if (S.org) setBnCommander(S.org, S.playerBn, _commanderPending)
+  // the player's name goes on that formation's command group.
+  S.chair = spec.player || defaultPlayerFormation(playerPack())
+  S.org = buildDivisionOrg(playerPack(), S.chair)
+  if (S.org) setBnCommander(S.org, S.chair, _commanderPending)
   S.enemyGroups = []
   S.nextWave = Infinity        // no economy-driven waves — missions script the OPFOR
   S.enemyResources = 0
@@ -450,12 +450,12 @@ const shopTitle = (shop: StaffShop): string =>
 // officer's ('S3 — Operations'), `alt` the NCO behind them. The engine knows
 // only that a desk has an officer and a fallback, never what they are called.
 export function shopOfficer(S: GameState, shop: StaffShop): Soldier | null {
-  const bn = playerPack().formation?.playerBn
+  const bn = playerPack().formation?.chair
   const desk = playerPack().staff?.[shop]
   if (!desk) return null
   const fit = (sl: OrgSlot, pos: string) => sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
   for (const sl of S.org?.slots ?? []) {
-    if (sl.bn !== bn) continue
+    if (sl.cmd !== bn) continue
     const s = fit(sl, desk.full) ?? (desk.alt ? fit(sl, desk.alt) : undefined)
     if (s) return s
   }

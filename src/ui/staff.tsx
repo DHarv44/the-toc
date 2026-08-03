@@ -196,10 +196,10 @@ export function SectionDivider({ label, open, onToggle, right }: {
 // and the formation, so restating any of it here is noise.
 export function ShopSection({ shop, children }: { shop: StaffShop; children?: ReactNode }) {
   const pack = playerPack()
-  const bn = pack.formation?.playerBn
+  const bn = pack.formation?.chair
   const key = shop.toUpperCase()
   const crew = (S.org?.slots ?? [])
-    .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
+    .filter(sl => sl.cmd === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
     .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith(key)))
     .sort((a, b) => rankW(b.rank) - rankW(a.rank))
   return (

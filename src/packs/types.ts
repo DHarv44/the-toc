@@ -267,26 +267,47 @@ export interface BnPlan {
   arms?: string
 }
 
-export interface BdePlan {
-  desig: string           // '1ABCT'
+/** ONE RUNG of an army's ladder: what it is called, and the size marker a map
+ *  symbol wears for it. The mark cannot be derived from depth — a regiment is
+ *  III and a brigade is X and both sit one below a division — so the army that
+ *  has the rung is the only thing that can say. */
+export interface EchelonDef {
+  name: string            // 'BRIGADE', 'REGIMENT', 'BROOD'
+  mark?: string           // the 2525 size marker: 'XX', 'X', 'III', 'II', 'I'
+}
+
+/** ONE FORMATION, at any rung. A formation either COMMANDS other formations
+ *  (`under`) or IS an element made of companies (`kind`), and it may do both —
+ *  a brigade with its own headquarters commands battalions and has staff.
+ *
+ *  Recursive on purpose. Two fixed levels (brigade → battalion) could not say
+ *  what the Mobile Infantry is — DIVISION / REGIMENT / COMPANY / PLATOON, no
+ *  brigade and no battalion — nor a flat swarm, nor a militia of cells. Depth
+ *  is whatever the pack nests, and `Formation.echelons` names the rungs. */
+export interface FormationNode {
+  desig: string           // '1ABCT', '3RD REGT', 'BROOD 4'
   nick?: string           // 'IRONHORSE'
-  patch?: string          // brigade insignia art file (see BnPlan.patch)
-  // THE BRIGADE'S OWN HEADQUARTERS — a bnKind whose companies are the brigade
-  // staff. A brigade is not a folder its battalions sit in: it is a
-  // headquarters with a commander and shops of its own, and without this the
-  // echelon between the division staff and the battalion staff is empty.
-  hq?: BnKind
-  // WHERE this formation sits when it is not yours to see — what the S1 writes
-  // in the location column for a sister formation's elements ('DIV MAIN'). A
-  // name for a place in someone's army, so the pack says it. Absent = '<desig> AO'.
+  patch?: string          // insignia art file (see BnPlan.patch)
+  arms?: string           // regimental coat of arms (see BnPlan.arms)
+  /** the template this formation expands into — set on the ELEMENT rung (a
+   *  battalion, an MI company), and on any formation that has a headquarters
+   *  of its own. A formation with children AND a kind is both. */
+  kind?: BnKind
+  /** companies allocated to the task force ('A CO'…); the chair contributes
+   *  everything it has */
+  tfCos?: string[]
+  /** WHERE this formation sits when it is not yours to see — what the S1
+   *  writes in the location column ('DIV MAIN'). Absent = '<desig> AO'. */
   station?: string
-  bns: BnPlan[]
+  /** the formations it commands */
+  under?: FormationNode[]
 }
 
 export interface Formation {
-  // The battalion currently being commanded. The CAMPAIGN pins this ('2-8 CAV'
-  // for IRON TRIANGLE); skirmish will set it from the player's pick.
-  playerBn: string
+  // The formation this pack is commanded from by default, at whatever rung
+  // `chairRung` says. The CAMPAIGN pins its own ('2-8 CAV' for IRON TRIANGLE);
+  // skirmish sets it from the player's pick.
+  chair: string
   // Which battalions a player may take command of. `'all'` opens the whole
   // division; a list names the ones that are playable. This is a PACK design
   // statement, not a campaign one — a pack decides whether you can run its
@@ -294,8 +315,24 @@ export interface Formation {
   // Absent = only playerBn, which is how packs behaved before the field
   // existed.
   playable?: 'all' | string[]
-  patch?: string          // the DIVISION's insignia art file (see BnPlan.patch)
-  bdes: BdePlan[]
+  patch?: string          // the top formation's insignia art file
+  // WHAT THIS ARMY CALLS EACH RUNG, top down and NOT counting the top
+  // formation itself. The depth is however deep `under` nests; this only names
+  // the rungs. 1CD: [BRIGADE, BATTALION, COMPANY]. The Mobile Infantry has no
+  // brigade and no battalion — Rasczak's Roughnecks is "Second Platoon, George
+  // Company, Third Regiment, First Division" — so it reads [REGIMENT, COMPANY,
+  // PLATOON] and everything shifts down an echelon: the chair is a COMPANY and
+  // the fieldable element is a PLATOON. A swarm is [BROOD]. A militia is
+  // [CELL]. A rung past the end of this list is unnamed rather than wrong.
+  echelons?: EchelonDef[]
+  /** the TOP formation's own rung — 1CD is a DIVISION marked XX */
+  top?: EchelonDef
+  // WHICH RUNG a player takes command of, as an index into `echelons`. 1CD and
+  // the MI both sit at 1 (battalion / company) — the second rung down is where
+  // a commander with a staff usually lives — so that is the default.
+  chairRung?: number
+  /** the formations the top formation commands */
+  under: FormationNode[]
   // Standing QRF at H-hour: the elements the battalion has ALREADY put on
   // reaction duty at the command post, as `CO:PLT` inside the player battalion
   // ('C CO:1st PLT'). A real TOC never opens a war with nobody on QRF, and it
@@ -665,16 +702,43 @@ export function isPlayableBn(f: Formation | undefined, desig: string): boolean {
   if (!f) return false
   if (f.playable === 'all') return true
   if (Array.isArray(f.playable)) return f.playable.includes(desig)
-  return desig === f.playerBn
+  return desig === f.chair
 }
 
-// Every battalion a player may command, in formation order — the skirmish
-// picker's source (division → brigade → battalion).
-export function playableBns(f: Formation | undefined): { bde: string; bn: BnPlan }[] {
+/** THE FORMATION TREE, FLATTENED — every formation in declaration order, each
+ *  with the lineage that reaches it. `path` excludes the top formation (which
+ *  is the pack itself) and ends with the formation's own designation, so
+ *  path[rung] is always this formation and path.length-1 is its rung. */
+export interface FormationWalk {
+  node: FormationNode
+  path: string[]
+  rung: number
+  parent?: string
+}
+export function walkFormation(f: Formation | undefined): FormationWalk[] {
+  const out: FormationWalk[] = []
+  const visit = (nodes: FormationNode[], path: string[], parent?: string): void => {
+    for (const node of nodes) {
+      const here = [...path, node.desig]
+      out.push({ node, path: here, rung: here.length - 1, parent })
+      if (node.under) visit(node.under, here, node.desig)
+    }
+  }
+  visit(f?.under ?? [], [])
+  return out
+}
+
+/** Which rung a player takes command at — the chair's echelon. */
+export const chairRung = (f: Formation | undefined): number => f?.chairRung ?? 1
+
+// Every formation a player may command, in declaration order — the skirmish
+// picker's source. Only formations at the CHAIR RUNG are candidates: you
+// command a battalion (or an MI company), not a brigade and not a platoon.
+export function playableBns(f: Formation | undefined): { bde: string; bn: FormationNode }[] {
   if (!f) return []
-  return f.bdes.flatMap(b => b.bns
-    .filter(bn => isPlayableBn(f, bn.desig))
-    .map(bn => ({ bde: b.desig, bn })))
+  return walkFormation(f)
+    .filter(w => w.rung === chairRung(f) && isPlayableBn(f, w.node.desig))
+    .map(w => ({ bde: w.parent ?? '', bn: w.node }))
 }
 
 // The nth fielded unit of a type → its formal lineage line. Deterministic and

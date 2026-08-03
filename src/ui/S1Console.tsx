@@ -16,6 +16,8 @@ import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { openReport, queueReport, unreadReports } from '../engine/campaign'
 import { awardDef, type AwardKey } from '../packs/awards'
+import { walkFormation } from '../packs/types'
+import { ownerOf } from '../packs/orgquery'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
@@ -293,14 +295,20 @@ function SlotRoster({ sl, depth, open, toggle }: {
 // --- the console -----------------------------------------------------------
 // where a non-fielded slot sits, as the S1 would brief it
 function slotLocation(sl: OrgSlot): string {
-  if (sl.tf || sl.bn === playerPack().formation?.playerBn || sl.bde === 'ATT') {
+  if (sl.tf || sl.cmd === playerPack().formation?.chair || sl.path[0] === 'ATT') {
     const hq = S.structures.find(st => st.side === 'friend' && st.kind === 'HQ')
     return `GARRISON — ${hq?.label ?? 'CP'}`
   }
   // a sister formation's station is the PACK's to name — the engine has no
   // opinion about where a division parks its aviation brigade
-  const bde = playerPack().formation?.bdes.find(b => b.desig === sl.bde)
-  return bde?.station ?? `${sl.bde} AO`
+  // the NEAREST station up the lineage: an element sits wherever the closest
+  // formation above it that names a home says it does
+  const f = playerPack().formation
+  for (const desig of [...sl.path].reverse()) {
+    const station = walkFormation(f).find(w => w.node.desig === desig)?.node.station
+    if (station) return station
+  }
+  return `${sl.path[0] ?? sl.cmd} AO`
 }
 
 // The donor a battalion ROW should show. A slice the brigade task-organized to
@@ -342,9 +350,9 @@ function S1PersonnelChain({ slots, playerBn, open, toggle }: {
   )
   const g1 = slots.find(sl => sl.name === 'G1 SECTION')
   const bnS1 = (bn: string) => slots
-    .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
+    .filter(sl => sl.cmd === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
     .flatMap(sl => sl.soldiers.filter(s => s.pos?.startsWith('S1')))
-  const bns = [...new Set(slots.filter(sl => sl.bde !== 'ATT').map(sl => sl.bn))]
+  const bns = [...new Set(slots.filter(sl => sl.path[0] !== 'ATT').map(sl => sl.cmd))]
     .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
   return (
     <>
@@ -374,7 +382,7 @@ export default function S1Console() {
   useUI((st) => st.tick)
   const ui = useUI()
   const pack = playerPack()
-  const playerBn = pack.formation?.playerBn
+  const playerBn = pack.formation?.chair
   const [tab, setTab] = useState<S1Tab>('bn')
   const [open, setOpen] = useState<Set<string>>(() => new Set(
     ['div', 'bde:1ABCT', playerBn ? `bn:${playerBn}` : 'bn:'],
@@ -399,8 +407,8 @@ export default function S1Console() {
       setTab('div') // the jump expands the division tree — land where it's visible
       setOpen(prev => {
         const next = new Set(prev)
-        next.add('div'); next.add(`bde:${sl.bde}`); next.add(`bn:${sl.bn}`)
-        next.add(`co:${sl.bn}:${sl.co}`); next.add(`slot:${sl.id}`)
+        next.add('div'); next.add(`bde:${sl.path[0]}`); next.add(`bn:${sl.cmd}`)
+        next.add(`co:${sl.cmd}:${ownerOf(sl)}`); next.add(`slot:${sl.id}`)
         return next
       })
       setTimeout(() => {
@@ -425,10 +433,10 @@ export default function S1Console() {
   const divAgg = aggSum([...slotAggs.values()])
   const cmdr = S.campaign?.commander
 
-  // brigade display order = formation order, attachments last
+  // top-rung display order = formation order, attachments last
   const bdeOrder: { desig: string; nick?: string }[] = [
-    ...(pack.formation?.bdes.map(b => ({ desig: b.desig, nick: b.nick })) ?? []),
-    ...(slots.some(sl => sl.bde === 'ATT') ? [{ desig: 'ATT', nick: 'ATTACHMENTS' }] : []),
+    ...(pack.formation?.under.map(b => ({ desig: b.desig, nick: b.nick })) ?? []),
+    ...(slots.some(sl => sl.path[0] === 'ATT') ? [{ desig: 'ATT', nick: 'ATTACHMENTS' }] : []),
   ]
 
   const renderSlot = (sl: OrgSlot, depth: number) => {
@@ -484,9 +492,9 @@ export default function S1Console() {
   // tabs. The company LABEL carries its platoons' state: amber when any platoon
   // has casualties, pulsing when one needs a recovery sweep.
   const renderCos = (list: OrgSlot[], bn: string, depth: number) => {
-    const cos = [...new Set(list.map(sl => sl.co))]
+    const cos = [...new Set(list.map(ownerOf))]
     return cos.map(co => {
-      const coSlots = list.filter(sl => sl.co === co)
+      const coSlots = list.filter(sl => ownerOf(sl) === co)
       const coKey = `co:${bn}:${co}`
       const coAgg = aggSum(coSlots.map(sl => slotAggs.get(sl.id)!))
       const coCas = coAgg.wia + coAgg.kia > 0
@@ -507,10 +515,10 @@ export default function S1Console() {
 
   // the TF = fieldable allocated slots PLUS the player battalion's own staff/
   // support slots (the TOC deploys with its battalion — `tf` only gates fielding)
-  const tfSlots = slots.filter(sl => sl.tf || sl.bn === playerBn)
+  const tfSlots = slots.filter(sl => sl.tf || sl.cmd === playerBn)
   const tfBns = (() => {
     const seen: string[] = []
-    for (const sl of tfSlots) if (!seen.includes(sl.bn)) seen.push(sl.bn)
+    for (const sl of tfSlots) if (!seen.includes(sl.cmd)) seen.push(sl.cmd)
     if (playerBn && seen.includes(playerBn)) { seen.splice(seen.indexOf(playerBn), 1); seen.unshift(playerBn) }
     return seen
   })()
@@ -523,10 +531,10 @@ export default function S1Console() {
       const next = new Set(prev)
       if (t === 'tf') {
         next.add('tfroot')
-        for (const sl of tfSlots) { next.add(`bn:${sl.bn}`); next.add(`co:${sl.bn}:${sl.co}`) }
+        for (const sl of tfSlots) { next.add(`bn:${sl.cmd}`); next.add(`co:${sl.cmd}:${ownerOf(sl)}`) }
       } else if (t === 'bn' && playerBn) {
         next.add('bnroot')
-        for (const sl of slots) if (sl.bn === playerBn) next.add(`co:${sl.bn}:${sl.co}`)
+        for (const sl of slots) if (sl.cmd === playerBn) next.add(`co:${sl.cmd}:${ownerOf(sl)}`)
       }
       return next
     })
@@ -583,11 +591,11 @@ export default function S1Console() {
       )}
 
       {tab === 'div' && org && open.has('div') && bdeOrder.map(({ desig, nick }) => {
-        const bdeSlots = slots.filter(sl => sl.bde === desig)
+        const bdeSlots = slots.filter(sl => sl.path[0] === desig)
         if (!bdeSlots.length) return null
         const bdeKey = `bde:${desig}`
         const bdeAgg = aggSum(bdeSlots.map(sl => slotAggs.get(sl.id)!))
-        const bns = [...new Set(bdeSlots.map(sl => sl.bn))]
+        const bns = [...new Set(bdeSlots.map(sl => sl.cmd))]
         return (
           <div key={desig}>
             <NodeRow depth={1} open={open.has(bdeKey)} onToggle={() => toggle(bdeKey)}
@@ -596,7 +604,7 @@ export default function S1Console() {
               </Text>}
               sub={desig === 'ATT' ? undefined : nick} a={bdeAgg} />
             {open.has(bdeKey) && bns.map(bn => {
-              const bnSlots = bdeSlots.filter(sl => sl.bn === bn)
+              const bnSlots = bdeSlots.filter(sl => sl.cmd === bn)
               const bnKey = `bn:${bn}`
               const bnAgg = aggSum(bnSlots.map(sl => slotAggs.get(sl.id)!))
               const att = donorOf(bnSlots[0]!, bn)
@@ -626,7 +634,7 @@ export default function S1Console() {
             leader={cmdr ? `LTC ${cmdr} · COBALT 6` : undefined}
             a={aggSum(tfSlots.map(sl => slotAggs.get(sl.id)!))} />
           {open.has('tfroot') && tfBns.map(bn => {
-            const bnSlots = tfSlots.filter(sl => sl.bn === bn)
+            const bnSlots = tfSlots.filter(sl => sl.cmd === bn)
             const bnKey = `bn:${bn}`
             const att = donorOf(bnSlots[0]!, bn)
             const mine = bn === playerBn
@@ -650,7 +658,7 @@ export default function S1Console() {
 
       {/* the player's battalion, complete — the whole 2-8 roster */}
       {tab === 'bn' && org && playerBn && (() => {
-        const bnSlots = slots.filter(sl => sl.bn === playerBn)
+        const bnSlots = slots.filter(sl => sl.cmd === playerBn)
         const cdrS = bnSlots.find(sl => sl.name === 'CMD GRP')
           ?.soldiers.find(s => s.pos === 'Battalion Commander')
         return (

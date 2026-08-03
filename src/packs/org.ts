@@ -12,7 +12,8 @@
 import type { DivOrg, OrgSlot, Soldier, UnitVehicle } from '../engine/GameState'
 import { buildRoster, type TroopKindKey, type VehicleKey } from '../domains/forces/composition'
 import type { UnitTypeKey } from '../domains/forces/catalog'
-import type { BnKind, BnPlan, BnSlotPlan, Pack } from './types'
+import type { BnKind, BnSlotPlan, FormationNode, Pack } from './types'
+import { chairRung } from './types'
 import { namePersonnel, nameSoldier } from './personnel'
 
 // --- template expansion (VERBS) ---------------------------------------------
@@ -113,31 +114,39 @@ function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotI
 // It decides what is task-force (fieldable through CALL UP) — a campaign
 // pins it, a skirmish lets the player pick, and both hand it in here rather
 // than the pack's own default being the only truth (scenario `player`).
-export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
+export function buildDivisionOrg(pack: Pack, playerChair?: string): DivOrg | null {
   const f = pack.formation
   if (!f) return null
-  const chair = playerBn ?? f.playerBn
+  const chair = playerChair ?? f.chair
   const slots: OrgSlot[] = []
 
-  const addBn = (bde: string, bn: BnPlan, from?: string) => {
-    const allTf = bn.desig === chair
-    for (const co of bnTemplate(pack, bn.kind)) {
-      const tf = allTf || (bn.tfCos ?? []).includes(co.co)
+  // ONE FORMATION expanded into slots. `path` is its lineage top-down; the
+  // slot's own path adds the element under it. `cmd` — the formation that
+  // commands it — is whoever sits at the pack's CHAIR RUNG on this branch, or
+  // this formation itself when the branch is shallower than that (a brigade
+  // headquarters is commanded by the brigade; a flat force by its one rung).
+  const addBn = (path: string[], plan: { desig: string; kind?: BnKind; tfCos?: string[] }, from?: string) => {
+    if (!plan.kind) return
+    const desig = plan.desig
+    const allTf = desig === chair
+    const cmd = path[Math.min(chairRung(f), path.length - 1)] ?? desig
+    for (const co of bnTemplate(pack, plan.kind)) {
+      const tf = allTf || (plan.tfCos ?? []).includes(co.co)
       for (const spec of co.slots) {
-        const id = `${bn.desig}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
+        const id = `${desig}:${co.co}:${spec.name}`.replace(/\s+/g, '_')
         // a firing battery IS its unit — "A BTRY, 1-82 FA", not "FIRING BTRY, A BTRY, …"
         const lin = 'type' in spec && co.co.endsWith('BTRY')
-          ? `${co.co}, ${bn.desig}`
-          : `${spec.name}, ${co.co}, ${bn.desig}`
+          ? `${co.co}, ${desig}`
+          : `${spec.name}, ${co.co}, ${desig}`
         const fieldable = tf && 'type' in spec
         const base: OrgSlot = {
-          id, bde, bn: bn.desig, co: co.co, name: spec.name, lin,
-          // A task-organized slice from a SISTER battalion is an ATTACHMENT: it
-          // fights for us, it belongs to them. Marking it puts "ATT 91 BEB" on
-          // the call-up row and on the fielded unit — the same treatment a
-          // cross-division attachment gets. playerBn's own elements are
+          id, path: [...path, co.co], cmd, name: spec.name, lin,
+          // A task-organized slice from a SISTER formation is an ATTACHMENT: it
+          // fights for us, it belongs to them. Marking it puts "ATT 91 EN BN"
+          // on the call-up row and on the fielded unit — the same treatment a
+          // cross-division attachment gets. The chair's own elements are
           // organic and stay unmarked.
-          from: from ?? (fieldable && !allTf ? bn.desig : undefined),
+          from: from ?? (fieldable && !allTf ? desig : undefined),
           tf: fieldable, unitId: null, soldiers: [], vehicles: [],
         }
         if ('type' in spec) {
@@ -154,15 +163,19 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
     }
   }
 
-  for (const bde of f.bdes) {
-    // the BRIGADE'S OWN HEADQUARTERS first — a brigade is a headquarters with
-    // a commander and shops, not a folder its battalions sit in. It is built
-    // as a battalion whose designation IS the brigade's, so its staff shows up
-    // in the org exactly where a reader expects: under the brigade, above the
-    // battalions it commands.
-    if (bde.hq) addBn(bde.desig, { desig: bde.desig, kind: bde.hq })
-    for (const bn of bde.bns) addBn(bde.desig, bn)
+  // WALK THE FORMATION, however deep it goes. A formation with a `kind`
+  // expands into slots — that is true of an element (a battalion, an MI
+  // company) and equally of a headquarters that commands others, which is why
+  // a brigade with a staff is not a folder its battalions sit in. A formation
+  // with neither is a pure grouping and contributes nothing but a rung.
+  const walk = (nodes: FormationNode[], path: string[]): void => {
+    for (const n of nodes) {
+      const here = [...path, n.desig]
+      addBn(here, n)
+      if (n.under) walk(n.under, here)
+    }
   }
+  walk(f.under, [])
 
   // attachments: the donor battalions' attached slices, as an 'ATT' pseudo-bde
   const attBns = new Map<string, { from: string; cos: CoSpec[] }>()
@@ -190,7 +203,7 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
         const r = buildRoster(spec.type)
         namePersonnel(r.soldiers, r.vehicles, spec.type, id, pack.side)
         slots.push({
-          id, bde: 'ATT', bn, co: co.co, name: spec.name,
+          id, path: ['ATT', bn, co.co], cmd: bn, name: spec.name,
           lin: `${spec.name}, ${co.co}, ${bn}`, type: spec.type, from: e.from,
           tf: true, unitId: null, soldiers: r.soldiers, vehicles: r.vehicles,
         })
@@ -220,20 +233,23 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
         soldiers.push(s)
       }
       slots.push({
-        id, bde: 'ATT', bn: def.from, co: def.name.toUpperCase(), name: `SEC ${i}`,
+        id, path: ['ATT', def.from, def.name.toUpperCase()],
+        cmd: def.from, name: `SEC ${i}`,
         lin: `${def.name} ${i}, ${def.from}`, from: def.from,
         tf: false, unitId: null, soldiers, vehicles: [],
       })
     }
   }
 
-  // STANDING QRF at H-hour (pack content): the battalion does not open a war
-  // with nobody on reaction duty — nor with the whole garrison on it. Named as
-  // `CO:PLT` inside the player battalion; unknown names are ignored rather than
-  // thrown, so a pack can rename a company without breaking the org build.
+  // STANDING QRF at H-hour (pack content): a command does not open a war with
+  // nobody on reaction duty — nor with the whole garrison on it. Named as
+  // `ELEMENT:SLOT` inside the chair's own formation; unknown names are ignored
+  // rather than thrown, so a pack can rename a company without breaking the
+  // org build.
   for (const ref of f.qrf ?? []) {
     const [co, name] = ref.split(':')
-    const sl = slots.find(s => s.bn === chair && s.co === co && s.name === name && s.type)
+    const sl = slots.find(s =>
+      s.cmd === chair && s.path[s.path.length - 1] === co && s.name === name && s.type)
     if (sl) sl.qrf = true
   }
 
@@ -281,14 +297,18 @@ export function drawSlot(org: DivOrg, type: UnitTypeKey): OrgSlot | null {
 export function drawSlotIn(org: DivOrg, type: UnitTypeKey, formation: string): OrgSlot | null {
   return org.slots.find(sl =>
     sl.type === type && sl.unitId == null
-    && (sl.bn === formation || sl.bde === formation)
+    // ANYWHERE under that formation — the path answers at any rung, so naming
+    // a brigade draws from its battalions without having to say which
+    && sl.path.includes(formation)
     && sl.soldiers.some(s => s.status === 'FIT')) ?? null
 }
 
-// campaign hook: the player IS this battalion's commander — put their name on
-// the CMD GRP slot
-export function setBnCommander(org: DivOrg, bn: string, name: string): void {
-  const slot = org.slots.find(sl => sl.bn === bn && sl.name === 'CMD GRP')
-  const cdr = slot?.soldiers.find(s => s.pos === 'Battalion Commander')
+// campaign hook: the player IS this formation's commander — put their name on
+// its command group. The commander is the FIRST billet in that roster, because
+// a command group is written senior first; the engine does not need to know
+// what an army calls the job.
+export function setBnCommander(org: DivOrg, cmd: string, name: string): void {
+  const slot = org.slots.find(sl => sl.cmd === cmd && sl.name === 'CMD GRP')
+  const cdr = slot?.soldiers[0]
   if (cdr) cdr.name = name.toUpperCase()
 }

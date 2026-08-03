@@ -95,8 +95,8 @@ export function initGame(
   // the player pack's whole division, people and all — built BEFORE any friendly
   // unit spawns so the starter force draws real garrison slots (rng-free).
   // The chair decides what is task-force inside it.
-  S.playerBn = playerBn || defaultPlayerFormation(playerPack())
-  S.org = buildDivisionOrg(playerPack(), S.playerBn)
+  S.chair = playerBn || defaultPlayerFormation(playerPack())
+  S.org = buildDivisionOrg(playerPack(), S.chair)
   // the division asset pool the TOC can request from (ASSET-REQUESTS.md);
   // campaign scripting pre-allocates pieces to sister brigades in startCampaign
   S.assets = buildAssetRegistry(playerPack())
@@ -166,7 +166,7 @@ export function initDevGame(map: WorldMap, seed = 1337): void {
   S.structures = []              // place a clean corner-to-corner layout ourselves
   S.enemyGroups = []
   // the discarded starter force burned slots — reissue, same chair
-  S.org = buildDivisionOrg(playerPack(), S.playerBn)
+  S.org = buildDivisionOrg(playerPack(), S.chair)
 
   const W = S.map!.WORLD
   // friendly lower-left, enemy upper-right (screen up = -y)

@@ -97,9 +97,9 @@ function CamTile({ label, sub, h, speaking, bars, seed }: {
 // find a FIT staff officer of the player battalion by billet (the org has the
 // real people — VTCs put the PROPER attendees on the line)
 function bnStaff(pos: string) {
-  const bn = playerPack().formation?.playerBn
+  const bn = playerPack().formation?.chair
   for (const sl of S.org?.slots ?? []) {
-    if (sl.bn !== bn) continue
+    if (sl.cmd !== bn) continue
     const s = sl.soldiers.find(x => x.pos === pos && x.status === 'FIT')
     if (s) return s
   }

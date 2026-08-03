@@ -251,20 +251,18 @@ export interface StructureSymbolOpts {
   progress?: number
   hpFrac?: number
   spotted?: boolean
-  /** ECHELON of the owning formation, drawn above the frame the way 2525
-   *  does it — a division main and a battalion CP are the same symbol until
-   *  you read the size marker. Absent = unmarked (your own command post). */
-  echelon?: 'division' | 'brigade' | 'battalion'
+  /** THE SIZE MARKER of the owning formation, drawn above the frame the way
+   *  2525 does it — a division main and a battalion CP are the same symbol
+   *  until you read it. The caller resolves it from the pack's echelon ladder
+   *  ('XX', 'III', 'II'); this only draws what it is given, because what an
+   *  army calls its rungs is not the map's business. Absent = unmarked, which
+   *  is your own command post. */
+  echelon?: string
   /** the owning formation's INSIGNIA ART FILE (pack formation plan `patch`).
    *  Drawn in place of the echelon marker when the pack ships art for it. */
   patch?: string
 }
 
-// 2525 size markers, coarse → fine — the fallback when a formation ships no
-// insignia art
-const ECHELON_MARK: Record<string, string> = {
-  division: 'XX', brigade: 'X', battalion: 'II',
-}
 
 // Formation insignia, loaded once per art file and drawn straight onto the
 // canvas (an svg or png FILE loads through an Image like any other; only the
@@ -383,7 +381,7 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
       const pw = ph * (art.naturalWidth / art.naturalHeight)
       ctx.drawImage(art, -pw / 2, base - ph, pw, ph)
     } else {
-      const mark = echelon ? ECHELON_MARK[echelon] : null
+      const mark = echelon
       if (mark) {
         ctx.font = 'bold 16px Consolas, monospace'
         const w = ctx.measureText(mark).width + 10

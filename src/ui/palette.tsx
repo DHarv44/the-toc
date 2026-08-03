@@ -14,6 +14,7 @@ import { fmtCooldown } from '../lib/format'
 import { UNIT_TYPES, type UnitType, type UnitTypeKey } from '../domains/forces/catalog'
 import { playerPack } from '../packs'
 import { slotStrength } from '../packs/org'
+import { ownerOf } from '../packs/orgquery'
 import { STRUCTURES, FACILITIES, type StructureType, type StructureTypeKey, type FacilityKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols'
@@ -217,7 +218,7 @@ const slotItem = (sl: OrgSlot, terse = false): PaletteItem => {
     mode: 'slot:' + sl.id, key: sl.id, fieldSlot: true,
     // the element's real lineage leads ("1st PLT · A CO"); tag carries the
     // platform + WHERE it is garrisoned (its assigned home base)
-    label: terse ? sl.name : `${sl.name} · ${sl.co}`,
+    label: terse ? sl.name : `${sl.name} · ${ownerOf(sl)}`,
     tag: terse
       ? t.name
       : [t.name, `${str.fit}/${str.asg} PAX`, base?.label, sl.from ? `ATT ${sl.from}` : null]
@@ -379,7 +380,7 @@ export function deployContext(selectedIds: number[]): DeployContext | null {
           const t = UNIT_TYPES[sl.type as UnitTypeKey]
           return {
             mode: 'qrf:' + sl.id, key: sl.id, qrfToggle: true,
-            label: `${sl.name} · ${sl.co}`,
+            label: `${sl.name} · ${ownerOf(sl)}`,
             tag: 'STANDING BY IN GARRISON — CLICK TO RELEASE',
             cost: null, icon: <PaletteIcon unit={t} />,
             note: '✓ QRF',

@@ -15,12 +15,18 @@ import type { Pack } from '../packs/types'
 import { orgTree, type OrgTreeNode } from '../packs/orgquery'
 import { TREE_PAD } from './tree'
 
-// echelon styling, coarse → fine (matches the rails' RUNG ramp)
-const TONE = {
-  division: { fz: 13, ls: 1.4, c: '#dceeff' },
-  brigade: { fz: 13, ls: 0.9, c: '#9fd0f5' },
-  battalion: { fz: 12, ls: 0.6, c: '#9ab8d0' },
-} as const
+// Styling by RUNG, coarse → fine (matches the rails' RUNG ramp). Indexed by
+// depth rather than by an echelon's name: a regiment and a brigade sit at the
+// same rung and should read the same weight whatever they are called, and a
+// tree deeper than the ramp simply holds at the finest step.
+const TONE = [
+  { fz: 13, ls: 1.4, c: '#dceeff' },   // the top formation
+  { fz: 13, ls: 0.9, c: '#9fd0f5' },
+  { fz: 12, ls: 0.6, c: '#9ab8d0' },
+  { fz: 12, ls: 0.4, c: '#8098ac' },
+] as const
+const toneAt = (rung: number): (typeof TONE)[number] =>
+  TONE[Math.min(rung + 1, TONE.length - 1)] ?? TONE[TONE.length - 1]!
 
 function Row({ node, depth, open, selected, onToggle, onPick, right }: {
   node: OrgTreeNode
@@ -31,7 +37,7 @@ function Row({ node, depth, open, selected, onToggle, onPick, right }: {
   onPick: () => void
   right?: ReactNode
 }) {
-  const t = TONE[node.echelon]
+  const t = toneAt(node.rung)
   const kids = node.children.length > 0
   return (
     <Box onClick={onPick} pr={6} py={3} pl={TREE_PAD(depth)}

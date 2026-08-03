@@ -83,13 +83,13 @@ export function newUnit(
     u.vehicles = slot.vehicles
     slot.unitId = u.id
     assignCallsigns(u)
-    // TASK ORG: the platoon's owning battalion is its slot's battalion, and
-    // the org already knows what is task-force. A TF slot from a battalion
-    // other than the chair IS an attachment (the engineers) — that is what
-    // `tf` means — so it comes under the player's command; a slot that is not
+    // TASK ORG: the element's commanding formation is its slot's, and the org
+    // already knows what is task-force. A TF slot commanded by anyone other
+    // than the chair IS an attachment (the engineers) — that is what `tf`
+    // means — so it comes under the player's command; a slot that is not
     // task-force belongs to a sister formation fighting its own fight.
-    u.bn = slot.bn
-    if (slot.tf && slot.bn !== S.playerBn) u.attached = true
+    u.cmd = slot.cmd
+    if (slot.tf && slot.cmd !== S.chair) u.attached = true
   } else {
     assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
   }

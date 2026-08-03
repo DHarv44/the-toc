@@ -49,7 +49,7 @@ function seedIntel(S: GameState, unit: Unit, u: ScenarioUnit): void {
 function fieldForFormation(S: GameState, u: ScenarioUnit, p: { x: number; y: number }): Unit | null {
   const type = u.type as UnitTypeKey
   const bn = u.formation
-  if (!bn || bn === S.playerBn) return deployUnit(type, p.x, p.y, true)
+  if (!bn || bn === S.chair) return deployUnit(type, p.x, p.y, true)
 
   const slot = S.org ? drawSlotIn(S.org, type, bn) : null
   const unit = deployUnit(type, p.x, p.y, true, slot ? { slot } : { noSlot: true })
@@ -58,7 +58,7 @@ function fieldForFormation(S: GameState, u: ScenarioUnit, p: { x: number; y: num
     console.warn(`[scenario] ${bn} has no ${type} platoon free — placed without an org slot`)
     unit.lineage = bn
   }
-  unit.bn = bn
+  unit.cmd = bn
   if (u.attached) unit.attached = true
   return unit
 }
@@ -86,7 +86,7 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
     // echelon — DIV MAIN, 1ABCT MAIN — rather than HQ-7
     const label = st.label
       ?? (st.side === 'friend'
-        ? defaultStructureLabel(playerPack(), st.kind, st.formation, S.playerBn)
+        ? defaultStructureLabel(playerPack(), st.kind, st.formation, S.chair)
         : undefined)
     const s = addStructure(st.side, st.kind, p.x, p.y, label, !st.building, st.formation)
     if (st.stock != null) s.stock = st.stock

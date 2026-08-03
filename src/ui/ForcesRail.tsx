@@ -15,6 +15,7 @@ import Rail, { RailSection } from './Rail'
 import { unitCats, PaletteIcon, PaletteRow, garrisonSections, garrisonSlots, slotItem } from './palette'
 import { DrillRow, TreeLeaf } from './tree'
 import { slotStrength } from '../packs/org'
+import { ownerOf } from '../packs/orgquery'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -221,10 +222,10 @@ function CallUpFlyout() {
   const cosOf = (list: OrgSlot[]) => {
     const cos: { key: string; co: string; bn: string; list: OrgSlot[] }[] = []
     for (const sl of list) {
-      const key = `${sl.bn}:${sl.co}`
+      const key = `${sl.cmd}:${ownerOf(sl)}`
       const e = cos.find(c => c.key === key)
       if (e) e.list.push(sl)
-      else cos.push({ key, co: sl.co, bn: sl.bn, list: [sl] })
+      else cos.push({ key, co: ownerOf(sl), bn: sl.cmd, list: [sl] })
     }
     return cos
   }

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Box, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { useUI } from './store'
 import { installedPacks, type Pack } from '../packs'
+import { walkFormation } from '../packs/types'
 import { PaletteIcon } from './palette'
 import { PatchIcon } from './insignia'
 
@@ -140,15 +141,18 @@ function Formation({ p }: { p: Pack }) {
   if (!f) return <Text fz={11} c="dark.3" mt={6}>No formation tree (placeholder pack).</Text>
   return (
     <Group gap="lg" align="flex-start" mt={6} wrap="wrap">
-      {f.bdes.map(bde => (
-        <Box key={bde.desig} miw={170}>
-          <Text fz={12} fw={700} c="#dceeff">{bde.desig}{bde.nick ? ` — ${bde.nick}` : ''}</Text>
-          {bde.bns.map(bn => {
-            const player = bn.desig === f.playerBn
+      {/* the tree at whatever depth the pack declares — each top-level
+          formation gets a column, everything under it indents by its rung */}
+      {f.under.map(top => (
+        <Box key={top.desig} miw={170}>
+          <Text fz={12} fw={700} c="#dceeff">{top.desig}{top.nick ? ` — ${top.nick}` : ''}</Text>
+          {walkFormation({ ...f, under: top.under ?? [] }).map(w => {
+            const n = w.node
+            const player = n.desig === f.chair
             return (
-              <Text key={bn.desig} fz={11} c={player ? '#e8c547' : 'dark.1'} pl={10}>
-                {bn.desig} <Text span fz={9} c="dark.3">({bn.kind}{player ? ' · PLAYER' : bn.tfCos ? ` · TF: ${bn.tfCos.join(', ')}` : ''})</Text>
-                {p.nicks?.[bn.desig] && <Text span fz={9} c="dark.2"> “{p.nicks[bn.desig]}”</Text>}
+              <Text key={w.path.join('/')} fz={11} c={player ? '#e8c547' : 'dark.1'} pl={10 + w.rung * 10}>
+                {n.desig} <Text span fz={9} c="dark.3">({n.kind ?? '—'}{player ? ' · PLAYER' : n.tfCos ? ` · TF: ${n.tfCos.join(', ')}` : ''})</Text>
+                {p.nicks?.[n.desig] && <Text span fz={9} c="dark.2"> “{p.nicks[n.desig]}”</Text>}
               </Text>
             )
           })}

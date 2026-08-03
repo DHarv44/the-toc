@@ -817,18 +817,26 @@
       }
     }
   },
+  "_formation_doc": "THE FORMATION TREE. `under` nests as deep as the army actually goes; `echelons` names each rung below the top and gives the 2525 size marker it wears. This division reads DIVISION / BRIGADE / BATTALION / COMPANY. A force with regiments over companies, or one flat rung of broods, says so here and nothing in the engine changes.",
   "formation": {
-    "playerBn": "2-8 CAV",
+    "chair": "2-8 CAV",
     "playable": "all",
+    "top": { "name": "DIVISION", "mark": "XX" },
+    "echelons": [
+      { "name": "BRIGADE", "mark": "X" },
+      { "name": "BATTALION", "mark": "II" },
+      { "name": "COMPANY", "mark": "I" }
+    ],
+    "chairRung": 1,
     "qrf": [
       "C CO:1st PLT"
     ],
-    "bdes": [
+    "under": [
       {
         "desig": "1ABCT",
         "nick": "IRONHORSE",
-        "hq": "BDE-HHC",
-        "bns": [
+        "kind": "BDE-HHC",
+        "under": [
           {
             "desig": "2-8 CAV",
             "kind": "CAB-INF",
@@ -886,8 +894,8 @@
       {
         "desig": "2ABCT",
         "nick": "BLACK JACK",
-        "hq": "BDE-HHC",
-        "bns": [
+        "kind": "BDE-HHC",
+        "under": [
           {
             "desig": "1-8 CAV",
             "kind": "CAB-ARMOR",
@@ -926,8 +934,8 @@
       {
         "desig": "3ABCT",
         "nick": "GREYWOLF",
-        "hq": "BDE-HHC",
-        "bns": [
+        "kind": "BDE-HHC",
+        "under": [
           {
             "desig": "1-12 CAV",
             "kind": "CAB-ARMOR",
@@ -967,9 +975,9 @@
       {
         "desig": "1ACB",
         "nick": "WARRIOR",
-        "hq": "BDE-HHC",
+        "kind": "BDE-HHC",
         "station": "DIV AVN COMPLEX",
-        "bns": [
+        "under": [
           {
             "desig": "1-227 AVN",
             "kind": "ARB",
@@ -997,7 +1005,7 @@
         "desig": "DIVARTY",
         "nick": "RED TEAM",
         "station": "DIV MAIN",
-        "bns": [
+        "under": [
           {
             "desig": "HHB DIVARTY",
             "kind": "HHB-DIVARTY"
@@ -1008,7 +1016,7 @@
         "desig": "HHBN",
         "nick": "MAVERICK",
         "station": "DIV MAIN",
-        "bns": [
+        "under": [
           {
             "desig": "HHBN 1CD",
             "kind": "HHBN"

@@ -14,7 +14,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Box, Button, Checkbox, Group, Menu, Table, Text, UnstyledButton } from '@mantine/core'
 import { installedPacks, type Pack } from '../packs'
-import { isPlayableBn, playableBns, type PackAsset } from '../packs/types'
+import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
+import { echelonAt, ownerOf } from '../packs/orgquery'
 import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
 import { readGlb, type GlbInfo } from '../packs/glb'
@@ -383,12 +384,13 @@ function EchelonTree({ p }: { p: Pack }) {
   // group the flat slot list back into its echelons, preserving generation order
   const bdes: { desig: string; bns: { desig: string; cos: { co: string; slots: OrgSlot[] }[] }[] }[] = []
   for (const sl of org.slots) {
-    let bde = bdes.find(b => b.desig === sl.bde)
-    if (!bde) { bde = { desig: sl.bde, bns: [] }; bdes.push(bde) }
-    let bn = bde.bns.find(b => b.desig === sl.bn)
-    if (!bn) { bn = { desig: sl.bn, cos: [] }; bde.bns.push(bn) }
-    let co = bn.cos.find(c => c.co === sl.co)
-    if (!co) { co = { co: sl.co, slots: [] }; bn.cos.push(co) }
+    const top = sl.path[0] ?? sl.cmd
+    let bde = bdes.find(b => b.desig === top)
+    if (!bde) { bde = { desig: top, bns: [] }; bdes.push(bde) }
+    let bn = bde.bns.find(b => b.desig === sl.cmd)
+    if (!bn) { bn = { desig: sl.cmd, cos: [] }; bde.bns.push(bn) }
+    let co = bn.cos.find(c => c.co === ownerOf(sl))
+    if (!co) { co = { co: ownerOf(sl), slots: [] }; bn.cos.push(co) }
     co.slots.push(sl)
   }
 
@@ -398,7 +400,7 @@ function EchelonTree({ p }: { p: Pack }) {
   // `from` — that mark belongs on the element, not the parent row, and nothing
   // is attached from itself. Only a real donor reads as an attachment. (Same
   // rule as S1Console's donorOf.)
-  const donorOf = (sl: OrgSlot) => (sl.from && sl.from !== sl.bn ? sl.from : null)
+  const donorOf = (sl: OrgSlot) => (sl.from && sl.from !== sl.cmd ? sl.from : null)
   const billets = (slots: OrgSlot[]) => slots.reduce((n, s) => n + s.soldiers.length, 0)
   const vics = (slots: OrgSlot[]) => slots.reduce((n, s) => n + s.vehicles.length, 0)
   const allSlots = org.slots
@@ -427,7 +429,7 @@ function EchelonTree({ p }: { p: Pack }) {
               // PLAYABLE is what the PACK allows; CAMPAIGN is which one this
               // pack's campaign happens to be about. Two different statements.
               const canPlay = isPlayableBn(f, bn.desig)
-              const isCampaign = bn.desig === f?.playerBn
+              const isCampaign = bn.desig === f?.chair
               const donor = bnSlots.map(donorOf).find(Boolean) ?? null
               return (
                 <Box key={bn.desig}>
@@ -479,7 +481,10 @@ function EchelonTree({ p }: { p: Pack }) {
 function inventory(p: Pack): { label: string; n: number }[] {
   const c = p.catalogs
   const f = p.formation
-  const bns = f ? f.bdes.reduce((n, b) => n + b.bns.length, 0) : 0
+  // count by RUNG rather than by a fixed brigade/battalion pair — this pack
+  // might have regiments over companies, or a single flat rung of broods
+  const walk = walkFormation(f)
+  const byRung = (r: number) => walk.filter(w => w.rung === r).length
   return [
     { label: 'UNIT TYPES', n: Object.keys(c.units ?? {}).length },
     { label: 'VEHICLES', n: Object.keys(c.vehicles ?? {}).length },
@@ -489,8 +494,8 @@ function inventory(p: Pack): { label: string; n: number }[] {
     { label: 'TROOPS', n: Object.keys(c.troops ?? {}).length },
     { label: 'AIR', n: Object.keys(c.drones ?? {}).length },
     { label: 'FACILITIES', n: Object.keys(c.facilities ?? {}).length },
-    { label: 'BRIGADES', n: f?.bdes.length ?? 0 },
-    { label: 'BATTALIONS', n: bns },
+    { label: echelonAt(p, 0) + 'S', n: byRung(0) },
+    { label: echelonAt(p, 1) + 'S', n: byRung(1) },
     { label: 'PLAYABLE', n: playableBns(f).length },
     { label: 'SCENARIOS', n: packScenarios(p.id).length },
     { label: 'DIV ASSETS', n: Object.keys(p.assets ?? {}).length },

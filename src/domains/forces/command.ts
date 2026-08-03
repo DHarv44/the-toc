@@ -18,9 +18,9 @@ import type { Unit } from '../../engine/GameState'
 /** Is this unit the player's to order? */
 export function underPlayerCommand(u: Unit): boolean {
   if (u.side !== 'friend') return false
-  if (!u.bn) return true                 // unauthored ownership = the player's own
+  if (!u.cmd) return true                // unauthored ownership = the player's own
   if (u.attached) return true            // task-organized to this command
-  return u.bn === S.playerBn
+  return u.cmd === S.chair
 }
 
 /** A friendly unit the player does NOT command — a sister formation's. */
@@ -35,5 +35,5 @@ export const playerUnits = (): Unit[] => S.units.filter(underPlayerCommand)
 export function commandsStructure(st: { side: string; formation?: string }): boolean {
   if (st.side !== 'friend') return false
   if (!st.formation) return true
-  return st.formation === S.playerBn
+  return st.formation === S.chair
 }

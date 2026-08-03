@@ -26,6 +26,7 @@ import {
   type PaletteItem, type DeployContext,
 } from './palette'
 import { slotStrength } from '../packs/org'
+import { ownerOf } from '../packs/orgquery'
 import { centerView } from '../map/view'
 
 const ROSTER_KINDS: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
@@ -175,7 +176,7 @@ function QrfDedicate({ structId }: { structId: number }) {
               const it = slotItem(sl, true)
               return (
                 <TreeLeaf key={sl.id} depth={3} icon={it.icon}
-                  label={`${sl.name} · ${sl.co}`} tag={it.tag} note={it.note}
+                  label={`${sl.name} · ${ownerOf(sl)}`} tag={it.tag} note={it.note}
                   onClick={() => { toggleQrf(sl.id); ui.toggleCmd(key) }} />
               )
             })}

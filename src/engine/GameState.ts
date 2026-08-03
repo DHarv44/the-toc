@@ -134,9 +134,17 @@ export interface Soldier {
 // spliced from S.units (unitId then dangles → rendered as a combat loss).
 export interface OrgSlot {
   id: string                 // stable slot path, seeds personnel generation
-  bde: string                // parent brigade designation ('1ABCT', 'ATT'…)
-  bn: string                 // parent battalion designation ('2-8 CAV')
-  co: string                 // company/troop/battery ('A CO', 'HHC')
+  // THE LINEAGE, top down, ending with the element that owns this slot:
+  // ['1ABCT','2-8 CAV','A CO']. However deep the pack's formation nests — a
+  // militia is ['NETWORK','CELL 3'], a swarm is ['BROOD 4']. This is the ONLY
+  // structural truth about where a slot sits. Nothing reads it positionally
+  // except by the pack's own declared rungs.
+  path: string[]
+  // THE FORMATION THAT COMMANDS IT — the designation at the pack's chair rung
+  // ('2-8 CAV'). Stamped by the builder, which knows both the path and the
+  // rung, so it is a recorded fact rather than a positional guess. This is
+  // what THE CHAIR is compared against, at whatever echelon a pack commands.
+  cmd: string
   name: string               // slot name inside the company ('1st PLT', 'CMD GRP')
   lin: string                // full display lineage ('1st PLT, A CO, 2-8 CAV')
   type?: UnitTypeKey         // fieldable game unit type (staff/aviation slots have none)
@@ -262,14 +270,17 @@ export interface Unit {
   label: string           // radio callsign designator (e.g. "ECHO-5")
   lineage?: string        // formal parent-formation line (e.g. "1st PLT, A CO, 2-8 CAV")
   attFrom?: string        // donor formation if this type is an attachment (e.g. "2ID")
-  // TASK ORGANIZATION (scenario task-org): the OWNING BATTALION designation
-  // (same vocabulary as OrgSlot.bn, which is where it comes from), and
-  // whether this platoon is task-organized to the player for this operation.
-  // COMMAND DERIVES FROM THESE (domains/forces/command.ts) — the player's own
-  // battalion plus anything attached is theirs to order; every other friendly
-  // formation is a neighbour on the same side, not a unit they command.
+  // TASK ORGANIZATION: the formation that COMMANDS this element (OrgSlot.cmd,
+  // which is where it comes from), and whether it is task-organized to the
+  // player for this operation. COMMAND DERIVES FROM THESE
+  // (domains/forces/command.ts) — the chair's own formation plus anything
+  // attached is theirs to order; every other friendly formation is a
+  // neighbour on the same side, not a unit they command.
+  //
+  // Denormalised onto the unit deliberately: this is read for every unit every
+  // frame, and unlike a lineage it answers exactly one question.
   // (`formation` below is the TACTICAL formation — column/wedge — unrelated.)
-  bn?: string
+  cmd?: string
   attached?: boolean
   x: number
   y: number
@@ -742,11 +753,16 @@ export interface GameState {
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   org: DivOrg | null         // the player pack's full division organization (friend side)
-  // THE CHAIR: the battalion designation the player commands. A campaign
-  // scenario pins it; a skirmish lets the player pick a playable battalion.
-  // The org's task-force marking is built around it, and command over every
-  // friendly unit derives from it (domains/forces/command.ts).
-  playerBn: string
+  // THE CHAIR: the designation the player commands. A campaign scenario pins
+  // it; a skirmish lets the player pick a playable formation. The org's
+  // task-force marking is built around it, and command over every friendly
+  // unit derives from it (domains/forces/command.ts).
+  //
+  // WHICH ECHELON this is, is the PACK's (Formation.chairRung). This game is a
+  // battalion TOC because 1CD says its chair is a battalion — not because
+  // anything here believes in battalions. An army that commands at a company
+  // (the Mobile Infantry) or a brood says so and nothing below changes.
+  chair: string
   assets: AssetsState        // division asset pool + request pipeline (ASSET-REQUESTS.md)
   downed: DownedSite[]       // DUSTWUN sites awaiting recovery (friend wipes)
   replT: number              // next replacement-packet arrival (P3 pipeline clock)
@@ -802,7 +818,7 @@ export function createInitialState(): GameState {
     waves: null,
     campaign: null,
     org: null,
-    playerBn: '',
+    chair: '',
     assets: { pool: [], pending: [], queue: [], windows: [], unlocks: [], favor: 0 },
     downed: [],
     replT: 0,
