@@ -167,6 +167,10 @@ export interface NetVoice {
   /** how far away something has to be before the range is worth saying, in
    *  metres — under this a report just says what it saw */
   rangeFloor?: number
+  /** THE DESK that answers for each asset echelon — who a battalion is
+   *  actually talking to when it asks higher for something. Keyed by
+   *  PackAsset.echelon; an echelon with no desk speaks under its own name. */
+  desks?: Record<string, string>
 }
 
 // --- awards -----------------------------------------------------------------
@@ -267,6 +271,11 @@ export interface BdePlan {
   desig: string           // '1ABCT'
   nick?: string           // 'IRONHORSE'
   patch?: string          // brigade insignia art file (see BnPlan.patch)
+  // THE BRIGADE'S OWN HEADQUARTERS — a bnKind whose companies are the brigade
+  // staff. A brigade is not a folder its battalions sit in: it is a
+  // headquarters with a commander and shops of its own, and without this the
+  // echelon between the division staff and the battalion staff is empty.
+  hq?: BnKind
   // WHERE this formation sits when it is not yours to see — what the S1 writes
   // in the location column for a sister formation's elements ('DIV MAIN'). A
   // name for a place in someone's army, so the pack says it. Absent = '<desig> AO'.

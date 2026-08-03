@@ -73,11 +73,16 @@ export function siteAssetAt(kind: string, st: Structure): boolean {
   return true
 }
 
-// division's voice on the net, by echelon
-export function assetDesk(kind: string): string {
-  const e = assetDef(kind)?.echelon
-  return e === 'USAF' ? 'ASOC' : e === 'CORPS' ? 'CORPS G3' : 'DIV G3'
-}
+// WHO ANSWERS at each echelon — higher's voice on the net. The desks are the
+// pack's (Pack.net.desks): which staff section fields a request is a fact
+// about an army's own headquarters, not about requesting. An echelon with no
+// desk named speaks under its own name rather than someone else's.
+export const deskFor = (echelon: string | undefined): string =>
+  (echelon ? playerPack().net?.desks?.[echelon] : undefined)
+  ?? playerPack().net?.desks?.DIVISION
+  ?? echelon ?? 'HIGHER'
+
+export const assetDesk = (kind: string): string => deskFor(assetDef(kind)?.echelon)
 
 // --- registry reads (UI + gating) ------------------------------------------
 

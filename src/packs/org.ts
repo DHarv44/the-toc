@@ -154,7 +154,15 @@ export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
     }
   }
 
-  for (const bde of f.bdes) for (const bn of bde.bns) addBn(bde.desig, bn)
+  for (const bde of f.bdes) {
+    // the BRIGADE'S OWN HEADQUARTERS first — a brigade is a headquarters with
+    // a commander and shops, not a folder its battalions sit in. It is built
+    // as a battalion whose designation IS the brigade's, so its staff shows up
+    // in the org exactly where a reader expects: under the brigade, above the
+    // battalions it commands.
+    if (bde.hq) addBn(bde.desig, { desig: bde.desig, kind: bde.hq })
+    for (const bn of bde.bns) addBn(bde.desig, bn)
+  }
 
   // attachments: the donor battalions' attached slices, as an 'ATT' pseudo-bde
   const attBns = new Map<string, { from: string; cos: CoSpec[] }>()

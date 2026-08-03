@@ -441,6 +441,17 @@
         ] }
       ]
     },
+    "BDE-HHC": {
+      "branch": "hq",
+      "companies": [
+        { "co": "HHC", "slots": [
+          { "name": "CMD GRP", "roster": "BDE_CMD_GRP" },
+          { "name": "BDE STAFF", "roster": "BDE_STAFF" },
+          { "name": "FIRES CELL", "roster": "BDE_FIRES" },
+          { "name": "ADAM/BAE", "roster": "BDE_ADAM" }
+        ] }
+      ]
+    },
     "HHBN": {
       "branch": "hq",
       "companies": [
@@ -450,7 +461,11 @@
           { "name": "G2 SECTION", "roster": "G2_SEC" },
           { "name": "G3 SECTION", "roster": "G3_SEC" },
           { "name": "G4 SECTION", "roster": "G4_SEC" },
-          { "name": "G6 SECTION", "roster": "G6_SEC" }
+          { "name": "G5 SECTION", "roster": "G5_SEC" },
+          { "name": "G6 SECTION", "roster": "G6_SEC" },
+          { "name": "G7 SECTION", "roster": "G7_SEC" },
+          { "name": "G8 SECTION", "roster": "G8_SEC" },
+          { "name": "G9 SECTION", "roster": "G9_SEC" }
         ] },
         { "co": "SIGNAL CO", "slots": [
           { "name": "1st PLT", "type": "SIG" },
@@ -491,9 +506,15 @@
       { "kind": "STAFF", "pos": "S2 — Intelligence", "rank": "CPT", "sec": "S2 SEC" },
       { "kind": "STAFF", "pos": "S2 Analyst", "rank": "SGT", "sec": "S2 SEC" },
       { "kind": "STAFF", "pos": "S3 — Operations", "rank": "MAJ", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Battle Captain", "rank": "CPT", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "S3 Air", "rank": "CPT", "sec": "S3 SEC" },
       { "kind": "STAFF", "pos": "Operations NCO", "rank": "SFC", "sec": "S3 SEC" },
-      { "kind": "STAFF", "pos": "Battle Captain RTO", "rank": "SPC", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Master Gunner", "rank": "SFC", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "CBRN NCO", "rank": "SSG", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Operations RTO", "rank": "SPC", "sec": "S3 SEC" },
       { "kind": "STAFF", "pos": "S4 — Logistics", "rank": "CPT", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "Battalion Maintenance Officer", "rank": "CPT", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "Battalion Maintenance Technician", "rank": "CW3", "sec": "S4 SEC" },
       { "kind": "STAFF", "pos": "S4 NCOIC", "rank": "SSG", "sec": "S4 SEC" },
       { "kind": "STAFF", "pos": "S6 — Signal", "rank": "CPT", "sec": "S6 SEC" },
       { "kind": "STAFF", "pos": "Fire Support Officer", "rank": "CPT", "sec": "FS ELEMENT" },
@@ -501,10 +522,52 @@
       { "kind": "STAFF", "pos": "Chaplain", "rank": "CPT", "sec": "UMT" },
       { "kind": "STAFF", "pos": "Religious Affairs NCO", "rank": "SGT", "sec": "UMT" }
     ],
+    "BDE_CMD_GRP": [
+      { "kind": "STAFF", "pos": "Brigade Commander", "rank": "COL" },
+      { "kind": "STAFF", "pos": "Deputy Commanding Officer", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Brigade Executive Officer", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Brigade Command Sergeant Major", "rank": "CSM" },
+      { "kind": "STAFF", "pos": "Commander’s Driver", "rank": "SPC" },
+      { "kind": "STAFF", "pos": "Command RTO", "rank": "SPC" }
+    ],
+    "BDE_STAFF": [
+      { "kind": "STAFF", "pos": "S1 — Personnel", "rank": "MAJ", "sec": "S1 SEC" },
+      { "kind": "STAFF", "pos": "S1 NCOIC", "rank": "SFC", "sec": "S1 SEC" },
+      { "kind": "STAFF", "pos": "S2 — Intelligence", "rank": "MAJ", "sec": "S2 SEC" },
+      { "kind": "STAFF", "pos": "S2 Analyst", "rank": "SSG", "sec": "S2 SEC" },
+      { "kind": "STAFF", "pos": "S3 — Operations", "rank": "LTC", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Brigade Battle Captain", "rank": "CPT", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "Operations Sergeant Major", "rank": "SGM", "sec": "S3 SEC" },
+      { "kind": "STAFF", "pos": "S4 — Logistics", "rank": "MAJ", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "S4 NCOIC", "rank": "SFC", "sec": "S4 SEC" },
+      { "kind": "STAFF", "pos": "S5 — Plans", "rank": "MAJ", "sec": "S5 SEC" },
+      { "kind": "STAFF", "pos": "Plans Officer", "rank": "CPT", "sec": "S5 SEC" },
+      { "kind": "STAFF", "pos": "S6 — Signal", "rank": "MAJ", "sec": "S6 SEC" },
+      { "kind": "STAFF", "pos": "Network Operations NCO", "rank": "SFC", "sec": "S6 SEC" },
+      { "kind": "STAFF", "pos": "S7 — Information Operations", "rank": "CPT", "sec": "S7 SEC" },
+      { "kind": "STAFF", "pos": "S9 — Civil Affairs", "rank": "CPT", "sec": "S9 SEC" },
+      { "kind": "STAFF", "pos": "Brigade Engineer", "rank": "MAJ", "sec": "SPECIAL STAFF" },
+      { "kind": "STAFF", "pos": "Brigade Surgeon", "rank": "MAJ", "sec": "SPECIAL STAFF" },
+      { "kind": "STAFF", "pos": "Judge Advocate", "rank": "CPT", "sec": "SPECIAL STAFF" },
+      { "kind": "STAFF", "pos": "Brigade Chaplain", "rank": "MAJ", "sec": "SPECIAL STAFF" }
+    ],
+    "BDE_FIRES": [
+      { "kind": "STAFF", "pos": "Chief of Fires", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Targeting Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Fire Support NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "Fires Sergeant", "rank": "SSG" }
+    ],
+    "BDE_ADAM": [
+      { "kind": "STAFF", "pos": "Air Defense Airspace Management Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Brigade Aviation Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Airspace NCO", "rank": "SFC" },
+      { "kind": "STAFF", "pos": "Air Defense NCO", "rank": "SSG" }
+    ],
     "DIV_CMD_GRP": [
       { "kind": "STAFF", "pos": "Commanding General", "rank": "MG" },
       { "kind": "STAFF", "pos": "Deputy CG (Maneuver)", "rank": "BG" },
       { "kind": "STAFF", "pos": "Deputy CG (Support)", "rank": "BG" },
+      { "kind": "STAFF", "pos": "Chief of Staff", "rank": "COL" },
       { "kind": "STAFF", "pos": "Division Command Sergeant Major", "rank": "CSM" },
       { "kind": "STAFF", "pos": "Aide-de-Camp", "rank": "CPT" },
       { "kind": "STAFF", "pos": "CG’s Driver", "rank": "SPC" }
@@ -541,16 +604,44 @@
       { "kind": "STAFF", "pos": "G4 NCO", "rank": "SFC" },
       { "kind": "STAFF", "pos": "G4 Clerk", "rank": "SPC" }
     ],
+    "G5_SEC": [
+      { "kind": "STAFF", "pos": "G5 — Plans", "rank": "COL" },
+      { "kind": "STAFF", "pos": "G5 Deputy", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Future Operations Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Future Plans Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "G5 Sergeant Major", "rank": "SGM" },
+      { "kind": "STAFF", "pos": "G5 NCO", "rank": "SFC" }
+    ],
     "G6_SEC": [
       { "kind": "STAFF", "pos": "G6 — Signal", "rank": "LTC" },
       { "kind": "STAFF", "pos": "G6 Deputy", "rank": "MAJ" },
-      { "kind": "STAFF", "pos": "G6 Plans Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "Network Operations Officer", "rank": "CPT" },
       { "kind": "STAFF", "pos": "G6 Sergeant Major", "rank": "SGM" },
       { "kind": "STAFF", "pos": "G6 NCO", "rank": "SFC" },
       { "kind": "STAFF", "pos": "G6 Clerk", "rank": "SPC" }
     ],
+    "G7_SEC": [
+      { "kind": "STAFF", "pos": "G7 — Information Operations", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G7 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Information Operations Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G7 NCOIC", "rank": "SFC" }
+    ],
+    "G8_SEC": [
+      { "kind": "STAFF", "pos": "G8 — Resource Management", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "Budget Officer", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Financial Management Technician", "rank": "CW3" },
+      { "kind": "STAFF", "pos": "G8 NCOIC", "rank": "SFC" }
+    ],
+    "G9_SEC": [
+      { "kind": "STAFF", "pos": "G9 — Civil Affairs", "rank": "LTC" },
+      { "kind": "STAFF", "pos": "G9 Deputy", "rank": "MAJ" },
+      { "kind": "STAFF", "pos": "Civil-Military Operations Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "G9 NCOIC", "rank": "SFC" }
+    ],
     "MED_PLT": [
-      { "kind": "STAFF", "pos": "Medical Officer", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "Battalion Surgeon", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "Physician Assistant", "rank": "CPT" },
+      { "kind": "STAFF", "pos": "Medical Platoon Sergeant", "rank": "SFC" },
       { "kind": "MEDIC", "pos": "Medic", "rank": "SPC", "n": 8 }
     ],
     "MAINT_PLT": [
@@ -736,6 +827,7 @@
       {
         "desig": "1ABCT",
         "nick": "IRONHORSE",
+        "hq": "BDE-HHC",
         "bns": [
           {
             "desig": "2-8 CAV",
@@ -794,6 +886,7 @@
       {
         "desig": "2ABCT",
         "nick": "BLACK JACK",
+        "hq": "BDE-HHC",
         "bns": [
           {
             "desig": "1-8 CAV",
@@ -833,6 +926,7 @@
       {
         "desig": "3ABCT",
         "nick": "GREYWOLF",
+        "hq": "BDE-HHC",
         "bns": [
           {
             "desig": "1-12 CAV",
@@ -873,6 +967,7 @@
       {
         "desig": "1ACB",
         "nick": "WARRIOR",
+        "hq": "BDE-HHC",
         "station": "DIV AVN COMPLEX",
         "bns": [
           {
