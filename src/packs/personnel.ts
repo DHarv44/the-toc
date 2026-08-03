@@ -14,6 +14,7 @@ import type { Unit, Soldier } from '../engine/GameState'
 import { VEHICLES, COMPOSITIONS, type TroopKindKey } from '../domains/forces/composition'
 import { hashStr } from '../lib/math'
 import { activePack } from './install'
+import type { BilletPlan, BilletTables } from './types'
 
 // --- name pools ------------------------------------------------------------
 // Pools come from the SIDE'S PACK (Pack.names — pack folder's names.json,
@@ -44,47 +45,51 @@ function pools(side: 'friend' | 'hostile'): { male: readonly string[]; female: r
   }
 }
 
-// junior enlisted rank spread (hash-weighted): mostly PFC/SPC, some PVT
-const JR = ['PVT', 'PFC', 'PFC', 'SPC', 'SPC', 'SPC']
-
 const pick = <T,>(arr: readonly T[], h: number): T => arr[Math.abs(h) % arr.length]!
 
-// position + rank for a dismount, by kind and its index within that kind group
-// (exported for the P3 pipeline — replacements arrive with a junior billet)
-export function dismountBillet(kind: TroopKindKey, idx: number, groupN: number, h: number): { pos: string; rank: string } {
-  switch (kind) {
-    case 'LEADER':
-      // casualty order: the LAST leader standing is the PL
-      if (idx === groupN - 1) return { pos: 'Platoon Leader', rank: pick(['2LT', '2LT', '1LT'], h) }
-      if (idx === groupN - 2) return { pos: 'Platoon Sergeant', rank: 'SFC' }
-      return { pos: 'Squad Leader', rank: 'SSG' }
-    // a squad's two fire teams each have a leader, and he is NOT a squad
-    // leader — separating the kinds is what lets three squads and six teams
-    // come out of one roster
-    case 'TEAM_LEADER': return { pos: 'Team Leader', rank: 'SGT' }
-    case 'MEDIC': return { pos: 'Platoon Medic', rank: 'SPC' }
-    case 'AUTO_RIFLEMAN': return { pos: 'Automatic Rifleman', rank: 'SPC' }
-    case 'MG_GUNNER': return { pos: 'Machine Gunner', rank: pick(['SPC', 'CPL'], h) }
-    case 'AT_GUNNER': return { pos: 'Javelin Gunner', rank: pick(['SPC', 'CPL'], h) }
-    case 'ATGM_GUNNER': return { pos: 'TOW Gunner', rank: pick(['SPC', 'CPL'], h) }
-    case 'MORTARMAN': return { pos: idx === 0 ? 'Mortar Gunner' : 'Mortarman', rank: idx === 0 ? 'CPL' : pick(JR, h) }
-    case 'SCOUT': return { pos: 'Scout', rank: pick(['SPC', 'SPC', 'CPL', 'SGT'], h) }
-    case 'SAPPER': return { pos: 'Sapper', rank: pick(JR, h) }
-    case 'SIGNALLER': return { pos: 'Signaller', rank: pick(['SPC', 'SPC', 'SGT'], h) }
-    case 'RIFLEMAN_AT': return { pos: 'Rifleman (AT4)', rank: pick(JR, h) }
-    default: return { pos: 'Rifleman', rank: pick(JR, h) }
-  }
+// A billet resolved: a fixed rank stands, a spread is drawn by hash (the same
+// job is not the same rank in every platoon).
+const held = (b: BilletPlan, h: number): { pos: string; rank: string } =>
+  ({ pos: b.pos, rank: Array.isArray(b.rank) ? pick(b.rank, h) : b.rank })
+
+const billetsOf = (side: 'friend' | 'hostile'): BilletTables => {
+  const t = activePack(side)?.billets
+  if (!t) throw new Error(`pack for side '${side}' ships no billet table`)
+  return t
 }
 
-// crew billets by seat index, shaped by the vehicle (armed/unarmed, crew size)
-function crewBillet(vehType: string, seat: number, h: number): { pos: string; rank: string } {
+// POSITION + RANK for a dismount, by kind and its index within that kind's
+// group. The engine owns only the STRUCTURE here — that the group's LAST
+// entries are its leadership, because rosters are listed in casualty order and
+// the last one standing is the platoon leader — while every title and rank
+// comes from the pack. (Exported for the P3 pipeline: replacements arrive at
+// the junior end of their kind, so they never inherit a command billet.)
+export function dismountBillet(
+  kind: TroopKindKey, idx: number, groupN: number, h: number,
+  side: 'friend' | 'hostile' = 'friend',
+): { pos: string; rank: string } {
+  const t = billetsOf(side)
+  const b = t.dismount[kind]
+  if (!b) return held(t.default, h)
+  const fromEnd = b.fromEnd ?? []
+  const back = groupN - 1 - idx                   // 0 = last in the group
+  if (back < fromEnd.length) return held(fromEnd[back]!, h)
+  const fromStart = b.fromStart ?? []
+  if (idx < fromStart.length) return held(fromStart[idx]!, h)
+  return held(b, h)
+}
+
+// CREW billets by seat. The engine owns the shape of a crew — armed vehicles
+// are commanded from seat 0, seats fill in order, and a crew larger than its
+// table repeats the last seat — while what each seat is CALLED is the pack's.
+function crewBillet(
+  vehType: string, seat: number, h: number, side: 'friend' | 'hostile',
+): { pos: string; rank: string } {
   const spec = VEHICLES[vehType]
-  const armed = spec.weapons.length > 0
-  if (!armed) return seat === 0 ? { pos: 'Driver', rank: 'SPC' } : { pos: 'A-Driver', rank: pick(JR, h) }
-  if (seat === 0) return { pos: 'Vehicle Commander', rank: pick(['SSG', 'SGT'], h) }
-  if (seat === 1) return spec.crew === 2 ? { pos: 'Driver', rank: 'SPC' } : { pos: 'Gunner', rank: 'SGT' }
-  if (seat === 2 && spec.crew === 4) return { pos: 'Loader', rank: pick(JR, h) }
-  return { pos: 'Driver', rank: 'SPC' }
+  const table = billetsOf(side).crew[spec.weapons.length > 0 ? 'armed' : 'unarmed']
+  const seats = table[String(spec.crew)] ?? table['*']
+  if (!seats?.length) throw new Error(`no crew billets for a ${spec.crew}-hand crew`)
+  return held(seats[Math.min(seat, seats.length - 1)]!, h)
 }
 
 // Name a soldier from the seed key (also stamps the stable personnel identity
@@ -185,13 +190,13 @@ export function namePersonnel(
       const seat = perVeh.get(s.vehId) ?? 0
       perVeh.set(s.vehId, seat + 1)
       const veh = vehicles.find(v => v.id === s.vehId)
-      const b = crewBillet(veh?.type ?? 'HMMWV', seat, h)
+      const b = crewBillet(veh!.type, seat, h, side)
       s.pos = b.pos; s.rank = b.rank
       if (seat === 0) vehCommanders.push(s)
     } else {
       const idx = kindIdx.get(s.kind) ?? 0
       kindIdx.set(s.kind, idx + 1)
-      const b = dismountBillet(s.kind, idx, kindTotal.get(s.kind) ?? 1, h)
+      const b = dismountBillet(s.kind, idx, kindTotal.get(s.kind) ?? 1, h, side)
       s.pos = b.pos; s.rank = b.rank
     }
   }

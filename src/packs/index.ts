@@ -130,6 +130,7 @@ function buildPack(
     // restate what a command group is.
     rosters: man.rosters ?? fallback?.rosters,
     bnKinds: man.bnKinds ?? fallback?.bnKinds,
+    billets: man.billets ?? fallback?.billets,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

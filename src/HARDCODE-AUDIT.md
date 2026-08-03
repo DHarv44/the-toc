@@ -6,12 +6,17 @@
 > like the facility effects). Work the list top-down; each item is small.
 
 ## Personnel & identity
-1. **Billet titles + rank tables** — `packs/personnel.ts` `dismountBillet` /
-   `crewBillet` hardcode US ranks (2LT/SFC/SSG…) and billet names per troop
-   kind. Should be a pack table (rank ladder + billet naming) with the engine
-   keeping only the STRUCTURE (casualty-order leadership, crew seats).
-2. **Junior-enlisted rank spread** (`JR` array) + officer picks
-   (`['2LT','2LT','1LT']`) — same move.
+1. ~~**Billet titles + rank tables**~~ — DONE (2026-08-03). `Pack.billets`
+   names every job and who holds it; `dismountBillet`/`crewBillet` keep only
+   the STRUCTURE (a group's last entries are its leadership because rosters
+   are in casualty order; armed vehicles are commanded from seat 0, seats fill
+   in order, the last seat repeats).
+2. ~~**Junior-enlisted rank spread** + officer picks~~ — DONE with #1: a rank
+   is either fixed or a hash-drawn list, and every list is pack data.
+2b. **Battalion templates + element rosters** — DONE (2026-08-03), was not on
+   this list: `bnTemplate` was a switch of US Army companies in engine code
+   and `BnKind` an engine union. Now `Pack.bnKinds` + `Pack.rosters`, with
+   `BnKind` a key into the pack's own table.
 3. **Friendly callsign pool** — `forces/factory.ts` `FRIEND_CALLS`
    (ALPHA…TANGO) and the hostile `E##` designator format. Pack callsign
    styles.

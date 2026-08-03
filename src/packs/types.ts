@@ -91,6 +91,45 @@ export interface BnCoPlan {
   slots?: BnSlotPlan[]
 }
 
+// --- billets ----------------------------------------------------------------
+// WHAT A JOB IS CALLED and who holds it. Titles and ranks are an army's own
+// vocabulary — 'Platoon Sergeant, SFC' means nothing outside one — so the pack
+// says them and the engine keeps only the STRUCTURE: that leaders are listed
+// last in casualty order, that seat 0 of an armed vehicle commands it.
+
+/** One job. A rank LIST is a hash-weighted spread (the same billet is not the
+ *  same rank in every platoon); a single rank is fixed. */
+export interface BilletPlan {
+  pos: string
+  rank: string | string[]
+}
+
+/** How a troop kind's people are billeted. Most kinds are one job repeated.
+ *  `fromEnd` names the billets at the END of the group — the roster lists
+ *  leaders last (casualty order: the last one standing is the platoon
+ *  leader), so that is where a platoon's command sits. `fromStart` is the
+ *  same from the other end (a mortar section's gunner leads it). */
+export interface TroopBillets extends BilletPlan {
+  fromEnd?: BilletPlan[]
+  fromStart?: BilletPlan[]
+}
+
+/** Crew jobs BY SEAT, keyed by crew size ('*' = any size not named). The last
+ *  entry repeats for any further seats. Armed and unarmed vehicles crew
+ *  differently: a truck has a driver and an assistant driver, a turret has a
+ *  commander, a gunner and (on a four-hand crew) a loader. */
+export interface CrewBillets {
+  armed: Record<string, BilletPlan[]>
+  unarmed: Record<string, BilletPlan[]>
+}
+
+export interface BilletTables {
+  /** any troop kind the table does not name */
+  default: BilletPlan
+  dismount: Record<string, TroopBillets>
+  crew: CrewBillets
+}
+
 export interface BnKindPlan {
   /** heraldic branch for the S1 header's procedural shield ('inf', 'sus'…) */
   branch?: string
@@ -479,6 +518,7 @@ export interface Pack {
   // (`staff` above is a different thing — the S-shop identities.)
   rosters?: Record<string, StaffBillet[]>
   bnKinds?: Record<string, BnKindPlan>
+  billets?: BilletTables  // what each job is called, and who holds it
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

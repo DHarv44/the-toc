@@ -68,6 +68,64 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "_billets_doc": "WHAT EACH JOB IS CALLED AND WHO HOLDS IT. A rank LIST is drawn by hash, so the same billet is not the same rank in every platoon. `fromEnd` names the billets at the END of a kind's group — rosters are listed in casualty order, so the last leader standing is the platoon leader and the one before is the platoon sergeant. `fromStart` is the same from the other end. Crew billets are keyed by CREW SIZE ('*' = any size not named) and the last seat repeats.",
+  "billets": {
+    "default": { "pos": "Rifleman", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
+    "dismount": {
+      "LEADER": {
+        "fromEnd": [
+          { "pos": "Platoon Leader", "rank": ["2LT", "2LT", "1LT"] },
+          { "pos": "Platoon Sergeant", "rank": "SFC" }
+        ],
+        "pos": "Squad Leader", "rank": "SSG"
+      },
+      "TEAM_LEADER": { "pos": "Team Leader", "rank": "SGT" },
+      "MEDIC": { "pos": "Platoon Medic", "rank": "SPC" },
+      "AUTO_RIFLEMAN": { "pos": "Automatic Rifleman", "rank": "SPC" },
+      "MG_GUNNER": { "pos": "Machine Gunner", "rank": ["SPC", "CPL"] },
+      "AT_GUNNER": { "pos": "Javelin Gunner", "rank": ["SPC", "CPL"] },
+      "ATGM_GUNNER": { "pos": "TOW Gunner", "rank": ["SPC", "CPL"] },
+      "MORTARMAN": {
+        "fromStart": [{ "pos": "Mortar Gunner", "rank": "CPL" }],
+        "pos": "Mortarman", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"]
+      },
+      "SCOUT": { "pos": "Scout", "rank": ["SPC", "SPC", "CPL", "SGT"] },
+      "SAPPER": { "pos": "Sapper", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
+      "SIGNALLER": { "pos": "Signaller", "rank": ["SPC", "SPC", "SGT"] },
+      "RIFLEMAN_AT": { "pos": "Rifleman (AT4)", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
+      "RIFLEMAN": { "pos": "Rifleman", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] }
+    },
+    "crew": {
+      "armed": {
+        "2": [
+          { "pos": "Vehicle Commander", "rank": ["SSG", "SGT"] },
+          { "pos": "Driver", "rank": "SPC" }
+        ],
+        "3": [
+          { "pos": "Vehicle Commander", "rank": ["SSG", "SGT"] },
+          { "pos": "Gunner", "rank": "SGT" },
+          { "pos": "Driver", "rank": "SPC" }
+        ],
+        "4": [
+          { "pos": "Vehicle Commander", "rank": ["SSG", "SGT"] },
+          { "pos": "Gunner", "rank": "SGT" },
+          { "pos": "Loader", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
+          { "pos": "Driver", "rank": "SPC" }
+        ],
+        "*": [
+          { "pos": "Vehicle Commander", "rank": ["SSG", "SGT"] },
+          { "pos": "Gunner", "rank": "SGT" },
+          { "pos": "Driver", "rank": "SPC" }
+        ]
+      },
+      "unarmed": {
+        "*": [
+          { "pos": "Driver", "rank": "SPC" },
+          { "pos": "A-Driver", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] }
+        ]
+      }
+    }
+  },
   "_bnKinds_doc": "WHAT A BATTALION IS MADE OF — companies and the slots inside them. A slot is either a FIELDABLE unit type, a `roster` naming an element above, or a `flight` (airframes plus a crew roster repeated per airframe). `plts` is shorthand for n numbered platoons of one type. A COMBINED ARMS BATTALION is three maneuver companies and it is NOT symmetrical: an ABCT fields two armor-heavy CABs (two tank companies, one mech) and one infantry-heavy (two mech, one tank) — the brigade's balance comes from the mix across battalions. The FORWARD SUPPORT COMPANY is assigned to the BSB and attached forward to a CAB, so it lives in the BSB and `tfCos` attaches it, exactly as the real paperwork runs.",
   "bnKinds": {
     "CAB-ARMOR": {
