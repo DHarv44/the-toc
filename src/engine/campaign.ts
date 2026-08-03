@@ -184,25 +184,33 @@ export function objectiveFocus(S: GameState, o: RuntimeObjective): { x: number; 
   }
   if (o.kind === 'defeat-group') {
     const g = S.enemyGroups.find(g => !g.dead && g.name === o.groupTag)
-    if (!g) return null
-    const live = S.units.filter(u => g.members.includes(u.id) && u.strength > 0)
+    const live = g ? S.units.filter(u => g.members.includes(u.id) && u.strength > 0) : []
     if (live.length) {
       const cx = live.reduce((n, u) => n + u.x, 0) / live.length
       const cy = live.reduce((n, u) => n + u.y, 0) / live.length
       return { x: cx, y: cy, r: 500 }
     }
-    return g.objective ? { x: g.objective.x, y: g.objective.y, r: 500 } : null
+    if (g?.objective) return { x: g.objective.x, y: g.objective.y, r: 500 }
+    // that group has not been spawned yet — the fight for it will be on the
+    // ground the phase before it is about (you HOLD what you just took)
+    return priorFocus(S, o)
   }
   if (o.kind === 'deliver') {
     const fob = friendlyFob(S)
     if (fob) return { x: fob.x, y: fob.y, r: 400 }
-    // nothing built yet: the operation's own BUILD phase says where it goes
-    const objs = operation().objectives
-    const mine = objs.indexOf(o)
-    for (let i = mine - 1; i >= 0; i--) {
-      const b = objs[i]!
-      if (b.kind === 'build') return objectiveFocus(S, b)
-    }
+    return priorFocus(S, o) // nothing built yet: the BUILD phase says where it goes
+  }
+  return null
+}
+
+/** The ground of the last phase before this one that HAS any — a phase with no
+ *  place of its own is about the place the operation just made. Walks back
+ *  (strictly decreasing, so it terminates) rather than guessing at a point. */
+function priorFocus(S: GameState, o: RuntimeObjective): { x: number; y: number; r: number } | null {
+  const objs = operation().objectives
+  for (let i = objs.indexOf(o) - 1; i >= 0; i--) {
+    const at = objectiveFocus(S, objs[i]!)
+    if (at) return at
   }
   return null
 }
