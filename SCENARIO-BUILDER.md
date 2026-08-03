@@ -71,12 +71,38 @@ this lands gets moved to pack data as part of the same phase.
   authored placements — the precedent is startCampaign's strip-and-place).
 - The Map Editor's thin SCENARIO step retires into this tool.
 
-### E2 — Eden scripting (the mission layer)            [ ]
-- Trigger ZONES as map entities: draw the circle, attach condition → effect
-  from the existing vocabulary. Objectives with zones. Anchors placed by click.
-- CONTROL MEASURES as first-class entities: phase lines, named objectives,
-  boundaries, TRPs, MSR nomination — rendered in-game as the operational
-  overlay, referenceable by triggers ("cross PL BLUE").
+### E2 — Eden scripting (the mission layer)            [~] core shipped 2026-08-02
+
+**Settled model (2026-08-02):** the scenario is THE one content type — a
+campaign mission IS a scenario with script sections (`places`, `brief`,
+`objectives`, `triggers`, `tutorial` riding the mission vocabulary verbatim;
+`missions/` folders retire when the campaign runner rewires). The H-hour rule
+divides the representations: **what exists at H-hour is a placed entity; what
+arrives later or conditionally is a trigger effect.** Place refs grow to a
+tri-state (fixed pin / pick-one-of-candidates / query) — pins now, pick-lists
+and queries with S4; portable side-mission templates are scenarios with no
+`map` whose refs are all queries against terrain semantics (real OSM
+roads/towns/cover — Groundwork's substrate). Random events are SIM-DRIVEN,
+not damage rolls: the S4 roller spawns a real mortar team that infiltrates,
+fires, displaces — counter-battery/UAV/patrols all engage it for free — and
+persistent CampaignState counters feed eligibility (clear the cache → IDF
+weight drops). Forms are GENERATED from vocabulary descriptors — a new engine
+verb needs one descriptor row, no bespoke UI.
+
+- [x] Named PLACES as entities (the authored gazetteer): point/zone from a
+  CONTROL MEASURES palette section, amber control-measure rendering,
+  name/radius in the inspector. Everything scripted hangs off these.
+- [x] SCRIPT panel (tabbed right rail): brief + objectives + triggers edited
+  beside the map; descriptor-driven forms (`descriptors.ts`); place params
+  autocomplete over authored places + real gazetteer + builtins; effect
+  reorder preserved (declaration-order law); recursive all/any conditions;
+  RAW JSON toggle. Tutorial carried opaque.
+- [x] IMPORT MISSION + the RE-ANCHOR pass: any pack campaign mission's logic
+  imports verbatim; unresolvable place names become authored places staged
+  mid-sheet to drag into position. LODGMENT opens in the builder today.
+- CONTROL MEASURES beyond points/zones: phase lines, boundaries, TRPs, MSR
+  nomination — rendered in-game as the operational overlay, referenceable by
+  triggers ("cross PL BLUE").
 - Mode + victory: ModeSpec pick + params (KotH hill PLACED by the author; Base
   Defense wave table authored — comp/axis/timing).
 - Conditions: fog, day/night, difficulty binding, fielding open vs fixed force
