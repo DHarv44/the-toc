@@ -21,9 +21,12 @@
    cycled and numbered, or a prefix and a count. Deliberately NOT inherited
    from the canonical pack — the opposition answering to ALPHA is worse than
    no style at all — so OPFOR declares its own E##.
-4. **Awards catalog** — `packs/awards.ts` is pack-LAND but not pack-DATA:
-   Purple Heart etc. should hang off the pack (US awards vs OPFOR's own).
-   Defense of Freedom Medal lands here with #21 step 2 (contractor crews).
+4. ~~**Awards catalog**~~ — DONE (2026-08-03). `Pack.awards` holds the
+   decorations; each names the criterion it answers (`on: 'wound'` /
+   `'wound-civ'`). The engine knows only that a casualty EARNS the wound
+   decoration and that a civilian earns their own — casualties.ts no longer
+   names a medal, and the PERSTAT counts the award rather than the Purple
+   Heart by name.
 5. ~~**Rank insignia tables**~~ — DONE (2026-08-03). `Pack.ranks` is ONE
    ordered ladder, junior first: order IS seniority (no hand-written weights,
    and a rank cannot be added without being placed), each entry naming its

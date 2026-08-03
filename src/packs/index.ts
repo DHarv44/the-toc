@@ -135,6 +135,7 @@ function buildPack(
     // gets a plain count, which reads as unset rather than as somebody else.
     callsigns: man.callsigns,
     ranks: man.ranks ?? fallback?.ranks,
+    awards: man.awards ?? fallback?.awards,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

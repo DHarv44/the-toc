@@ -15,7 +15,7 @@ import { T_FOREST, T_URBAN } from '../../world/WorldMap'
 import { UNIT_TYPES } from './catalog'
 import { elemWorld, exposedList, postureFactor } from './elements'
 import { DIFFICULTIES, type CasualtyDials, type Difficulty } from '../economy/difficulty'
-import { grantAward } from '../../packs/awards'
+import { grantAward, awardFor } from '../../packs/awards'
 import { hashStr } from '../../lib/math'
 import { radio } from '../comms/radio'
 
@@ -42,18 +42,20 @@ function woundSoldier(u: Unit, s: Soldier, kindHint?: string): void {
     kind: kindHint ?? WOUND_KINDS[Math.abs(hashStr(`${u.id}:${s.id}:wk:${S.t.toFixed(1)}`)) % WOUND_KINDS.length]!,
   }
   if (sev !== 'LIGHT') s.evac = true
-  casualtyAward(s)
+  casualtyAward(u.side, s)
 }
 
-// the casualty decoration by WHO the casualty is: soldiers get the Purple
-// Heart; CIVILIAN contractors get the Defense of Freedom Medal (real rule)
-function casualtyAward(s: Soldier): void {
-  grantAward(s, s.kind === 'CIV' ? 'DEFENSE_OF_FREEDOM' : 'PURPLE_HEART')
+// A casualty earns their army's wound decoration. WHO the casualty is decides
+// which: a CIVILIAN contractor is not eligible for a soldier's, and receives
+// the civilian one (a real rule, not a nicety). Both are named by the pack.
+function casualtyAward(side: Unit['side'], s: Soldier): void {
+  const army = side === 'hostile' ? 'hostile' : 'friend'
+  grantAward(s, awardFor(s.kind === 'CIV' ? 'wound-civ' : 'wound', army))
 }
 
 function killSoldier(u: Unit, s: Soldier): void {
   s.status = 'KIA'
-  casualtyAward(s) // posthumous
+  casualtyAward(u.side, s) // posthumous
 }
 
 // --- element ↔ roster mapping -----------------------------------------------
@@ -300,7 +302,7 @@ export function resolveDownedSite(
     if (s.status === 'KIA' || s.status === 'MIA' || s.evac) continue
     if (opts.writeOff) {
       // never secured: unaccounted — MIA-heavy, some confirmed KIA later
-      if (r('wo', s.id) < 0.35) { s.status = 'KIA'; casualtyAward(s); out.kia++ }
+      if (r('wo', s.id) < 0.35) { s.status = 'KIA'; casualtyAward(site.side, s); out.kia++ }
       else { s.status = 'MIA'; out.mia++ }
       continue
     }

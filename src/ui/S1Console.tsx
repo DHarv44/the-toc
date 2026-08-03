@@ -15,7 +15,7 @@ import type { OrgSlot, Soldier } from '../engine/GameState'
 import { playerPack } from '../packs'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { openReport, queueReport, unreadReports } from '../engine/campaign'
-import { AWARDS, type AwardKey } from '../packs/awards'
+import { awardDef, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
@@ -218,7 +218,7 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
       <Group gap={3} wrap="nowrap" style={{ flex: '0 0 auto' }}>
         {s.repl && <Chip label="REPL" />}
         {(s.awards ?? []).map(k => {
-          const a = AWARDS[k as AwardKey]
+          const a = awardDef(k as AwardKey)
           return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
         })}
       </Group>

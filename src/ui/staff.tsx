@@ -12,7 +12,7 @@ import { S } from '../engine/state'
 import type { StaffShop } from '../engine/GameState'
 import { openReport, queueReport } from '../engine/campaign'
 import { playerPack } from '../packs'
-import { AWARDS, type AwardKey } from '../packs/awards'
+import { awardDef, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon, rankW } from './insignia'
 import BnHeader from './BnHeader'
@@ -225,7 +225,7 @@ export function ShopSection({ shop, children }: { shop: StaffShop; children?: Re
                   <Text span fz="xs" c="dark.3">COMBAT TIME {Math.round((s.xp ?? 0) / 60)} MIN</Text>
                 )}
                 {(s.awards ?? []).map(k => {
-                  const a = AWARDS[k as AwardKey]
+                  const a = awardDef(k as AwardKey)
                   return a ? <span key={k} title={a.name}><RibbonIcon stripes={a.ribbon} /></span> : null
                 })}
               </Group>

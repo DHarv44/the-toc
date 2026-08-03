@@ -62,6 +62,7 @@ import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
 import { defaultPlayerFormation } from '../packs/orgquery'
 import { commandsStructure } from '../domains/forces/command'
+import { awardDef, awardFor } from '../packs/awards'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
@@ -482,6 +483,9 @@ export function queueReport(S: GameState, auto = false, shop: StaffShop = 's1'):
 // the live roster the moment it lands.
 function composePerstat(S: GameState): string {
   let asg = 0, fit = 0, wiaRtd = 0, wiaEvac = 0, kia = 0, mia = 0, repl = 0, ph = 0
+  // the wound decoration is whatever THIS army awards for one — the PERSTAT
+  // counts the medal, it does not know its name
+  const woundAward = awardFor('wound')
   const tally = (list: Soldier[]) => {
     for (const s of list) {
       if (!s.replaced) asg++
@@ -490,7 +494,7 @@ function composePerstat(S: GameState): string {
       else if (s.status === 'KIA') kia++
       else if (s.status === 'MIA') mia++
       if (s.repl) repl++
-      if ((s.awards ?? []).includes('PURPLE_HEART')) ph++
+      if (woundAward && (s.awards ?? []).includes(woundAward)) ph++
     }
   }
   for (const u of S.units) if (u.side === 'friend') tally(u.soldiers)
@@ -512,7 +516,7 @@ function composePerstat(S: GameState): string {
     + `${repl} replacements integrated to date. Next packet estimated ${nextPkt} minutes. `
     + 'Units absorb at a friendly base only.\n\n'
     + `5. PERSONNEL ACTIONS. ${promos} battlefield promotion${promos === 1 ? '' : 's'} processed. `
-    + `${ph} Purple Heart${ph === 1 ? '' : 's'} awarded to date.\n\n`
+    + `${ph} ${awardDef(woundAward ?? '')?.name ?? 'wound decoration'}${ph === 1 ? '' : 's'} awarded to date.\n\n`
     + `S1 SENDS. ${s1 ? `${(s1.name ?? '').split(' ').pop()}, ${s1.rank}.` : ''}`
   )
 }

@@ -123,6 +123,28 @@ export interface CrewBillets {
   unarmed: Record<string, BilletPlan[]>
 }
 
+// --- awards -----------------------------------------------------------------
+// WHAT THIS ARMY DECORATES ITS PEOPLE WITH. The engine knows only that certain
+// things EARN a decoration; which decoration answers each is the pack's, and
+// so is every name and ribbon. `on` names the criterion an award answers:
+//
+//   wound      — hurt or killed in action
+//   wound-civ  — the same, for a CIVILIAN (a real distinction: a contractor
+//                wounded in the line of duty is not eligible for a soldier's
+//                wound decoration and receives their own)
+//
+// An award with no `on` is not granted automatically — it exists so the key is
+// stable in saved rosters before the rule that awards it is built.
+export type AwardCriterion = 'wound' | 'wound-civ'
+
+export interface AwardDef {
+  key: string
+  name: string
+  abbr: string
+  ribbon: string[]        // ribbon stripe colours, left → right
+  on?: AwardCriterion
+}
+
 // --- ranks ------------------------------------------------------------------
 // THE RANK LADDER, junior first. The ORDER is the seniority — an ordered list
 // rather than hand-written weights, so a rank cannot be added without being
@@ -567,6 +589,7 @@ export interface Pack {
   billets?: BilletTables  // what each job is called, and who holds it
   callsigns?: CallsignStyle // how this army designates a fielded element
   ranks?: RankDef[]       // the rank ladder, junior first (order IS seniority)
+  awards?: Record<string, AwardDef> // decorations, and what earns them
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

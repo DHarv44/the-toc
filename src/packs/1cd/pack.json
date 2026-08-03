@@ -71,6 +71,25 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "_awards_doc": "DECORATIONS AND WHAT EARNS THEM. `on` names the criterion the engine grants against: `wound` for a soldier hurt or killed in action, `wound-civ` for a civilian — a real distinction, since a contractor wounded in the line of duty is not eligible for the Purple Heart and receives the Defense of Freedom Medal instead. An award with no `on` is not granted automatically; the key is reserved so saved rosters stay stable before the rule that awards it exists.",
+  "awards": {
+    "PURPLE_HEART": {
+      "key": "PURPLE_HEART", "name": "Purple Heart", "abbr": "PH", "on": "wound",
+      "ribbon": ["#ffffff", "#5b2c83", "#5b2c83", "#5b2c83", "#ffffff"]
+    },
+    "DEFENSE_OF_FREEDOM": {
+      "key": "DEFENSE_OF_FREEDOM", "name": "Defense of Freedom Medal", "abbr": "DoF", "on": "wound-civ",
+      "ribbon": ["#a6252f", "#ffffff", "#1e3a6e", "#ffffff", "#a6252f"]
+    },
+    "ARCOM_V": {
+      "key": "ARCOM_V", "name": "Army Commendation Medal w/ Valor", "abbr": "ARCOM-V",
+      "ribbon": ["#4d7a4d", "#ffffff", "#4d7a4d", "#ffffff", "#4d7a4d"]
+    },
+    "BSM_V": {
+      "key": "BSM_V", "name": "Bronze Star Medal w/ Valor", "abbr": "BSM-V",
+      "ribbon": ["#7a1f1f", "#ffffff", "#274060", "#ffffff", "#7a1f1f"]
+    }
+  },
   "_ranks_doc": "THE RANK LADDER, JUNIOR FIRST — the order IS the seniority, so a rank cannot be added without being placed and nothing sorts below a private because a table forgot it. `insignia` names a device from the engine's procedural vocabulary; absent means none. CIV sits at the bottom because a contractor holds no rank at all and still has to sort somewhere.",
   "ranks": [
     { "key": "CIV", "name": "Civilian Contractor" },
