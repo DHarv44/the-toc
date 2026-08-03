@@ -98,16 +98,34 @@ on a COMPANY. Renders in the real S1 console unmodified.
 own. A kind may now declare `slots` directly; the builder no longer assumes
 the rung exists (organic AND attachment paths).
 
-### To make it PLAYABLE (next)
-1. **No way to launch it.** `initDevGame`/App pass no `sides`, and the splash
-   only lists packs that ship maps. Cheapest honest route: let the sandbox
-   take a lineup, since a map is terrain and not an army.
-2. **No maps, no campaign, no scenarios** under `mi/`.
+### PLAYABLE as of fe7b05b
+**SKIRMISH → SCENARIOS → LIVE FIRE — CAMP CURRIE.** Needed no engine change
+to launch: a scenario already carried `sides` and initGame already honoured
+them. The DEV SANDBOX also takes a lineup now (splash asks whose army).
+
+The attempt found two hardcodes, the first fatal:
+- `Difficulty.startForce` was a list of 1CD unit type keys — starting as the
+  MI tried to field an Abrams and threw out of initGame. Now a COUNT; the
+  pack says what (`Pack.startForce`). 1CD's tiers were already prefixes of
+  one list, so it reproduces them exactly.
+- the sandbox staged one of every 1CD type by name; it now reads the player's
+  own catalog, and the opposing pack's.
+
+Borrowed and marked as such in the scenario: 1CD's Kabul for ground, the
+OPFOR pack as the exercise's aggressors.
+
+### Still missing
+1. **No maps of its own** — Camp Currie borrows 1CD's Kabul.
+2. **No campaign.** One skirmish scenario only.
 3. **Orbital drop is not modelled** — the MI arrives by capsule and leaves by
    retrieval boat. That is the DELIVERY VERBS item below, and it is the one
    piece of MI canon the engine genuinely cannot express yet.
 4. Cosmetic: with no `arms` art the procedural crest prints the motto, which
    the header already prints — MI shows it twice.
+
+**Authoring note:** ATTACK & DEFEND judges on the enemy command post. A
+scenario under that ruleset MUST author one — the first cut of Camp Currie
+did not and reported OBJECTIVE SECURED at 00:00:00Z.
 
 **Arachnids second**, once there is a working faction to fight.
 
