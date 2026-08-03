@@ -211,7 +211,8 @@
         "bns": [
           {
             "desig": "2-8 CAV",
-            "kind": "CAB"
+            "kind": "CAB",
+            "patch": "/crests/2-8cav-dui.png"
           },
           {
             "desig": "1-12 CAV",

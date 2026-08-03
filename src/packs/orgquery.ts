@@ -143,6 +143,21 @@ export const defaultPlayerFormation = (pack: Pack): string =>
 export const isFormation = (pack: Pack, desig: string): boolean =>
   formationOptions(pack).some(o => o.desig === desig)
 
+/** A formation's INSIGNIA ART FILE, from its own entry in the formation plan
+ *  (Formation.patch / BdePlan.patch / BnPlan.patch). Undefined = no art
+ *  shipped, and the caller falls back to the 2525 echelon marker. */
+export function patchOf(pack: Pack, desig: string | undefined): string | undefined {
+  const f = pack.formation
+  if (!desig || !f) return undefined
+  if (desig === divisionDesig(pack)) return f.patch
+  for (const bde of f.bdes) {
+    if (bde.desig === desig) return bde.patch
+    const bn = bde.bns.find(b => b.desig === desig)
+    if (bn) return bn.patch
+  }
+  return undefined
+}
+
 /** WHAT ECHELON a designation is. This — not a separate structure kind — is
  *  what tells a division main from a brigade headquarters from a battalion
  *  command post: a command post is a command post, and whose it is decides

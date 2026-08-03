@@ -124,10 +124,10 @@ export function drawUnitSymbol(ctx: Ctx2D, x: number, y: number, opts: UnitSymbo
 
   // label
   if (label) {
-    ctx.font = '9px Consolas, monospace'
+    ctx.font = 'bold 16px Consolas, monospace'
     ctx.fillStyle = stale ? '#8a857d' : '#1a2530'
-    ctx.strokeStyle = 'rgba(240,245,250,0.75)'
-    ctx.lineWidth = 2.5
+    ctx.strokeStyle = 'rgba(240,245,250,0.85)'
+    ctx.lineWidth = 3.5
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     const lx = side === 'friend' ? FW / 2 + 5 : 20
@@ -255,11 +255,30 @@ export interface StructureSymbolOpts {
    *  does it — a division main and a battalion CP are the same symbol until
    *  you read the size marker. Absent = unmarked (your own command post). */
   echelon?: 'division' | 'brigade' | 'battalion'
+  /** the owning formation's INSIGNIA ART FILE (pack formation plan `patch`).
+   *  Drawn in place of the echelon marker when the pack ships art for it. */
+  patch?: string
 }
 
-// 2525 size markers, coarse → fine
+// 2525 size markers, coarse → fine — the fallback when a formation ships no
+// insignia art
 const ECHELON_MARK: Record<string, string> = {
   division: 'XX', brigade: 'X', battalion: 'II',
+}
+
+// Formation insignia, loaded once per art file and drawn straight onto the
+// canvas (an svg or png FILE loads through an Image like any other; only the
+// procedural patch components can't, because they are not files). Frames are
+// redrawn continuously, so art that arrives late simply appears.
+const patchCache = new Map<string, HTMLImageElement>()
+function patchImage(src: string): HTMLImageElement | null {
+  let img = patchCache.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    patchCache.set(src, img)
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null
 }
 
 // CONTROL MEASURE — a named point or zone from the scenario's own gazetteer
@@ -306,7 +325,7 @@ export function drawPlace(
 export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureSymbolOpts): void {
   const {
     side = 'friend', kind = 'FOB', label = '', building = false,
-    progress = 0, hpFrac = 1, spotted = true, echelon,
+    progress = 0, hpFrac = 1, spotted = true, echelon, patch,
   } = opts
   if (!spotted) return
   ctx.save()
@@ -355,21 +374,30 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
     // headquarters from your own command post. On its own plate in the
     // symbol's colours: bare characters were lost against terrain, and at
     // the frame's edge they sat underneath the HQ staff flag.
-    const mark = echelon ? ECHELON_MARK[echelon] : null
-    if (mark) {
-      ctx.font = 'bold 16px Consolas, monospace'
-      const w = ctx.measureText(mark).width + 10
-      const h = 18
-      const base = kind === 'HQ' ? -21 : -13   // clear of the staff flag
-      ctx.fillStyle = '#0e1620'
-      ctx.strokeStyle = '#ffd050'
-      ctx.lineWidth = 1.6
-      ctx.beginPath()
-      ctx.rect(-w / 2, base - h, w, h)
-      ctx.fill(); ctx.stroke()
-      ctx.fillStyle = '#ffd050'
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(mark, 0, base - h / 2 + 0.5)
+    const base = kind === 'HQ' ? -21 : -13   // clear of the staff flag
+    const art = patch ? patchImage(patch) : null
+    if (art) {
+      // the formation's own insignia — a commander reads a patch faster
+      // than they read XX
+      const ph = 28
+      const pw = ph * (art.naturalWidth / art.naturalHeight)
+      ctx.drawImage(art, -pw / 2, base - ph, pw, ph)
+    } else {
+      const mark = echelon ? ECHELON_MARK[echelon] : null
+      if (mark) {
+        ctx.font = 'bold 16px Consolas, monospace'
+        const w = ctx.measureText(mark).width + 10
+        const h = 18
+        ctx.fillStyle = '#0e1620'
+        ctx.strokeStyle = '#ffd050'
+        ctx.lineWidth = 1.6
+        ctx.beginPath()
+        ctx.rect(-w / 2, base - h, w, h)
+        ctx.fill(); ctx.stroke()
+        ctx.fillStyle = '#ffd050'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(mark, 0, base - h / 2 + 0.5)
+      }
     }
   }
   // build progress / hp bar
@@ -384,13 +412,13 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
     ctx.fillRect(-13, 14, 26 * Math.max(0, hpFrac), 2.5)
   }
   if (label) {
-    ctx.font = '8px Consolas, monospace'
+    ctx.font = 'bold 16px Consolas, monospace'
     ctx.fillStyle = '#1a2530'
-    ctx.strokeStyle = 'rgba(240,245,250,0.75)'
-    ctx.lineWidth = 2.5
-    ctx.textAlign = 'center'
-    ctx.strokeText(label, 0, 26)
-    ctx.fillText(label, 0, 26)
+    ctx.strokeStyle = 'rgba(240,245,250,0.85)'
+    ctx.lineWidth = 3.5
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+    ctx.strokeText(label, 0, 32)
+    ctx.fillText(label, 0, 32)
   }
   ctx.restore()
 }

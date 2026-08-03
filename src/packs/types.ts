@@ -50,11 +50,16 @@ export interface BnPlan {
   desig: string           // '2-8 CAV'
   kind: BnKind
   tfCos?: string[]        // companies allocated to the TF ('A CO'…); playerBn = all
+  // this formation's insignia as an ART FILE (svg or png under public/) — the
+  // DUI a battalion is known by. Drawn on the map symbol in place of the 2525
+  // echelon letters, and by the S1 header; no art = the echelon marker.
+  patch?: string
 }
 
 export interface BdePlan {
   desig: string           // '1ABCT'
   nick?: string           // 'IRONHORSE'
+  patch?: string          // brigade insignia art file (see BnPlan.patch)
   bns: BnPlan[]
 }
 
@@ -69,6 +74,7 @@ export interface Formation {
   // Absent = only playerBn, which is how packs behaved before the field
   // existed.
   playable?: 'all' | string[]
+  patch?: string          // the DIVISION's insignia art file (see BnPlan.patch)
   bdes: BdePlan[]
   // Standing QRF at H-hour: the elements the battalion has ALREADY put on
   // reaction duty at the command post, as `CO:PLT` inside the player battalion
