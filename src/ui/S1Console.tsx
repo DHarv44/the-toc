@@ -18,7 +18,7 @@ import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
-import { ShopSection, StaffTabs, UnreadDot, rankW, type StaffTab } from './staff'
+import { SectionDivider, ShopSection, StaffTabs, UnreadDot, rankW, type StaffTab } from './staff'
 
 export { UnreadDot }   // S1 set the format; the dot now lives in the staff kit
 
@@ -341,15 +341,8 @@ function S1PersonnelChain({ slots, playerBn, open, toggle }: {
     .filter(bn => bn !== playerBn && bnS1(bn).length > 0)
   return (
     <>
-      <UnstyledButton onClick={() => toggle('shopdiv')} w="100%">
-        <Group gap={10} align="center" mt="md" mb={4} mx={12}>
-          <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-          <Text span fz={10} c="dark.3" style={{ letterSpacing: 2 }}>
-            {open.has('shopdiv') ? '▾' : '▸'} PERSONNEL SERVICES — REST OF THE DIVISION
-          </Text>
-          <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
-        </Group>
-      </UnstyledButton>
+      <SectionDivider label="PERSONNEL SERVICES — REST OF THE DIVISION"
+        open={open.has('shopdiv')} onToggle={() => toggle('shopdiv')} />
       {open.has('shopdiv') && (
         <>
           {g1 && (

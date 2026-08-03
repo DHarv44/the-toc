@@ -159,17 +159,48 @@ export function ReportList({ shop, empty }: { shop: StaffShop; empty?: string })
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Dividers
+// ---------------------------------------------------------------------------
+
+// THE divider every staff console breaks its body with: the label sits on the
+// LEFT and the rule runs out to the right. One component, so a change here
+// lands on S1, S2, S3, S4 and S6 at once — which is the whole point of this
+// file. `onToggle` makes it a collapse control; `right` hangs an action off
+// the far end.
+export function SectionDivider({ label, open, onToggle, right }: {
+  label: string
+  open?: boolean
+  onToggle?: () => void
+  right?: ReactNode
+}) {
+  const row = (
+    <Group gap={10} align="center" wrap="nowrap" mt="md" mb={4} mx={12}>
+      <Text span fz={10} c="dark.3" style={{ letterSpacing: 2, flex: '0 0 auto' }}>
+        {onToggle ? (open ? '▾ ' : '▸ ') : ''}{label}
+      </Text>
+      <Box style={{ flex: 1, height: 1, background: '#22303d' }} />
+      {right}
+    </Group>
+  )
+  return onToggle ? <UnstyledButton onClick={onToggle} w="100%">{row}</UnstyledButton> : row
+}
+
+// ---------------------------------------------------------------------------
 // The section that runs the console
 // ---------------------------------------------------------------------------
 
 // Who is actually on this desk. Every shop opens with its own people —
 // names, faces, and what shape they are in — before any of its data, because
 // a staff product is only ever as good as the section that produced it. The
-// shop's REQUEST action lives here too: you ask the SECTION for the report.
+// shop's REQUEST action lives on the divider: a report is asked of the STAFF.
+//
+// The divider LABELS the staff and nothing else. This console is a
+// workstation in an operations centre, not a page addressed to a reader — and
+// the console header directly above already carries the shop, its function
+// and the formation, so restating any of it here is noise.
 export function ShopSection({ shop, children }: { shop: StaffShop; children?: ReactNode }) {
   const pack = playerPack()
   const bn = pack.formation?.playerBn
-  const info = pack.staff?.[shop]
   const key = shop.toUpperCase()
   const crew = (S.org?.slots ?? [])
     .filter(sl => sl.bn === bn && (sl.name === 'BN STAFF' || sl.name === 'SQDN STAFF' || sl.name === 'FIRES CELL'))
@@ -177,18 +208,9 @@ export function ShopSection({ shop, children }: { shop: StaffShop; children?: Re
     .sort((a, b) => rankW(b.rank) - rankW(a.rank))
   return (
     <>
-      <Group gap={10} wrap="nowrap" px={10} py={7} justify="space-between"
-        style={{ borderTop: '1px solid #141e28' }}>
-        <Group gap={10} wrap="nowrap">
-          <Text span fz="md" fw={600} c="#9fd0f5">YOUR {key} SECTION — {bn}</Text>
-          <Text span fz="xs" c="dark.3">
-            {(info?.name ?? '').toUpperCase()} — THE SHOP RUNNING THIS CONSOLE
-          </Text>
-        </Group>
-        <RequestReport shop={shop} />
-      </Group>
+      <SectionDivider label={`${key} STAFF`} right={<RequestReport shop={shop} />} />
       {crew.length === 0 && (
-        <Text fz="sm" c="dark.3" px={12} py={10}>NO {key} SECTION ON THE ROSTER.</Text>
+        <Text fz="sm" c="dark.3" px={12} py={10}>NO {key} STAFF ON THE ROSTER.</Text>
       )}
       <Group gap="md" px={12} py={10} align="stretch" wrap="wrap">
         {crew.map(s => (
