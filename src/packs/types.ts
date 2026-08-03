@@ -123,6 +123,38 @@ export interface CrewBillets {
   unarmed: Record<string, BilletPlan[]>
 }
 
+// --- ranks ------------------------------------------------------------------
+// THE RANK LADDER, junior first. The ORDER is the seniority — an ordered list
+// rather than hand-written weights, so a rank cannot be added without being
+// placed, and nothing silently sorts below a private because a table forgot
+// it. Every roster reads this: who answers for an element, who leads a fire
+// team, who the shop's chief is.
+
+/** Which device a rank wears, named from the engine's procedural vocabulary.
+ *  The RENDERERS are engine (chevrons are chevrons); which rank wears what,
+ *  and what it is called, is the army's own. Absent = no device (a private). */
+export interface RankInsignia {
+  /** [chevrons above, rockers below] */
+  chevrons?: [number, number]
+  diamond?: boolean             // lozenge inside the chevrons (first sergeant)
+  spec?: boolean                // the specialist device
+  warrant?: number              // warrant bar bearing n squares
+  bars?: number                 // n officer bars
+  leaf?: 'gold' | 'silver'      // field officer's leaf
+  metal?: 'gold' | 'silver'     // colour for bars / the pip
+  /** a device at centre, at this scale — the senior-NCO pip */
+  pip?: number
+  /** n general officer stars */
+  stars?: number
+  starScale?: number
+}
+
+export interface RankDef {
+  key: string                   // 'SFC' — what a roster carries
+  name: string                  // 'Sergeant First Class'
+  insignia?: RankInsignia
+}
+
 /** HOW THIS ARMY DESIGNATES A FIELDED ELEMENT on the net. A `pool` is cycled
  *  and numbered — ALPHA-1, BRAVO-2 — which is how a force that names things
  *  talks; `prefix` + a zero-padded count is how a force that only counts them
@@ -520,7 +552,6 @@ export interface Pack {
   // params): a different faction's base has a different Big Voice
   audio?: { incomingAlarm?: string }
   patch?: string          // shoulder-sleeve insignia id — rendered by ui/insignia (keeps pack data JSON-able)
-  rankStyle?: string      // rank-insignia style id ('us' chevrons/bars; other armies bring their own)
   // every unit type the game offers is either organic to the formation or an
   // attachment from a donor; a type in neither map simply isn't fielded by
   // this pack (not enforced in P1 — the palette still offers everything)
@@ -535,6 +566,7 @@ export interface Pack {
   bnKinds?: Record<string, BnKindPlan>
   billets?: BilletTables  // what each job is called, and who holds it
   callsigns?: CallsignStyle // how this army designates a fielded element
+  ranks?: RankDef[]       // the rank ladder, junior first (order IS seniority)
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

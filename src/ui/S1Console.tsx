@@ -60,6 +60,11 @@ function aggSum(list: Agg[]): Agg {
 // its people directly — a rung that repeats its parent tells you nothing.
 interface ElemNode { label: string; leader: Soldier | null; members: Soldier[]; kids: ElemNode[] }
 
+// Inside an element, people are listed SENIOR FIRST. A roster is built in
+// casualty order, which is the order things die in, not the order a leader
+// reads them — the person answering for the element belongs at the top of it.
+const byRank = (a: Soldier, b: Soldier): number => rankW(b.rank) - rankW(a.rank)
+
 function groupBy(soldiers: Soldier[], key: (s: Soldier) => string | undefined): ElemNode[] {
   const out: ElemNode[] = []
   for (const s of soldiers) {
@@ -69,6 +74,7 @@ function groupBy(soldiers: Soldier[], key: (s: Soldier) => string | undefined): 
     if (node) node.members.push(s)
     else out.push({ label, leader: s, members: [s], kids: [] })
   }
+  for (const n of out) n.members.sort(byRank)
   return out
 }
 
@@ -190,7 +196,7 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
     <Group gap={10} wrap="nowrap" px={10} py={4} pl={10 + depth * 24 + 24}
       style={{ borderTop: '1px solid #10161d' }}>
       <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={26} h={32} />
-      <RankIcon rank={s.rank} style={playerPack().rankStyle} />
+      <RankIcon rank={s.rank} />
       <Text span fz="sm" fw={700} w={40} c="#9ab8d0" style={{ flex: '0 0 auto' }}>{s.rank}</Text>
       {editing ? (
         <TextInput autoFocus defaultValue={s.name} size="xs" maxLength={26} spellCheck={false}
@@ -273,7 +279,7 @@ function SlotRoster({ sl, depth, open, toggle }: {
 }) {
   const elems = elementsOf(sl.soldiers)
   const placed = new Set(elems.flatMap(e => e.members))
-  const loose = sl.soldiers.filter(s => !placed.has(s))
+  const loose = sl.soldiers.filter(s => !placed.has(s)).sort(byRank)
   return (
     <>
       <ElemRows nodes={elems} keyBase={`e:${sl.id}`} depth={depth} open={open} toggle={toggle} />

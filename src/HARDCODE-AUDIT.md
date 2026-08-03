@@ -17,16 +17,20 @@
    this list: `bnTemplate` was a switch of US Army companies in engine code
    and `BnKind` an engine union. Now `Pack.bnKinds` + `Pack.rosters`, with
    `BnKind` a key into the pack's own table.
-3. **Friendly callsign pool** — `forces/factory.ts` `FRIEND_CALLS`
-   (ALPHA…TANGO) and the hostile `E##` designator format. Pack callsign
-   styles.
+3. ~~**Friendly callsign pool**~~ — DONE (2026-08-03). `Pack.callsigns`: a pool
+   cycled and numbered, or a prefix and a count. Deliberately NOT inherited
+   from the canonical pack — the opposition answering to ALPHA is worse than
+   no style at all — so OPFOR declares its own E##.
 4. **Awards catalog** — `packs/awards.ts` is pack-LAND but not pack-DATA:
    Purple Heart etc. should hang off the pack (US awards vs OPFOR's own).
    Defense of Freedom Medal lands here with #21 step 2 (contractor crews).
-5. **Rank insignia tables** — `ui/insignia.tsx` US_RANKS glyph table is
-   engine-side; `rankStyle: 'us'` selects it, but a new pack can't ADD a
-   style without engine edits. Insignia renderers = engine verbs; the
-   rank LIST belongs to the pack.
+5. ~~**Rank insignia tables**~~ — DONE (2026-08-03). `Pack.ranks` is ONE
+   ordered ladder, junior first: order IS seniority (no hand-written weights,
+   and a rank cannot be added without being placed), each entry naming its
+   device from the engine's procedural vocabulary. Killed the separate
+   `RANK_W` table in ui/staff.tsx and `rankStyle` entirely. Unknown ranks now
+   answer -1 rather than silently sorting mid-ladder. Gaps this closed: CW4,
+   CW5 and CIV existed in rosters but in neither table.
 
 ## Radio & voice
 6. **Net phrasing** — `comms/radio.ts` `NET_HIGHER` (COMMAND/BASE/TOC…),

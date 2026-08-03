@@ -14,17 +14,13 @@ import { openReport, queueReport } from '../engine/campaign'
 import { playerPack } from '../packs'
 import { AWARDS, type AwardKey } from '../packs/awards'
 import { Portrait } from './portrait'
-import { RankIcon, RibbonIcon } from './insignia'
+import { RankIcon, RibbonIcon, rankW } from './insignia'
 import BnHeader from './BnHeader'
 
-// rank seniority — the shop's chief reads first
-const RANK_W: Record<string, number> = {
-  MG: 26, BG: 25, COL: 24, LTC: 23, MAJ: 22, CPT: 21, '1LT': 20, '2LT': 19,
-  CW3: 18, CW2: 17, WO1: 16,
-  CSM: 15, SGM: 14, MSG: 13, '1SG': 13, SFC: 12, SSG: 11, SGT: 10, CPL: 9,
-  SPC: 8, PFC: 7, PVT: 6,
-}
-export const rankW = (r?: string): number => RANK_W[r ?? ''] ?? 0
+// rank seniority — the shop's chief reads first. The LADDER is the pack's
+// (ui/insignia.tsx rankW reads it); this re-export is just where the staff
+// consoles have always reached for it.
+export { rankW }
 
 const STATUS_COL: Record<string, string> = {
   FIT: '#7ec87e', WIA: '#e8c547', KIA: '#e8524a', MIA: '#9a7ec8',
@@ -219,7 +215,7 @@ export function ShopSection({ shop, children }: { shop: StaffShop; children?: Re
             <Portrait seed={s.pid ?? `s:${s.id}`} kia={s.status === 'KIA'} w={44} h={54} />
             <Box>
               <Group gap={8} wrap="nowrap" align="center">
-                <RankIcon rank={s.rank} style={pack.rankStyle} h={18} />
+                <RankIcon rank={s.rank} h={18} />
                 <Text span fz="md" fw={700} c="#dceeff">{s.rank} {s.name}</Text>
               </Group>
               <Text fz="sm" c="#9ab8d0">{s.pos}</Text>

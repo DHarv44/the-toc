@@ -117,7 +117,6 @@ function buildPack(
     motto: man.motto,
     side: man.side,
     patch: man.patch,
-    rankStyle: man.rankStyle,
     catalogs: resolveCatalogs(m, fallback),
     // capability groups follow the catalog: a pack that inherits 1CD's
     // platforms inherits the briefing order they were grouped in
@@ -135,6 +134,7 @@ function buildPack(
     // the opposition answering to ALPHA and BRAVO. A pack that declares none
     // gets a plain count, which reads as unset rather than as somebody else.
     callsigns: man.callsigns,
+    ranks: man.ranks ?? fallback?.ranks,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

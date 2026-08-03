@@ -4,7 +4,7 @@
 // no assets, crisp at any size.
 import type { ReactNode } from 'react'
 import { playerPack } from '../packs'
-import type { Pack } from '../packs/types'
+import type { Pack, RankDef, RankInsignia } from '../packs/types'
 import { patchOf, armsOf } from '../packs/orgquery'
 
 // --- shoulder-sleeve insignia ----------------------------------------------
@@ -63,29 +63,38 @@ const warrant = (n: number): ReactNode => (
   </>
 )
 
-const US_RANKS: Record<string, ReactNode> = {
-  PVT: null,
-  PFC: chevrons(1, 1),
-  SPC: <path d="M 4 2 H 14 L 16 5 V 11 Q 9 16 2 11 V 5 Z" fill={GOLD} stroke={BLACK} strokeWidth="0.6" />,
-  CPL: chevrons(2, 0),
-  SGT: chevrons(3, 0),
-  SSG: chevrons(3, 1),
-  SFC: chevrons(3, 2),
-  MSG: chevrons(3, 3),
-  '1SG': chevrons(3, 3, true),
-  SGM: <>{chevrons(3, 3)}{starAt(9, 8, 0.34, GOLD)}</>,
-  CSM: <>{chevrons(3, 3)}{starAt(9, 8, 0.42, GOLD)}</>,
-  WO1: warrant(1),
-  CW2: warrant(2),
-  CW3: warrant(3),
-  '2LT': bar(6.7, GOLD),
-  '1LT': bar(6.7, SILVER),
-  CPT: <>{bar(3.6, SILVER)}{bar(9.8, SILVER)}</>,
-  MAJ: leaf(GOLD),
-  LTC: leaf(SILVER),
-  COL: <path d={STAR_D} fill={SILVER} stroke={BLACK} strokeWidth="0.5" />,
-  BG: starAt(9, 8, 0.95),
-  MG: <>{starAt(5.4, 8, 0.62)}{starAt(12.6, 8, 0.62)}</>,
+// A rank's DEVICE, drawn from the pack's description of it. The renderers
+// above are the engine's (chevrons are chevrons in any army); which rank wears
+// which, and what it is called, is the pack's — so a faction with its own rank
+// structure ships it as data instead of waiting on an engine edit.
+function rankGlyph(ins?: RankInsignia): ReactNode {
+  if (!ins) return null
+  const metal = ins.metal === 'gold' ? GOLD : SILVER
+  const el: ReactNode[] = []
+  if (ins.spec) {
+    el.push(<path key="spec" d="M 4 2 H 14 L 16 5 V 11 Q 9 16 2 11 V 5 Z"
+      fill={GOLD} stroke={BLACK} strokeWidth="0.6" />)
+  }
+  if (ins.chevrons) el.push(<g key="ch">{chevrons(ins.chevrons[0], ins.chevrons[1], ins.diamond)}</g>)
+  if (ins.pip) el.push(<g key="pip">{starAt(9, 8, ins.pip, metal)}</g>)
+  if (ins.warrant) el.push(<g key="wo">{warrant(ins.warrant)}</g>)
+  if (ins.bars) {
+    // one bar sits centred; a pair straddles the centre
+    const xs = ins.bars === 1 ? [6.7] : [3.6, 9.8]
+    el.push(<g key="bars">{xs.map((x, i) => <g key={i}>{bar(x, metal)}</g>)}</g>)
+  }
+  if (ins.leaf) el.push(<g key="leaf">{leaf(ins.leaf === 'gold' ? GOLD : SILVER)}</g>)
+  if (ins.stars) {
+    const s = ins.starScale ?? 1
+    // stars spread evenly about the centre so two read as a pair, not a smear
+    const step = 7.2
+    const x0 = 9 - (step * (ins.stars - 1)) / 2
+    el.push(<g key="stars">{Array.from({ length: ins.stars }, (_, i) =>
+      s >= 1
+        ? <path key={i} d={STAR_D} fill={SILVER} stroke={BLACK} strokeWidth="0.5" />
+        : <g key={i}>{starAt(x0 + i * step, 8, s)}</g>)}</g>)
+  }
+  return el.length ? <>{el}</> : null
 }
 
 // Battalion coat of arms — a DUI-style shield in branch heraldry colors with a
@@ -195,10 +204,19 @@ export function RibbonIcon({ stripes, w = 18, h = 6 }: { stripes: readonly strin
   )
 }
 
-export function RankIcon({ rank, style = 'us', h = 15 }: { rank?: string; style?: string; h?: number }) {
-  if (!rank || style !== 'us') return null
-  const glyph = US_RANKS[rank]
-  if (glyph === undefined) return null
+/** A rank's entry in its army's ladder. */
+export const rankDef = (rank?: string, pack: Pack = playerPack()): RankDef | undefined =>
+  rank ? pack.ranks?.find(r => r.key === rank) : undefined
+
+/** SENIORITY — the rank's place in its army's ladder, junior first. Unknown
+ *  ranks answer -1 so they sort BELOW the most junior soldier rather than
+ *  silently landing wherever a missing table put them. */
+export const rankW = (rank?: string, pack: Pack = playerPack()): number =>
+  rank ? (pack.ranks?.findIndex(r => r.key === rank) ?? -1) : -1
+
+export function RankIcon({ rank, h = 15 }: { rank?: string; h?: number }) {
+  const glyph = rankGlyph(rankDef(rank)?.insignia)
+  if (!glyph) return null
   return (
     <svg width={h * 1.125} height={h} viewBox="0 0 18 16" style={{ flex: '0 0 auto' }}>
       {glyph}

@@ -3,9 +3,13 @@
 // campaign. Not linked from any UI; safe to delete when the art settles.
 import { Box, Group, Stack, Text } from '@mantine/core'
 import { PatchIcon, RankIcon } from './insignia'
+import { playerPack } from '../packs'
 import { Portrait } from './portrait'
 
-const RANKS = ['PVT', 'PFC', 'SPC', 'CPL', 'SGT', 'SSG', 'SFC', 'MSG', '1SG', '2LT', '1LT', 'CPT', 'MAJ', 'LTC', 'COL']
+// the WHOLE ladder the pack ships, in its own order — a sandbox that hand-lists
+// ranks stops showing the ones a pack adds, which is the bug this page exists
+// to catch
+const RANKS = (playerPack().ranks ?? []).map(r => r.key)
 
 export default function InsigniaTest() {
   return (
@@ -21,7 +25,7 @@ export default function InsigniaTest() {
       <Group gap="lg" mb="md" wrap="wrap">
         {RANKS.map(r => (
           <Stack key={r} gap={2} align="center">
-            <RankIcon rank={r} style="us" h={15} />
+            <RankIcon rank={r} h={15} />
             <Text fz={9} c="dark.2">{r}</Text>
           </Stack>
         ))}
@@ -29,7 +33,7 @@ export default function InsigniaTest() {
       <Group gap="lg" mb="xl" wrap="wrap">
         {RANKS.map(r => (
           <Stack key={r} gap={2} align="center">
-            <RankIcon rank={r} style="us" h={34} />
+            <RankIcon rank={r} h={34} />
             <Text fz={10} c="dark.1">{r}</Text>
           </Stack>
         ))}

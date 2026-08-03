@@ -7,7 +7,6 @@
   "motto": "First Team",
   "side": "friend",
   "patch": "1cd",
-  "rankStyle": "us",
   "catalogs": {
     "extends": "us-platforms"
   },
@@ -71,6 +70,34 @@
     "ENGINEER",
     "SUSTAINMENT",
     "SIGNAL"
+  ],
+  "_ranks_doc": "THE RANK LADDER, JUNIOR FIRST — the order IS the seniority, so a rank cannot be added without being placed and nothing sorts below a private because a table forgot it. `insignia` names a device from the engine's procedural vocabulary; absent means none. CIV sits at the bottom because a contractor holds no rank at all and still has to sort somewhere.",
+  "ranks": [
+    { "key": "CIV", "name": "Civilian Contractor" },
+    { "key": "PVT", "name": "Private" },
+    { "key": "PFC", "name": "Private First Class", "insignia": { "chevrons": [1, 1] } },
+    { "key": "SPC", "name": "Specialist", "insignia": { "spec": true } },
+    { "key": "CPL", "name": "Corporal", "insignia": { "chevrons": [2, 0] } },
+    { "key": "SGT", "name": "Sergeant", "insignia": { "chevrons": [3, 0] } },
+    { "key": "SSG", "name": "Staff Sergeant", "insignia": { "chevrons": [3, 1] } },
+    { "key": "SFC", "name": "Sergeant First Class", "insignia": { "chevrons": [3, 2] } },
+    { "key": "MSG", "name": "Master Sergeant", "insignia": { "chevrons": [3, 3] } },
+    { "key": "1SG", "name": "First Sergeant", "insignia": { "chevrons": [3, 3], "diamond": true } },
+    { "key": "SGM", "name": "Sergeant Major", "insignia": { "chevrons": [3, 3], "pip": 0.34, "metal": "gold" } },
+    { "key": "CSM", "name": "Command Sergeant Major", "insignia": { "chevrons": [3, 3], "pip": 0.42, "metal": "gold" } },
+    { "key": "WO1", "name": "Warrant Officer 1", "insignia": { "warrant": 1 } },
+    { "key": "CW2", "name": "Chief Warrant Officer 2", "insignia": { "warrant": 2 } },
+    { "key": "CW3", "name": "Chief Warrant Officer 3", "insignia": { "warrant": 3 } },
+    { "key": "CW4", "name": "Chief Warrant Officer 4", "insignia": { "warrant": 4 } },
+    { "key": "CW5", "name": "Chief Warrant Officer 5", "insignia": { "warrant": 5 } },
+    { "key": "2LT", "name": "Second Lieutenant", "insignia": { "bars": 1, "metal": "gold" } },
+    { "key": "1LT", "name": "First Lieutenant", "insignia": { "bars": 1, "metal": "silver" } },
+    { "key": "CPT", "name": "Captain", "insignia": { "bars": 2, "metal": "silver" } },
+    { "key": "MAJ", "name": "Major", "insignia": { "leaf": "gold" } },
+    { "key": "LTC", "name": "Lieutenant Colonel", "insignia": { "leaf": "silver" } },
+    { "key": "COL", "name": "Colonel", "insignia": { "stars": 1, "starScale": 1 } },
+    { "key": "BG", "name": "Brigadier General", "insignia": { "stars": 1, "starScale": 0.95 } },
+    { "key": "MG", "name": "Major General", "insignia": { "stars": 2, "starScale": 0.62 } }
   ],
   "callsigns": {
     "pool": [
