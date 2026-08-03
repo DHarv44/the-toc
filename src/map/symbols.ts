@@ -357,18 +357,19 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
     // the frame's edge they sat underneath the HQ staff flag.
     const mark = echelon ? ECHELON_MARK[echelon] : null
     if (mark) {
-      ctx.font = 'bold 10px Consolas, monospace'
-      const w = ctx.measureText(mark).width + 8
+      ctx.font = 'bold 16px Consolas, monospace'
+      const w = ctx.measureText(mark).width + 10
+      const h = 18
       const base = kind === 'HQ' ? -21 : -13   // clear of the staff flag
-      ctx.fillStyle = fill
-      ctx.strokeStyle = edge
-      ctx.lineWidth = 1.4
+      ctx.fillStyle = '#0e1620'
+      ctx.strokeStyle = '#ffd050'
+      ctx.lineWidth = 1.6
       ctx.beginPath()
-      ctx.rect(-w / 2, base - 12, w, 12)
+      ctx.rect(-w / 2, base - h, w, h)
       ctx.fill(); ctx.stroke()
-      ctx.fillStyle = edge
+      ctx.fillStyle = '#ffd050'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(mark, 0, base - 5.5)
+      ctx.fillText(mark, 0, base - h / 2 + 0.5)
     }
   }
   // build progress / hp bar

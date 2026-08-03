@@ -254,7 +254,10 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
           && e.formation && e.formation !== propsRef.current.playerFormation
           ? e.formation : null
         const allied = !!owner && !(e.ent === 'unit' && e.attached)
-        if (allied) ctx.globalAlpha = 0.5
+        // a light touch only: the owner tag and the echelon plate are what
+        // say "not yours", and fading hard enough to make THOSE unreadable
+        // defeats the point of drawing them
+        if (allied) ctx.globalAlpha = 0.85
         if (e.ent === 'structure') {
           drawStructure(ctx, x, y, {
             side: e.side, kind: e.kind,
