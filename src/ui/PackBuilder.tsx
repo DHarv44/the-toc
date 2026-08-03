@@ -18,6 +18,7 @@ import PackLibrary from './PackLibrary'
 import PackIdentity from './PackIdentity'
 import PackTroops from './PackTroops'
 import PackComps from './PackComps'
+import PackContentTab from './PackContentTab'
 import { usePackManifest } from './usePackManifest'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
@@ -39,7 +40,7 @@ const BAD_C = '#e8524a'
 // a builder-only thing (see EchelonTree).
 // The pack's own content views. MODELS is NOT here — art is a section of the
 // builder in its own right (left nav), not one more table about the pack.
-const BUILDER_TABS = ['IDENTITY', 'ECHELON', ...PACK_TABS, 'TROOPS', 'COMPS', 'ASSETS'] as const
+const BUILDER_TABS = ['IDENTITY', 'ECHELON', ...PACK_TABS, 'TROOPS', 'COMPS', 'ASSETS', 'CONTENT'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
 
 // ---------------------------------------------------------------------------
@@ -523,13 +524,20 @@ function Stat({ label, n }: { label: string; n: number }) {
 // The builder proper opens on ONE army, chosen in the library. Same grammar as
 // the Scenario Builder: a document tool opens on its documents, not on
 // whichever document happened to sort first.
-export default function PackBuilder({ onExit }: { onExit: () => void }) {
+export default function PackBuilder({ onExit, onOpenMaps, onOpenScenarios }: {
+  onExit: () => void; onOpenMaps?: () => void; onOpenScenarios?: () => void
+}) {
   const [openId, setOpenId] = useState<string | null>(null)
   if (!openId) return <PackLibrary onOpen={setOpenId} onExit={onExit} />
-  return <PackEditor openId={openId} onBack={() => setOpenId(null)} />
+  return (
+    <PackEditor openId={openId} onBack={() => setOpenId(null)}
+      onOpenMaps={onOpenMaps} onOpenScenarios={onOpenScenarios} />
+  )
 }
 
-function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) {
+function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
+  openId: string; onBack: () => void; onOpenMaps?: () => void; onOpenScenarios?: () => void
+}) {
   const packs = allPacks()
   const [idx, setIdx] = useState(() => Math.max(0, packs.findIndex(p => p.id === openId)))
   const [tab, setTab] = useState<BuilderTab>('ECHELON')
@@ -624,8 +632,9 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
           </UnstyledButton>
 
           <Text fz={9} c="dark.4" mt={10} style={{ lineHeight: 1.6 }}>
-            Packs load from src/packs/&lt;id&gt;/ as static imports. Adding or removing one is a
-            code change today.
+            Packs are DISCOVERED: a folder under src/packs/ with a pack.json is an army.
+            Drop one in and it exists — no code change. The app must reload to see a new
+            one, because discovery is a build-time glob.
           </Text>
         </Box>
 
@@ -688,6 +697,8 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
                   {tab === 'IDENTITY' ? <PackIdentity p={p} ed={ed} />
                     : tab === 'TROOPS' ? <PackTroops p={p} ed={ed} />
                     : tab === 'COMPS' ? <PackComps p={p} ed={ed} />
+                    : tab === 'CONTENT'
+                      ? <PackContentTab p={p} onOpenMaps={onOpenMaps} onOpenScenarios={onOpenScenarios} />
                     : tab === 'ECHELON' ? <EchelonTree p={p} />
                     : tab === 'ASSETS' ? <AssetsTable p={p} />
                       : (

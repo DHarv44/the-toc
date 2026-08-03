@@ -98,7 +98,16 @@ export default function App() {
 
   // The BUILDERS are TOOLS, not game modes: they open off the main menu with
   // no sim running behind them, and return to the menu.
-  if (packs) return <PackBuilder onExit={() => setPacks(false)} />
+  // the PACK BUILDER hands off to the other two tools rather than
+  // reimplementing them: a pack is the HOME of its maps and scenarios, but
+  // authoring either is the MAP EDITOR's and SCENARIO BUILDER's job
+  if (packs) {
+    return (
+      <PackBuilder onExit={() => setPacks(false)}
+        onOpenMaps={() => { setPacks(false); setMaps(true) }}
+        onOpenScenarios={() => { setPacks(false); setScenarios(true) }} />
+    )
+  }
   if (maps) return <MapEditor onExit={() => setMaps(false)} />
   if (scenarios) return <ScenarioBuilder onExit={() => setScenarios(false)} />
   if (!started) {
