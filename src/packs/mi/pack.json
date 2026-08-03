@@ -1,357 +1,1213 @@
 {
   "_doc": "MOBILE INFANTRY — Federal Service, Terran Federation. The total-conversion test: this pack shares NO platform, rank, billet or echelon with 1CD, and needed no engine change to author beyond the one it discovered (a formation whose elements hang directly off it, with no company rung). Organisation follows the novel — DIVISION -> REGIMENT -> COMPANY -> PLATOON, no brigade and no battalion — and the tone follows the film. The chair is a COMPANY: a Mobile Infantry captain runs a drop the way a battalion commander runs a fight.",
-
   "id": "mi",
   "name": "Mobile Infantry",
   "abbr": "MI",
   "nick": "First Division",
   "motto": "Everybody Fights, Nobody Quits",
-
   "_catalogs_doc": "Powered armour is not a truck with legs: a Marauder suit is WORN, so it is a troop kind and not a vehicle, and an MI platoon fields no vehicles at all. That is why every unit here is `mob: foot` and yet moves faster than a Stryker — the suit's jump jets are the mobility.",
   "catalogs": {
     "ammo": {
-      "A_MORITA": { "key": "A_MORITA", "name": "10mm caseless", "unit": "rd" },
-      "R_ROCKET": { "key": "R_ROCKET", "name": "Suit rocket", "unit": "rkt" },
-      "F_FUEL": { "key": "F_FUEL", "name": "Flamer fuel", "unit": "L" },
-      "N_TACTICAL": { "key": "N_TACTICAL", "name": "Tactical nuclear round", "unit": "rd" }
-    },
-    "expendables": {
-      "SMOKE_CAN": { "key": "SMOKE_CAN", "name": "Smoke canister", "n": 4 },
-      "HE_GRENADE": { "key": "HE_GRENADE", "name": "HE grenade", "n": 6 },
-      "SUIT_FLARE": { "key": "SUIT_FLARE", "name": "Recognition flare", "n": 4 }
-    },
-    "weapons": {
-      "MORITA": { "key": "MORITA", "name": "Morita Mk I rifle", "ammo": "A_MORITA", "range": 500, "dpsSoft": 0.22, "dpsHard": 0.01, "load": 400 },
-      "MORITA_SAW": { "key": "MORITA_SAW", "name": "Morita squad automatic", "ammo": "A_MORITA", "range": 700, "dpsSoft": 0.55, "dpsHard": 0.03, "load": 900 },
-      "SUIT_ROCKET": { "key": "SUIT_ROCKET", "name": "Suit rocket rack", "ammo": "R_ROCKET", "range": 1400, "dpsSoft": 0.3, "dpsHard": 0.75, "load": 8, "shotTime": 10 },
-      "HAND_FLAMER": { "key": "HAND_FLAMER", "name": "Hand flamer", "ammo": "F_FUEL", "range": 120, "dpsSoft": 1.6, "dpsHard": 0.1, "load": 60 },
-      "Y_RACK": { "key": "Y_RACK", "name": "Y-rack (tactical nuclear)", "ammo": "N_TACTICAL", "range": 2200, "dpsSoft": 3.2, "dpsHard": 2.4, "load": 2, "shotTime": 40 }
-    },
-
-    "_troops_doc": "A trooper IS the suit. Marauder is the line armour, Command carries the comms and the fire-direction gear, and Scout trades armour for legs and optics.",
-    "troops": {
-      "MI_TROOPER": { "key": "MI_TROOPER", "name": "Trooper (Marauder)", "weapons": ["MORITA"], "expend": ["HE_GRENADE"] },
-      "MI_AUTO": { "key": "MI_AUTO", "name": "Automatic Trooper", "weapons": ["MORITA_SAW"], "expend": ["HE_GRENADE"] },
-      "MI_ROCKET": { "key": "MI_ROCKET", "name": "Rocket Trooper", "weapons": ["MORITA", "SUIT_ROCKET"], "expend": ["HE_GRENADE"] },
-      "MI_FLAMER": { "key": "MI_FLAMER", "name": "Flame Trooper", "weapons": ["HAND_FLAMER"], "expend": ["HE_GRENADE"] },
-      "MI_NUKE": { "key": "MI_NUKE", "name": "Y-rack Trooper", "weapons": ["MORITA", "Y_RACK"], "expend": ["SUIT_FLARE"] },
-      "MI_TEAM_LEADER": { "key": "MI_TEAM_LEADER", "name": "Section Leader", "weapons": ["MORITA"], "expend": ["SMOKE_CAN", "HE_GRENADE"] },
-      "MI_LEADER": { "key": "MI_LEADER", "name": "Leader (Command suit)", "weapons": ["MORITA"], "expend": ["SMOKE_CAN", "SUIT_FLARE"] },
-      "MI_SCOUT": { "key": "MI_SCOUT", "name": "Scout (Scout suit)", "weapons": ["MORITA"], "expend": ["SMOKE_CAN"] },
-      "MI_CORPSMAN": { "key": "MI_CORPSMAN", "name": "Corpsman", "weapons": ["MORITA"], "expend": ["SMOKE_CAN"] },
-      "MI_STAFF": { "key": "MI_STAFF", "name": "Staff", "weapons": ["MORITA"] }
-    },
-
-    "_vehicles_doc": "The Mobile Infantry owns no ground vehicles. It arrives by capsule and leaves by retrieval boat; between those it walks, and the walking is the suit. The table is empty and the engine is fine with that — a composition simply lists no vehicles.",
-    "vehicles": {},
-
-    "units": {
-      "MI_PLT": {
-        "key": "MI_PLT", "name": "Marauder Platoon", "abbr": "MI", "cat": "MOBILE INFANTRY",
-        "mob": "foot", "speed": 9.5,
-        "sight": 1100, "range": 700, "dpsSoft": 5.2, "dpsHard": 2.1, "soft": 0.55,
-        "cost": 100, "veh": 0, "troops": 38, "glyph": "inf",
-        "def": { "time": 60, "factor": 0.5, "name": "DUG IN" }
+      "A_MORITA": {
+        "key": "A_MORITA",
+        "name": "10mm caseless",
+        "unit": "rd"
       },
-      "MI_HVY": {
-        "key": "MI_HVY", "name": "Heavy Weapons Platoon", "abbr": "HW", "cat": "MOBILE INFANTRY",
-        "mob": "foot", "speed": 8.0,
-        "sight": 1200, "range": 1400, "dpsSoft": 4.0, "dpsHard": 4.5, "soft": 0.6,
-        "cost": 100, "veh": 0, "troops": 30, "glyph": "inf",
-        "def": { "time": 75, "factor": 0.5, "name": "DUG IN" }
+      "R_ROCKET": {
+        "key": "R_ROCKET",
+        "name": "Suit rocket",
+        "unit": "rkt"
       },
-      "MI_SCOUT": {
-        "key": "MI_SCOUT", "name": "Scout Platoon", "abbr": "SCT", "cat": "RECONNAISSANCE",
-        "mob": "foot", "speed": 12.0,
-        "sight": 1900, "range": 500, "dpsSoft": 2.2, "dpsHard": 0.4, "soft": 0.75,
-        "cost": 100, "veh": 0, "troops": 20, "glyph": "cav",
-        "def": { "time": 45, "factor": 0.6, "name": "HIDE SITE" }
+      "F_FUEL": {
+        "key": "F_FUEL",
+        "name": "Flamer fuel",
+        "unit": "L"
+      },
+      "N_TACTICAL": {
+        "key": "N_TACTICAL",
+        "name": "Tactical nuclear round",
+        "unit": "rd"
       }
     },
-
+    "expendables": {
+      "SMOKE_CAN": {
+        "key": "SMOKE_CAN",
+        "name": "Smoke canister",
+        "n": 4
+      },
+      "HE_GRENADE": {
+        "key": "HE_GRENADE",
+        "name": "HE grenade",
+        "n": 6
+      },
+      "SUIT_FLARE": {
+        "key": "SUIT_FLARE",
+        "name": "Recognition flare",
+        "n": 4
+      }
+    },
+    "weapons": {
+      "MORITA": {
+        "key": "MORITA",
+        "name": "Morita Mk I rifle",
+        "ammo": "A_MORITA",
+        "range": 500,
+        "dpsSoft": 0.22,
+        "dpsHard": 0.01,
+        "load": 400
+      },
+      "MORITA_SAW": {
+        "key": "MORITA_SAW",
+        "name": "Morita squad automatic",
+        "ammo": "A_MORITA",
+        "range": 700,
+        "dpsSoft": 0.55,
+        "dpsHard": 0.03,
+        "load": 900
+      },
+      "SUIT_ROCKET": {
+        "key": "SUIT_ROCKET",
+        "name": "Suit rocket rack",
+        "ammo": "R_ROCKET",
+        "range": 1400,
+        "dpsSoft": 0.3,
+        "dpsHard": 0.75,
+        "load": 8,
+        "shotTime": 10
+      },
+      "HAND_FLAMER": {
+        "key": "HAND_FLAMER",
+        "name": "Hand flamer",
+        "ammo": "F_FUEL",
+        "range": 120,
+        "dpsSoft": 1.6,
+        "dpsHard": 0.1,
+        "load": 60
+      },
+      "Y_RACK": {
+        "key": "Y_RACK",
+        "name": "Y-rack (tactical nuclear)",
+        "ammo": "N_TACTICAL",
+        "range": 2200,
+        "dpsSoft": 3.2,
+        "dpsHard": 2.4,
+        "load": 2,
+        "shotTime": 40
+      }
+    },
+    "_troops_doc": "A trooper IS the suit. Marauder is the line armour, Command carries the comms and the fire-direction gear, and Scout trades armour for legs and optics.",
+    "troops": {
+      "MI_TROOPER": {
+        "key": "MI_TROOPER",
+        "name": "Trooper (Marauder)",
+        "weapons": [
+          "MORITA"
+        ],
+        "expend": [
+          "HE_GRENADE"
+        ]
+      },
+      "MI_AUTO": {
+        "key": "MI_AUTO",
+        "name": "Automatic Trooper",
+        "weapons": [
+          "MORITA_SAW"
+        ],
+        "expend": [
+          "HE_GRENADE"
+        ]
+      },
+      "MI_ROCKET": {
+        "key": "MI_ROCKET",
+        "name": "Rocket Trooper",
+        "weapons": [
+          "MORITA",
+          "SUIT_ROCKET"
+        ],
+        "expend": [
+          "HE_GRENADE"
+        ]
+      },
+      "MI_FLAMER": {
+        "key": "MI_FLAMER",
+        "name": "Flame Trooper",
+        "weapons": [
+          "HAND_FLAMER"
+        ],
+        "expend": [
+          "HE_GRENADE"
+        ]
+      },
+      "MI_NUKE": {
+        "key": "MI_NUKE",
+        "name": "Y-rack Trooper",
+        "weapons": [
+          "MORITA",
+          "Y_RACK"
+        ],
+        "expend": [
+          "SUIT_FLARE"
+        ]
+      },
+      "MI_TEAM_LEADER": {
+        "key": "MI_TEAM_LEADER",
+        "name": "Section Leader",
+        "weapons": [
+          "MORITA"
+        ],
+        "expend": [
+          "SMOKE_CAN",
+          "HE_GRENADE"
+        ]
+      },
+      "MI_LEADER": {
+        "key": "MI_LEADER",
+        "name": "Leader (Command suit)",
+        "weapons": [
+          "MORITA"
+        ],
+        "expend": [
+          "SMOKE_CAN",
+          "SUIT_FLARE"
+        ]
+      },
+      "MI_SCOUT": {
+        "key": "MI_SCOUT",
+        "name": "Scout (Scout suit)",
+        "weapons": [
+          "MORITA"
+        ],
+        "expend": [
+          "SMOKE_CAN"
+        ]
+      },
+      "MI_CORPSMAN": {
+        "key": "MI_CORPSMAN",
+        "name": "Corpsman",
+        "weapons": [
+          "MORITA"
+        ],
+        "expend": [
+          "SMOKE_CAN"
+        ]
+      },
+      "MI_STAFF": {
+        "key": "MI_STAFF",
+        "name": "Staff",
+        "weapons": [
+          "MORITA"
+        ]
+      }
+    },
+    "_vehicles_doc": "The Mobile Infantry owns no ground vehicles. It arrives by capsule and leaves by retrieval boat; between those it walks, and the walking is the suit. The table is empty and the engine is fine with that — a composition simply lists no vehicles.",
+    "vehicles": {},
+    "units": {
+      "MI_PLT": {
+        "key": "MI_PLT",
+        "name": "Marauder Platoon",
+        "abbr": "MI",
+        "cat": "MOBILE INFANTRY",
+        "mob": "foot",
+        "speed": 9.5,
+        "sight": 1100,
+        "range": 700,
+        "dpsSoft": 5.2,
+        "dpsHard": 2.1,
+        "soft": 0.55,
+        "cost": 100,
+        "veh": 0,
+        "troops": 38,
+        "glyph": "inf",
+        "def": {
+          "time": 60,
+          "factor": 0.5,
+          "name": "DUG IN"
+        }
+      },
+      "MI_HVY": {
+        "key": "MI_HVY",
+        "name": "Heavy Weapons Platoon",
+        "abbr": "HW",
+        "cat": "MOBILE INFANTRY",
+        "mob": "foot",
+        "speed": 8,
+        "sight": 1200,
+        "range": 1400,
+        "dpsSoft": 4,
+        "dpsHard": 4.5,
+        "soft": 0.6,
+        "cost": 100,
+        "veh": 0,
+        "troops": 30,
+        "glyph": "inf",
+        "def": {
+          "time": 75,
+          "factor": 0.5,
+          "name": "DUG IN"
+        }
+      },
+      "MI_SCOUT": {
+        "key": "MI_SCOUT",
+        "name": "Scout Platoon",
+        "abbr": "SCT",
+        "cat": "RECONNAISSANCE",
+        "mob": "foot",
+        "speed": 12,
+        "sight": 1900,
+        "range": 500,
+        "dpsSoft": 2.2,
+        "dpsHard": 0.4,
+        "soft": 0.75,
+        "cost": 100,
+        "veh": 0,
+        "troops": 20,
+        "glyph": "cav",
+        "def": {
+          "time": 45,
+          "factor": 0.6,
+          "name": "HIDE SITE"
+        }
+      }
+    },
     "comps": {
       "MI_PLT": {
         "unit": "MI_PLT",
         "vehicles": [],
         "dismounts": [
-          { "kind": "MI_TROOPER", "n": 14 }, { "kind": "MI_AUTO", "n": 6 },
-          { "kind": "MI_ROCKET", "n": 6 }, { "kind": "MI_FLAMER", "n": 2 },
-          { "kind": "MI_CORPSMAN", "n": 1 },
-          { "kind": "MI_TEAM_LEADER", "n": 6 }, { "kind": "MI_LEADER", "n": 3 }
+          {
+            "kind": "MI_TROOPER",
+            "n": 14
+          },
+          {
+            "kind": "MI_AUTO",
+            "n": 6
+          },
+          {
+            "kind": "MI_ROCKET",
+            "n": 6
+          },
+          {
+            "kind": "MI_FLAMER",
+            "n": 2
+          },
+          {
+            "kind": "MI_CORPSMAN",
+            "n": 1
+          },
+          {
+            "kind": "MI_TEAM_LEADER",
+            "n": 6
+          },
+          {
+            "kind": "MI_LEADER",
+            "n": 3
+          }
         ]
       },
       "MI_HVY": {
         "unit": "MI_HVY",
         "vehicles": [],
         "dismounts": [
-          { "kind": "MI_TROOPER", "n": 8 }, { "kind": "MI_ROCKET", "n": 10 },
-          { "kind": "MI_NUKE", "n": 4 }, { "kind": "MI_CORPSMAN", "n": 1 },
-          { "kind": "MI_TEAM_LEADER", "n": 4 }, { "kind": "MI_LEADER", "n": 3 }
+          {
+            "kind": "MI_TROOPER",
+            "n": 8
+          },
+          {
+            "kind": "MI_ROCKET",
+            "n": 10
+          },
+          {
+            "kind": "MI_NUKE",
+            "n": 4
+          },
+          {
+            "kind": "MI_CORPSMAN",
+            "n": 1
+          },
+          {
+            "kind": "MI_TEAM_LEADER",
+            "n": 4
+          },
+          {
+            "kind": "MI_LEADER",
+            "n": 3
+          }
         ]
       },
       "MI_SCOUT": {
         "unit": "MI_SCOUT",
         "vehicles": [],
         "dismounts": [
-          { "kind": "MI_SCOUT", "n": 12 }, { "kind": "MI_AUTO", "n": 2 },
-          { "kind": "MI_CORPSMAN", "n": 1 },
-          { "kind": "MI_TEAM_LEADER", "n": 3 }, { "kind": "MI_LEADER", "n": 2 }
+          {
+            "kind": "MI_SCOUT",
+            "n": 12
+          },
+          {
+            "kind": "MI_AUTO",
+            "n": 2
+          },
+          {
+            "kind": "MI_CORPSMAN",
+            "n": 1
+          },
+          {
+            "kind": "MI_TEAM_LEADER",
+            "n": 3
+          },
+          {
+            "kind": "MI_LEADER",
+            "n": 2
+          }
         ]
       }
     },
-
     "drones": {},
     "facilities": {}
   },
-
-  "cats": ["MOBILE INFANTRY", "RECONNAISSANCE"],
-
+  "cats": [
+    "MOBILE INFANTRY",
+    "RECONNAISSANCE"
+  ],
   "_startForce_doc": "What is already down when the fight opens, in fielding order. Scouts first — the MI drops blind and the scout suits are what make the ground legible — then the line platoons, then the heavy weapons.",
-  "startForce": ["MI_SCOUT", "MI_PLT", "MI_PLT", "MI_HVY", "MI_PLT", "MI_HVY"],
-
+  "startForce": [
+    "MI_SCOUT",
+    "MI_PLT",
+    "MI_PLT",
+    "MI_HVY",
+    "MI_PLT",
+    "MI_HVY"
+  ],
   "_ranks_doc": "Junior first — ORDER IS SENIORITY, and the engine reads nothing else. Third Lieutenant is Heinlein's own invention: a cadet officer on trial, who outranks every sergeant on paper and is expected to listen to all of them. It sits above Fleet Sergeant because command authority is what the ladder measures.",
   "ranks": [
-    { "key": "RCT", "name": "Recruit" },
-    { "key": "PVT", "name": "Private" },
-    { "key": "TP", "name": "Trained Private", "insignia": { "chevrons": [1, 0] } },
-    { "key": "LCPL", "name": "Lance Corporal", "insignia": { "chevrons": [1, 1] } },
-    { "key": "CPL", "name": "Corporal", "insignia": { "chevrons": [2, 0] } },
-    { "key": "SGT", "name": "Sergeant", "insignia": { "chevrons": [3, 0] } },
-    { "key": "SSGT", "name": "Staff Sergeant", "insignia": { "chevrons": [3, 1] } },
-    { "key": "SHSGT", "name": "Ship Sergeant", "insignia": { "chevrons": [3, 2] } },
-    { "key": "FLTSGT", "name": "Fleet Sergeant", "insignia": { "chevrons": [3, 3], "diamond": true } },
-    { "key": "3LT", "name": "Third Lieutenant", "insignia": { "bars": 1 } },
-    { "key": "2LT", "name": "Second Lieutenant", "insignia": { "bars": 1 } },
-    { "key": "1LT", "name": "First Lieutenant", "insignia": { "bars": 2 } },
-    { "key": "CPT", "name": "Captain", "insignia": { "bars": 3 } },
-    { "key": "MAJ", "name": "Major", "insignia": { "oak": true } },
-    { "key": "LTC", "name": "Lieutenant Colonel", "insignia": { "oak": true } },
-    { "key": "COL", "name": "Colonel", "insignia": { "eagle": true } },
-    { "key": "GEN", "name": "General", "insignia": { "stars": 2 } }
-  ],
-
-  "_callsigns_doc": "The Federal Network numbers its people and names its units. Callsigns come off the drop manifest, which is why they are all things that fall.",
-  "callsigns": {
-    "pool": [
-      "ANVIL", "BRIMSTONE", "CINDER", "DAGGER", "EMBER", "FALLOUT", "GRAVITY",
-      "HAILSTONE", "IRONFALL", "JAVELIN", "KINETIC", "LANDFALL", "METEOR",
-      "NOVA", "ORBIT", "PLUMMET", "QUARRY", "RETRIEVAL", "SUNDOWN", "TERMINAL"
-    ]
-  },
-
-  "_billets_doc": "Leaders are listed LAST in a kind's group (casualty order), so `fromEnd` names them from the back. There are no crew billets because there is nothing to crew — the suit is worn, not driven — but the table must still declare the shape, so it declares an empty one.",
-  "billets": {
-    "default": { "pos": "Trooper", "rank": ["PVT", "TP", "TP", "LCPL"] },
-    "dismount": {
-      "MI_TROOPER": { "pos": "Trooper", "rank": ["PVT", "TP", "TP", "LCPL"] },
-      "MI_AUTO": { "pos": "Automatic Rifleman", "rank": ["TP", "LCPL", "CPL"] },
-      "MI_ROCKET": { "pos": "Rocket Trooper", "rank": ["TP", "LCPL", "CPL"] },
-      "MI_FLAMER": { "pos": "Flame Trooper", "rank": ["TP", "LCPL"] },
-      "MI_NUKE": { "pos": "Y-rack Trooper", "rank": ["LCPL", "CPL"] },
-      "MI_SCOUT": { "pos": "Scout", "rank": ["TP", "LCPL", "CPL"] },
-      "MI_CORPSMAN": { "pos": "Corpsman", "rank": ["LCPL", "CPL"] },
-      "MI_TEAM_LEADER": {
-        "pos": "Section Leader", "rank": ["CPL", "SGT"],
-        "fromEnd": [{ "pos": "Assistant Section Leader", "rank": "CPL" }]
-      },
-      "MI_LEADER": {
-        "pos": "Squad Leader", "rank": ["SGT", "SSGT"],
-        "fromEnd": [
-          { "pos": "Platoon Leader", "rank": ["3LT", "2LT", "1LT"] },
-          { "pos": "Platoon Sergeant", "rank": "SHSGT" }
+    {
+      "key": "RCT",
+      "name": "Recruit"
+    },
+    {
+      "key": "PVT",
+      "name": "Private"
+    },
+    {
+      "key": "TP",
+      "name": "Trained Private",
+      "insignia": {
+        "chevrons": [
+          1,
+          0
         ]
       }
     },
-    "crew": { "armed": {}, "unarmed": {} }
+    {
+      "key": "LCPL",
+      "name": "Lance Corporal",
+      "insignia": {
+        "chevrons": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "key": "CPL",
+      "name": "Corporal",
+      "insignia": {
+        "chevrons": [
+          2,
+          0
+        ]
+      }
+    },
+    {
+      "key": "SGT",
+      "name": "Sergeant",
+      "insignia": {
+        "chevrons": [
+          3,
+          0
+        ]
+      }
+    },
+    {
+      "key": "SSGT",
+      "name": "Staff Sergeant",
+      "insignia": {
+        "chevrons": [
+          3,
+          1
+        ]
+      }
+    },
+    {
+      "key": "SHSGT",
+      "name": "Ship Sergeant",
+      "insignia": {
+        "chevrons": [
+          3,
+          2
+        ]
+      }
+    },
+    {
+      "key": "FLTSGT",
+      "name": "Fleet Sergeant",
+      "insignia": {
+        "chevrons": [
+          3,
+          3
+        ],
+        "diamond": true
+      }
+    },
+    {
+      "key": "3LT",
+      "name": "Third Lieutenant",
+      "insignia": {
+        "bars": 1
+      }
+    },
+    {
+      "key": "2LT",
+      "name": "Second Lieutenant",
+      "insignia": {
+        "bars": 1
+      }
+    },
+    {
+      "key": "1LT",
+      "name": "First Lieutenant",
+      "insignia": {
+        "bars": 2
+      }
+    },
+    {
+      "key": "CPT",
+      "name": "Captain",
+      "insignia": {
+        "bars": 3
+      }
+    },
+    {
+      "key": "MAJ",
+      "name": "Major",
+      "insignia": {
+        "oak": true
+      }
+    },
+    {
+      "key": "LTC",
+      "name": "Lieutenant Colonel",
+      "insignia": {
+        "oak": true
+      }
+    },
+    {
+      "key": "COL",
+      "name": "Colonel",
+      "insignia": {
+        "eagle": true
+      }
+    },
+    {
+      "key": "GEN",
+      "name": "General",
+      "insignia": {
+        "stars": 2
+      }
+    }
+  ],
+  "_callsigns_doc": "The Federal Network numbers its people and names its units. Callsigns come off the drop manifest, which is why they are all things that fall.",
+  "callsigns": {
+    "pool": [
+      "ANVIL",
+      "BRIMSTONE",
+      "CINDER",
+      "DAGGER",
+      "EMBER",
+      "FALLOUT",
+      "GRAVITY",
+      "HAILSTONE",
+      "IRONFALL",
+      "JAVELIN",
+      "KINETIC",
+      "LANDFALL",
+      "METEOR",
+      "NOVA",
+      "ORBIT",
+      "PLUMMET",
+      "QUARRY",
+      "RETRIEVAL",
+      "SUNDOWN",
+      "TERMINAL"
+    ]
   },
-
+  "_billets_doc": "Leaders are listed LAST in a kind's group (casualty order), so `fromEnd` names them from the back. There are no crew billets because there is nothing to crew — the suit is worn, not driven — but the table must still declare the shape, so it declares an empty one.",
+  "billets": {
+    "default": {
+      "pos": "Trooper",
+      "rank": [
+        "PVT",
+        "TP",
+        "TP",
+        "LCPL"
+      ]
+    },
+    "dismount": {
+      "MI_TROOPER": {
+        "pos": "Trooper",
+        "rank": [
+          "PVT",
+          "TP",
+          "TP",
+          "LCPL"
+        ]
+      },
+      "MI_AUTO": {
+        "pos": "Automatic Rifleman",
+        "rank": [
+          "TP",
+          "LCPL",
+          "CPL"
+        ]
+      },
+      "MI_ROCKET": {
+        "pos": "Rocket Trooper",
+        "rank": [
+          "TP",
+          "LCPL",
+          "CPL"
+        ]
+      },
+      "MI_FLAMER": {
+        "pos": "Flame Trooper",
+        "rank": [
+          "TP",
+          "LCPL"
+        ]
+      },
+      "MI_NUKE": {
+        "pos": "Y-rack Trooper",
+        "rank": [
+          "LCPL",
+          "CPL"
+        ]
+      },
+      "MI_SCOUT": {
+        "pos": "Scout",
+        "rank": [
+          "TP",
+          "LCPL",
+          "CPL"
+        ]
+      },
+      "MI_CORPSMAN": {
+        "pos": "Corpsman",
+        "rank": [
+          "LCPL",
+          "CPL"
+        ]
+      },
+      "MI_TEAM_LEADER": {
+        "pos": "Section Leader",
+        "rank": [
+          "CPL",
+          "SGT"
+        ],
+        "fromEnd": [
+          {
+            "pos": "Assistant Section Leader",
+            "rank": "CPL"
+          }
+        ]
+      },
+      "MI_LEADER": {
+        "pos": "Squad Leader",
+        "rank": [
+          "SGT",
+          "SSGT"
+        ],
+        "fromEnd": [
+          {
+            "pos": "Platoon Leader",
+            "rank": [
+              "3LT",
+              "2LT",
+              "1LT"
+            ]
+          },
+          {
+            "pos": "Platoon Sergeant",
+            "rank": "SHSGT"
+          }
+        ]
+      }
+    },
+    "crew": {
+      "armed": {},
+      "unarmed": {}
+    }
+  },
   "_staff_doc": "The Federation is a bureaucracy that wears a uniform — the satire is that the paperwork drops with you. The desks keep the same numbering at every rung and only change letter: S at a company, R at a regiment, G at a division.",
   "staff": {
     "s1": {
-      "label": "S1", "name": "Personnel", "full": "S1 — Personnel", "report": "MUSTER",
-      "alt": "S1 Sergeant", "desks": ["S1", "R1", "G1"],
+      "label": "S1",
+      "name": "Personnel",
+      "full": "S1 — Personnel",
+      "report": "MUSTER",
+      "alt": "S1 Sergeant",
+      "desks": [
+        "S1",
+        "R1",
+        "G1"
+      ],
       "desc": "Strength, casualties, replacements",
       "detail": "The S1 keeps the muster: who dropped, who came back, who is on the retrieval board and who is not coming back at all. Federal Service is a contract with names on it, and this desk holds the names."
     },
     "s2": {
-      "label": "S2", "name": "Intelligence", "full": "S2 — Intelligence", "report": "BUGSTAT",
-      "alt": "S2 Analyst", "desks": ["S2", "R2", "G2"],
+      "label": "S2",
+      "name": "Intelligence",
+      "full": "S2 — Intelligence",
+      "report": "BUGSTAT",
+      "alt": "S2 Analyst",
+      "desks": [
+        "S2",
+        "R2",
+        "G2"
+      ],
       "desc": "Hostile strength, holes, warrior counts",
       "detail": "The S2 reads the ground for holes and counts what comes out of them. The Federal Network says the enemy is mindless; the S2 files what it actually sees."
     },
     "s3": {
-      "label": "S3", "name": "Operations", "full": "S3 — Operations", "report": "DROPSTAT",
-      "alt": "Operations Sergeant", "desks": ["S3", "R3", "G3"],
+      "label": "S3",
+      "name": "Operations",
+      "full": "S3 — Operations",
+      "report": "DROPSTAT",
+      "alt": "Operations Sergeant",
+      "desks": [
+        "S3",
+        "R3",
+        "G3"
+      ],
       "desc": "Drop plan, scheme of manoeuvre, retrieval",
       "detail": "The S3 writes the drop: the pattern, the bounce, the objective and the retrieval window. On the ground it runs the fight and counts the minutes to pickup."
     },
     "s4": {
-      "label": "S4", "name": "Logistics", "full": "S4 — Logistics", "report": "AMMOSTAT",
-      "alt": "S4 Sergeant", "desks": ["S4", "R4", "G4"],
+      "label": "S4",
+      "name": "Logistics",
+      "full": "S4 — Logistics",
+      "report": "AMMOSTAT",
+      "alt": "S4 Sergeant",
+      "desks": [
+        "S4",
+        "R4",
+        "G4"
+      ],
       "desc": "Suit power, rounds, rockets, nuclears",
       "detail": "The S4 accounts for what a suit carries and what it has left. Nothing resupplies on the ground: what dropped is what there is, which makes this desk a clock as much as a ledger."
     },
     "s6": {
-      "label": "S6", "name": "Signal", "full": "S6 — Signal", "report": "NETSTAT",
-      "desks": ["S6", "R6", "G6"],
+      "label": "S6",
+      "name": "Signal",
+      "full": "S6 — Signal",
+      "report": "NETSTAT",
+      "desks": [
+        "S6",
+        "R6",
+        "G6"
+      ],
       "desc": "Suit net, relay, orbital link",
       "detail": "The S6 owns the suit net and the link to the boat overhead. Losing the link does not lose the fight; it loses the retrieval, which is worse."
     }
   },
-
   "_rosters_doc": "WHO IS IN A HAND-BUILT ELEMENT. The engine knows how to build an element from a roster; it does not know what a Mobile Infantry company holds.",
   "rosters": {
     "MI_CO_CMD": [
-      { "kind": "MI_STAFF", "pos": "Company Commander", "rank": "CPT" },
-      { "kind": "MI_STAFF", "pos": "Executive Officer", "rank": "1LT" },
-      { "kind": "MI_STAFF", "pos": "Company First Sergeant", "rank": "FLTSGT" },
-      { "kind": "MI_STAFF", "pos": "Command Signaller", "rank": "CPL" }
+      {
+        "kind": "MI_STAFF",
+        "pos": "Company Commander",
+        "rank": "CPT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Executive Officer",
+        "rank": "1LT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Company First Sergeant",
+        "rank": "FLTSGT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Command Signaller",
+        "rank": "CPL"
+      }
     ],
     "MI_CO_STAFF": [
-      { "kind": "MI_STAFF", "pos": "S1 — Personnel", "rank": "2LT", "sec": "S1 SEC" },
-      { "kind": "MI_STAFF", "pos": "S1 Sergeant", "rank": "SGT", "sec": "S1 SEC" },
-      { "kind": "MI_STAFF", "pos": "S2 — Intelligence", "rank": "2LT", "sec": "S2 SEC" },
-      { "kind": "MI_STAFF", "pos": "S2 Analyst", "rank": "SGT", "sec": "S2 SEC" },
-      { "kind": "MI_STAFF", "pos": "S3 — Operations", "rank": "1LT", "sec": "S3 SEC" },
-      { "kind": "MI_STAFF", "pos": "Operations Sergeant", "rank": "SHSGT", "sec": "S3 SEC" },
-      { "kind": "MI_STAFF", "pos": "S4 — Logistics", "rank": "2LT", "sec": "S4 SEC" },
-      { "kind": "MI_STAFF", "pos": "S4 Sergeant", "rank": "SGT", "sec": "S4 SEC" },
-      { "kind": "MI_STAFF", "pos": "S6 — Signal", "rank": "2LT", "sec": "S6 SEC" },
-      { "kind": "MI_STAFF", "pos": "S6 Signaller", "rank": "CPL", "sec": "S6 SEC", "n": 2 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "S1 — Personnel",
+        "rank": "2LT",
+        "sec": "S1 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S1 Sergeant",
+        "rank": "SGT",
+        "sec": "S1 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S2 — Intelligence",
+        "rank": "2LT",
+        "sec": "S2 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S2 Analyst",
+        "rank": "SGT",
+        "sec": "S2 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S3 — Operations",
+        "rank": "1LT",
+        "sec": "S3 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Operations Sergeant",
+        "rank": "SHSGT",
+        "sec": "S3 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S4 — Logistics",
+        "rank": "2LT",
+        "sec": "S4 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S4 Sergeant",
+        "rank": "SGT",
+        "sec": "S4 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S6 — Signal",
+        "rank": "2LT",
+        "sec": "S6 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "S6 Signaller",
+        "rank": "CPL",
+        "sec": "S6 SEC",
+        "n": 2
+      }
     ],
     "MI_REGT_CMD": [
-      { "kind": "MI_STAFF", "pos": "Regimental Commander", "rank": "COL" },
-      { "kind": "MI_STAFF", "pos": "Executive Officer", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "Regimental Sergeant Major", "rank": "FLTSGT" },
-      { "kind": "MI_STAFF", "pos": "Command Signaller", "rank": "SGT" }
+      {
+        "kind": "MI_STAFF",
+        "pos": "Regimental Commander",
+        "rank": "COL"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Executive Officer",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Regimental Sergeant Major",
+        "rank": "FLTSGT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Command Signaller",
+        "rank": "SGT"
+      }
     ],
     "MI_REGT_STAFF": [
-      { "kind": "MI_STAFF", "pos": "R1 — Personnel", "rank": "MAJ", "sec": "R1 SEC" },
-      { "kind": "MI_STAFF", "pos": "R1 Sergeant", "rank": "SHSGT", "sec": "R1 SEC" },
-      { "kind": "MI_STAFF", "pos": "R2 — Intelligence", "rank": "MAJ", "sec": "R2 SEC" },
-      { "kind": "MI_STAFF", "pos": "R2 Analyst", "rank": "SSGT", "sec": "R2 SEC" },
-      { "kind": "MI_STAFF", "pos": "R3 — Operations", "rank": "MAJ", "sec": "R3 SEC" },
-      { "kind": "MI_STAFF", "pos": "Operations Sergeant", "rank": "SHSGT", "sec": "R3 SEC" },
-      { "kind": "MI_STAFF", "pos": "R4 — Logistics", "rank": "CPT", "sec": "R4 SEC" },
-      { "kind": "MI_STAFF", "pos": "R4 Sergeant", "rank": "SSGT", "sec": "R4 SEC" },
-      { "kind": "MI_STAFF", "pos": "R6 — Signal", "rank": "CPT", "sec": "R6 SEC" },
-      { "kind": "MI_STAFF", "pos": "R6 Signaller", "rank": "SGT", "sec": "R6 SEC", "n": 2 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "R1 — Personnel",
+        "rank": "MAJ",
+        "sec": "R1 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R1 Sergeant",
+        "rank": "SHSGT",
+        "sec": "R1 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R2 — Intelligence",
+        "rank": "MAJ",
+        "sec": "R2 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R2 Analyst",
+        "rank": "SSGT",
+        "sec": "R2 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R3 — Operations",
+        "rank": "MAJ",
+        "sec": "R3 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Operations Sergeant",
+        "rank": "SHSGT",
+        "sec": "R3 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R4 — Logistics",
+        "rank": "CPT",
+        "sec": "R4 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R4 Sergeant",
+        "rank": "SSGT",
+        "sec": "R4 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R6 — Signal",
+        "rank": "CPT",
+        "sec": "R6 SEC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "R6 Signaller",
+        "rank": "SGT",
+        "sec": "R6 SEC",
+        "n": 2
+      }
     ],
     "MI_DIV_CMD": [
-      { "kind": "MI_STAFF", "pos": "Commanding General", "rank": "GEN" },
-      { "kind": "MI_STAFF", "pos": "Assistant Division Commander", "rank": "COL" },
-      { "kind": "MI_STAFF", "pos": "Division Sergeant Major", "rank": "FLTSGT" },
-      { "kind": "MI_STAFF", "pos": "Command Signaller", "rank": "SHSGT" }
+      {
+        "kind": "MI_STAFF",
+        "pos": "Commanding General",
+        "rank": "GEN"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Assistant Division Commander",
+        "rank": "COL"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Division Sergeant Major",
+        "rank": "FLTSGT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Command Signaller",
+        "rank": "SHSGT"
+      }
     ],
     "MI_G1": [
-      { "kind": "MI_STAFF", "pos": "G1 — Personnel", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "G1 Deputy", "rank": "MAJ" },
-      { "kind": "MI_STAFF", "pos": "G1 Sergeant Major", "rank": "FLTSGT" },
-      { "kind": "MI_STAFF", "pos": "G1 Clerk", "rank": "CPL", "n": 2 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "G1 — Personnel",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G1 Deputy",
+        "rank": "MAJ"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G1 Sergeant Major",
+        "rank": "FLTSGT"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G1 Clerk",
+        "rank": "CPL",
+        "n": 2
+      }
     ],
     "MI_G2": [
-      { "kind": "MI_STAFF", "pos": "G2 — Intelligence", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "G2 Deputy", "rank": "MAJ" },
-      { "kind": "MI_STAFF", "pos": "G2 Analyst", "rank": "SHSGT", "n": 3 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "G2 — Intelligence",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G2 Deputy",
+        "rank": "MAJ"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G2 Analyst",
+        "rank": "SHSGT",
+        "n": 3
+      }
     ],
     "MI_G3": [
-      { "kind": "MI_STAFF", "pos": "G3 — Operations", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "G3 Deputy", "rank": "MAJ" },
-      { "kind": "MI_STAFF", "pos": "G3 Drop Planner", "rank": "CPT", "n": 2 },
-      { "kind": "MI_STAFF", "pos": "Operations Sergeant Major", "rank": "FLTSGT" }
+      {
+        "kind": "MI_STAFF",
+        "pos": "G3 — Operations",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G3 Deputy",
+        "rank": "MAJ"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G3 Drop Planner",
+        "rank": "CPT",
+        "n": 2
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "Operations Sergeant Major",
+        "rank": "FLTSGT"
+      }
     ],
     "MI_G4": [
-      { "kind": "MI_STAFF", "pos": "G4 — Logistics", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "G4 Deputy", "rank": "MAJ" },
-      { "kind": "MI_STAFF", "pos": "G4 Sergeant", "rank": "SHSGT", "n": 2 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "G4 — Logistics",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G4 Deputy",
+        "rank": "MAJ"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G4 Sergeant",
+        "rank": "SHSGT",
+        "n": 2
+      }
     ],
     "MI_G6": [
-      { "kind": "MI_STAFF", "pos": "G6 — Signal", "rank": "LTC" },
-      { "kind": "MI_STAFF", "pos": "G6 Deputy", "rank": "MAJ" },
-      { "kind": "MI_STAFF", "pos": "G6 Signaller", "rank": "SSGT", "n": 3 }
+      {
+        "kind": "MI_STAFF",
+        "pos": "G6 — Signal",
+        "rank": "LTC"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G6 Deputy",
+        "rank": "MAJ"
+      },
+      {
+        "kind": "MI_STAFF",
+        "pos": "G6 Signaller",
+        "rank": "SSGT",
+        "n": 3
+      }
     ]
   },
-
   "_bnKinds_doc": "NOTE what is NOT here: a `companies` list. A Mobile Infantry company's platoons are its own — there is no rung between them — so these kinds declare `slots` directly and the lineage stays two deep (3 MI -> G/3). A US battalion needs the extra rung and declares `companies`; the engine takes either.",
   "bnKinds": {
     "MI-RIFLE-CO": {
       "branch": "in",
       "slots": [
-        { "name": "CMD GRP", "role": "command", "roster": "MI_CO_CMD" },
-        { "name": "CO STAFF", "role": "staff", "roster": "MI_CO_STAFF" },
-        { "name": "1st PLT", "type": "MI_PLT" },
-        { "name": "2nd PLT", "type": "MI_PLT" },
-        { "name": "3rd PLT", "type": "MI_PLT" },
-        { "name": "WPNS PLT", "type": "MI_HVY" },
-        { "name": "SCT SEC", "type": "MI_SCOUT" }
+        {
+          "name": "CMD GRP",
+          "role": "command",
+          "roster": "MI_CO_CMD"
+        },
+        {
+          "name": "CO STAFF",
+          "role": "staff",
+          "roster": "MI_CO_STAFF"
+        },
+        {
+          "name": "1st PLT",
+          "type": "MI_PLT"
+        },
+        {
+          "name": "2nd PLT",
+          "type": "MI_PLT"
+        },
+        {
+          "name": "3rd PLT",
+          "type": "MI_PLT"
+        },
+        {
+          "name": "WPNS PLT",
+          "type": "MI_HVY"
+        },
+        {
+          "name": "SCT SEC",
+          "type": "MI_SCOUT"
+        }
       ]
     },
     "MI-REGT-HQ": {
       "branch": "hq",
       "slots": [
-        { "name": "CMD GRP", "role": "command", "roster": "MI_REGT_CMD" },
-        { "name": "REGT STAFF", "role": "staff", "roster": "MI_REGT_STAFF" }
+        {
+          "name": "CMD GRP",
+          "role": "command",
+          "roster": "MI_REGT_CMD"
+        },
+        {
+          "name": "REGT STAFF",
+          "role": "staff",
+          "roster": "MI_REGT_STAFF"
+        }
       ]
     },
     "MI-DIV-HQ": {
       "branch": "hq",
       "companies": [
-        { "co": "DIV CMD GRP", "slots": [
-          { "name": "COMMAND GROUP", "role": "command", "roster": "MI_DIV_CMD" }
-        ] },
-        { "co": "DIV STAFF", "slots": [
-          { "name": "G1 SECTION", "role": "staff", "roster": "MI_G1" },
-          { "name": "G2 SECTION", "role": "staff", "roster": "MI_G2" },
-          { "name": "G3 SECTION", "role": "staff", "roster": "MI_G3" },
-          { "name": "G4 SECTION", "role": "staff", "roster": "MI_G4" },
-          { "name": "G6 SECTION", "role": "staff", "roster": "MI_G6" }
-        ] }
+        {
+          "co": "DIV CMD GRP",
+          "slots": [
+            {
+              "name": "COMMAND GROUP",
+              "role": "command",
+              "roster": "MI_DIV_CMD"
+            }
+          ]
+        },
+        {
+          "co": "DIV STAFF",
+          "slots": [
+            {
+              "name": "G1 SECTION",
+              "role": "staff",
+              "roster": "MI_G1"
+            },
+            {
+              "name": "G2 SECTION",
+              "role": "staff",
+              "roster": "MI_G2"
+            },
+            {
+              "name": "G3 SECTION",
+              "role": "staff",
+              "roster": "MI_G3"
+            },
+            {
+              "name": "G4 SECTION",
+              "role": "staff",
+              "roster": "MI_G4"
+            },
+            {
+              "name": "G6 SECTION",
+              "role": "staff",
+              "roster": "MI_G6"
+            }
+          ]
+        }
       ]
     }
   },
-
   "_formation_doc": "DIVISION -> REGIMENT -> COMPANY -> PLATOON, straight out of the novel: Rasczak's Roughnecks are formally 'Second Platoon, George Company, Third Regiment, First Division'. No brigade, no battalion. Companies are lettered and spoken phonetically (George, King), and written with their regiment because the letters repeat — G/3 is George Company of the Third, and it is the only G/3 in the division. chairRung 1 puts the player in a COMPANY commander's chair; the thing they field is a platoon, exactly as a US battalion commander fields a platoon one rung up.",
   "formation": {
     "chair": "G/3",
     "playable": "all",
-    "top": { "name": "DIVISION", "mark": "XX" },
+    "top": {
+      "name": "DIVISION",
+      "mark": "XX"
+    },
     "echelons": [
-      { "name": "REGIMENT", "mark": "III" },
-      { "name": "COMPANY", "mark": "I" }
+      {
+        "name": "REGIMENT",
+        "mark": "III"
+      },
+      {
+        "name": "COMPANY",
+        "mark": "I"
+      }
     ],
     "chairRung": 1,
     "under": [
       {
-        "desig": "DIV HQ", "nick": "First Division", "kind": "MI-DIV-HQ",
+        "desig": "DIV HQ",
+        "nick": "First Division",
+        "kind": "MI-DIV-HQ",
         "station": "FLEET BASE SANCTUARY"
       },
       {
-        "desig": "1 MI", "nick": "Ironfall", "kind": "MI-REGT-HQ", "station": "TRANSPORT ROGER YOUNG",
+        "desig": "1 MI",
+        "nick": "Ironfall",
+        "kind": "MI-REGT-HQ",
+        "station": "TRANSPORT ROGER YOUNG",
         "under": [
-          { "desig": "A/1", "nick": "Able", "kind": "MI-RIFLE-CO" },
-          { "desig": "B/1", "nick": "Baker", "kind": "MI-RIFLE-CO" },
-          { "desig": "C/1", "nick": "Charlie", "kind": "MI-RIFLE-CO" }
+          {
+            "desig": "A/1",
+            "nick": "Able",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "B/1",
+            "nick": "Baker",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "C/1",
+            "nick": "Charlie",
+            "kind": "MI-RIFLE-CO"
+          }
         ]
       },
       {
-        "desig": "2 MI", "nick": "Hard Rain", "kind": "MI-REGT-HQ", "station": "TRANSPORT TOURS",
+        "desig": "2 MI",
+        "nick": "Hard Rain",
+        "kind": "MI-REGT-HQ",
+        "station": "TRANSPORT TOURS",
         "under": [
-          { "desig": "D/2", "nick": "Dog", "kind": "MI-RIFLE-CO" },
-          { "desig": "E/2", "nick": "Easy", "kind": "MI-RIFLE-CO" },
-          { "desig": "F/2", "nick": "Fox", "kind": "MI-RIFLE-CO" }
+          {
+            "desig": "D/2",
+            "nick": "Dog",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "E/2",
+            "nick": "Easy",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "F/2",
+            "nick": "Fox",
+            "kind": "MI-RIFLE-CO"
+          }
         ]
       },
       {
-        "desig": "3 MI", "nick": "Sundown", "kind": "MI-REGT-HQ", "station": "TRANSPORT RODGER YOUNG",
+        "desig": "3 MI",
+        "nick": "Sundown",
+        "kind": "MI-REGT-HQ",
+        "station": "TRANSPORT RODGER YOUNG",
         "under": [
-          { "desig": "G/3", "nick": "Roughnecks", "kind": "MI-RIFLE-CO" },
-          { "desig": "H/3", "nick": "How", "kind": "MI-RIFLE-CO" },
-          { "desig": "K/3", "nick": "Wildcats", "kind": "MI-RIFLE-CO" }
+          {
+            "desig": "G/3",
+            "nick": "Roughnecks",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "H/3",
+            "nick": "How",
+            "kind": "MI-RIFLE-CO"
+          },
+          {
+            "desig": "K/3",
+            "nick": "Wildcats",
+            "kind": "MI-RIFLE-CO"
+          }
         ]
       }
     ]
   },
-
   "_mottos_doc": "A named company keeps its name after the man it is named for is dead. That is the one piece of Mobile Infantry sentiment the Federation permits.",
   "mottos": {
     "G/3": "We are the Roughnecks",
@@ -361,11 +1217,18 @@
     "G/3": "ROUGHNECKS",
     "K/3": "WILDCATS"
   },
-
   "_net_doc": "Suit net procedure. Everything is addressed to the boat because the boat is what leaves.",
   "net": {
-    "higher": ["SUNDOWN", "IRONFALL", "HARD RAIN"],
-    "closings": ["OUT", "STANDING BY", "ON THE BOUNCE"],
+    "higher": [
+      "SUNDOWN",
+      "IRONFALL",
+      "HARD RAIN"
+    ],
+    "closings": [
+      "OUT",
+      "STANDING BY",
+      "ON THE BOUNCE"
+    ],
     "control": "FLEET CONTROL",
     "broadcast": "ALL STATIONS THIS NET, {control}. {msg} {closing}",
     "call": "{higher}, {callsign}. {msg}{range} {closing}",
@@ -373,7 +1236,6 @@
     "rangeFloor": 400,
     "desks": {}
   },
-
   "_reports_doc": "Same desks, different army, entirely different paper. The engine counts; every word here is the Federation's.",
   "reports": {
     "s1": {
@@ -395,20 +1257,30 @@
       }
     }
   },
-
   "_awards_doc": "Federal Service decorations. A wound is acknowledged, not celebrated — the Federation is precise about the difference.",
   "awards": {
     "WOUND": {
-      "key": "WOUND", "name": "Wound Stripe", "abbr": "WS",
+      "key": "WOUND",
+      "name": "Wound Stripe",
+      "abbr": "WS",
       "criterion": "wound",
-      "ribbon": ["#7a1c1c", "#d8d2c4", "#7a1c1c"]
+      "ribbon": [
+        "#7a1c1c",
+        "#d8d2c4",
+        "#7a1c1c"
+      ]
     },
     "VALOR": {
-      "key": "VALOR", "name": "Terran Star", "abbr": "TS",
-      "ribbon": ["#1b2f5e", "#d8b23c", "#1b2f5e"]
+      "key": "VALOR",
+      "name": "Terran Star",
+      "abbr": "TS",
+      "ribbon": [
+        "#1b2f5e",
+        "#d8b23c",
+        "#1b2f5e"
+      ]
     }
   },
-
   "organic": {},
   "attached": {}
 }

@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Badge, Box, Button, Checkbox, Group, Menu, Table, Text, UnstyledButton } from '@mantine/core'
 import { allPacks, type Pack } from '../packs'
 import PackLibrary from './PackLibrary'
+import PackIdentity from './PackIdentity'
+import { usePackManifest } from './usePackManifest'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
 import { StaffTable, Td, Th } from './staff'
@@ -35,7 +37,7 @@ const BAD_C = '#e8524a'
 // a builder-only thing (see EchelonTree).
 // The pack's own content views. MODELS is NOT here — art is a section of the
 // builder in its own right (left nav), not one more table about the pack.
-const BUILDER_TABS = ['ECHELON', ...PACK_TABS, 'ASSETS'] as const
+const BUILDER_TABS = ['IDENTITY', 'ECHELON', ...PACK_TABS, 'ASSETS'] as const
 type BuilderTab = (typeof BUILDER_TABS)[number]
 
 // ---------------------------------------------------------------------------
@@ -545,39 +547,30 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
     return out
   }, [p])
   const [edit, setEdit] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  useEffect(() => { setEdit({}); setMsg(null) }, [p?.id])
+  useEffect(() => { setEdit({}) }, [p?.id])
+
+  // ONE write path for the whole builder (ui/usePackManifest): it re-reads the
+  // manifest from disk and patches it field by field, so a save never bakes
+  // inherited content into a pack that deliberately declared none.
+  const ed = usePackManifest(p?.id ?? '')
+  const { busy, msg } = ed
 
   const valueOf = (k: string) => edit[k] ?? assigned[k] ?? ''
   const dirty = Object.keys(edit).some(k => (edit[k] ?? '') !== (assigned[k] ?? ''))
 
+  // model assignment now rides the shared write path: stage `models` as a
+  // field edit and let the manifest editor do the read-patch-write
   const save = async () => {
     if (!p) return
-    setBusy(true); setMsg(null)
-    try {
-      const res = await fetch(`/__pack?id=${p.id}`)
-      if (!res.ok) throw new Error(`read failed: HTTP ${res.status}`)
-      const manifest = await res.json() as Record<string, unknown>
-      const merged = { ...assigned, ...edit }
-      const out: Record<string, { file: string; node?: string }> = {}
-      for (const [k, v] of Object.entries(merged)) {
-        if (!v) continue // '' = deliberately unassigned
-        const [file, node] = v.split('|')
-        out[k] = node ? { file: file!, node } : { file: file! }
-      }
-      manifest.models = { ...(manifest.models as object ?? {}), vehicles: out }
-      const put = await fetch(`/__pack?id=${p.id}`, {
-        method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(manifest),
-      })
-      const body = await put.json()
-      if (!put.ok) throw new Error(body.error ?? `HTTP ${put.status}`)
-      setMsg('SAVED to pack.json')
-      setEdit({})
-    } catch (e) {
-      setMsg(`FAILED: ${String((e as Error).message ?? e)}`)
-    } finally { setBusy(false) }
+    const merged = { ...assigned, ...edit }
+    const out: Record<string, { file: string; node?: string }> = {}
+    for (const [k, v] of Object.entries(merged)) {
+      if (!v) continue // '' = deliberately unassigned
+      const [file, node] = v.split('|')
+      out[k] = node ? { file: file!, node } : { file: file! }
+    }
+    await ed.save({ models: { ...(ed.value('models') as object ?? {}), vehicles: out } })
+    setEdit({})
   }
 
   return (
@@ -649,7 +642,10 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
                 </Text>
               </Box>
               {view === 'pack' && (
-                <Badge size="sm" variant="outline" color="gray" ml="auto">READ ONLY</Badge>
+                <Badge size="sm" variant="outline" ml="auto"
+                  color={ed.dirty || dirty ? 'yellow' : 'gray'}>
+                  {ed.dirty || dirty ? 'UNSAVED CHANGES' : 'SAVED'}
+                </Badge>
               )}
             </Group>
 
@@ -687,7 +683,8 @@ function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) 
                 )}
 
                 <Box mt="md">
-                  {tab === 'ECHELON' ? <EchelonTree p={p} />
+                  {tab === 'IDENTITY' ? <PackIdentity p={p} ed={ed} />
+                    : tab === 'ECHELON' ? <EchelonTree p={p} />
                     : tab === 'ASSETS' ? <AssetsTable p={p} />
                       : (
                         <PackContent p={p} tab={tab as PackTab}
