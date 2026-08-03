@@ -28,7 +28,7 @@ import {
 import {
   entitiesFromSituation, situationFromEntities, saveScenario,
 } from '../../scenario/io'
-import { referencedPlaces } from '../../scenario/content'
+import { referencedPlaces, renamePlaceRefs, isBuiltinPlace } from '../../scenario/content'
 import { planAccessTrack } from '../../world/access'
 import { MapButton, MapControlStack } from '../MapControls'
 import SheetCanvas, { type SheetHandle } from './SheetCanvas'
@@ -137,6 +137,18 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     return bad
   }, [ed.entities, friendPack, player])
 
+  // DANGLING REFERENCES — a script naming a place nobody authored. Surfaced
+  // here as well as on the field, so it cannot hide inside a mission that is
+  // not currently on the bench.
+  const danglingPlaces = useMemo(() => {
+    const known = new Set([
+      ...ed.entities.filter(e => e.ent === 'place').map(e => e.name),
+      ...(world ? world.map.towns.map(t => t.name) : []),
+      ...(world ? world.map.features.map(f => f.name) : []),
+    ])
+    return referencedPlaces(missions).filter(n => !known.has(n) && !isBuiltinPlace(n))
+  }, [ed.entities, world, missions])
+
   // what a script place param can name: authored places first, then the map's
   // real gazetteer (OSM towns/features), then the builtin anchors
   const placeNames = useMemo(() => {
@@ -212,6 +224,26 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
         })
       })
     }
+  }
+
+  // Editing an entity. RENAMING A PLACE CARRIES ITS REFERENCES: every
+  // objective zone, spawn anchor and OPFOR objective pointing at the old name
+  // follows it. Silently leaving them dangling is never what an author meant.
+  const patchEntity = (patch: Partial<Entity>) => {
+    const sel = selected(ed)
+    // Partial<Entity> is a union of partials — probe the one field that matters
+    const renamed = (patch as { name?: unknown }).name
+    if (sel?.ent === 'place' && typeof renamed === 'string' && renamed !== sel.name) {
+      const from = sel.name, to = renamed
+      setMissions(ms => renamePlaceRefs(ms, from, to))
+    }
+    setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))
+  }
+
+  // ◎ on a script place field — show me where that actually is
+  const centerOnPlace = (name: string) => {
+    const p = ed.entities.find(e => e.ent === 'place' && e.name === name)
+    if (p) sheetRef.current?.centerOn(p.x, p.y)
   }
 
   const allScenarios = useMemo(() => packScenarios(), [])
@@ -369,6 +401,11 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
             {missions.length > 0 && ` · ${missions.length} MISSION${missions.length > 1 ? 'S' : ''}`}
           </Text>
         </Box>
+        {danglingPlaces.length > 0 && (
+          <Text fz={9} c="#e8524a" maw={260}>
+            ⚠ SCRIPT REFERENCES MISSING PLACES · {danglingPlaces.join(' · ')}
+          </Text>
+        )}
         {/* a formation placed beyond its real strength: the division does not
             have those platoons. Warn, never block — the author decides. */}
         {overStrength.length > 0 && (
@@ -456,7 +493,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
           </Box>
           {rail === 'inspect' ? (
             <Inspector e={selected(ed)} friendPack={sidePacks.friend} playerFormation={player}
-              onPatch={patch => setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))}
+              onPatch={patchEntity}
               onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
           ) : (
             <Box>
@@ -500,7 +537,7 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
                           i === curM ? { ...m, name: v.toUpperCase() } : m))
                       }} />
                   </Group>
-                  <ScriptPanel mission={cur} placeNames={placeNames}
+                  <ScriptPanel mission={cur} placeNames={placeNames} onCenter={centerOnPlace}
                     onChange={patch => setMissions(ms => ms.map((m, i) =>
                       i === curM ? { ...m, ...patch } : m))} />
                 </>

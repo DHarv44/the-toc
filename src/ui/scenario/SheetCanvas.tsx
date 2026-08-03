@@ -37,14 +37,22 @@ export interface SheetProps {
   onDragTo: (id: number, wx: number, wy: number) => void
 }
 
-export interface SheetHandle { fit: () => void }
+export interface SheetHandle {
+  fit: () => void
+  /** put a world point on screen at a readable scale (the script's ◎) */
+  centerOn: (wx: number, wy: number) => void
+}
 
 const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, handle) {
   const cvRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(p)
   propsRef.current = p
   const fitRef = useRef<() => void>(() => {})
-  useImperativeHandle(handle, () => ({ fit: () => fitRef.current() }), [])
+  const centerRef = useRef<(wx: number, wy: number) => void>(() => {})
+  useImperativeHandle(handle, () => ({
+    fit: () => fitRef.current(),
+    centerOn: (wx, wy) => centerRef.current(wx, wy),
+  }), [])
 
   useEffect(() => {
     const canvas = cvRef.current!
@@ -62,6 +70,14 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       view.ppm = Math.max(0.005, s / map.WORLD)
     }
     fitRef.current = fit
+    // GO THERE: put a point mid-screen, zoomed in enough to read the ground
+    // around it (never zooming OUT — the author was already closer for a reason)
+    centerRef.current = (wx, wy) => {
+      view.cx = wx
+      view.cy = wy
+      const s = Math.min(canvas.clientWidth || 800, canvas.clientHeight || 800)
+      view.ppm = Math.max(view.ppm, Math.min(4, s / 6000))
+    }
     let fitted = false
 
     // SAT underlay — the SAME services the game's BFT uses (imagery for a map

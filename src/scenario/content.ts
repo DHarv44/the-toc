@@ -31,3 +31,27 @@ export function referencedPlaces(missions: MissionScript[]): string[] {
   }
   return [...out]
 }
+
+/** Is this a name the engine resolves without the author authoring it? */
+export const isBuiltinPlace = (name: string): boolean => BUILTIN.has(name)
+
+// Deep-rewrite one place NAME everywhere a script refers to it. Renaming an
+// authored place would otherwise leave every objective zone, spawn anchor and
+// OPFOR objective pointing at a name that no longer exists — so the rename
+// carries the references with it, which is the only behaviour that is ever
+// what the author meant.
+function rewrite<T>(v: T, from: string, to: string): T {
+  if (Array.isArray(v)) return v.map(x => rewrite(x, from, to)) as unknown as T
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v)) {
+      out[k] = PLACE_KEYS.has(k) && val === from ? to : rewrite(val, from, to)
+    }
+    return out as T
+  }
+  return v
+}
+
+/** every script reference to `from` becomes `to` (objectives, triggers, tutorial) */
+export const renamePlaceRefs = (missions: MissionScript[], from: string, to: string): MissionScript[] =>
+  from === to ? missions : missions.map(m => rewrite(m, from, to))

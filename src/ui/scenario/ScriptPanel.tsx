@@ -20,6 +20,7 @@ import {
   OBJECTIVE_FIELDS, OBJECTIVE_KINDS, conditionDefault, effectDefault,
   objectiveDefault, getPath, setPath, type FieldSpec,
 } from './descriptors'
+import { isBuiltinPlace } from '../../scenario/content'
 
 const MONO = 'Consolas, monospace'
 
@@ -53,12 +54,34 @@ function JsonField({ label, value, opt, placeholder, onApply }: {
   )
 }
 
+/** The place a ref actually names — a bare name, or the `place` of an object
+ *  PlaceRef ({place, toward, range}). Null when nothing is set yet. */
+export function refPlaceName(v: unknown): string | null {
+  if (typeof v === 'string') return v || null
+  if (v && typeof v === 'object') {
+    const p = (v as { place?: unknown }).place
+    return typeof p === 'string' && p ? p : null
+  }
+  return null
+}
+
+/** A ref pointing at a place nobody authored — the dangling reference that
+ *  used to be discovered at play time, said out loud at authoring time. */
+export function placeIssue(v: unknown, placeNames: string[]): string | null {
+  const name = refPlaceName(v)
+  if (!name) return null                       // unset is not wrong, just unset
+  if (placeNames.includes(name) || isBuiltinPlace(name)) return null
+  return `NO PLACE NAMED "${name}"`
+}
+
 // one descriptor-driven field over a verb object
-function FieldInput({ f, obj, placeNames, onChange }: {
+function FieldInput({ f, obj, placeNames, onChange, onCenter }: {
   f: FieldSpec
   obj: unknown
   placeNames: string[]
   onChange: (next: unknown) => void
+  /** show this place on the sheet — where IS the objective, actually */
+  onCenter?: (name: string) => void
 }) {
   const v = getPath(obj, f.path)
   const set = (nv: unknown) => onChange(setPath(obj, f.path, nv))
@@ -68,15 +91,27 @@ function FieldInput({ f, obj, placeNames, onChange }: {
       // a plain name edits in place; an object PlaceRef (offsets/toward) shows
       // as JSON and round-trips through parse — one input for both forms
       const s = typeof v === 'string' ? v : v == null ? '' : JSON.stringify(v)
+      const issue = placeIssue(v, placeNames)
+      const name = refPlaceName(v)
+      const canCenter = !!name && !isBuiltinPlace(name) && placeNames.includes(name)
       return (
-        <Autocomplete size="xs" label={f.label} mb={4} value={s} data={placeNames}
-          styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
-          onChange={nv => {
-            const t = nv.trim()
-            if (!t) { set(f.kind === 'placeOrNull' ? null : ''); return }
-            if (t.startsWith('{')) { try { set(JSON.parse(t)) } catch { set(nv) } }
-            else set(nv)
-          }} />
+        <Box mb={4}>
+          <Group gap={4} align="flex-end" wrap="nowrap">
+            <Autocomplete size="xs" label={f.label} value={s} data={placeNames}
+              error={!!issue} style={{ flex: 1 }}
+              styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+              onChange={nv => {
+                const t = nv.trim()
+                if (!t) { set(f.kind === 'placeOrNull' ? null : ''); return }
+                if (t.startsWith('{')) { try { set(JSON.parse(t)) } catch { set(nv) } }
+                else set(nv)
+              }} />
+            <Button size="compact-xs" variant="default" px={5} disabled={!canCenter}
+              title={canCenter ? `Show ${name} on the sheet` : 'Pick an authored place to locate it'}
+              onClick={() => canCenter && onCenter?.(name!)}>◎</Button>
+          </Group>
+          {issue && <Text fz={8.5} c="#e8524a" mt={2}>⚠ {issue}</Text>}
+        </Box>
       )
     }
     case 'number':
@@ -142,12 +177,13 @@ function FieldInput({ f, obj, placeNames, onChange }: {
 }
 
 // recursive condition form — all/any nest, leaves render descriptor fields
-function CondForm({ c, depth, objectiveIds, placeNames, onChange }: {
+function CondForm({ c, depth, objectiveIds, placeNames, onChange, onCenter }: {
   c: MissionCondition
   depth: number
   objectiveIds: string[]
   placeNames: string[]
   onChange: (c: MissionCondition) => void
+  onCenter?: (name: string) => void
 }) {
   const nested = c.kind === 'all' || c.kind === 'any'
   return (
@@ -157,12 +193,18 @@ function CondForm({ c, depth, objectiveIds, placeNames, onChange }: {
         styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
         onChange={k => k && onChange(conditionDefault(k as MissionCondition['kind']))} />
       {(c.kind === 'objective-active' || c.kind === 'objective-complete') ? (
-        <Autocomplete size="xs" label="OBJECTIVE ID" mb={4} value={c.objective}
-          data={objectiveIds}
-          styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
-          onChange={v => onChange({ ...c, objective: v })} />
+        <>
+          <Autocomplete size="xs" label="OBJECTIVE ID" mb={2} value={c.objective}
+            data={objectiveIds}
+            error={!!c.objective && !objectiveIds.includes(c.objective)}
+            styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+            onChange={v => onChange({ ...c, objective: v })} />
+          {!!c.objective && !objectiveIds.includes(c.objective) && (
+            <Text fz={8.5} c="#e8524a" mb={4}>⚠ NO OBJECTIVE "{c.objective}" IN THIS MISSION</Text>
+          )}
+        </>
       ) : !nested && (CONDITION_FIELDS[c.kind] ?? []).map(f => (
-        <FieldInput key={f.path} f={f} obj={c} placeNames={placeNames}
+        <FieldInput key={f.path} f={f} obj={c} placeNames={placeNames} onCenter={onCenter}
           onChange={nc => onChange(nc as MissionCondition)} />
       ))}
       {nested && (
@@ -171,7 +213,7 @@ function CondForm({ c, depth, objectiveIds, placeNames, onChange }: {
             <Group key={i} gap={4} align="flex-start" wrap="nowrap">
               <Box style={{ flex: 1 }}>
                 <CondForm c={sub} depth={depth + 1} objectiveIds={objectiveIds}
-                  placeNames={placeNames}
+                  placeNames={placeNames} onCenter={onCenter}
                   onChange={nc => onChange({ ...c, of: patchItem(c.of, i, nc) })} />
               </Box>
               <Button size="compact-xs" variant="subtle" c="dark.2" px={4}
@@ -192,12 +234,14 @@ const card: React.CSSProperties = {
   border: '1px solid #22303d', borderRadius: 4, padding: 6, marginBottom: 6,
 }
 
-export default function ScriptPanel({ mission, placeNames, onChange }: {
+export default function ScriptPanel({ mission, placeNames, onChange, onCenter }: {
   /** the ONE mission whose script is on the bench */
   mission: MissionScript
   /** authored places + map gazetteer + builtin anchors */
   placeNames: string[]
   onChange: (patch: Partial<MissionScript>) => void
+  /** put a referenced place on screen — ◎ beside every place field */
+  onCenter?: (name: string) => void
 }) {
   const [raw, setRaw] = useState(false)
   const [rawText, setRawText] = useState('')
@@ -305,7 +349,7 @@ export default function ScriptPanel({ mission, placeNames, onChange }: {
               }),
             })} />
           {OBJECTIVE_FIELDS[o.kind].map(f => (
-            <FieldInput key={f.path} f={f} obj={o} placeNames={placeNames}
+            <FieldInput key={f.path} f={f} obj={o} placeNames={placeNames} onCenter={onCenter}
               onChange={no => onChange({
                 objectives: patchItem(objectives, i, no as MissionObjective),
               })} />
@@ -349,6 +393,7 @@ export default function ScriptPanel({ mission, placeNames, onChange }: {
           </Group>
           <Text fz={8.5} c="dark.3" mb={2}>WHEN</Text>
           <CondForm c={t.when} depth={0} objectiveIds={objectiveIds} placeNames={placeNames}
+            onCenter={onCenter}
             onChange={nc => onChange({
               triggers: patchItem(triggers, i, { ...t, when: nc }),
             })} />
@@ -377,7 +422,7 @@ export default function ScriptPanel({ mission, placeNames, onChange }: {
                   })}>✕</Button>
               </Group>
               {EFFECT_FIELDS[e.kind].map(f => (
-                <FieldInput key={f.path} f={f} obj={e} placeNames={placeNames}
+                <FieldInput key={f.path} f={f} obj={e} placeNames={placeNames} onCenter={onCenter}
                   onChange={ne => onChange({
                     triggers: patchItem(triggers, i,
                       { ...t, do: patchItem(t.do, j, ne as MissionEffect) }),
