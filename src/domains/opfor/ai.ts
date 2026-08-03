@@ -255,6 +255,26 @@ export function spawnCampaignGroup(
   return raiseGroup(comp, name, from, musterT)
 }
 
+/** Form a battlegroup from ALREADY-PLACED units (scenario-authored, tagged in
+ *  the builder): no spawn, no muster scatter — the units stand exactly where
+ *  the author put them and the group enters the normal muster→advance flow. */
+export function formBattlegroup(name: string, units: Unit[]): number {
+  const gid = newMoveGroup()
+  for (const u of units) {
+    u.aiRole = 'bg'
+    u.bgGroup = gid
+    u.bgRole = (u.type === 'SCT' || u.type === 'CAV') ? 'recon' : 'main'
+    orderRoe(u.id, u.bgRole === 'recon' ? 'break' : 'halt')
+  }
+  const grp: Battlegroup = {
+    id: gid, name, phase: 'muster',
+    musterT: 3 + S.rng!() * 3, retaskT: 0, objective: null,
+    members: units.map(u => u.id), initStr: units.length * 100, dead: false,
+  }
+  S.enemyGroups.push(grp)
+  return gid
+}
+
 function updateBattlegroup(grp: Battlegroup, dt: number): void {
   const mem = grp.members
     .map(id => S.units.find(u => u.id === id))

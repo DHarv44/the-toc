@@ -1,10 +1,11 @@
-// SCENARIO EDITOR — the war drawn on top of the geography.
+// MAP DEFAULTS EDITOR — the sidecar's fallback war.
 //
-// A pack map's .gwpack is ground; where the FOB sits and where the enemy digs
-// in is SCENARIO, and it lives in the map.json sidecar beside the ground
-// (GROUNDWORK.md: geography vs scenario). This is the placement step: the
-// exact BFT sheet, the two base markers, click to move them, save the
-// sidecar. Groundwork never learns what a FOB is.
+// A pack map's .gwpack is ground; the map.json sidecar carries the map's
+// DEFAULTS — where the HQ and enemy base sit when a bare skirmish plays this
+// map with no scenario. Authored battles are the SCENARIO BUILDER's job
+// (scenario.json, the one content type); this small step only places the two
+// default base markers on the exact BFT sheet and saves the sidecar.
+// Groundwork never learns what a FOB is.
 //
 // Deliberately small: no pan/zoom, the whole map in one square pane. Base
 // placement is a battalion-level decision — tens of metres of pointer slop on
@@ -21,7 +22,7 @@ import type { WorldMap } from '../world/WorldMap'
 const MONO = 'Consolas, monospace'
 const FOB_C = '#7ec8ff', ENEMY_C = '#ff8a7e'
 
-export default function ScenarioEditor({ entry, onClose }: {
+export default function MapDefaultsEditor({ entry, onClose }: {
   entry: PackMapEntry
   onClose: () => void
 }) {
@@ -106,7 +107,7 @@ export default function ScenarioEditor({ entry, onClose }: {
       <Group gap="md" align="center" pb={10} style={{ borderBottom: '2px solid #2a3a48' }}>
         <Box style={{ flex: 1 }}>
           <Text fz={20} fw={700} c="#dceeff" style={{ letterSpacing: 3 }}>
-            SCENARIO · {entry.name}
+            MAP DEFAULTS · {entry.name}
           </Text>
           <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
             THE WAR ON TOP OF THE GROUND · BASES NOW, MSR LATER

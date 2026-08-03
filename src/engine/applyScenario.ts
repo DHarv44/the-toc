@@ -1,0 +1,101 @@
+// APPLY A SCENARIO — authored content enters the sim through this ONE path:
+// the campaign's opening.json (startCampaign), the skirmish scenario flow,
+// the builder's PLAY loop, and (E3) Zeus placements all call the same verbs
+// the player's own orders use — addStructure / deployUnit / spawnEnemy —
+// so nothing placed by an author behaves differently from something placed
+// in play. Composition-root family (like engine/scenario.ts): allowed to
+// import the domains.
+import type { GameState, Unit, Roe, WeaponsControl } from './GameState'
+import type { ScenarioSpec, ScenarioUnit } from '../scenario/types'
+import type { UnitTypeKey } from '../domains/forces/catalog'
+import { frameOf, normToWorld } from '../world/pack/frame'
+import { addStructure, deployUnit } from '../domains/installations/orders'
+import { spawnEnemy } from '../domains/forces/factory'
+import { orderMove } from '../domains/forces/orders'
+import { formBattlegroup } from '../domains/opfor/ai'
+
+function applyUnitAttrs(unit: Unit, u: ScenarioUnit): void {
+  if (u.heading != null) unit.heading = u.heading
+  if (u.dug) { unit.posture = 'dig'; unit.digT = 1 } // fortified BEFORE H-hour
+  if (u.roe) unit.roe = u.roe as Roe
+  if (u.weapons) unit.weapons = u.weapons as WeaponsControl
+}
+
+// H-hour intel: what the BLUFOR picture already holds about a hostile.
+// 'known' = a stale contact at truth, type identified; 'suspected' = the
+// last-known template — an UNKNOWN contact scattered off truth (the marker is
+// deliberately not where the unit is; scouts still have to find them).
+function seedIntel(S: GameState, unit: Unit, u: ScenarioUnit): void {
+  if (!u.intel) return
+  const scatter = u.intel === 'suspected' ? (u.scatter ?? 400) : 0
+  S.contacts.set(unit.id, {
+    x: unit.x + (S.rng!() - 0.5) * scatter,
+    y: unit.y + (S.rng!() - 0.5) * scatter,
+    type: unit.type, lastSeen: 0, live: false, strength: 100,
+    unknown: u.intel === 'suspected',
+  })
+}
+
+/** Apply a scenario's placed entities onto a BUILT world (S.map ready).
+ *  Deterministic: scatter draws go through S.rng in declaration order. */
+export function applyScenario(S: GameState, spec: ScenarioSpec): void {
+  const f = frameOf(S.map!.ground!.files.manifest)
+  const w = (p: { x: number; y: number }) => normToWorld(f, p.x, p.y)
+
+  if (spec.fog != null) S.fogEnabled = spec.fog
+
+  // the authored gazetteer — script place refs resolve against these names
+  // (engine/missions/places.ts checks it right after the builtin anchors)
+  S.scenarioPlaces = new Map((spec.places ?? []).map(p => {
+    const pt = w(p)
+    return [p.name, { x: pt.x, y: pt.y, ...(p.r != null ? { r: p.r } : {}) }]
+  }))
+
+  for (const st of spec.structures) {
+    const p = w(st)
+    const s = addStructure(st.side, st.kind, p.x, p.y, st.label, !st.building)
+    if (st.stock != null) s.stock = st.stock
+    if (st.side === 'hostile' && st.intel === 'known') S.structContacts.add(s.id)
+  }
+  // the builtin anchors follow the placed HQs (same rule as the dev sandbox):
+  // player-hq / enemy-base resolve to where the author put the headquarters
+  const hq = S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')
+  if (hq) S.map!.fob = { x: hq.x, y: hq.y }
+  const ehq = S.structures.find(s => s.side === 'hostile' && s.kind === 'HQ')
+  if (ehq) S.map!.enemyBase = { x: ehq.x, y: ehq.y }
+
+  // units — friendly through the fielding verb (free placement, garrison
+  // troops stay home), hostiles through the factory (garrison AI role)
+  const placed: { unit: Unit; authored: ScenarioUnit }[] = []
+  for (const u of spec.units) {
+    const p = w(u)
+    let unit: Unit | null = null
+    if (u.side === 'friend') {
+      if (u.garrison) continue // in garrison at H-hour — the commander calls it up
+      unit = deployUnit(u.type as UnitTypeKey, p.x, p.y, true)
+    } else {
+      unit = spawnEnemy(u.type as UnitTypeKey, p.x, p.y)
+      seedIntel(S, unit, u)
+    }
+    if (!unit) continue
+    placed.push({ unit, authored: u })
+    for (const wp of u.route ?? []) {
+      const q = w(wp)
+      orderMove(unit.id, q.x, q.y, true)
+    }
+  }
+
+  // tagged hostiles become BATTLEGROUPS in place — defeat-group objectives
+  // and triggers reference the tag
+  const tagged = new Map<string, Unit[]>()
+  for (const { unit, authored } of placed) {
+    if (authored.side === 'hostile' && authored.tag) {
+      tagged.set(authored.tag, [...(tagged.get(authored.tag) ?? []), unit])
+    }
+  }
+  for (const [tag, units] of tagged) formBattlegroup(tag, units)
+
+  // authored attributes LAST: the author's explicit heading/dug/ROE/weapons
+  // outlive any default the factory or group formation set
+  for (const { unit, authored } of placed) applyUnitAttrs(unit, authored)
+}

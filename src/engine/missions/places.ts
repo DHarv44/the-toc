@@ -13,6 +13,11 @@ function named(S: GameState, name: string): Vec2 {
   const m = S.map!
   if (name === 'player-hq') return { x: m.fob.x, y: m.fob.y }
   if (name === 'enemy-base') return { x: m.enemyBase.x, y: m.enemyBase.y }
+  // the applied scenario's AUTHORED gazetteer (builder places) — checked
+  // before campaign anchors so a scenario can re-anchor a name like
+  // 'strongpoint' on new ground
+  const sp = S.scenarioPlaces?.get(name)
+  if (sp) return { x: sp.x, y: sp.y }
   const a = S.campaign
   if (a?.anchors && name in a.anchors) {
     const p = a.anchors[name]!

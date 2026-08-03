@@ -34,6 +34,9 @@ export interface ScenarioStructure {
   building?: boolean
   /** FOB starting stock override */
   stock?: number
+  /** hostile only: BLUFOR knows this structure at H-hour (ghosted on the COP
+   *  — the enemy-HQ treatment). Absent = found like anything else. */
+  intel?: 'known'
 }
 
 export interface ScenarioUnit {
@@ -51,6 +54,14 @@ export interface ScenarioUnit {
   garrison?: boolean
   /** OPFOR battlegroup tag — what defeat-group objectives and triggers reference */
   tag?: string
+  /** hostile only: what the BLUFOR picture holds at H-hour.
+   *  absent — invisible until a sensor finds it
+   *  'known' — a stale contact at its TRUE position (type identified)
+   *  'suspected' — last-known intel: a stale UNKNOWN contact templated up to
+   *  `scatter` metres off truth — the marker is not where the unit is */
+  intel?: 'known' | 'suspected'
+  /** suspected only: template scatter radius, metres (default 400) */
+  scatter?: number
   /** authored movement route at H-hour, norm coords in order */
   route?: { x: number; y: number }[]
 }

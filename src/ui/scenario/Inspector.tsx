@@ -1,6 +1,6 @@
 // The attribute inspector: every placed entity is editable here — Eden's
 // grammar. Patches flow up as partial entity updates; DELETE removes.
-import { Box, Button, Checkbox, NumberInput, Text, TextInput } from '@mantine/core'
+import { Box, Button, Checkbox, NumberInput, Select, Text, TextInput } from '@mantine/core'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import type { Entity } from '../../scenario/edit'
 
@@ -54,6 +54,11 @@ export default function Inspector({ e, onPatch, onDelete }: {
                 <NumberInput size="xs" label="STARTING STOCK" value={e.stock ?? ''} mb={6}
                   min={0} onChange={v => onPatch({ stock: typeof v === 'number' ? v : undefined })} />
               )}
+              {e.side === 'hostile' && (
+                <Checkbox size="xs" label="KNOWN AT H-HOUR (GHOSTED ON THE COP)" mb={6}
+                  checked={e.intel === 'known'}
+                  onChange={ev => onPatch({ intel: ev.currentTarget.checked ? 'known' : undefined })} />
+              )}
             </>
           )}
           {e.ent === 'unit' && (
@@ -69,9 +74,29 @@ export default function Inspector({ e, onPatch, onDelete }: {
                 <Checkbox size="xs" label="STARTS IN GARRISON" mb={6} checked={!!e.garrison}
                   onChange={ev => onPatch({ garrison: ev.currentTarget.checked || undefined })} />
               ) : (
-                <TextInput size="xs" label="BATTLEGROUP TAG" value={e.tag ?? ''} mb={6}
-                  placeholder="BG NORTH"
-                  onChange={ev => onPatch({ tag: ev.currentTarget.value.toUpperCase() || undefined })} />
+                <>
+                  <TextInput size="xs" label="BATTLEGROUP TAG" value={e.tag ?? ''} mb={6}
+                    placeholder="BG NORTH"
+                    onChange={ev => onPatch({ tag: ev.currentTarget.value.toUpperCase() || undefined })} />
+                  {/* what the BLUFOR picture holds at H-hour — SUSPECTED is
+                      last-known intel: the marker scatters off the truth */}
+                  <Select size="xs" label="H-HOUR INTEL" mb={6}
+                    value={e.intel ?? 'none'}
+                    data={[
+                      { value: 'none', label: 'UNKNOWN — FOUND LIKE ANYTHING ELSE' },
+                      { value: 'known', label: 'KNOWN — STALE CONTACT AT TRUTH' },
+                      { value: 'suspected', label: 'SUSPECTED — SCATTERED LAST-KNOWN' },
+                    ]}
+                    onChange={v => onPatch({
+                      intel: v === 'known' || v === 'suspected' ? v : undefined,
+                      ...(v !== 'suspected' ? { scatter: undefined } : {}),
+                    })} />
+                  {e.intel === 'suspected' && (
+                    <NumberInput size="xs" label="SCATTER M (MARKER OFF TRUTH, UP TO)" mb={6}
+                      value={e.scatter ?? 400} min={0} step={50}
+                      onChange={v => onPatch({ scatter: typeof v === 'number' ? v : undefined })} />
+                  )}
+                </>
               )}
             </>
           )}

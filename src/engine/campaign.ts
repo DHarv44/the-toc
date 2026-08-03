@@ -57,6 +57,7 @@ import { pipelineBacklog } from '../domains/forces/pipeline'
 import { preAllocate } from '../domains/assets/registry'
 import { resolveAnchor, resolvePlace } from './missions/places'
 import { runEffects } from './missions/effects'
+import { applyScenario } from './applyScenario'
 
 // Palette gate: outside the campaign everything is allowed; inside, the current
 // mission decides what the player may do (M1 locks fielding + support to keep the
@@ -228,27 +229,11 @@ export function startCampaign(S: GameState): void {
   const spec = activeCampaign()
   _op = null // rebuild the runtime operation view for this campaign
   buildOperation()
-  // strip the default A&D staging down to the campaign's clean slate: the
-  // friendly command post AND its airstrip — the lodgment's airfield is
-  // division-echelon infrastructure that exists at H-hour (a battalion doesn't
-  // build one; that would be its own tasking) — plus the ENEMY HQ far north,
-  // which stays on the board as KNOWN intel (a battalion knows where the
-  // enemy's main base is; it's why the operation exists). The campaign places
-  // every hostile unit.
-  S.structures = S.structures.filter(s =>
-    (s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'AFLD'))
-    || (s.side === 'hostile' && s.kind === 'HQ'))
-  for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
-  // the battalion CP gets a NAME, like every real position does — and the
-  // strip carries the same one (it's the CP's airfield). Names are CAMPAIGN data.
-  for (const st of S.structures) {
-    if (st.side === 'friend' && st.kind === 'HQ') st.label = spec.manifest.hqLabel
-    if (st.side === 'friend' && st.kind === 'AFLD') st.label = spec.manifest.airfieldLabel
-  }
+  // the staged pre-campaign force never existed — slots start fresh, and the
+  // division org reissues BEFORE any authored placement draws real slots.
+  // Player's name goes on the command group (the player IS that battalion's CO).
   S.units = []
-  S.counters.lineage = {} // the staged pre-campaign force never existed — slots start fresh
-  // …and neither did its slot draws: reissue the division org, then put the
-  // player's name on the 2-8 CAV command group (the player IS that battalion's CO)
+  S.counters.lineage = {}
   S.org = buildDivisionOrg(playerPack())
   if (S.org) setBnCommander(S.org, playerPack().formation?.playerBn ?? '2-8 CAV', _commanderPending)
   S.enemyGroups = []
@@ -256,6 +241,32 @@ export function startCampaign(S: GameState): void {
   S.enemyResources = 0
   S.enemySupplyLift = 0
   S.opforCmd.posture = 'attack'
+  if (spec.opening) {
+    // the CAMPAIGN SCENARIO is authoritative for H-hour: the default A&D
+    // staging is discarded wholesale and opening.json places the world —
+    // structures, garrisons, battlegroups, intel picture, authored gazetteer
+    S.structures = []
+    applyScenario(S, spec.opening)
+  } else {
+    // no opening authored (today's LODGMENT shape — mission 1's triggers
+    // place the world): strip the default A&D staging down to the campaign's
+    // clean slate: the friendly command post AND its airstrip — the
+    // lodgment's airfield is division-echelon infrastructure that exists at
+    // H-hour (a battalion doesn't build one; that would be its own tasking) —
+    // plus the ENEMY HQ far north, which stays on the board as KNOWN intel
+    // (a battalion knows where the enemy's main base is; it's why the
+    // operation exists). The campaign places every hostile unit.
+    S.structures = S.structures.filter(s =>
+      (s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'AFLD'))
+      || (s.side === 'hostile' && s.kind === 'HQ'))
+    for (const st of S.structures) if (st.side === 'hostile') S.structContacts.add(st.id)
+    // the battalion CP gets a NAME, like every real position does — and the
+    // strip carries the same one (it's the CP's airfield). Names are CAMPAIGN data.
+    for (const st of S.structures) {
+      if (st.side === 'friend' && st.kind === 'HQ') st.label = spec.manifest.hqLabel
+      if (st.side === 'friend' && st.kind === 'AFLD') st.label = spec.manifest.airfieldLabel
+    }
+  }
   // scarcity is real from mission one: sister formations hold most of the
   // division's assets at H-hour; the operation's progress frees them
   // (mission triggers release with net traffic). The list is CAMPAIGN data.
@@ -286,6 +297,9 @@ export function startCampaign(S: GameState): void {
     anchors, strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
+  // opening-placed battlegroups exist from H-hour — let defeat-group
+  // objectives on them latch (spawn-group effects stamp this for scripted ones)
+  if (S.enemyGroups.length) S.campaign.eventT = 0
   activateObjective(S, S.campaign) // objective 1 stages the opening fight
   S.speed = 0                      // hold for the opening briefing; ackBriefing resumes
 }

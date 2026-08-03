@@ -699,6 +699,9 @@ export interface GameState {
   pontoons: number[]         // cell indices of engineer-laid bridges
   contacts: Map<number, Contact>
   structContacts: Set<number> // spotted hostile structure ids (permanent)
+  /** the applied scenario's authored gazetteer (name → world point/zone) —
+   *  script place refs resolve against it; null outside scenario play */
+  scenarioPlaces: Map<string, { x: number; y: number; r?: number }> | null
   fogEnabled: boolean
   devMode: boolean           // dev sandbox only: exposes the fog/supply cheats
   difficulty: DifficultyKey
@@ -753,6 +756,7 @@ export function createInitialState(): GameState {
     pontoons: [],
     contacts: new Map(),
     structContacts: new Set(),
+    scenarioPlaces: null,
     fogEnabled: true,
     devMode: false,
     difficulty: 'regular',

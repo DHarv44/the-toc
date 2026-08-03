@@ -49,6 +49,7 @@ export function initGame(
   S.pontoons = []
   S.contacts = new Map()
   S.structContacts = new Set()
+  S.scenarioPlaces = null
   S.downed = []
   S.replT = 0
   S.radio = []

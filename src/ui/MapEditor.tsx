@@ -24,7 +24,7 @@ import '@dharv44/groundwork-builder/styles.css'
 import koppenUrl from '@dharv44/groundwork-builder/assets/koppen_0p1.png'
 import { installedPacks } from '../packs'
 import { packMaps, type PackMapEntry } from '../packs/map-files'
-import ScenarioEditor from './ScenarioEditor'
+import MapDefaultsEditor from './MapDefaultsEditor'
 
 const MONO = 'Consolas, monospace'
 const KOPPEN_FILE = 'koppen_0p1.png'
@@ -60,8 +60,9 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
   const [name, setName] = useState(() => lastEntry?.name.toUpperCase() ?? 'NEW MAP')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  // the SCENARIO step: bases (MSR later) placed on the exact sheet of a saved map
-  const [scenario, setScenario] = useState<PackMapEntry | null>(null)
+  // the DEFAULTS step: the sidecar's fallback bases, placed on the exact
+  // sheet of a saved map (authored battles live in the SCENARIO BUILDER)
+  const [defaults, setDefaults] = useState<PackMapEntry | null>(null)
   // the builder's state, live — SAVE lights up once a terrain is actually built
   const built = useStore(s => !!s.heightField)
   // Satellite in-game is decided by the builder's own drape at save time
@@ -145,7 +146,7 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
     } finally { setBusy(false) }
   }
 
-  if (scenario) return <ScenarioEditor entry={scenario} onClose={() => setScenario(null)} />
+  if (defaults) return <MapDefaultsEditor entry={defaults} onClose={() => setDefaults(null)} />
 
   return (
     <Box pos="fixed" inset={0} bg="#05080b"
@@ -177,17 +178,17 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
         <Button size="sm" onClick={() => void save()} loading={busy} disabled={!built}>
           SAVE TO PACK
         </Button>
-        {/* scenario placement works on the SAVED map (its sidecar is the
+        {/* defaults placement works on the SAVED map (its sidecar is the
             artifact) — for a map saved this session, reload first so
             discovery has picked it up */}
         <Button size="sm" variant="default"
           disabled={!packMaps().some(m => m.packId === packId && m.mapId === slugify(name))}
-          title="Place the FOB and enemy base on the saved map's sheet"
+          title="Place the map's default HQ and enemy base — what a bare skirmish uses when no scenario is picked"
           onClick={() => {
             const e = packMaps().find(m => m.packId === packId && m.mapId === slugify(name))
-            if (e) setScenario(e)
+            if (e) setDefaults(e)
           }}>
-          SCENARIO
+          DEFAULTS
         </Button>
         <Button size="sm" variant="default" onClick={onExit}>◀ MAIN MENU</Button>
       </Group>
