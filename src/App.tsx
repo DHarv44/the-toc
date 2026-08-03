@@ -23,13 +23,13 @@ import ScenarioBuilder from './ui/scenario/ScenarioBuilder'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
-import { initGame, initDevGame } from './engine/scenario'
+import { initGame, initDevGame, initScenarioGame } from './engine/scenario'
 import { startLoop } from './engine/SimLoop'
-import { buildGameMap, type MapRef } from './world/mapref'
+import { buildGameMap } from './world/mapref'
 import { packMap, packMaps } from './packs/map-files'
 import { playerPack } from './packs'
-import { setActiveCampaign, setCampaignTutorial } from './engine/campaign'
-import { campaignEntry } from './packs/campaigns'
+import { setActiveScenario, setCampaignTutorial } from './engine/campaign'
+import { packScenario } from './packs/scenario-files'
 
 export default function App() {
   // if a game is already running (e.g. after an HMR remount), skip the splash
@@ -54,7 +54,7 @@ export default function App() {
 
   // map building is async (the pack file is read and decoded) — the splash
   // stays up while buildGameMap resolves the MapRef into ground
-  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial, campaign) => {
+  const begin: StartFn = (mode, difficulty, gameMode, terrain, tutorial, scenario) => {
     void (async () => {
       if (mode === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
@@ -62,29 +62,29 @@ export default function App() {
         const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
         if (!dev) throw new Error('no pack maps installed — author one in the MAP EDITOR')
         initDevGame(await buildGameMap({ kind: 'pack', packId: dev.packId, mapId: dev.mapId }))
-      } else {
-        const isCampaign = gameMode === 'campaign'
-        // campaign scenario rng is fixed (reproducible operation); skirmish rolls
-        const seed = isCampaign ? 1 : (Date.now() % 100000)
-        // Which ground: the campaign names its own pack map; skirmish plays
-        // the picked one ('packId/mapId'). There is nothing else (P6).
-        let ref: MapRef
+      } else if (scenario) {
+        // an AUTHORED scenario ('packId/scenarioId') — its type IS the mode
+        // (SCENARIO-MODEL.md): campaign-typed plays the campaign runner,
+        // skirmish types run their ruleset over the authored situation
+        const [sp, sid] = scenario.split('/') as [string, string]
+        const entry = packScenario(sp, sid)
+        if (!entry) throw new Error(`scenario '${scenario}' is not installed`)
+        if (!entry.spec.map) throw new Error(`scenario '${scenario}' has no authored ground`)
+        const [mp, mid] = entry.spec.map.split('/') as [string, string]
+        const map = await buildGameMap({ kind: 'pack', packId: mp, mapId: mid })
+        const isCampaign = entry.spec.type === 'campaign'
         if (isCampaign) {
-          // the splash picked a campaign ('packId/campaignId'); the discovery
-          // service resolved its ground — bind both before the world builds
-          const [cp, cid] = (campaign ?? '').split('/') as [string, string]
-          const entry = campaignEntry(cp, cid)
-          if (!entry?.map) throw new Error(`campaign '${campaign}' has no authored ground`)
-          setActiveCampaign(entry.campaign)
-          ref = { kind: 'pack', packId: entry.map.packId, mapId: entry.map.mapId }
-          setCampaignTutorial(!!tutorial) // read by startCampaign
-        } else {
-          if (!terrain) throw new Error('skirmish needs a pack map')
-          const [packId, mapId] = terrain.split('/') as [string, string]
-          ref = { kind: 'pack', packId, mapId }
+          setActiveScenario(entry.spec)       // read by startCampaign
+          setCampaignTutorial(!!tutorial)
         }
-        const map = await buildGameMap(ref)
-        initGame(map, seed, difficulty, gameMode)
+        // campaign rng is fixed (reproducible operation); skirmish rolls
+        initScenarioGame(map, entry.spec, isCampaign ? 1 : (Date.now() % 100000), difficulty)
+      } else {
+        // QUICK BATTLE — a bare pack map under the picked ruleset, default staging
+        if (!terrain || !gameMode) throw new Error('quick battle needs a mode and a pack map')
+        const [packId, mapId] = terrain.split('/') as [string, string]
+        const map = await buildGameMap({ kind: 'pack', packId, mapId })
+        initGame(map, Date.now() % 100000, difficulty, gameMode)
       }
       startLoop()
       setStarted(true)

@@ -62,14 +62,14 @@ scenario fields with engine defaults.
 
 ## Phases
 
-### C1 — Schema                                        [ ]
+### C1 — Schema                                        [x]
 - `ScenarioSpec`: `type` (authored), required `map`, `situation` section,
   `missions: MissionScript[]` (id/name/brief/frago/objectives/triggers/
   tutorial — no map, no coords of its own), optional campaign extras
   (operation, hqLabel, airfieldLabel, divHq, anchors, preAllocations).
 - `CampaignSpec`, `MissionSpec` remnants, `ScenarioSpec.id/mode` die.
 
-### C2 — Discovery + content                           [ ]
+### C2 — Discovery + content                           [x]
 - `scenario-files.ts` reads BOTH forms: `scenarios/<id>.json` and
   `scenarios/<id>/scenario.json` + `missions/*.json` (filename-sorted),
   assembling one spec. `campaign-files.ts`, `campaigns.ts` deleted.
@@ -78,7 +78,7 @@ scenario fields with engine defaults.
   listed-not-startable) + `missions/01-lodgment.json`. Old campaigns/ tree
   deleted.
 
-### C3 — Engine                                        [ ]
+### C3 — Engine                                        [x]
 - Campaign runner reads a ScenarioSpec: `activeCampaign()` →
   `activeScenario()`; `buildOperation` walks `spec.missions` in array order;
   situation applied via `applyScenario`; manifest extras read from spec
@@ -89,11 +89,11 @@ scenario fields with engine defaults.
 - CAMPAIGNS menu lists `type: 'campaign'` scenarios (greyed while `map`
   absent). CONTINUE stub unchanged.
 
-### C4 — pack-io                                       [ ]
+### C4 — pack-io                                       [x]
 - `/__gwscenario` learns both forms: flat file, or folder writes
   (`file=scenario` | `file=mission&id=NN-slug`). `/__gwcampaign` deleted.
 
-### C5 — Builder                                       [ ]
+### C5 — Builder                                       [x]
 - Dropdown = TYPE: A&D / KOTH / BASE DEFENSE / CAMPAIGN. Destination select
   dies — a scenario saves to its pack, period.
 - LOAD panel (right rail tab, default): flat rows with type badges;
@@ -105,7 +105,7 @@ scenario fields with engine defaults.
 - H-hour warning: placements live in the SITUATION; mission scripts warn if
   they would need placements.
 
-### C6 — Docs + sweep                                  [ ]
+### C6 — Docs + sweep                                  [x]
 - SCENARIO-BUILDER.md vocabulary section superseded by this file (pointer
   left). ROADMAP touch. Grep sweep: no `CampaignSpec`, no `campaigns/` refs,
   no 'opening', no destination code left.

@@ -17,6 +17,8 @@ import {
 import { addStructure, deployUnit } from '../domains/installations/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import type { UnitTypeKey } from '../domains/forces/catalog'
+import type { ScenarioSpec } from '../scenario/types'
+import { applyScenario } from './applyScenario'
 import { playerPack, installActivePacks } from '../packs'
 import { buildDivisionOrg } from '../packs/org'
 import { buildAssetRegistry } from '../domains/assets/registry'
@@ -120,6 +122,22 @@ export function initGame(
 
   // mode-specific scenario shaping (e.g. King of the Hill places its objective)
   MODES[mode].setup?.(S)
+}
+
+// Start an AUTHORED scenario (SCENARIO-MODEL.md): the type IS the mode.
+// 'campaign' delegates — the campaign mode's setup reads the active scenario
+// (the caller set it) and applies the situation itself. Skirmish types run
+// their ruleset over the authored situation: the default staging is
+// discarded wholesale and the situation is the world.
+export function initScenarioGame(
+  map: WorldMap, spec: ScenarioSpec, seed = 1337,
+  difficulty: string = DEFAULT_DIFFICULTY,
+): void {
+  initGame(map, seed, difficulty, spec.type)
+  if (spec.type === 'campaign') return // startCampaign applied the situation
+  S.units = []
+  S.structures = []
+  applyScenario(S, spec)
 }
 
 // Dev sandbox: a compact, reproducible scenario for fast feature testing — fog off,

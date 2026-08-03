@@ -6,19 +6,26 @@
 import { useState, type ReactNode } from 'react'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
-import { packMaps } from '../packs/map-files'
-import { installedCampaigns, type CampaignEntry } from '../packs/campaigns'
+import { packMap, packMaps } from '../packs/map-files'
+import { packScenarios, type PackScenarioEntry } from '../packs/scenario-files'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
 } from '../domains/economy/difficulty'
 
 export type StartFn = (
   mode: 'dev' | 'new', difficulty?: DifficultyKey, gameMode?: ModeId,
-  /** 'packId/mapId' — the pack map to play (skirmish; the campaign names its own) */
+  /** 'packId/mapId' — the pack map for a QUICK BATTLE (bare map, default staging) */
   terrain?: string, tutorial?: boolean,
-  /** 'packId/campaignId' — which campaign (campaign mode) */
-  campaign?: string,
+  /** 'packId/scenarioId' — an AUTHORED scenario; its type is the mode */
+  scenario?: string,
 ) => void
+
+/** the scenario's ground, resolved — null when unauthored or not installed */
+const groundOf = (s: PackScenarioEntry) => {
+  if (!s.spec.map) return null
+  const [p, m] = s.spec.map.split('/') as [string, string]
+  return packMap(p, m) ?? null
+}
 
 // modes on the roadmap but not yet playable — shown greyed so the selector reads
 // as a real choice with a future, not a single lonely button
@@ -41,7 +48,8 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   onStart: StartFn; onPacks: () => void; onMaps: () => void; onScenarios: () => void
 }) {
   const [top, setTop] = useState<'skirmish' | 'campaign' | null>(null)
-  const [campaignSel, setCampaignSel] = useState<CampaignEntry | null>(null)
+  const [campaignSel, setCampaignSel] = useState<PackScenarioEntry | null>(null)
+  const [skirmishSel, setSkirmishSel] = useState<PackScenarioEntry | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
   const [gameMode, setGameMode] = useState<ModeId | null>(null)
@@ -49,9 +57,12 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   const [terrain, setTerrain] = useState<string | undefined>(undefined)
 
   const maps = packMaps()
-  // every installed pack's campaigns — a campaign only starts once its real
-  // ground is authored (the manifest's `map`); until then its card says why not
-  const campaigns = installedCampaigns()
+  // one content object, split by the AUTHORED type (SCENARIO-MODEL.md):
+  // campaign-typed scenarios play from CAMPAIGNS, the rest from SKIRMISH.
+  // A scenario only starts once its ground exists; until then its card says why.
+  const scenarios = packScenarios()
+  const campaigns = scenarios.filter(s => s.spec.type === 'campaign')
+  const skirmishScns = scenarios.filter(s => s.spec.type !== 'campaign')
 
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
@@ -116,21 +127,21 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
         <div style={{ position: 'relative', width: 340 }}>
           <SectionLabel>CAMPAIGNS · CHOOSE</SectionLabel>
           {campaigns.map((e) => {
-            const m = e.campaign.manifest
-            return e.map ? (
-              <SplashButton key={`${e.packId}/${m.id}`} label={m.name}
-                sub={`${e.packAbbr} · OPERATION ${m.operation} · ${e.map.name.toUpperCase()}`}
+            const g = groundOf(e)
+            return g ? (
+              <SplashButton key={`${e.packId}/${e.scenarioId}`} label={e.name}
+                sub={`${e.packId.toUpperCase()} · OPERATION ${e.spec.operation ?? e.name} · ${g.name.toUpperCase()}`}
                 accent="#7ec8ff" onClick={() => setCampaignSel(e)} />
             ) : (
-              <ComingSoon key={`${e.packId}/${m.id}`} label={m.name}
-                sub={`${e.packAbbr} · Awaiting authored ground — its map is built in the MAP EDITOR`} />
+              <ComingSoon key={`${e.packId}/${e.scenarioId}`} label={e.name}
+                sub={`${e.packId.toUpperCase()} · Awaiting authored ground — bind a map in the SCENARIO BUILDER`} />
             )
           })}
           <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
       ) : top === 'campaign' ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>{campaignSel!.campaign.manifest.name} · NEW CAMPAIGN</SectionLabel>
+          <SectionLabel>{campaignSel!.name} · NEW CAMPAIGN</SectionLabel>
           {/* CONTINUE lands with the battlefield serializer (Save/Continue) —
               greyed until a save exists for this campaign */}
           <ComingSoon label="CONTINUE" sub="No save on file · Save/Continue is in the works" />
@@ -142,8 +153,8 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
                 recommended={k === DEFAULT_DIFFICULTY}
                 onClick={() => {
                   setCampaignCommander(commander)
-                  onStart('new', k, 'campaign', undefined, campaignTut,
-                    `${campaignSel!.packId}/${campaignSel!.campaign.manifest.id}`)
+                  onStart('new', k, undefined, undefined, campaignTut,
+                    `${campaignSel!.packId}/${campaignSel!.scenarioId}`)
                 }} />
             )
           })}
@@ -166,14 +177,50 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
               label="TUTORIAL HINTS" sub="On-screen prompts teach each action as it comes up" />
           </div>
         </div>
-      ) : gameMode == null ? (
+      ) : skirmishSel != null ? (
         <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>SKIRMISH · STEP 1 OF 3 · MODE</SectionLabel>
+          <SectionLabel>{skirmishSel.name} · DIFFICULTY</SectionLabel>
+          {DIFFICULTY_ORDER.map((k) => {
+            const d = DIFFICULTIES[k]
+            return (
+              <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
+                stats={toughness(d.damageMul)}
+                recommended={k === DEFAULT_DIFFICULTY}
+                onClick={() => onStart('new', k, undefined, undefined, undefined,
+                  `${skirmishSel.packId}/${skirmishSel.scenarioId}`)} />
+            )
+          })}
+          <BackButton onClick={() => setSkirmishSel(null)}>
+            ← {skirmishSel.name} — CHANGE
+          </BackButton>
+        </div>
+      ) : gameMode == null ? (
+        <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
+          <SectionLabel>SKIRMISH · QUICK BATTLE</SectionLabel>
           {MODE_ORDER.map((id) => (
             <SplashButton key={id} label={MODES[id].label} sub={MODES[id].sub} accent="#2a5a8a"
               onClick={() => setGameMode(id)} />
           ))}
           {COMING_SOON.map((m) => <ComingSoon key={m.label} label={m.label} sub={m.sub} />)}
+          {/* authored scenarios — the type badge says which rules judge them,
+              the card says which ground; one click skips mode AND map */}
+          {skirmishScns.length > 0 && (
+            <>
+              <div style={{ height: 12 }} />
+              <SectionLabel>SKIRMISH · SCENARIOS</SectionLabel>
+              {skirmishScns.map((e) => {
+                const g = groundOf(e)
+                return g ? (
+                  <SplashButton key={`${e.packId}/${e.scenarioId}`} label={e.name}
+                    sub={`${MODES[e.spec.type]?.label ?? e.spec.type} · ${g.name.toUpperCase()} · authored scenario`}
+                    accent="#8a6a2a" onClick={() => setSkirmishSel(e)} />
+                ) : (
+                  <ComingSoon key={`${e.packId}/${e.scenarioId}`} label={e.name}
+                    sub="Awaiting authored ground — bind a map in the SCENARIO BUILDER" />
+                )
+              })}
+            </>
+          )}
           <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
       ) : terrain === undefined ? (

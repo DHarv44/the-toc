@@ -19,6 +19,7 @@ import { StaffTable, Td, Th } from './staff'
 import { buildDivisionOrg } from '../packs/org'
 import { readGlb, type GlbInfo } from '../packs/glb'
 import { packModelFiles, packModelUrl } from '../packs/model-files'
+import { packScenarios } from '../packs/scenario-files'
 import ModelPreview from './ModelPreview'
 import type { OrgSlot } from '../engine/GameState'
 import { PACK_TABS, PackContent, type PackTab } from './PackViewer'
@@ -491,7 +492,7 @@ function inventory(p: Pack): { label: string; n: number }[] {
     { label: 'BRIGADES', n: f?.bdes.length ?? 0 },
     { label: 'BATTALIONS', n: bns },
     { label: 'PLAYABLE', n: playableBns(f).length },
-    { label: 'CAMPAIGNS', n: p.campaigns?.length ?? 0 },
+    { label: 'SCENARIOS', n: packScenarios(p.id).length },
     { label: 'DIV ASSETS', n: Object.keys(p.assets ?? {}).length },
   ]
 }

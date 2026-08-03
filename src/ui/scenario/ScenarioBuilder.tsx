@@ -1,54 +1,55 @@
-// SCENARIO BUILDER — Eden on the BFT (SCENARIO-BUILDER.md, E1).
+// SCENARIO BUILDER — Eden on the BFT (SCENARIO-MODEL.md).
 //
-// A menu-level TOOL like the map editor: pick the pack that OWNS the scenario,
-// pick a map (any installed pack's — cross-pack refs are the point), then work
-// the sheet: palette arms an entity, click places (snapped through nearestLand
-// with the unit's own mobility), select/inspect/drag/delete/undo. SAVE writes
-// scenario.json through the dev route; discovery picks it up like maps.
+// ONE content object: the scenario. The sheet edits its SITUATION (H-hour
+// entities + places), the SCRIPT tab edits its MISSIONS (one at a time), the
+// TYPE dropdown says what it IS (A&D/KotH/Base Defense → SKIRMISH; CAMPAIGN →
+// the campaigns menu, rules from its missions). The LOAD panel is the pack
+// tree: click to edit the original, PORT to copy into the current workspace.
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, SegmentedControl, Select, Text, TextInput } from '@mantine/core'
 import { installedPacks } from '../../packs'
 import { packMaps } from '../../packs/map-files'
+import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
 import { loadGround, type Ground } from '../../world/pack/loadGround'
 import { mapFromPack } from '../../world/pack/mapFromPack'
 import type { WorldMap } from '../../world/WorldMap'
 import { nearestLand } from '../../world/place'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import { MODES, MODE_ORDER, type ModeId } from '../../engine/modes'
-import type { ScenarioSide } from '../../scenario/types'
+import type { MissionScript, ScenarioSide, ScenarioSpec } from '../../scenario/types'
 import {
   type EditorState, type Entity, emptyEditor, freshId,
   place, update, moveLive, beginDrag, remove, select, selected, undo, redo,
 } from '../../scenario/edit'
 import {
-  entitiesFromSpec, specFromEntities, saveScenario, saveCampaignContent,
+  entitiesFromSituation, situationFromEntities, saveScenario,
 } from '../../scenario/io'
-import { contentCatalog, referencedPlaces, type ContentRef } from '../../scenario/content'
-import { installedCampaigns } from '../../packs/campaigns'
-import type { ScenarioSpec } from '../../scenario/types'
+import { referencedPlaces } from '../../scenario/content'
 import { planAccessTrack } from '../../world/access'
 import { MapButton, MapControlStack } from '../MapControls'
 import SheetCanvas, { type SheetHandle } from './SheetCanvas'
 import Palette, { type Armed } from './Palette'
 import Inspector from './Inspector'
-import ScriptPanel, { emptyScript, type ScriptState } from './ScriptPanel'
+import ScriptPanel from './ScriptPanel'
+import LoadPanel from './LoadPanel'
 
 const MONO = 'Consolas, monospace'
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
 
-// where SAVE writes — one content type, several homes (settled vocabulary):
-// 'scenario:<pack>' | 'situation:<pack>/<campaign>' | 'mission:<pack>/<campaign>'
-type Dest =
-  | { kind: 'scenario'; packId: string }
-  | { kind: 'situation' | 'mission'; packId: string; campaignId: string }
-const parseDest = (v: string): Dest => {
-  const [kind, rest] = v.split(':') as [string, string]
-  if (kind === 'scenario') return { kind, packId: rest }
-  const [packId, campaignId] = rest.split('/') as [string, string]
-  return { kind: kind as 'situation' | 'mission', packId, campaignId }
-}
+// campaign dressing that rides the file untouched by the sheet/script UI
+type Extras = Pick<ScenarioSpec,
+  'operation' | 'hqLabel' | 'airfieldLabel' | 'divHq' | 'anchors' | 'preAllocations' | 'fog'>
+const pickExtras = (s: ScenarioSpec): Extras => ({
+  ...(s.operation != null ? { operation: s.operation } : {}),
+  ...(s.hqLabel != null ? { hqLabel: s.hqLabel } : {}),
+  ...(s.airfieldLabel != null ? { airfieldLabel: s.airfieldLabel } : {}),
+  ...(s.divHq != null ? { divHq: s.divHq } : {}),
+  ...(s.anchors != null ? { anchors: s.anchors } : {}),
+  ...(s.preAllocations != null ? { preAllocations: s.preAllocations } : {}),
+  ...(s.fog != null ? { fog: s.fog } : {}),
+})
 
 // default lineup is data-driven: the first installed pack of each side
 const defaultSides = () => ({
@@ -56,17 +57,23 @@ const defaultSides = () => ({
   hostile: installedPacks().find(p => p.side === 'hostile')?.id ?? installedPacks()[0]?.id ?? '',
 })
 
+const newMission = (n: number): MissionScript =>
+  ({ id: `mission-${n}`, name: `MISSION ${n}` })
+
 export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
-  const [dest, setDest] = useState(() => `scenario:${installedPacks()[0]?.id ?? ''}`)
+  const [ownerPack, setOwnerPack] = useState(() => installedPacks()[0]?.id ?? '')
   const [name, setName] = useState('NEW SCENARIO')
   const [mapRef, setMapRef] = useState<string | null>(null) // 'packId/mapId'
-  const [mode, setMode] = useState<ModeId>('attack-defend')
+  const [type, setType] = useState<ModeId>('attack-defend')
   const [sidePacks] = useState(defaultSides)
   const [side, setSide] = useState<ScenarioSide>('friend')
   const [armed, setArmed] = useState<Armed>(null)
   const [ed, setEd] = useState<EditorState>(emptyEditor)
-  const [script, setScript] = useState<ScriptState>(emptyScript)
-  const [rail, setRail] = useState<'inspect' | 'script'>('inspect')
+  const [missions, setMissions] = useState<MissionScript[]>([])
+  const [curM, setCurM] = useState(0)
+  const [extras, setExtras] = useState<Extras>({})
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const [rail, setRail] = useState<'load' | 'inspect' | 'script'>('load')
   const [world, setWorld] = useState<{ map: WorldMap; ground: Ground } | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -165,146 +172,107 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     }
   }
 
-  const catalog = useMemo(() => contentCatalog(), [])
-  const campaigns = useMemo(() => installedCampaigns(), [])
-  const catalogData = useMemo(() => {
-    const groups = new Map<string, { value: string; label: string }[]>()
-    for (const c of catalog) {
-      groups.set(c.group, [...(groups.get(c.group) ?? []), { value: c.key, label: c.label }])
-    }
-    return [...groups].map(([group, items]) => ({ group, items }))
-  }, [catalog])
+  const scenarios = useMemo(() => packScenarios(), [])
 
-  const setScriptFrom = (spec: ScenarioSpec) => setScript({
-    brief: spec.brief,
-    objectives: spec.objectives ?? [],
-    triggers: spec.triggers ?? [],
-    tutorial: spec.tutorial,
-  })
+  // place names a ported script references that this workspace can't resolve
+  // become STAGED places mid-sheet — the re-anchor pass
+  const stagePlaces = (ms: MissionScript[], existing: Entity[]): Entity[] => {
+    if (!world) return []
+    const known = new Set([
+      ...existing.filter(e => e.ent === 'place').map(e => e.name),
+      ...world.map.towns.map(t => t.name),
+      ...world.map.features.map(f => f.name),
+    ])
+    const missing = referencedPlaces(ms).filter(n => !known.has(n))
+    const c = world.map.WORLD / 2
+    return missing.map((nm, i) => ({
+      id: freshId(), ent: 'place', name: nm,
+      x: c, y: c + (i - (missing.length - 1) / 2) * 400,
+    }))
+  }
 
-  // OPEN — edit in place: the workspace becomes this content, the destination
-  // its home, so SAVE round-trips to the same file
-  const openRef = (ref: ContentRef) => {
-    setName(ref.spec.name.toUpperCase())
-    setScriptFrom(ref.spec)
-    if (ref.source.kind === 'scenario') {
-      setMode(ref.spec.mode ?? 'attack-defend')
-      setDest(`scenario:${ref.source.packId}`)
-    } else {
-      setDest(`${ref.source.kind}:${ref.source.packId}/${ref.source.campaignId}`)
-    }
-    if (!ref.mapRef) {
+  // LOAD — edit the original: the workspace becomes this scenario (map,
+  // situation, missions, dressing); SAVE round-trips to the same file
+  const loadEntry = (e: PackScenarioEntry) => {
+    setLoadedKey(`${e.packId}/${e.scenarioId}`)
+    setOwnerPack(e.packId)
+    setName(e.spec.name.toUpperCase())
+    setType(e.spec.type)
+    setMissions(e.spec.missions ?? [])
+    setCurM(0)
+    setExtras(pickExtras(e.spec))
+    if (!e.spec.map) {
       setEd(emptyEditor())
       setMapRef(null)
-      setMsg('THIS CAMPAIGN HAS NO BOUND GROUND — PICK A MAP; SAVING BINDS IT')
+      setMsg('NO BOUND GROUND — PICK A MAP; SAVING BINDS IT')
       return
     }
-    setMapRef(ref.mapRef)
-    const [p, m] = ref.mapRef.split('/') as [string, string]
-    const mapEntry = packMaps(p).find(e => e.mapId === m)
-    if (!mapEntry) { setMsg(`CONTENT'S MAP ${ref.mapRef} IS NOT INSTALLED`); return }
+    setMapRef(e.spec.map)
+    const [p, m] = e.spec.map.split('/') as [string, string]
+    const mapEntry = packMaps(p).find(x => x.mapId === m)
+    if (!mapEntry) { setMsg(`SCENARIO'S MAP ${e.spec.map} IS NOT INSTALLED`); return }
     void loadGround(mapEntry.groundUrl).then(g => {
-      setEd({ ...emptyEditor(), entities: entitiesFromSpec(ref.spec, g) })
+      setEd({ ...emptyEditor(), entities: entitiesFromSituation(e.spec.situation, g) })
       setMsg(null)
     })
   }
 
-  // PORT — pull a COPY into the current workspace on the CURRENT ground (the
-  // float: the training mission ships once, lands in every campaign).
-  // Coordinates are pack-norm, so cross-map content arrives in the same
-  // RELATIVE positions — coherently placed, adjust rather than rebuild; script
-  // names the target gazetteer can't resolve are staged for re-anchoring.
-  const portRef = (ref: ContentRef) => {
+  // PORT (whole scenario) — copy into the CURRENT workspace on the CURRENT
+  // ground. Coordinates are pack-norm, so cross-map content lands in the same
+  // RELATIVE positions — adjust, don't rebuild.
+  const portScenario = (e: PackScenarioEntry) => {
     if (!world) { setMsg('PICK A MAP FIRST — PORT LANDS ON THE LOADED GROUND'); return }
-    setName(ref.spec.name.toUpperCase())
-    setScriptFrom(ref.spec)
-    const ents = entitiesFromSpec(ref.spec, world.ground)
-    const known = new Set([
-      ...ents.filter(e => e.ent === 'place').map(e => e.name),
-      ...world.map.towns.map(t => t.name),
-      ...world.map.features.map(f => f.name),
-    ])
-    const missing = referencedPlaces(ref.spec).filter(n => !known.has(n))
-    const c = world.map.WORLD / 2
-    const staged: Entity[] = missing.map((nm, i) => ({
-      id: freshId(), ent: 'place', name: nm,
-      x: c, y: c + (i - (missing.length - 1) / 2) * 400,
-    }))
+    const ms = e.spec.missions ?? []
+    const ents = entitiesFromSituation(e.spec.situation, world.ground)
+    setName(e.spec.name.toUpperCase())
+    setType(e.spec.type)
+    setMissions(ms)
+    setCurM(0)
+    setExtras(pickExtras(e.spec))
+    const staged = stagePlaces(ms, ents)
     setEd({ ...emptyEditor(), entities: [...ents, ...staged] })
-    setMsg(ref.mapRef === mapRef
-      ? `PORTED ${ref.spec.name} — SAME GROUND, VERBATIM`
-      : `PORTED ${ref.spec.name} — RELATIVE POSITIONS ON NEW GROUND`
-        + (missing.length ? ` · ${missing.length} PLACES NEED ANCHORING` : ''))
+    setLoadedKey(null) // a copy — save writes wherever the top bar points
+    setMsg(`PORTED ${e.spec.name}${staged.length ? ` · ${staged.length} PLACES NEED ANCHORING` : ''}`)
   }
 
-  const d = parseDest(dest)
-  const destCampaign = d.kind === 'scenario' ? null
-    : campaigns.find(c => c.packId === d.packId && c.campaign.manifest.id === d.campaignId) ?? null
-  const boundMapRef = destCampaign?.map
-    ? `${destCampaign.map.packId}/${destCampaign.map.mapId}` : null
-  // a bound campaign owns its ground — the map follows the destination
-  useEffect(() => {
-    if (boundMapRef && mapRef !== boundMapRef) setMapRef(boundMapRef)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boundMapRef])
-
-  // mainline missions arrive into a RUNNING world — placements have no moment
-  // to apply (H-hour rule; the SITUATION is the placement home). Warn, never block.
-  const placedCount = ed.entities.filter(e => e.ent !== 'place').length
-  const missionPlacementWarning = d.kind === 'mission' && placedCount > 0
-
-  const destOptions = useMemo(() => [
-    ...installedPacks().map(p => ({
-      value: `scenario:${p.id}`, label: `SCENARIO · ${p.abbr ?? p.id}`,
-    })),
-    ...campaigns.flatMap(c => [
-      { value: `situation:${c.packId}/${c.campaign.manifest.id}`,
-        label: `SITUATION · ${c.campaign.manifest.name}` },
-      { value: `mission:${c.packId}/${c.campaign.manifest.id}`,
-        label: `MISSION · ${c.campaign.manifest.name}` },
-    ]),
-  ], [campaigns])
+  // PORT (one mission) — append its script to the scenario on the bench;
+  // unresolved place names stage for re-anchoring
+  const portMission = (e: PackScenarioEntry, idx: number) => {
+    if (!world) { setMsg('PICK A MAP FIRST — PORT LANDS ON THE LOADED GROUND'); return }
+    const src = e.spec.missions?.[idx]
+    if (!src) return
+    const ids = new Set(missions.map(m => m.id))
+    const m = ids.has(src.id) ? { ...src, id: `${src.id}-2` } : src
+    const staged = stagePlaces([m], ed.entities)
+    setMissions(ms => [...ms, m])
+    setCurM(missions.length)
+    if (staged.length) setEd(s => ({ ...s, entities: [...s.entities, ...staged] }))
+    setRail('script')
+    setMsg(`PORTED MISSION ${m.name}${staged.length ? ` · ${staged.length} PLACES NEED ANCHORING` : ''}`)
+  }
 
   const save = async () => {
     if (!world || !mapRef) { setMsg('PICK A MAP FIRST'); return }
     const id = slugify(name)
-    if (!id) { setMsg('NAME IT FIRST'); return }
+    if (!id || !ownerPack) { setMsg('NAME IT AND PICK ITS PACK'); return }
     setBusy(true); setMsg(null)
     try {
-      const scriptMeta = {
-        ...(script.brief ? { brief: script.brief } : {}),
-        ...(script.objectives.length ? { objectives: script.objectives } : {}),
-        ...(script.triggers.length ? { triggers: script.triggers } : {}),
-        ...(script.tutorial ? { tutorial: script.tutorial } : {}),
+      const spec: ScenarioSpec = {
+        type, name: name.trim() || id, map: mapRef, sides: sidePacks,
+        situation: situationFromEntities(ed.entities, world.ground),
+        ...(missions.length ? { missions } : {}),
+        ...extras,
       }
-      if (d.kind === 'scenario') {
-        const spec = specFromEntities(
-          { name: name.trim() || id, map: mapRef, mode, sides: sidePacks, ...scriptMeta },
-          ed.entities, world.ground,
-        )
-        await saveScenario(d.packId, id, spec)
-        setMsg(`SAVED ${d.packId}/scenarios/${id} · ${ed.entities.length} ENTITIES`)
-      } else {
-        // campaign content: the campaign owns the map and the rules — the
-        // file carries neither; a first save onto an unbound campaign binds
-        // the loaded ground into the manifest
-        const spec = specFromEntities(
-          { ...(d.kind === 'mission' ? { id } : {}), name: name.trim() || id,
-            sides: sidePacks, ...scriptMeta },
-          ed.entities, world.ground,
-        )
-        await saveCampaignContent(d.packId, d.campaignId, d.kind, spec, {
-          missionId: id,
-          ...(boundMapRef ? {} : { bindMap: mapRef }),
-        })
-        const where = d.kind === 'situation' ? 'situation' : `missions/${id}`
-        setMsg(`SAVED ${d.packId}/campaigns/${d.campaignId}/${where}`
-          + (boundMapRef ? '' : ` · GROUND BOUND TO ${mapRef}`))
-      }
+      await saveScenario(ownerPack, id, spec)
+      setLoadedKey(`${ownerPack}/${id}`)
+      setMsg(`SAVED ${ownerPack}/scenarios/${id}`
+        + (missions.length ? ` · ${missions.length} MISSION${missions.length > 1 ? 'S' : ''}` : ''))
     } catch (e) {
       setMsg(`FAILED: ${String((e as Error).message ?? e)}`)
     } finally { setBusy(false) }
   }
+
+  const cur = missions[Math.min(curM, Math.max(0, missions.length - 1))]
 
   return (
     <Box pos="fixed" inset={0} bg="#05080b"
@@ -316,39 +284,24 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
             SCENARIO BUILDER
           </Text>
           <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
-            EDEN ON THE BFT · PLACE THE WAR, THE GROUND IS READ-ONLY
+            ONE SCENARIO · THE SHEET IS ITS SITUATION · THE SCRIPT IS ITS MISSIONS
           </Text>
         </Box>
-        {missionPlacementWarning && (
-          <Text fz={9} c="#e0b34e" maw={260}>
-            ⚠ {placedCount} PLACED — MISSIONS ARRIVE INTO A RUNNING WORLD;
-            PLACEMENTS ONLY APPLY IN A SITUATION OR SCENARIO
-          </Text>
-        )}
         {msg && <Text fz={10} c={msg.startsWith('FAILED') ? '#e8524a' : '#7ec8ff'}>{msg}</Text>}
-        {catalog.length > 0 && (
-          <Select size="xs" w={200} placeholder="OPEN…" value={null} searchable
-            onChange={v => { const r = catalog.find(x => x.key === v); if (r) openRef(r) }}
-            data={catalogData} />
-        )}
-        {catalog.length > 0 && (
-          <Select size="xs" w={150} placeholder="PORT…" value={null} searchable
-            disabled={!world}
-            onChange={v => { const r = catalog.find(x => x.key === v); if (r) portRef(r) }}
-            data={catalogData} />
-        )}
-        <Select size="xs" w={210} value={dest} onChange={v => v && setDest(v)}
-          data={destOptions} />
+        <Select size="xs" w={110} value={ownerPack} onChange={v => v && setOwnerPack(v)}
+          title="The pack this scenario saves into"
+          data={installedPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))} />
         <Select size="xs" w={180} placeholder="MAP…" value={mapRef}
-          disabled={!!boundMapRef}
           onChange={v => setMapRef(v)}
           data={packMaps().map(m => ({
             value: `${m.packId}/${m.mapId}`, label: `${m.packId} · ${m.name}`,
           }))} />
-        {d.kind === 'scenario' && (
-          <Select size="xs" w={150} value={mode} onChange={v => v && setMode(v as ModeId)}
-            data={MODE_ORDER.map(id => ({ value: id, label: MODES[id].label }))} />
-        )}
+        {/* the AUTHORED type — the menu door, the rules, the badge */}
+        <Select size="xs" w={150} value={type} onChange={v => v && setType(v as ModeId)}
+          data={[
+            ...MODE_ORDER.map(id => ({ value: id, label: MODES[id].label })),
+            { value: 'campaign', label: 'CAMPAIGN' },
+          ]} />
         <TextInput size="xs" w={170} value={name} placeholder="SCENARIO NAME"
           onChange={e => setName(e.currentTarget.value.toUpperCase())} />
         <Button size="sm" onClick={() => void save()} loading={busy} disabled={!world}>
@@ -391,28 +344,74 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
               alignItems: 'center', justifyContent: 'center',
             }}>
               <Text fz={11} c="dark.3" style={{ letterSpacing: 2 }}>
-                {busy ? 'LOADING GROUND…' : 'PICK A MAP — EVERY INSTALLED PACK\'S MAPS ARE LISTED'}
+                {busy ? 'LOADING GROUND…' : 'PICK A MAP, OR LOAD A SCENARIO FROM THE RIGHT'}
               </Text>
             </Box>
           )}
         </Box>
-        <Box w={rail === 'script' ? 340 : 230}
+        <Box w={rail === 'inspect' ? 230 : 320}
           style={{ borderLeft: '1px solid #22303d', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box p={6} pb={0}>
             <SegmentedControl fullWidth size="xs" value={rail}
-              onChange={v => setRail(v as 'inspect' | 'script')}
+              onChange={v => setRail(v as 'load' | 'inspect' | 'script')}
               data={[
+                { value: 'load', label: 'LOAD' },
                 { value: 'inspect', label: 'INSPECTOR' },
                 { value: 'script', label: 'SCRIPT' },
               ]} />
           </Box>
-          {rail === 'inspect' ? (
+          {rail === 'load' ? (
+            <LoadPanel entries={scenarios} currentKey={loadedKey} portEnabled={!!world}
+              onLoad={loadEntry} onPortScenario={portScenario} onPortMission={portMission} />
+          ) : rail === 'inspect' ? (
             <Inspector e={selected(ed)}
               onPatch={patch => setEd(s => (s.sel != null ? update(s, s.sel, patch) : s))}
               onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
           ) : (
-            <ScriptPanel script={script} placeNames={placeNames}
-              onChange={patch => setScript(s => ({ ...s, ...patch }))} />
+            <Box>
+              {/* the mission bench: which mission's script is on the bench */}
+              <Group gap={4} p={6} pb={0} wrap="nowrap">
+                <Select size="xs" style={{ flex: 1 }} value={cur ? String(curM) : null}
+                  placeholder="NO MISSIONS"
+                  data={missions.map((m, i) => ({
+                    value: String(i), label: `${String(i + 1).padStart(2, '0')} · ${m.name || m.id}`,
+                  }))}
+                  styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                  onChange={v => v != null && setCurM(Number(v))} />
+                <Button size="compact-xs" variant="default"
+                  onClick={() => { setMissions(ms => [...ms, newMission(ms.length + 1)]); setCurM(missions.length) }}>
+                  ＋
+                </Button>
+                {cur && (
+                  <Button size="compact-xs" variant="subtle" c="#e8524a" px={4}
+                    onClick={() => { setMissions(ms => ms.filter((_, i) => i !== curM)); setCurM(0) }}>
+                    ✕
+                  </Button>
+                )}
+              </Group>
+              {cur ? (
+                <>
+                  <Group gap={4} px={6} pt={4} wrap="nowrap">
+                    <TextInput size="xs" w={100} value={cur.id} label="ID"
+                      styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                      onChange={ev => setMissions(ms => ms.map((m, i) =>
+                        i === curM ? { ...m, id: slugify(ev.currentTarget.value) || m.id } : m))} />
+                    <TextInput size="xs" style={{ flex: 1 }} value={cur.name} label="NAME"
+                      styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+                      onChange={ev => setMissions(ms => ms.map((m, i) =>
+                        i === curM ? { ...m, name: ev.currentTarget.value.toUpperCase() } : m))} />
+                  </Group>
+                  <ScriptPanel mission={cur} placeNames={placeNames}
+                    onChange={patch => setMissions(ms => ms.map((m, i) =>
+                      i === curM ? { ...m, ...patch } : m))} />
+                </>
+              ) : (
+                <Text fz={9} c="dark.3" p="xs">
+                  A CAMPAIGN'S RULES ARE ITS MISSIONS — ADD ONE. SKIRMISH TYPES
+                  (A&D/KOTH/BASE DEFENSE) NEED NONE: THE RULESET JUDGES THE FIGHT.
+                </Text>
+              )}
+            </Box>
           )}
         </Box>
       </Box>

@@ -14,7 +14,7 @@ import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { nearestLand } from '../world/place'
 import { T_WATER } from '../world/WorldMap'
-import { activeCampaign } from '../engine/campaign'
+import { activeScenario } from '../engine/campaign'
 import { resolvePlace } from '../engine/missions/places'
 import type { TutAnchor, TutCondition, TutHint, TutReactive, TutStep } from '../packs/types'
 import type { Unit } from '../engine/GameState'
@@ -60,10 +60,8 @@ function refresh(): void {
   _steps = []
   _reactive = []
   if (!S.campaign) return
-  const spec = activeCampaign()
-  for (const mid of spec.manifest.mainline) {
-    const t = spec.missions[mid]?.tutorial
-    if (t) { _steps.push(...t.steps); _reactive.push(...(t.reactive ?? [])) }
+  for (const m of activeScenario().missions ?? []) {
+    if (m.tutorial) { _steps.push(...m.tutorial.steps); _reactive.push(...(m.tutorial.reactive ?? [])) }
   }
 }
 

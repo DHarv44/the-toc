@@ -4,6 +4,13 @@ The plan of record for scenario authoring (ratified 2026-08-02). Kept current as
 work lands, GROUNDWORK.md-style: phase statuses updated in place, decisions
 recorded so nobody re-litigates them.
 
+> **2026-08-02, THE COLLAPSE: the content model in this doc is SUPERSEDED by
+> [SCENARIO-MODEL.md](SCENARIO-MODEL.md)** — one content object (the
+> SCENARIO, typed by the author: A&D/KotH/Base Defense/CAMPAIGN), situation +
+> missions as SECTIONS, campaigns/ folders dead. The E-phase history below
+> stands as the record of how we got there; the vocabulary sections no longer
+> govern.
+
 ## The acceptance test
 
 **The build is successful when IRON TRIANGLE is rebuilt in this tool** — on real

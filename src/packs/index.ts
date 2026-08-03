@@ -11,7 +11,7 @@
 // - JSON types are wide (string, number[]); the single `as` cast per pack at
 //   the bottom of buildPack is the documented boundary — the P4 runtime
 //   validator replaces it with real checks + readable errors for mod packs.
-import type { Pack, PackCatalogs, NamePools, CampaignSpec } from './types'
+import type { Pack, PackCatalogs, NamePools } from './types'
 import type { DroneType } from '../domains/air/catalog'
 import { installPacks } from './install'
 import usPlatforms from './lib/us-platforms.json'
@@ -19,12 +19,6 @@ import cdManifest from './1cd/pack.json'
 import cdNames from './1cd/names.json'
 import opforManifest from './opfor/pack.json'
 import opforNames from './opfor/names.json'
-// campaign-down content (PACK-MISSIONS.md): each campaign folder ships its
-// manifest (which names its map) + mission scenarios (+ optional
-// situation.json, the H-hour placement). Discovery is glob-driven
-// (campaign-files.ts) — a mission saved from the builder exists immediately,
-// no import list to maintain.
-import { packCampaigns } from './campaign-files'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
@@ -145,9 +139,7 @@ function buildPack(
 }
 
 export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
-PACK_1CD.campaigns = packCampaigns(PACK_1CD.id)
 export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
-PACK_OPFOR.campaigns = packCampaigns(PACK_OPFOR.id)
 
 export const PACKS: Record<string, Pack> = {
   [PACK_1CD.id]: PACK_1CD,

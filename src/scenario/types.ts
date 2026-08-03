@@ -1,14 +1,23 @@
-// SCENARIO — an authored battle as PACK CONTENT (SCENARIO-BUILDER.md).
+// THE SCENARIO — the one content object (SCENARIO-MODEL.md, settled
+// 2026-08-02). A campaign is not a different thing: it is a scenario whose
+// author typed it 'campaign'. SITUATION and MISSIONS are SECTIONS of a
+// scenario, never sibling content types.
 //
-// A scenario references a map ("packId/mapId" — cross-pack allowed) and
-// overrides the war completely; the map's own sidecar keeps only defaults.
-// Coordinates are pack-norm BOX coords (x 0→1 west→east, y 0→1 north→south),
-// same convention as the map sidecar, so a scenario survives a re-baked map.
-// JSON-pure throughout: this is pack data, authored by the builder and read
-// by the engine — the same boundary rule as every other pack file.
+// `type` is AUTHORED, never inferred. It drives exactly three things: which
+// menu door lists the scenario (campaign → CAMPAIGNS, else SKIRMISH), which
+// rules judge it (skirmish types run that engine ruleset; campaign gets its
+// rules from its missions), and the badge on every list.
+//
+// Coordinates are pack-norm BOX coords (x 0→1 west→east, y 0→1
+// north→south), same convention as the map sidecar, so a scenario survives a
+// re-baked map — and PORTS between maps landing in the same RELATIVE spots.
+// JSON-pure throughout: pack data, authored by the builder, read by the
+// engine.
 import type { ModeId } from '../engine/modes'
 import type { StructureTypeKey } from '../domains/installations/catalog'
-import type { MissionObjective, MissionTrigger, TutorialSpec } from '../packs/types'
+import type {
+  AnchorQuery, MissionObjective, MissionTrigger, TutorialSpec,
+} from '../packs/types'
 
 export type ScenarioSide = 'friend' | 'hostile'
 
@@ -66,34 +75,63 @@ export interface ScenarioUnit {
   route?: { x: number; y: number }[]
 }
 
-export interface ScenarioSpec {
-  /** campaign-mission id (what the manifest's mainline names); standalone
-   *  scenarios are identified by their folder and don't carry one */
-  id?: string
+/** The SITUATION — OPORD Paragraph 1: everything that exists the instant the
+ *  world is created, before anyone has made a move. The H-hour rule: only
+ *  the situation places entities; missions arrive into a world in motion and
+ *  speak in trigger effects. */
+export interface ScenarioSituation {
+  structures: ScenarioStructure[]
+  units: ScenarioUnit[]
+  places?: ScenarioPlace[]
+}
+
+/** One MISSION — a script arc with a conclusion: objectives are its phases,
+ *  triggers its happenings, the brief/frago its voice. No coordinates of its
+ *  own (place refs resolve against the situation's places + the map's real
+ *  gazetteer + builtin anchors). On disk, a mission is a FILE
+ *  (missions/NN-id.json — the number prefix is the mainline order), so it
+ *  can be copied between scenarios raw. */
+export interface MissionScript {
+  id: string
   name: string
-  /** the ground: "packId/mapId". ABSENT on a campaign mission or portable
-   *  template — the campaign binds the ground (its manifest's `map`) */
+  /** opener OPORD text (the first mission's brief opens the campaign) */
+  brief?: string
+  /** tasking card dropped when this mission activates mid-stream */
+  frago?: { title: string; text: string }
+  objectives?: MissionObjective[]
+  triggers?: MissionTrigger[]
+  /** tutorial curriculum — carried opaque by the builder */
+  tutorial?: TutorialSpec
+}
+
+export interface ScenarioSpec {
+  /** AUTHORED type — the menu door, the rules, the badge. 'campaign' plays
+   *  from CAMPAIGNS with its missions as the rules; the skirmish types play
+   *  from SKIRMISH under that engine ruleset. */
+  type: ModeId
+  name: string
+  /** the ground: 'packId/mapId' (cross-pack allowed). Absent = ground not
+   *  yet authored — listed but not startable. */
   map?: string
-  /** which ModeSpec plays it; absent = attack-defend */
-  mode?: ModeId
   /** which installed pack plays each side; absent = the default lineup */
   sides?: { friend?: string; hostile?: string }
   /** fog of war on (absent = on) */
   fog?: boolean
-  structures: ScenarioStructure[]
-  units: ScenarioUnit[]
-  // --- the SCRIPT (optional — a skirmish scenario is just placements) -------
-  // The mission vocabulary rides verbatim (packs/types): a campaign mission IS
-  // a scenario with these sections. H-hour rule: what exists at H-hour is a
-  // placed entity above; what arrives later or conditionally is a trigger
-  // effect referencing `places` by name.
-  places?: ScenarioPlace[]
-  /** opener OPORD text (the VTC brief) */
-  brief?: string
-  /** tasking card dropped when this mission activates mid-campaign */
-  frago?: { title: string; text: string }
-  objectives?: MissionObjective[]
-  triggers?: MissionTrigger[]
-  /** tutorial curriculum — carried opaque; the builder preserves, never edits */
-  tutorial?: TutorialSpec
+  situation: ScenarioSituation
+  /** the mainline, in order (folder form: missions/NN-*.json, sorted) */
+  missions?: MissionScript[]
+
+  // --- campaign dressing (optional; engine defaults when absent) ----------
+  /** operation name on the board ('LODGMENT'); default: the scenario name */
+  operation?: string
+  /** the battalion CP's name */
+  hqLabel?: string
+  /** the CP airstrip's name */
+  airfieldLabel?: string
+  /** DIVISION MAIN position (fraction of the world); absent = no div HQ */
+  divHq?: { atFrac: { x: number; y: number } }
+  /** named points resolved once at start (campaign anchors) */
+  anchors?: Record<string, AnchorQuery>
+  /** scarcity at H-hour: assets held by sister formations until released */
+  preAllocations?: { asset: string; formation: string }[]
 }

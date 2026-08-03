@@ -16,19 +16,28 @@ import type { GameState, CampaignState, Soldier, StaffShop, Structure } from './
 // (theater + seed + authored layout = the gazetteer), the missions (objectives,
 // triggers, briefs), and every word of the story. This file keeps the VERBS:
 // objective evaluation, the trigger/effect moments, the runner, the reports.
-import type { CampaignSpec, MissionCondition, PlaceRef } from '../packs/types'
-import type { ScenarioSpec } from '../scenario/types'
+import type { AnchorQuery, MissionCondition, PlaceRef } from '../packs/types'
+import type { MissionScript, ScenarioSpec } from '../scenario/types'
+import { packScenarios } from '../packs/scenario-files'
 
-// The campaign being played — set by the splash's campaign picker before the
-// game starts (same pre-init pattern as the tutorial/commander flags below).
-// Falls back to the player pack's first campaign so nothing pre-picker breaks.
-let _activeCampaign: CampaignSpec | null = null
-export function setActiveCampaign(spec: CampaignSpec | null): void { _activeCampaign = spec }
-export function activeCampaign(): CampaignSpec {
-  if (_activeCampaign) return _activeCampaign
-  const list = playerPack().campaigns
-  if (!list?.length) throw new Error(`pack '${playerPack().id}' ships no campaigns`)
-  return list[0]!
+// The scenario being played as a campaign (SCENARIO-MODEL.md: a campaign IS
+// a scenario the author typed 'campaign') — set by the splash's picker before
+// the game starts (same pre-init pattern as the tutorial/commander flags
+// below). Falls back to the player pack's first campaign-typed scenario so
+// nothing pre-picker breaks.
+let _activeScenario: ScenarioSpec | null = null
+export function setActiveScenario(spec: ScenarioSpec | null): void { _activeScenario = spec }
+export function activeScenario(): ScenarioSpec {
+  if (_activeScenario) return _activeScenario
+  const first = packScenarios(playerPack().id).find(s => s.spec.type === 'campaign')
+  if (!first) throw new Error(`pack '${playerPack().id}' ships no campaign scenario`)
+  return first.spec
+}
+
+function missionById(spec: ScenarioSpec, id: string): MissionScript {
+  const m = spec.missions?.find(m => m.id === id)
+  if (!m) throw new Error(`scenario '${spec.name}': mission '${id}' not found`)
+  return m
 }
 
 // Guided-tutorial choice for the NEXT campaign start. Set by the splash (via
@@ -115,23 +124,22 @@ export function operation(): Operation {
   return _op!
 }
 function buildOperation(): void {
-  const spec = activeCampaign()
+  const spec = activeScenario()
   const objectives: RuntimeObjective[] = []
-  for (const mid of spec.manifest.mainline) {
-    const m = spec.missions[mid]
-    if (!m) throw new Error(`campaign '${spec.manifest.id}': mainline mission '${mid}' not found`)
+  // the missions array IS the mainline — file order (NN- prefix) is the order
+  for (const m of spec.missions ?? []) {
     ;(m.objectives ?? []).forEach((o, i) => {
       objectives.push({
         id: o.id, label: o.label, kind: o.kind, groupTag: o.groupTag,
         structKind: o.structKind, amount: o.amount, reports: o.reports,
-        missionId: mid, zoneSpec: o.zone,
+        missionId: m.id, zoneSpec: o.zone,
         revealPoint: i === 0 && !!m.frago,
       })
     })
   }
   _op = {
-    name: spec.manifest.operation,
-    brief: spec.missions[spec.manifest.mainline[0]!]?.brief ?? '',
+    name: spec.operation ?? spec.name,
+    brief: spec.missions?.[0]?.brief ?? '',
     objectives,
   }
 }
@@ -145,7 +153,7 @@ function momentMatches(when: MissionCondition, kind: 'objective-active' | 'objec
   if (when.kind === 'any') return when.of.some(w => momentMatches(w, kind, objective))
   return when.kind === kind && when.objective === objective
 }
-function fireTriggers(S: GameState, mission: ScenarioSpec, kind: 'objective-active' | 'objective-complete', objective: string): void {
+function fireTriggers(S: GameState, mission: MissionScript, kind: 'objective-active' | 'objective-complete', objective: string): void {
   for (const t of mission.triggers ?? []) {
     if (momentMatches(t.when, kind, objective)) runEffects(S, t.do)
   }
@@ -226,7 +234,7 @@ export function evalObjective(o: ObjectiveSpec, S: GameState, c: CampaignState):
 // Build the campaign world ONCE and start mission 1. Called from the mode's
 // setup (which runs after initGame staged the default map + friendly HQ).
 export function startCampaign(S: GameState): void {
-  const spec = activeCampaign()
+  const spec = activeScenario()
   _op = null // rebuild the runtime operation view for this campaign
   buildOperation()
   // the staged pre-campaign force never existed — slots start fresh, and the
@@ -241,13 +249,14 @@ export function startCampaign(S: GameState): void {
   S.enemyResources = 0
   S.enemySupplyLift = 0
   S.opforCmd.posture = 'attack'
-  if (spec.situation) {
-    // the SITUATION (OPORD Paragraph 1) is authoritative for H-hour: the
-    // default A&D staging is discarded wholesale and situation.json places
+  const sit = spec.situation
+  if (sit.structures.length || sit.units.length || sit.places?.length) {
+    // an AUTHORED situation (OPORD Paragraph 1) is authoritative for H-hour:
+    // the default A&D staging is discarded wholesale and the situation places
     // the world — structures, garrisons, battlegroups, intel picture,
     // authored gazetteer
     S.structures = []
-    applyScenario(S, spec.situation)
+    applyScenario(S, spec)
   } else {
     // no situation authored (today's LODGMENT shape — mission 1's triggers
     // place the world): strip the default A&D staging down to the campaign's
@@ -264,19 +273,20 @@ export function startCampaign(S: GameState): void {
     // the battalion CP gets a NAME, like every real position does — and the
     // strip carries the same one (it's the CP's airfield). Names are CAMPAIGN data.
     for (const st of S.structures) {
-      if (st.side === 'friend' && st.kind === 'HQ') st.label = spec.manifest.hqLabel
-      if (st.side === 'friend' && st.kind === 'AFLD') st.label = spec.manifest.airfieldLabel
+      if (st.side === 'friend' && st.kind === 'HQ' && spec.hqLabel) st.label = spec.hqLabel
+      if (st.side === 'friend' && st.kind === 'AFLD' && spec.airfieldLabel) st.label = spec.airfieldLabel
     }
   }
   // scarcity is real from mission one: sister formations hold most of the
   // division's assets at H-hour; the operation's progress frees them
-  // (mission triggers release with net traffic). The list is CAMPAIGN data.
-  for (const pa of spec.manifest.preAllocations) preAllocate(S.assets, pa.asset, pa.formation)
+  // (mission triggers release with net traffic). The list is SCENARIO data.
+  for (const pa of spec.preAllocations ?? []) preAllocate(S.assets, pa.asset, pa.formation)
 
   // campaign anchors: named points resolved once against the built map and
   // stored — mission place refs resolve against them by name
   const anchors: Record<string, Vec2> = {}
-  for (const [name, q] of Object.entries(spec.manifest.anchors)) anchors[name] = resolveAnchor(S, q)
+  const anchorSpecs: Record<string, AnchorQuery> = spec.anchors ?? {}
+  for (const [name, q] of Object.entries(anchorSpecs)) anchors[name] = resolveAnchor(S, q)
   const town = anchors.strongpoint ?? resolveAnchor(S, { query: 'town-nearest', to: 'player-hq' })
   const op = operation()
   S.campaign = {
@@ -290,9 +300,10 @@ export function startCampaign(S: GameState): void {
     commander: _commanderPending,
     // DIVISION MAIN sits in the deep rear — higher headquarters as a place on
     // the map (inert: it does nothing, it is simply THERE). Position is
-    // CAMPAIGN data (fraction of the world).
+    // SCENARIO data (fraction of the world; engine default = deep southwest).
     divHq: nearestLand(S.map!,
-      S.map!.WORLD * spec.manifest.divHq.atFrac.x, S.map!.WORLD * spec.manifest.divHq.atFrac.y),
+      S.map!.WORLD * (spec.divHq?.atFrac.x ?? 0.08),
+      S.map!.WORLD * (spec.divHq?.atFrac.y ?? 0.94)),
     tutorial: _tutorialPending, tutStep: 0, tutBreakShown: false, dustwunSeen: [],
     reports: { pending: [], log: [] },
     anchors, strongpoint: town, crossing: null, centerTown: null,
@@ -312,7 +323,7 @@ export function startCampaign(S: GameState): void {
 function activateObjective(S: GameState, c: CampaignState): void {
   const obj = operation().objectives[c.objIdx]
   if (!obj) return
-  const mission = activeCampaign().missions[obj.missionId]!
+  const mission = missionById(activeScenario(), obj.missionId)
   c.status[c.objIdx] = 'active'
   c.hold = 0
   c.delivered = 0
@@ -623,7 +634,7 @@ export function runCampaign(S: GameState, _dt: number): void {
 
   c.status[c.objIdx] = 'done'
   radio('NET', 'arrive', `OBJECTIVE COMPLETE — ${obj.label}`, undefined, undefined)
-  fireTriggers(S, activeCampaign().missions[obj.missionId]!, 'objective-complete', obj.id)
+  fireTriggers(S, missionById(activeScenario(), obj.missionId), 'objective-complete', obj.id)
   // the shops the MISSION says draft on this objective, unprompted and in
   // parallel. Which ones is content: a recon task closes with an S2 product,
   // a fight closes with the whole staff. An objective that names none is one

@@ -1,8 +1,8 @@
-// THE SCRIPT PANEL — objectives and triggers edited beside the map, forms
+// THE SCRIPT PANEL — ONE MISSION's script edited beside the map, forms
 // GENERATED from the vocabulary descriptors (descriptors.ts). Place params
 // autocomplete over the scenario's authored places + the map's real gazetteer
 // + the builtin anchors; effect order is preserved (declaration order is the
-// determinism law). A RAW JSON toggle exposes the exact pack file sections
+// determinism law). A RAW JSON toggle exposes the exact pack-file sections
 // for power editing. The tutorial section is carried opaque — preserved on
 // save, never edited here.
 import { useState } from 'react'
@@ -12,8 +12,8 @@ import {
 } from '@mantine/core'
 import type {
   MissionCondition, MissionEffect, MissionObjective, MissionObjectiveKind,
-  TutorialSpec,
 } from '../../packs/types'
+import type { MissionScript } from '../../scenario/types'
 import { STRUCTURES, type StructureTypeKey } from '../../domains/installations/catalog'
 import {
   CONDITION_FIELDS, CONDITION_KINDS, EFFECT_FIELDS, EFFECT_KINDS,
@@ -22,15 +22,6 @@ import {
 } from './descriptors'
 
 const MONO = 'Consolas, monospace'
-
-export interface ScriptState {
-  brief?: string
-  objectives: MissionObjective[]
-  triggers: { id: string; when: MissionCondition; do: MissionEffect[] }[]
-  tutorial?: TutorialSpec
-}
-
-export const emptyScript = (): ScriptState => ({ objectives: [], triggers: [] })
 
 // list helpers — reorder matters (declaration order law)
 const moveItem = <T,>(a: T[], i: number, d: -1 | 1): T[] => {
@@ -201,16 +192,19 @@ const card: React.CSSProperties = {
   border: '1px solid #22303d', borderRadius: 4, padding: 6, marginBottom: 6,
 }
 
-export default function ScriptPanel({ script, placeNames, onChange }: {
-  script: ScriptState
+export default function ScriptPanel({ mission, placeNames, onChange }: {
+  /** the ONE mission whose script is on the bench */
+  mission: MissionScript
   /** authored places + map gazetteer + builtin anchors */
   placeNames: string[]
-  onChange: (patch: Partial<ScriptState>) => void
+  onChange: (patch: Partial<MissionScript>) => void
 }) {
   const [raw, setRaw] = useState(false)
   const [rawText, setRawText] = useState('')
   const [rawErr, setRawErr] = useState<string | null>(null)
-  const objectiveIds = script.objectives.map(o => o.id)
+  const objectives = mission.objectives ?? []
+  const triggers = mission.triggers ?? []
+  const objectiveIds = objectives.map(o => o.id)
 
   if (raw) {
     return (
@@ -219,9 +213,10 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
           <Text fz={9} c="dark.3" style={{ letterSpacing: 1.5, flex: 1 }}>RAW JSON</Text>
           <Button size="compact-xs" variant="default" onClick={() => {
             try {
-              const v = JSON.parse(rawText) as Partial<ScriptState>
+              const v = JSON.parse(rawText) as Partial<MissionScript>
               onChange({
                 brief: v.brief,
+                frago: v.frago,
                 objectives: v.objectives ?? [],
                 triggers: v.triggers ?? [],
               })
@@ -243,50 +238,68 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
   return (
     <Box p="xs" style={{ fontFamily: MONO }}>
       <Group gap={6} mb={6}>
-        <Text fz={9} c="dark.3" style={{ letterSpacing: 1.5, flex: 1 }}>SCRIPT</Text>
+        <Text fz={9} c="dark.3" style={{ letterSpacing: 1.5, flex: 1 }}>
+          SCRIPT · {mission.name || mission.id}
+        </Text>
         <Button size="compact-xs" variant="subtle" c="dark.2" onClick={() => {
           setRawText(JSON.stringify(
-            { brief: script.brief, objectives: script.objectives, triggers: script.triggers },
-            null, 2))
+            { brief: mission.brief, frago: mission.frago,
+              objectives, triggers }, null, 2))
           setRawErr(null); setRaw(true)
         }}>JSON</Button>
       </Group>
 
-      <Textarea size="xs" label="BRIEF (OPENER OPORD)" autosize minRows={2} mb="sm"
-        value={script.brief ?? ''}
+      <Textarea size="xs" label="BRIEF (OPENER OPORD)" autosize minRows={2} mb={6}
+        value={mission.brief ?? ''}
         styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
         onChange={ev => onChange({ brief: ev.currentTarget.value || undefined })} />
+      {/* the tasking card dropped when this mission activates mid-stream */}
+      <TextInput size="xs" label="FRAGO TITLE (EMPTY = NO CARD)" mb={4}
+        value={mission.frago?.title ?? ''}
+        styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+        onChange={ev => {
+          const title = ev.currentTarget.value
+          onChange({ frago: title ? { title, text: mission.frago?.text ?? '' } : undefined })
+        }} />
+      {mission.frago && (
+        <Textarea size="xs" label="FRAGO TEXT" autosize minRows={2} mb="sm"
+          value={mission.frago.text}
+          styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
+          onChange={ev => onChange({
+            frago: { title: mission.frago!.title, text: ev.currentTarget.value },
+          })} />
+      )}
 
       <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>
-        OBJECTIVES · IN ORDER
+        OBJECTIVES · THE MISSION'S PHASES, IN ORDER
       </Text>
-      {script.objectives.map((o, i) => (
+      {objectives.map((o, i) => (
         <Box key={i} style={card}>
           <Group gap={4} mb={4} wrap="nowrap">
             <TextInput size="xs" value={o.id} w={90}
               styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
               onChange={ev => onChange({
-                objectives: patchItem(script.objectives, i, { ...o, id: ev.currentTarget.value }),
+                objectives: patchItem(objectives, i, { ...o, id: ev.currentTarget.value }),
               })} />
             <Box style={{ flex: 1 }} />
             <Button size="compact-xs" variant="subtle" c="dark.2" px={4} disabled={i === 0}
-              onClick={() => onChange({ objectives: moveItem(script.objectives, i, -1) })}>↑</Button>
+              onClick={() => onChange({ objectives: moveItem(objectives, i, -1) })}>↑</Button>
             <Button size="compact-xs" variant="subtle" c="dark.2" px={4}
-              disabled={i === script.objectives.length - 1}
-              onClick={() => onChange({ objectives: moveItem(script.objectives, i, 1) })}>↓</Button>
+              disabled={i === objectives.length - 1}
+              onClick={() => onChange({ objectives: moveItem(objectives, i, 1) })}>↓</Button>
             <Button size="compact-xs" variant="subtle" c="#e8524a" px={4}
-              onClick={() => onChange({ objectives: dropItem(script.objectives, i) })}>✕</Button>
+              onClick={() => onChange({ objectives: dropItem(objectives, i) })}>✕</Button>
           </Group>
           <TextInput size="xs" label="LABEL" mb={4} value={o.label}
             styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
             onChange={ev => onChange({
-              objectives: patchItem(script.objectives, i,
+              objectives: patchItem(objectives, i,
                 { ...o, label: ev.currentTarget.value.toUpperCase() }),
             })} />
           <Select size="xs" label="KIND" mb={4} value={o.kind} data={OBJECTIVE_KINDS}
             styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
             onChange={k => k && onChange({
-              objectives: patchItem(script.objectives, i, {
+              objectives: patchItem(objectives, i, {
                 ...objectiveDefault(k as MissionObjectiveKind, i + 1),
                 id: o.id, label: o.label, ...(o.reports ? { reports: o.reports } : {}),
               }),
@@ -294,14 +307,14 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
           {OBJECTIVE_FIELDS[o.kind].map(f => (
             <FieldInput key={f.path} f={f} obj={o} placeNames={placeNames}
               onChange={no => onChange({
-                objectives: patchItem(script.objectives, i, no as MissionObjective),
+                objectives: patchItem(objectives, i, no as MissionObjective),
               })} />
           ))}
           <MultiSelect size="xs" label="STAFF REPORTS ON CLOSE" mb={2}
             value={o.reports ?? []} data={['s1', 's2', 's3', 's4']}
             styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
             onChange={v => onChange({
-              objectives: patchItem(script.objectives, i, {
+              objectives: patchItem(objectives, i, {
                 ...o, reports: v.length ? (v as MissionObjective['reports']) : undefined,
               }),
             })} />
@@ -309,8 +322,7 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
       ))}
       <Button size="compact-xs" variant="default" mb="sm"
         onClick={() => onChange({
-          objectives: [...script.objectives,
-            objectiveDefault('clear-area', script.objectives.length + 1)],
+          objectives: [...objectives, objectiveDefault('clear-area', objectives.length + 1)],
         })}>
         ＋ OBJECTIVE
       </Button>
@@ -318,27 +330,27 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
       <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>
         TRIGGERS · WHEN → DO, EFFECTS IN ORDER
       </Text>
-      {script.triggers.map((t, i) => (
+      {triggers.map((t, i) => (
         <Box key={i} style={card}>
           <Group gap={4} mb={4} wrap="nowrap">
             <TextInput size="xs" value={t.id} w={110}
               styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
               onChange={ev => onChange({
-                triggers: patchItem(script.triggers, i, { ...t, id: ev.currentTarget.value }),
+                triggers: patchItem(triggers, i, { ...t, id: ev.currentTarget.value }),
               })} />
             <Box style={{ flex: 1 }} />
             <Button size="compact-xs" variant="subtle" c="dark.2" px={4} disabled={i === 0}
-              onClick={() => onChange({ triggers: moveItem(script.triggers, i, -1) })}>↑</Button>
+              onClick={() => onChange({ triggers: moveItem(triggers, i, -1) })}>↑</Button>
             <Button size="compact-xs" variant="subtle" c="dark.2" px={4}
-              disabled={i === script.triggers.length - 1}
-              onClick={() => onChange({ triggers: moveItem(script.triggers, i, 1) })}>↓</Button>
+              disabled={i === triggers.length - 1}
+              onClick={() => onChange({ triggers: moveItem(triggers, i, 1) })}>↓</Button>
             <Button size="compact-xs" variant="subtle" c="#e8524a" px={4}
-              onClick={() => onChange({ triggers: dropItem(script.triggers, i) })}>✕</Button>
+              onClick={() => onChange({ triggers: dropItem(triggers, i) })}>✕</Button>
           </Group>
           <Text fz={8.5} c="dark.3" mb={2}>WHEN</Text>
           <CondForm c={t.when} depth={0} objectiveIds={objectiveIds} placeNames={placeNames}
             onChange={nc => onChange({
-              triggers: patchItem(script.triggers, i, { ...t, when: nc }),
+              triggers: patchItem(triggers, i, { ...t, when: nc }),
             })} />
           <Text fz={8.5} c="dark.3" mb={2}>DO</Text>
           {t.do.map((e, j) => (
@@ -347,27 +359,27 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
                 <Select size="xs" value={e.kind} data={EFFECT_KINDS} style={{ flex: 1 }}
                   styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
                   onChange={k => k && onChange({
-                    triggers: patchItem(script.triggers, i,
+                    triggers: patchItem(triggers, i,
                       { ...t, do: patchItem(t.do, j, effectDefault(k as MissionEffect['kind'])) }),
                   })} />
                 <Button size="compact-xs" variant="subtle" c="dark.2" px={4} disabled={j === 0}
                   onClick={() => onChange({
-                    triggers: patchItem(script.triggers, i, { ...t, do: moveItem(t.do, j, -1) }),
+                    triggers: patchItem(triggers, i, { ...t, do: moveItem(t.do, j, -1) }),
                   })}>↑</Button>
                 <Button size="compact-xs" variant="subtle" c="dark.2" px={4}
                   disabled={j === t.do.length - 1}
                   onClick={() => onChange({
-                    triggers: patchItem(script.triggers, i, { ...t, do: moveItem(t.do, j, 1) }),
+                    triggers: patchItem(triggers, i, { ...t, do: moveItem(t.do, j, 1) }),
                   })}>↓</Button>
                 <Button size="compact-xs" variant="subtle" c="#e8524a" px={4}
                   onClick={() => onChange({
-                    triggers: patchItem(script.triggers, i, { ...t, do: dropItem(t.do, j) }),
+                    triggers: patchItem(triggers, i, { ...t, do: dropItem(t.do, j) }),
                   })}>✕</Button>
               </Group>
               {EFFECT_FIELDS[e.kind].map(f => (
                 <FieldInput key={f.path} f={f} obj={e} placeNames={placeNames}
                   onChange={ne => onChange({
-                    triggers: patchItem(script.triggers, i,
+                    triggers: patchItem(triggers, i,
                       { ...t, do: patchItem(t.do, j, ne as MissionEffect) }),
                   })} />
               ))}
@@ -375,7 +387,7 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
           ))}
           <Button size="compact-xs" variant="default"
             onClick={() => onChange({
-              triggers: patchItem(script.triggers, i,
+              triggers: patchItem(triggers, i,
                 { ...t, do: [...t.do, effectDefault('radio')] }),
             })}>
             ＋ EFFECT
@@ -384,18 +396,18 @@ export default function ScriptPanel({ script, placeNames, onChange }: {
       ))}
       <Button size="compact-xs" variant="default" mb="sm"
         onClick={() => onChange({
-          triggers: [...script.triggers, {
-            id: `trigger-${script.triggers.length + 1}`,
+          triggers: [...triggers, {
+            id: `trigger-${triggers.length + 1}`,
             when: conditionDefault('objective-active'), do: [],
           }],
         })}>
         ＋ TRIGGER
       </Button>
 
-      {script.tutorial && (
+      {mission.tutorial && (
         <Text fz={8.5} c="dark.3">
-          TUTORIAL · {script.tutorial.steps.length} STEPS — CARRIED WITH THE
-          SCENARIO, EDITED IN THE PACK FILE
+          TUTORIAL · {mission.tutorial.steps.length} STEPS — CARRIED WITH THE
+          MISSION, EDITED IN THE PACK FILE
         </Text>
       )}
     </Box>

@@ -18,9 +18,6 @@ import type {
 import type { DroneType } from '../domains/air/catalog'
 import type { FacilityType } from '../domains/installations/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
-// type-only, cycle-safe: scenario/types imports this module's mission
-// vocabulary; both directions erase at runtime
-import type { ScenarioSpec } from '../scenario/types'
 
 // how a unit type's parent element is designated inside its battalion:
 //  - 'plt'  — numbered platoon in a lettered company ("1st PLT, A CO, 2-8 CAV")
@@ -367,43 +364,11 @@ export interface TutReactive {
 }
 export interface TutorialSpec { steps: TutStep[]; reactive?: TutReactive[] }
 
-// A campaign MISSION is one ScenarioSpec flavor (SCENARIO-BUILDER.md,
-// vocabulary settled 2026-08-02): SCENARIO = standalone playable setup,
-// MISSION = multi-phase mainline operation, EVENT = small self-contained arc
-// (S4 pool), SITUATION = the campaign's H-hour placement (OPORD Paragraph 1).
-// One file format for all four. Missions are script-heavy — the campaign is
-// continuous, so only the SITUATION places entities; follow-on missions
-// arrive into a world in motion and speak in trigger effects.
-
-export interface CampaignManifest {
-  /** The ground this campaign plays on: 'packId/mapId', or a bare pack map id
-   *  meaning the OWNING pack's map — the ONLY ground path (P6, GROUNDWORK.md).
-   *  `null` = the campaign's real ground has not been authored yet; it cannot
-   *  start and the splash says so. The map's gazetteer (real names) is what
-   *  missions reference. */
-  map: string | null
-  id: string
-  name: string            // campaign display name
-  operation: string       // the operation the mainline constitutes ('LODGMENT')
-  hqLabel: string         // the battalion CP's name
-  airfieldLabel: string   // the CP airstrip's name
-  divHq: { atFrac: { x: number; y: number } } // DIVISION MAIN position (fraction of world)
-  anchors: Record<string, AnchorQuery>
-  preAllocations: Array<{ asset: string; formation: string }>
-  mainline: string[]      // mission ids, in order
-  sideMissions?: Array<{ mission: string; weight: number; cooldownS: number; when: MissionCondition }>
-}
-
-// a fully-loaded campaign: manifest + its scenario files
-export interface CampaignSpec {
-  manifest: CampaignManifest
-  /** the SITUATION (OPORD Paragraph 1) — H-hour placements for the whole
-   *  arc. Absent = mission 1's triggers place the world (today's LODGMENT
-   *  shape). */
-  situation?: ScenarioSpec
-  /** the missions, keyed by id — scenarios with script sections */
-  missions: Record<string, ScenarioSpec>
-}
+// (The campaign-as-separate-content-type died 2026-08-02 — SCENARIO-MODEL.md.
+// A campaign is a SCENARIO the author typed 'campaign'; its situation and
+// missions are sections of scenario/types.ScenarioSpec. This module keeps the
+// mission VOCABULARY above — objectives, conditions, effects, place refs,
+// tutorial — which the scenario schema composes.)
 
 export interface Pack {
   id: string
@@ -440,8 +405,6 @@ export interface Pack {
   mottos?: Record<string, string>
   // battalion nicknames (battalion-specific, unlike regimental mottos)
   nicks?: Record<string, string>
-  // the pack's campaigns (identity content — never falls back), first = default
-  campaigns?: CampaignSpec[]
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th'] as const

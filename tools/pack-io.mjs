@@ -12,7 +12,7 @@
 //   - the resolved path must still sit inside src/packs/<id>/
 //   - the body must parse as JSON before anything is written
 // Everything it touches is under version control; git is the undo.
-import { mkdir, readFile, writeFile } from 'fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'fs/promises'
 import { resolve, sep } from 'path'
 
 const ROOT = resolve(process.cwd(), 'src', 'packs')
@@ -35,17 +35,10 @@ function mapDir(pack, map) {
   return p.startsWith(ROOT + sep) ? p : null
 }
 
-// A scenario's folder: src/packs/<pack>/scenarios/<id>/. Same guards.
-function scenarioDir(pack, id) {
+// A scenario's home: src/packs/<pack>/scenarios/. Same guards.
+function scenariosDir(pack, id) {
   if (!SLUG.test(pack) || !SLUG.test(id)) return null
-  const p = resolve(ROOT, pack, 'scenarios', id)
-  return p.startsWith(ROOT + sep) ? p : null
-}
-
-// A campaign's folder: src/packs/<pack>/campaigns/<id>/. Same guards.
-function campaignDir(pack, id) {
-  if (!SLUG.test(pack) || !SLUG.test(id)) return null
-  const p = resolve(ROOT, pack, 'campaigns', id)
+  const p = resolve(ROOT, pack, 'scenarios')
   return p.startsWith(ROOT + sep) ? p : null
 }
 
@@ -175,12 +168,16 @@ export function packIo() {
         }
       })
 
-      // The SCENARIO BUILDER's save seam (SCENARIO-BUILDER.md E1):
-      //   PUT /__gwscenario?pack=1cd&id=river-delay    the scenario.json
+      // The SCENARIO BUILDER's save seam (SCENARIO-MODEL.md): the client PUTs
+      // the WHOLE ScenarioSpec; the server picks the disk form — one file
+      // until the scenario has missions, then a folder with each mission as
+      // its own NN-id.json (the number prefix is the mainline order). The
+      // other form's leftovers are removed so exactly one form ever exists.
+      //   PUT /__gwscenario?pack=1cd&id=iron-triangle
       // Parsed and re-serialized like every JSON this middleware touches; the
-      // scenarios folders are watcher-ignored (same reason as maps — a save
-      // must not reload the app under the builder), so the discovery module
-      // and the folder's cached modules are invalidated by hand.
+      // scenarios folders are watcher-ignored (a save must not reload the app
+      // under the builder), so discovery and the folder's cached modules are
+      // invalidated by hand.
       server.middlewares.use('/__gwscenario', async (req, res) => {
         const send = (code, obj) => {
           res.statusCode = code
@@ -189,90 +186,45 @@ export function packIo() {
         }
         try {
           const url = new URL(req.url ?? '/', 'http://localhost')
-          const dir = scenarioDir(url.searchParams.get('pack') ?? '', url.searchParams.get('id') ?? '')
-          if (!dir) return send(400, { error: 'bad pack/scenario id' })
+          const id = url.searchParams.get('id') ?? ''
+          const home = scenariosDir(url.searchParams.get('pack') ?? '', id)
+          if (!home) return send(400, { error: 'bad pack/scenario id' })
           if (req.method !== 'PUT') return send(405, { error: 'PUT' })
           const raw = await readBody(req)
-          let parsed
-          try { parsed = JSON.parse(raw) } catch (e) {
-            return send(400, { error: `not valid JSON: ${e.message}` })
-          }
-          await mkdir(dir, { recursive: true })
-          const file = resolve(dir, 'scenario.json')
-          await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
-          const files = [resolve(process.cwd(), 'src', 'packs', 'scenario-files.ts'), dir]
-            .map(p => p.replace(/\\/g, '/'))
-          for (const [f, mods] of server.moduleGraph.fileToModulesMap) {
-            if (f === files[0] || f.startsWith(files[1] + '/')) {
-              for (const m of mods) server.moduleGraph.invalidateModule(m)
-            }
-          }
-          return send(200, { ok: true, file })
-        } catch (e) {
-          return send(500, { error: String(e?.message ?? e) })
-        }
-      })
-
-      // CAMPAIGN CONTENT saves (SCENARIO-BUILDER.md E5 — the builder writes
-      // into a campaign's folder; one content type, four homes):
-      //   PUT /__gwcampaign?pack=1cd&campaign=iron-triangle&file=situation
-      //   PUT /__gwcampaign?pack=1cd&campaign=iron-triangle&file=mission&id=lodgment
-      // Saving a NEW mission appends its id to the manifest's mainline so the
-      // file is never orphaned; `bindMap=<packId/mapId>` writes the campaign's
-      // ground binding when the manifest has none (how a campaign first gets
-      // its map). Same parse-reserialize + hand invalidation as every route.
-      server.middlewares.use('/__gwcampaign', async (req, res) => {
-        const send = (code, obj) => {
-          res.statusCode = code
-          res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify(obj))
-        }
-        try {
-          const url = new URL(req.url ?? '/', 'http://localhost')
-          const dir = campaignDir(url.searchParams.get('pack') ?? '', url.searchParams.get('campaign') ?? '')
-          const kind = url.searchParams.get('file') ?? ''
-          if (!dir) return send(400, { error: 'bad pack/campaign id' })
-          if (req.method !== 'PUT') return send(405, { error: 'PUT' })
-          const raw = await readBody(req)
-          let parsed
-          try { parsed = JSON.parse(raw) } catch (e) {
+          let spec
+          try { spec = JSON.parse(raw) } catch (e) {
             return send(400, { error: `not valid JSON: ${e.message}` })
           }
 
+          const flatFile = resolve(home, `${id}.json`)
+          const folder = resolve(home, id)
+          const missions = Array.isArray(spec.missions) ? spec.missions : []
           let file
-          if (kind === 'situation') {
-            file = resolve(dir, 'situation.json')
-            await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
-          } else if (kind === 'mission') {
-            const mid = url.searchParams.get('id') ?? ''
-            if (!SLUG.test(mid)) return send(400, { error: `bad mission id '${mid}'` })
-            await mkdir(resolve(dir, 'missions'), { recursive: true })
-            file = resolve(dir, 'missions', `${mid}.json`)
-            await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
-            // a new mainline mission joins the manifest's order; ports of
-            // existing ids overwrite in place and the mainline is untouched
-            const manifestFile = resolve(dir, 'campaign.json')
-            const manifest = JSON.parse(await readFile(manifestFile, 'utf8'))
-            if (!(manifest.mainline ?? []).includes(mid)) {
-              manifest.mainline = [...(manifest.mainline ?? []), mid]
-              await writeFile(manifestFile, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+          if (missions.length) {
+            for (const m of missions) {
+              if (!m?.id || !SLUG.test(m.id)) return send(400, { error: `bad mission id '${m?.id}'` })
+            }
+            // folder form: scenario.json (sans missions) + missions as files
+            await rm(folder, { recursive: true, force: true })
+            await rm(flatFile, { force: true })
+            await mkdir(resolve(folder, 'missions'), { recursive: true })
+            const { missions: _m, ...base } = spec
+            file = resolve(folder, 'scenario.json')
+            await writeFile(file, JSON.stringify(base, null, 2) + '\n', 'utf8')
+            for (let i = 0; i < missions.length; i++) {
+              const mf = resolve(folder, 'missions',
+                `${String(i + 1).padStart(2, '0')}-${missions[i].id}.json`)
+              await writeFile(mf, JSON.stringify(missions[i], null, 2) + '\n', 'utf8')
             }
           } else {
-            return send(400, { error: "file must be 'situation' or 'mission'" })
+            // flat form: one file is the whole war
+            await rm(folder, { recursive: true, force: true })
+            await mkdir(home, { recursive: true })
+            file = flatFile
+            await writeFile(file, JSON.stringify(spec, null, 2) + '\n', 'utf8')
           }
 
-          // first save onto an unbound campaign binds its ground
-          const bindMap = url.searchParams.get('bindMap')
-          if (bindMap) {
-            const manifestFile = resolve(dir, 'campaign.json')
-            const manifest = JSON.parse(await readFile(manifestFile, 'utf8'))
-            if (manifest.map == null) {
-              manifest.map = bindMap
-              await writeFile(manifestFile, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
-            }
-          }
-
-          const files = [resolve(process.cwd(), 'src', 'packs', 'campaign-files.ts'), dir]
+          const files = [resolve(process.cwd(), 'src', 'packs', 'scenario-files.ts'), home]
             .map(p => p.replace(/\\/g, '/'))
           for (const [f, mods] of server.moduleGraph.fileToModulesMap) {
             if (f === files[0] || f.startsWith(files[1] + '/')) {

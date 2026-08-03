@@ -36,22 +36,24 @@ function seedIntel(S: GameState, unit: Unit, u: ScenarioUnit): void {
   })
 }
 
-/** Apply a scenario's placed entities onto a BUILT world (S.map ready).
- *  Deterministic: scatter draws go through S.rng in declaration order. */
+/** Apply a scenario's SITUATION — the H-hour placement — onto a BUILT world
+ *  (S.map ready). Deterministic: scatter draws go through S.rng in
+ *  declaration order. */
 export function applyScenario(S: GameState, spec: ScenarioSpec): void {
   const f = frameOf(S.map!.ground!.files.manifest)
   const w = (p: { x: number; y: number }) => normToWorld(f, p.x, p.y)
+  const sit = spec.situation
 
   if (spec.fog != null) S.fogEnabled = spec.fog
 
   // the authored gazetteer — script place refs resolve against these names
   // (engine/missions/places.ts checks it right after the builtin anchors)
-  S.scenarioPlaces = new Map((spec.places ?? []).map(p => {
+  S.scenarioPlaces = new Map((sit.places ?? []).map(p => {
     const pt = w(p)
     return [p.name, { x: pt.x, y: pt.y, ...(p.r != null ? { r: p.r } : {}) }]
   }))
 
-  for (const st of spec.structures) {
+  for (const st of sit.structures) {
     const p = w(st)
     const s = addStructure(st.side, st.kind, p.x, p.y, st.label, !st.building)
     if (st.stock != null) s.stock = st.stock
@@ -67,7 +69,7 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
   // units — friendly through the fielding verb (free placement, garrison
   // troops stay home), hostiles through the factory (garrison AI role)
   const placed: { unit: Unit; authored: ScenarioUnit }[] = []
-  for (const u of spec.units) {
+  for (const u of sit.units) {
     const p = w(u)
     let unit: Unit | null = null
     if (u.side === 'friend') {

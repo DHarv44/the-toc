@@ -1,0 +1,19 @@
+{
+  "_doc": "IRON TRIANGLE — a SCENARIO the author typed 'campaign' (SCENARIO-MODEL.md): plays from the CAMPAIGNS menu, rules come from its missions (missions/NN-*.json, number prefix = mainline order). No `map` yet — the real ground is not authored, so it lists greyed until the builder binds one. The situation is empty for the same reason (mission 1's h-hour trigger still places the world, the pre-collapse LODGMENT shape); authoring the real situation on real ground is the acceptance test. The campaign dressing below came from the retired campaign.json manifest.",
+  "type": "campaign",
+  "name": "IRON TRIANGLE",
+  "operation": "LODGMENT",
+  "hqLabel": "CP GARRYOWEN",
+  "airfieldLabel": "GARRYOWEN STRIP",
+  "divHq": { "atFrac": { "x": 0.08, "y": 0.94 } },
+  "anchors": {
+    "strongpoint": { "query": "town-nearest", "to": "player-hq" }
+  },
+  "preAllocations": [
+    { "asset": "CRAM", "formation": "2ABCT" },
+    { "asset": "CRAM", "formation": "3ABCT" },
+    { "asset": "SHADOW", "formation": "1ACB" },
+    { "asset": "SENTINEL", "formation": "CORPS MAIN" }
+  ],
+  "situation": { "structures": [], "units": [] }
+}
