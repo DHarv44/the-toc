@@ -165,7 +165,8 @@ export function initDevGame(map: WorldMap, seed = 1337): void {
   S.units = []
   S.structures = []              // place a clean corner-to-corner layout ourselves
   S.enemyGroups = []
-  S.org = buildDivisionOrg(playerPack()) // the discarded starter force burned slots — reissue
+  // the discarded starter force burned slots — reissue, same chair
+  S.org = buildDivisionOrg(playerPack(), S.playerBn)
 
   const W = S.map!.WORLD
   // friendly lower-left, enemy upper-right (screen up = -y)

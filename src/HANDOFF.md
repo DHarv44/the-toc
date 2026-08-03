@@ -1,5 +1,14 @@
 # HANDOFF — 2026-08-02 (Fable 5 → Opus 5): TASK-ORG PHASE 1
 
+> **STATUS: T1–T5 SHIPPED** (commits 3228704 · 66dfd94 · e77e70e · 8f76e6a ·
+> and the retrofit). tsc clean at every step; the `'2-8 CAV'` literal is gone.
+> The settled model below is now IMPLEMENTED — it stands as the reference for
+> how task org works, not as a to-do. What remains from this arc:
+> **phase 2, the friendly-commander AI** (make allied formations manoeuvre —
+> `domains/forces/command.ts` is the seam it plugs into), which waits behind
+> the PLAY loop so it can be watched and tuned. Hostile formations wait for
+> the OPFOR pack's org (P4). Nothing else here is outstanding.
+
 The Scenario Builder speaks the pack's real division. This doc is
 self-contained — read it plus the two plan docs and you have everything.
 Prior handoff content is in git history (this file, 2026-07-25).

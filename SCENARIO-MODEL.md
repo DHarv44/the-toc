@@ -150,8 +150,50 @@ teaching brief). The loop works. What it surfaced, by severity:
     hand-written JSON; the brief carries the teaching for now. Fine short-term,
     worth revisiting when the tutorial format stabilizes.
 
+## TASK ORG — phase 1 (2026-08-02, shipped)
+
+**The pack ships a real division; the scenario now speaks it.** Settled with
+the user: **COMMAND DERIVES FROM TASK ORGANIZATION** — there is no player/AI
+flag anywhere. The battalion you command plus anything ATTACHED to you for
+this operation is yours to order; every other friendly formation is a
+neighbour on your map fighting its own fight.
+
+- `ScenarioSpec.player` — the CHAIR. Campaign: script (the author says who
+  you are). Skirmish: the default, and the player may take another playable
+  battalion at launch; the task org re-derives around whoever sits down.
+- `ScenarioStructure.formation` / `ScenarioUnit.formation` — the owning
+  formation, picked from the pack's org (division / brigade / battalion),
+  never free text. Absent = the player's own command.
+- `ScenarioUnit.attached` — task-organized to the player (the pack's own
+  attachment concept, authored per scenario).
+- `ScenarioStructure.assets` — division enablers sited at an installation at
+  H-hour, with quantities, emplaced through the same path a delivered asset
+  uses. **Difficulty never scales authored quantities** (the OPORD litmus).
+
+Mechanically: a sister formation's platoon draws ITS OWN battalion's org
+slot — real people, real lineage — via `drawSlotIn`, never the player's task
+force. `tf` marking is built around the chair, so `buildDivisionOrg` takes it
+as a parameter. Command is one predicate (`domains/forces/command.ts`) used
+by the FORCES rail, map selection, CALL UP's base list and the force cap.
+Phase 1 neighbours hold where placed and defend themselves; making them
+MANOEUVRE is the friendly-commander AI (phase 2, after the PLAY loop).
+
+**The OPORD litmus** for future "should this be configurable?" questions: the
+scenario file is the OPORD plus task org — task organization, attachments,
+asset allocation, supply posture, control measures, the mission, who
+commands = scenario data. Player preference and engine physics = not.
+
+Killed: the `'2-8 CAV'` fallback literal in engine/campaign.ts (hardcode
+audit). Deferred: hostile formations (waits for the OPFOR pack's org, P4).
+
 ## Decisions log
 
+- 2026-08-02 · command DERIVES from task org — no player/AI flag (user).
+- 2026-08-02 · difficulty never scales authored asset quantities; if ever
+  needed the escape hatch is a per-entry flag, not a global coupling.
+- 2026-08-02 · a unit's owning battalion is `Unit.bn` in the sim (matching
+  `OrgSlot.bn`) because `Unit.formation` already means the TACTICAL
+  formation; the author-facing scenario field stays `formation`.
 - 2026-08-02 · type is AUTHORED, never inferred from mission count (user).
 - 2026-08-02 · one file until missions exist, then folder; missions are files;
   order = filename prefix (keeps hand-composability — the training mission
