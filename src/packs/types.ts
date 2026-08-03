@@ -29,6 +29,12 @@ export interface OrganicSlot {
   bn: string              // parent battalion designation, e.g. '2-8 CAV'
   style?: LineageStyle    // default 'plt'
   hhcName?: string        // the specialty platoon's name for style 'hhc'
+  // WHICH companies of that battalion this type actually comes from. A
+  // combined arms battalion has tank companies AND mech companies under one
+  // designation, so the type alone does not say which letters are yours:
+  // ARM draws A/B, MECH draws C/D. Absent = the battalion's companies in
+  // order, which is right for a battalion of one kind.
+  cos?: string[]
 }
 
 export interface AttachedSlot extends OrganicSlot {
@@ -49,6 +55,7 @@ export type BnKind =
 export interface BnPlan {
   desig: string           // '2-8 CAV'
   kind: BnKind
+  nick?: string           // 'GARRYOWEN' — the battalion's own name, not the brigade's
   tfCos?: string[]        // companies allocated to the TF ('A CO'…); playerBn = all
   // this formation's insignia as an ART FILE (svg or png under public/) — the
   // DUI a battalion is known by. Drawn on the map symbol in place of the 2525
@@ -460,7 +467,8 @@ export function lineageFor(pack: Pack, type: UnitTypeKey, n: number): { text: st
     const nth = Math.floor(n)
     elem = `${slot.hhcName ?? 'SCT PLT'}${nth > 0 ? ` (${nth + 1})` : ''}, HHC`
   } else {
-    elem = `${ORD[n % 3]} PLT, ${CO[Math.floor(n / 3) % CO.length]} CO`
+    const cos = slot.cos ?? CO
+    elem = `${ORD[n % 3]} PLT, ${cos[Math.floor(n / 3) % cos.length]} CO`
   }
   return { text: `${elem}, ${slot.bn}`, from }
 }

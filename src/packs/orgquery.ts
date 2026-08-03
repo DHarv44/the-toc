@@ -103,7 +103,7 @@ export function orgTree(pack: Pack, org: DivOrg | null = orgFor(pack)): OrgTreeN
       label: bde.desig, nick: bde.nick,
       children: bde.bns.map(bn => ({
         key: `bn:${bn.desig}`, desig: bn.desig, echelon: 'battalion',
-        label: bn.desig, children: [],
+        label: bn.desig, ...(bn.nick ? { nick: bn.nick } : {}), children: [],
       })),
     })
   }

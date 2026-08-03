@@ -103,6 +103,10 @@ export interface Soldier {
   name?: string              // "MARCUS DELACRUZ" — player-renamable from the troop card
   rank?: string              // "SGT" (pack rank table)
   pos?: string               // billet: "Team Leader", "Gunner", "Platoon Medic"…
+  // the SUB-ELEMENT inside the slot — 'S3 SEC', 'FS ELEMENT'. The rung between
+  // an element and its people, where one exists; absent means the person hangs
+  // directly off the element (a command group has nothing under it).
+  sec?: string
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
   pid?: string               // stable personnel identity (portrait seed) — survives fielding
   wound?: Wound              // current (or last) injury report

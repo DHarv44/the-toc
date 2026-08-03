@@ -70,13 +70,15 @@
   ],
   "organic": {
     "MECH": {
-      "bn": "2-8 CAV"
+      "bn": "2-8 CAV",
+      "cos": ["C", "D"]
     },
     "ARM": {
-      "bn": "1-12 CAV"
+      "bn": "2-8 CAV",
+      "cos": ["A", "B"]
     },
     "CAV": {
-      "bn": "1-7 CAV"
+      "bn": "4-9 CAV"
     },
     "SCT": {
       "bn": "2-8 CAV",
@@ -101,7 +103,8 @@
       "bn": "91 BEB"
     },
     "SIG": {
-      "bn": "13 SIG BN"
+      "bn": "91 BEB",
+      "cos": ["C"]
     },
     "LOG": {
       "bn": "115 BSB"
@@ -212,19 +215,27 @@
           {
             "desig": "2-8 CAV",
             "kind": "CAB",
+            "nick": "STALLION",
             "patch": "/crests/2-8cav-dui.png",
             "arms": "/crests/8cav.svg"
           },
           {
-            "desig": "1-12 CAV",
-            "kind": "ARMOR",
+            "desig": "1-7 CAV",
+            "kind": "CAB",
+            "nick": "GARRYOWEN",
             "tfCos": [
               "A CO"
             ]
           },
           {
-            "desig": "1-7 CAV",
+            "desig": "2-5 CAV",
+            "kind": "CAB",
+            "nick": "LANCER"
+          },
+          {
+            "desig": "4-9 CAV",
             "kind": "RECON",
+            "nick": "DARKHORSE",
             "tfCos": [
               "A TRP"
             ]
@@ -232,6 +243,7 @@
           {
             "desig": "1-82 FA",
             "kind": "FA",
+            "nick": "DRAGON",
             "tfCos": [
               "A BTRY"
             ]
@@ -240,12 +252,14 @@
             "desig": "91 BEB",
             "kind": "BEB",
             "tfCos": [
-              "A CO"
+              "A CO",
+              "C CO"
             ]
           },
           {
             "desig": "115 BSB",
             "kind": "BSB",
+            "nick": "MULESKINNER",
             "tfCos": [
               "A CO"
             ]
@@ -258,19 +272,28 @@
         "bns": [
           {
             "desig": "1-5 CAV",
-            "kind": "CAB"
+            "kind": "CAB",
+            "nick": "BLACK KNIGHT"
           },
           {
             "desig": "1-8 CAV",
-            "kind": "ARMOR"
+            "kind": "CAB",
+            "nick": "MUSTANG"
           },
           {
-            "desig": "4-9 CAV",
-            "kind": "RECON"
+            "desig": "2-12 CAV",
+            "kind": "CAB",
+            "nick": "THUNDERHORSE"
+          },
+          {
+            "desig": "1-9 CAV",
+            "kind": "RECON",
+            "nick": "HEADHUNTER"
           },
           {
             "desig": "3-16 FA",
-            "kind": "FA"
+            "kind": "FA",
+            "nick": "ROLLING THUNDER"
           },
           {
             "desig": "8 BEB",
@@ -287,20 +310,29 @@
         "nick": "GREYWOLF",
         "bns": [
           {
+            "desig": "1-12 CAV",
+            "kind": "CAB",
+            "nick": "CHARGER"
+          },
+          {
             "desig": "2-7 CAV",
-            "kind": "CAB"
+            "kind": "CAB",
+            "nick": "GHOST"
           },
           {
             "desig": "3-8 CAV",
-            "kind": "ARMOR"
+            "kind": "CAB",
+            "nick": "WARHORSE"
           },
           {
             "desig": "6-9 CAV",
-            "kind": "RECON"
+            "kind": "RECON",
+            "nick": "SABER"
           },
           {
             "desig": "2-82 FA",
-            "kind": "FA"
+            "kind": "FA",
+            "nick": "STEEL DRAGON"
           },
           {
             "desig": "3 BEB",
@@ -308,13 +340,14 @@
           },
           {
             "desig": "215 BSB",
-            "kind": "BSB"
+            "kind": "BSB",
+            "nick": "BLACKSMITH"
           }
         ]
       },
       {
         "desig": "1ACB",
-        "nick": "AIR CAV",
+        "nick": "WARRIOR",
         "bns": [
           {
             "desig": "1-227 ARB",
@@ -363,9 +396,7 @@
           {
             "desig": "13 SIG BN",
             "kind": "SIG",
-            "tfCos": [
-              "A CO"
-            ]
+            "nick": "VOICE OF COMMAND"
           }
         ]
       },

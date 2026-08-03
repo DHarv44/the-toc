@@ -51,28 +51,44 @@ function aggSum(list: Agg[]): Agg {
   return a
 }
 
-// --- squad derivation ------------------------------------------------------
-// No formal squad assignment exists yet (task-org pass comes later): derive
-// deterministic squads from the billets — PL/PSG/medic form the PLT HQ node,
-// each Squad Leader takes an even slice of the remaining dismounts.
+// --- sub-element derivation ------------------------------------------------
+// THE RUNG BELOW AN ELEMENT, when there is one. Three cases, in order:
+//
+//   1. The roster SAYS so (Soldier.sec) — staff sections, the fire support
+//      element. Authored structure always wins over anything derived.
+//   2. Rifle platoons — no formal squad assignment exists yet (that lands with
+//      the task-org pass), so derive it deterministically from the billets:
+//      PL/PSG/medic make the PLT HQ, each Squad Leader takes an even slice.
+//   3. Everyone else — NOTHING. An element whose only sub-element would be
+//      itself does not get one: a command group IS its five people, and a rung
+//      that repeats its parent's name, count and leader tells you nothing.
 interface SquadNode { label: string; leader: Soldier | null; members: Soldier[] }
 function deriveSquads(soldiers: Soldier[]): SquadNode[] {
   const dis = soldiers.filter(s => s.vehId == null)
   if (!dis.length) return []
+  // 1 — authored sections, in first-appearance order
+  if (dis.some(s => s.sec)) {
+    const out: SquadNode[] = []
+    for (const s of dis) {
+      const label = s.sec ?? 'SECTION'
+      const node = out.find(n => n.label === label)
+      if (node) node.members.push(s)
+      else out.push({ label, leader: s, members: [s] })
+    }
+    return out
+  }
+  // 2 — derived rifle squads
   const hq = dis.filter(s => s.pos === 'Platoon Leader' || s.pos === 'Platoon Sergeant' || s.pos === 'Platoon Medic')
   const sls = dis.filter(s => s.pos === 'Squad Leader')
   const rest = dis.filter(s => !hq.includes(s) && !sls.includes(s))
+  if (!sls.length) return []   // 3 — no squads to speak of; the people ARE the element
   const out: SquadNode[] = []
   if (hq.length) out.push({ label: 'PLT HQ', leader: hq.find(s => s.pos === 'Platoon Leader') ?? hq[0]!, members: hq })
-  if (sls.length) {
-    const per = Math.ceil(rest.length / sls.length)
-    sls.forEach((sl, i) => {
-      const slice = rest.slice(i * per, (i + 1) * per)
-      out.push({ label: `${i + 1}${['ST', 'ND', 'RD'][i] ?? 'TH'} SQD`, leader: sl, members: [sl, ...slice] })
-    })
-  } else if (rest.length) {
-    out.push({ label: 'SECTION', leader: rest[0]!, members: rest })
-  }
+  const per = Math.ceil(rest.length / sls.length)
+  sls.forEach((sl, i) => {
+    const slice = rest.slice(i * per, (i + 1) * per)
+    out.push({ label: `${i + 1}${['ST', 'ND', 'RD'][i] ?? 'TH'} SQD`, leader: sl, members: [sl, ...slice] })
+  })
   return out
 }
 
@@ -220,6 +236,9 @@ function SoldierRow({ s, depth }: { s: Soldier; depth: number }) {
 function SlotRoster({ sl, depth, open, toggle }: {
   sl: OrgSlot; depth: number; open: Set<string>; toggle: (k: string) => void
 }) {
+  const squads = deriveSquads(sl.soldiers)
+  const grouped = new Set(squads.flatMap(sq => sq.members))
+  const loose = sl.soldiers.filter(s => s.vehId == null && !grouped.has(s))
   return (
     <>
       {sl.vehicles.map((v: UnitVehicle) => {
@@ -243,7 +262,7 @@ function SlotRoster({ sl, depth, open, toggle }: {
           </div>
         )
       })}
-      {deriveSquads(sl.soldiers).map(sq => {
+      {squads.map(sq => {
         const sqKey = `sq:${sl.id}:${sq.label}`
         const sa = zero(); aggSoldiers(sa, sq.members)
         return (
@@ -255,6 +274,9 @@ function SlotRoster({ sl, depth, open, toggle }: {
           </div>
         )
       })}
+      {/* people who belong to no sub-element and crew no vehicle hang straight
+          off the element — that IS the structure, not a missing rung */}
+      {loose.map(s => <SoldierRow key={s.id} s={s} depth={depth} />)}
     </>
   )
 }

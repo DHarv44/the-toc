@@ -16,7 +16,12 @@ import type { BnKind, BnPlan, Pack } from './types'
 import { namePersonnel, nameSoldier } from './personnel'
 
 // --- staff/aviation slot recipes -------------------------------------------
-interface StaffMember { kind: TroopKindKey; pos: string; rank: string }
+// `sec` is the SUB-ELEMENT this person belongs to inside the slot — the rung
+// below a staff element is its SECTIONS, and a battalion staff is not nine
+// people in a heap: it is the S1 shop, the S2 shop, the S3 shop and so on,
+// each with an officer and their NCOs. Untagged members hang directly off the
+// slot (a command group IS the element; it has nothing under it).
+interface StaffMember { kind: TroopKindKey; pos: string; rank: string; sec?: string }
 
 const BN_CMD_GRP: StaffMember[] = [
   { kind: 'STAFF', pos: 'Battalion Commander', rank: 'LTC' },
@@ -26,15 +31,25 @@ const BN_CMD_GRP: StaffMember[] = [
   { kind: 'STAFF', pos: 'Command RTO', rank: 'SPC' },
 ]
 const BN_STAFF: StaffMember[] = [
-  { kind: 'STAFF', pos: 'S1 — Personnel', rank: 'CPT' },
-  { kind: 'STAFF', pos: 'S1 NCOIC', rank: 'SSG' },
-  { kind: 'STAFF', pos: 'S2 — Intelligence', rank: 'CPT' },
-  { kind: 'STAFF', pos: 'S3 — Operations', rank: 'MAJ' },
-  { kind: 'STAFF', pos: 'S4 — Logistics', rank: 'CPT' },
-  { kind: 'STAFF', pos: 'S6 — Signal', rank: 'CPT' },
-  { kind: 'STAFF', pos: 'Operations NCO', rank: 'SFC' },
-  { kind: 'STAFF', pos: 'Battle Captain RTO', rank: 'SPC' },
-  { kind: 'STAFF', pos: 'S1 Clerk', rank: 'SPC' },
+  { kind: 'STAFF', pos: 'S1 — Personnel', rank: 'CPT', sec: 'S1 SEC' },
+  { kind: 'STAFF', pos: 'S1 NCOIC', rank: 'SSG', sec: 'S1 SEC' },
+  { kind: 'STAFF', pos: 'S1 Clerk', rank: 'SPC', sec: 'S1 SEC' },
+  { kind: 'STAFF', pos: 'S2 — Intelligence', rank: 'CPT', sec: 'S2 SEC' },
+  { kind: 'STAFF', pos: 'S2 Analyst', rank: 'SGT', sec: 'S2 SEC' },
+  { kind: 'STAFF', pos: 'S3 — Operations', rank: 'MAJ', sec: 'S3 SEC' },
+  { kind: 'STAFF', pos: 'Operations NCO', rank: 'SFC', sec: 'S3 SEC' },
+  { kind: 'STAFF', pos: 'Battle Captain RTO', rank: 'SPC', sec: 'S3 SEC' },
+  { kind: 'STAFF', pos: 'S4 — Logistics', rank: 'CPT', sec: 'S4 SEC' },
+  { kind: 'STAFF', pos: 'S4 NCOIC', rank: 'SSG', sec: 'S4 SEC' },
+  { kind: 'STAFF', pos: 'S6 — Signal', rank: 'CPT', sec: 'S6 SEC' },
+  // the FIRE SUPPORT ELEMENT: the battalion's own fires cell, and the reason
+  // a call for fire has anyone to answer it. A CAB staff without an FSO is
+  // missing the officer who plans every target on the sheet.
+  { kind: 'STAFF', pos: 'Fire Support Officer', rank: 'CPT', sec: 'FS ELEMENT' },
+  { kind: 'STAFF', pos: 'Fire Support NCO', rank: 'SSG', sec: 'FS ELEMENT' },
+  // the UNIT MINISTRY TEAM — a real two-person section on every battalion MTOE
+  { kind: 'STAFF', pos: 'Chaplain', rank: 'CPT', sec: 'UMT' },
+  { kind: 'STAFF', pos: 'Religious Affairs NCO', rank: 'SGT', sec: 'UMT' },
 ]
 const DIV_CMD_GRP: StaffMember[] = [
   { kind: 'STAFF', pos: 'Commanding General', rank: 'MG' },
@@ -92,6 +107,11 @@ const plts = (type: UnitTypeKey, n = 3): SlotSpec[] =>
 
 function bnTemplate(kind: BnKind): CoSpec[] {
   switch (kind) {
+    // A COMBINED ARMS BATTALION is exactly what it says: tank companies and
+    // mechanized infantry companies under ONE commander. The ABCT builds them
+    // 'double-double' — two armor, two mech — precisely so the battalion can
+    // cross-attach into company teams without asking brigade for anything.
+    // (A pure tank battalion is the ARMOR kind; no ABCT fields one.)
     case 'CAB': return [
       { co: 'HHC', slots: [
         { name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF },
@@ -100,9 +120,10 @@ function bnTemplate(kind: BnKind): CoSpec[] {
         // it mans the HQ AID facility while garrisoned, treats forward when out)
         { name: 'MED PLT', type: 'MED' },
       ] },
-      { co: 'A CO', slots: plts('MECH') },
-      { co: 'B CO', slots: plts('MECH') },
+      { co: 'A CO', slots: plts('ARM') },
+      { co: 'B CO', slots: plts('ARM') },
       { co: 'C CO', slots: plts('MECH') },
+      { co: 'D CO', slots: plts('MECH') },
     ]
     case 'ARMOR': return [
       { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
@@ -122,10 +143,19 @@ function bnTemplate(kind: BnKind): CoSpec[] {
       { co: 'B BTRY', slots: [{ name: 'FIRING BTRY', type: 'ARTY' }] },
       { co: 'C BTRY', slots: [{ name: 'FIRING BTRY', type: 'ARTY' }] },
     ]
+    // The BRIGADE ENGINEER BATTALION is not only engineers: the ABCT's organic
+    // signal and military-intelligence companies live here too, which is where
+    // a brigade's own network and collection actually come from. (The MI
+    // company is absent until there is a unit type with something to do —
+    // collection/EW is unbuilt; see the pack's S6 note.)
     case 'BEB': return [
       { co: 'HSC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
       { co: 'A CO', slots: plts('ENG') },
       { co: 'B CO', slots: plts('ENG') },
+      { co: 'C CO', slots: [
+        { name: '1st PLT', type: 'SIG' }, { name: '2nd PLT', type: 'SIG' },
+        { name: 'NETOPS', staff: netOps() },
+      ] },
     ]
     case 'BSB': return [
       { co: 'HHC', slots: [{ name: 'CMD GRP', staff: BN_CMD_GRP }, { name: 'BN STAFF', staff: BN_STAFF }] },
@@ -192,7 +222,10 @@ function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotI
   let vid = 1
   for (const v of spec.vehicles ?? []) for (let i = 0; i < v.n; i++) vehicles.push({ id: vid++, type: v.type, status: 'OK' })
   const soldiers: Soldier[] = spec.staff.map((m, i) => {
-    const s: Soldier = { id: i + 1, kind: m.kind, status: 'FIT', vehId: null, pos: m.pos, rank: m.rank }
+    const s: Soldier = {
+      id: i + 1, kind: m.kind, status: 'FIT', vehId: null, pos: m.pos, rank: m.rank,
+      ...(m.sec ? { sec: m.sec } : {}),
+    }
     nameSoldier(s, slotId, side)
     return s
   })
