@@ -10,7 +10,7 @@
 // slots from a BATTALION (that is where fieldable platoons live); structures
 // may belong to any echelon (DIV MAIN is the division's, a FOB may be a
 // sister brigade's).
-import type { DivOrg } from '../engine/GameState'
+import type { DivOrg, OrgSlot } from '../engine/GameState'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import type { Pack } from './types'
 import { isPlayableBn } from './types'
@@ -68,6 +68,65 @@ export function formationOptions(pack: Pack): FormationRef[] {
   return out
 }
 
+// THE ORG TREE — division → brigades → battalions, in the pack's own order,
+// with the ATTACHMENTS pseudo-brigade last. ONE definition of the hierarchy:
+// the S1 console's DIVISION view and the builder's formation picker are two
+// renderings of this, never two walks of the same data.
+export interface OrgTreeNode {
+  /** stable expand/select key: 'div' | 'bde:1ABCT' | 'bn:2-8 CAV' */
+  key: string
+  /** the designation an entity carries */
+  desig: string
+  echelon: Echelon
+  /** display text ('ATTACHMENTS' for the attachment group) */
+  label: string
+  /** formation nickname — 'IRONHORSE' */
+  nick?: string
+  /** donor formation for an attached battalion — the ATT badge ('2ID') */
+  donor?: string
+  children: OrgTreeNode[]
+}
+
+/** The pack's formation as a tree. `org` supplies the attachments (they are
+ *  materialized from pack.attached, not declared in the brigade plan). */
+export function orgTree(pack: Pack, org: DivOrg | null = orgFor(pack)): OrgTreeNode {
+  const f = pack.formation
+  const div = divisionDesig(pack)
+  const root: OrgTreeNode = {
+    key: 'div', desig: div, echelon: 'division',
+    label: pack.name || div, nick: pack.nick, children: [],
+  }
+  if (!f) return root
+  for (const bde of f.bdes) {
+    root.children.push({
+      key: `bde:${bde.desig}`, desig: bde.desig, echelon: 'brigade',
+      label: bde.desig, nick: bde.nick,
+      children: bde.bns.map(bn => ({
+        key: `bn:${bn.desig}`, desig: bn.desig, echelon: 'battalion',
+        label: bn.desig, children: [],
+      })),
+    })
+  }
+  // attachments: battalions that exist only because something is task-organized
+  // in from them. Their donor rides the badge; organic-but-attached shows none.
+  const att = (org?.slots ?? []).filter(sl => sl.bde === 'ATT')
+  if (att.length) {
+    const bns = [...new Set(att.map(sl => sl.bn))]
+    root.children.push({
+      key: 'bde:ATT', desig: 'ATT', echelon: 'brigade', label: 'ATTACHMENTS',
+      children: bns.map(bn => {
+        const from = att.find(sl => sl.bn === bn)?.from
+        return {
+          key: `bn:${bn}`, desig: bn, echelon: 'battalion', label: bn,
+          ...(from && from !== bn ? { donor: from } : {}),
+          children: [],
+        }
+      }),
+    })
+  }
+  return root
+}
+
 /** Battalions only — the formations a UNIT can belong to (slots live there). */
 export const battalionOptions = (pack: Pack): FormationRef[] =>
   formationOptions(pack).filter(o => o.echelon === 'battalion')
@@ -95,6 +154,41 @@ export function slotBudget(pack: Pack, formation: string, type: UnitTypeKey): nu
   return org.slots.filter(sl =>
     sl.type === type && (formation === div || sl.bn === formation || sl.bde === formation),
   ).length
+}
+
+/** Every fieldable slot a formation owns, at any echelon (battalion desig or
+ *  brigade desig; the division owns everything). The garrison a scenario
+ *  author is drawing from. */
+export function formationSlots(pack: Pack, formation: string): OrgSlot[] {
+  const org = orgFor(pack)
+  if (!org) return []
+  const div = divisionDesig(pack)
+  return org.slots.filter(sl =>
+    sl.type && (formation === div || sl.bn === formation || sl.bde === formation))
+}
+
+/** The formation's garrison grouped by CAPABILITY — the same question the
+ *  CALL UP flyout asks ("what kills that tank?"), asked at authoring time.
+ *  Each group carries its real elements so the picker can brief ELM and STR
+ *  exactly as the rails do. */
+export interface CapabilityGroup {
+  cat: string
+  slots: OrgSlot[]
+  /** the unit types inside, in catalog order */
+  types: UnitTypeKey[]
+}
+export function capabilityGroups(pack: Pack, formation: string): CapabilityGroup[] {
+  const units = pack.catalogs.units as Record<string, { cat?: string }>
+  const out = new Map<string, CapabilityGroup>()
+  for (const sl of formationSlots(pack, formation)) {
+    const type = sl.type as UnitTypeKey
+    const cat = units[type]?.cat ?? 'OTHER'
+    const g = out.get(cat) ?? { cat, slots: [], types: [] }
+    g.slots.push(sl)
+    if (!g.types.includes(type)) g.types.push(type)
+    out.set(cat, g)
+  }
+  return [...out.values()]
 }
 
 /** The formations that can actually field `type` — used to steer the author
