@@ -419,12 +419,20 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
                   <Group gap={4} px={6} pt={4} wrap="nowrap">
                     <TextInput size="xs" w={100} value={cur.id} label="ID"
                       styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
-                      onChange={ev => setMissions(ms => ms.map((m, i) =>
-                        i === curM ? { ...m, id: slugify(ev.currentTarget.value) || m.id } : m))} />
+                      onChange={ev => {
+                        // read the event SYNCHRONOUSLY — currentTarget is null
+                        // by the time the state updater runs
+                        const v = ev.currentTarget.value
+                        setMissions(ms => ms.map((m, i) =>
+                          i === curM ? { ...m, id: slugify(v) || m.id } : m))
+                      }} />
                     <TextInput size="xs" style={{ flex: 1 }} value={cur.name} label="NAME"
                       styles={{ input: { fontFamily: MONO, fontSize: 10 } }}
-                      onChange={ev => setMissions(ms => ms.map((m, i) =>
-                        i === curM ? { ...m, name: ev.currentTarget.value.toUpperCase() } : m))} />
+                      onChange={ev => {
+                        const v = ev.currentTarget.value
+                        setMissions(ms => ms.map((m, i) =>
+                          i === curM ? { ...m, name: v.toUpperCase() } : m))
+                      }} />
                   </Group>
                   <ScriptPanel mission={cur} placeNames={placeNames}
                     onChange={patch => setMissions(ms => ms.map((m, i) =>

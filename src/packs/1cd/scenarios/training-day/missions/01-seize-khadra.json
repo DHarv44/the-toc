@@ -1,0 +1,93 @@
+{
+  "id": "seize-khadra",
+  "name": "SEIZE OBJ KHADRA",
+  "brief": "TASK FORCE, THIS IS HIGHER. Welcome to the First Team. West of the river sits a crossroads suburb designated OBJECTIVE KHADRA. Intel holds SUSPECTED enemy positions inside — the markers on your map are where we THINK they are, not where they stand. Nothing is fielded at H-hour: your battalion stages from CP LONGKNIFE. Open the FORCES rail on the left edge and CALL UP your scout platoon first — scouts find the enemy before the enemy finds you. Set them to BREAK in the bottom tray so they fall back if engaged, then RIGHT-CLICK to push them toward the objective. Behind them, call up an assault force — two mech platoons and the mortars are a solid start. Use ATTACK posture to close with the enemy, clear the suburb, then move in and DIG IN. Expect a counterattack from the north once you hold the town. FIND THEM. CLEAR OBJ KHADRA. HOLD IT.",
+  "objectives": [
+    {
+      "id": "scout",
+      "label": "SCOUT OBJ KHADRA",
+      "kind": "recon-area",
+      "zone": {
+        "place": "OBJ KHADRA",
+        "r": 420
+      }
+    },
+    {
+      "id": "clear",
+      "label": "CLEAR OBJ KHADRA",
+      "kind": "clear-area",
+      "zone": {
+        "place": "OBJ KHADRA",
+        "r": 420
+      }
+    },
+    {
+      "id": "hold",
+      "label": "DEFEAT THE COUNTERATTACK",
+      "kind": "defeat-group",
+      "groupTag": "REINFORCEMENT"
+    },
+    {
+      "id": "fob",
+      "label": "ESTABLISH FOB KHADRA",
+      "kind": "build",
+      "structKind": "FOB",
+      "zone": {
+        "place": "OBJ KHADRA",
+        "r": 520
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "id": "h-hour",
+      "when": {
+        "kind": "objective-active",
+        "objective": "scout"
+      },
+      "do": [
+        {
+          "kind": "set-allow",
+          "field": true,
+          "support": false,
+          "drone": true
+        },
+        {
+          "kind": "opfor-objective",
+          "place": "OBJ KHADRA"
+        }
+      ]
+    },
+    {
+      "id": "counterattack",
+      "when": {
+        "kind": "objective-active",
+        "objective": "hold"
+      },
+      "do": [
+        {
+          "kind": "spawn-group",
+          "tag": "REINFORCEMENT",
+          "units": [
+            "MECH",
+            "INF"
+          ],
+          "at": {
+            "place": "OBJ KHADRA",
+            "toward": "enemy-base",
+            "range": 1300
+          }
+        },
+        {
+          "kind": "radio",
+          "radio": {
+            "from": "NET",
+            "text": "COUNTERATTACK INBOUND — HOSTILE ARMOR MOVING ON THE SUBURB FROM THE NORTH. HOLD WHAT YOU TOOK.",
+            "cat": "contact",
+            "at": "ctx"
+          }
+        }
+      ]
+    }
+  ]
+}

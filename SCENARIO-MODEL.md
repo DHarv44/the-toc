@@ -110,6 +110,46 @@ scenario fields with engine defaults.
   left). ROADMAP touch. Grep sweep: no `CampaignSpec`, no `campaigns/` refs,
   no 'opening', no destination code left.
 
+## Dogfood findings — TRAINING DAY authored via UI (2026-08-02)
+
+Built `1cd/scenarios/training-day` (type campaign, Baghdad) end-to-end through
+the builder as a scenario author: situation (CP LONGKNIFE + strip, known
+enemy HQ, two dug-in SUSPECTED garrison platoons, OBJ KHADRA zone), one
+mission (4 objectives scout/clear/hold/fob, h-hour + counterattack triggers,
+teaching brief). The loop works. What it surfaced, by severity:
+
+1. **[FIXED] Mission rename crashed the app** — ev.currentTarget read inside
+   a setState updater; first keystroke = white screen. Also: no React error
+   boundary, so ANY component crash blanks the whole tool.
+2. **No draft protection** — everything between saves dies with a crash or
+   reload. CREATE should write the file immediately; add an autosave or at
+   least a beforeunload warning.
+3. **Armed placement tool never disarms** — every stray click stamps another
+   entity (duplicated an enemy HQ against the panel edge). Want: visible
+   armed-state indicator + Esc hint; consider one-shot placement for
+   installations.
+4. **Control measures are invisible on light terrain** — amber zone ring and
+   diamond disappear against tan ground. Needs a dark outline halo.
+5. **No situation roster** — no list of what's placed; auditing attributes
+   means pixel-hunting symbols and clicking blind. A roster panel (rows =
+   entities, click = select/center) fixes orientation, auditing, and dense
+   overlaps at once.
+6. **Objective KIND change wipes params** already entered (zone place/radius).
+   Preserve compatible fields across kind switches.
+7. **Effect authoring friction** — every new effect defaults to 'radio', so
+   most effects need a trip through a 13-item scrolling dropdown; add-buttons
+   sit flush against checkboxes (misclicked ALLOW DRONES for ＋ EFFECT).
+   Frequency-order the kinds, space the buttons.
+8. **Save feedback is a blip** — a small header message; no dirty indicator,
+   no saved-state on the button. (One save silently missed = author left
+   believing work was saved.)
+9. **Trigger-spawned units are invisible** — the counterattack exists only as
+   a form; the planned ghost overlay (render spawn effects + zones spatially
+   per mission) is the fix, and PLAY is the real proof.
+10. **Tutorial curriculum is not authorable** — by design the step overlay is
+    hand-written JSON; the brief carries the teaching for now. Fine short-term,
+    worth revisiting when the tutorial format stabilizes.
+
 ## Decisions log
 
 - 2026-08-02 · type is AUTHORED, never inferred from mission count (user).
