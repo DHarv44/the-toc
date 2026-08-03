@@ -212,7 +212,8 @@
           {
             "desig": "2-8 CAV",
             "kind": "CAB",
-            "patch": "/crests/2-8cav-dui.png"
+            "patch": "/crests/2-8cav-dui.png",
+            "arms": "/crests/8cav.svg"
           },
           {
             "desig": "1-12 CAV",

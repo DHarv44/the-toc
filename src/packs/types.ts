@@ -54,6 +54,11 @@ export interface BnPlan {
   // DUI a battalion is known by. Drawn on the map symbol in place of the 2525
   // echelon letters, and by the S1 header; no art = the echelon marker.
   patch?: string
+  // the REGIMENTAL coat of arms this battalion carries — a different piece of
+  // heraldry from the DUI (the full achievement: crest, shield, motto scroll).
+  // Battalions of the same regiment name the same file. No art = the S1
+  // header's procedural branch shield.
+  arms?: string
 }
 
 export interface BdePlan {

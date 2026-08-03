@@ -3,6 +3,9 @@
 // plain JSON while the art lives here. Everything is stylized inline SVG —
 // no assets, crisp at any size.
 import type { ReactNode } from 'react'
+import { playerPack } from '../packs'
+import type { Pack } from '../packs/types'
+import { patchOf, armsOf } from '../packs/orgquery'
 
 // --- shoulder-sleeve insignia ----------------------------------------------
 // '1cd' — the 1st Cavalry Division shield, stylized: yellow Norman shield,
@@ -139,41 +142,35 @@ const mottoScroll = (motto: string, y: number): ReactNode => (
   </>
 )
 
-// --- real regimental arms ---------------------------------------------------
-// Official coats of arms as art files (public/crests/ — US Army heraldry is
-// public domain; the 8th Cav COA is the Wikimedia Commons vector the user
-// picked). The file is the full achievement (crest, shield, motto scroll), so
-// no procedural scroll is added. Regiments without art fall back to the
-// branch-generic shield.
-const CREST_ART: Record<string, { src: string; aspect: number }> = {
-  '8 CAV': { src: '/crests/8cav.svg', aspect: 744 / 1052 },
-}
-const regimentOf = (bn: string): string => bn.replace(/^\d+-/, '')
+// --- unit heraldry ----------------------------------------------------------
+// The ART IS PACK DATA and lives on the formation node that wears it
+// (BnPlan.patch = the distinctive unit insignia, BnPlan.arms = the regimental
+// coat of arms — the full achievement, so no procedural scroll is added).
+// This module knows how to DRAW heraldry, never which unit has which: a pack
+// that renames a battalion or ships new art needs no code change. Aspect
+// comes from the file itself (height set, width auto).
+// A formation with no art shows nothing (DUI) or the branch-generic procedural
+// shield (arms).
 
-// Distinctive unit insignia — the BATTALION's badge (battalion-numbered scroll,
-// nickname arc), keyed by full designation. The DUI leads the S1 header; the
-// regimental coat of arms anchors the other end.
-const DUI_ART: Record<string, { src: string; aspect: number }> = {
-  '2-8 CAV': { src: '/crests/2-8cav-dui.png', aspect: 1 },
-}
-
-export function BnDui({ bn, h = 46, title }: { bn: string; h?: number; title?: string }) {
-  const art = DUI_ART[bn]
-  if (!art) return null
+export function BnDui({ bn, h = 46, title, pack = playerPack() }: {
+  bn: string; h?: number; title?: string; pack?: Pack
+}) {
+  const src = patchOf(pack, bn)
+  if (!src) return null
   return (
-    <img src={art.src} alt={`${bn} distinctive unit insignia`} title={title ?? bn}
-      style={{ height: h, width: h * art.aspect, flex: '0 0 auto', objectFit: 'contain' }} />
+    <img src={src} alt={`${bn} distinctive unit insignia`} title={title ?? bn}
+      style={{ height: h, width: 'auto', flex: '0 0 auto', objectFit: 'contain' }} />
   )
 }
 
-export function BnCrest({ bn, kind, motto, h = 46 }: {
-  bn: string; kind?: string; motto?: string; h?: number
+export function BnCrest({ bn, kind, motto, h = 46, pack = playerPack() }: {
+  bn: string; kind?: string; motto?: string; h?: number; pack?: Pack
 }) {
-  const art = CREST_ART[regimentOf(bn)]
-  if (art) {
+  const src = armsOf(pack, bn)
+  if (src) {
     return (
-      <img src={art.src} alt={`${bn} coat of arms`} title={motto ? `“${motto}”` : bn}
-        style={{ height: h, width: h * art.aspect, flex: '0 0 auto', objectFit: 'contain' }} />
+      <img src={src} alt={`${bn} coat of arms`} title={motto ? `“${motto}”` : bn}
+        style={{ height: h, width: 'auto', flex: '0 0 auto', objectFit: 'contain' }} />
     )
   }
   const W = 40, H = 60

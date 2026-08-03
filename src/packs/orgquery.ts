@@ -158,6 +158,17 @@ export function patchOf(pack: Pack, desig: string | undefined): string | undefin
   return undefined
 }
 
+/** A battalion's REGIMENTAL COAT OF ARMS art file (BnPlan.arms) — the other
+ *  half of a unit's heraldry, and a different file from its DUI. */
+export function armsOf(pack: Pack, desig: string | undefined): string | undefined {
+  if (!desig) return undefined
+  for (const bde of pack.formation?.bdes ?? []) {
+    const bn = bde.bns.find(b => b.desig === desig)
+    if (bn) return bn.arms
+  }
+  return undefined
+}
+
 /** WHAT ECHELON a designation is. This — not a separate structure kind — is
  *  what tells a division main from a brigade headquarters from a battalion
  *  command post: a command post is a command post, and whose it is decides
