@@ -124,10 +124,26 @@ const ORD = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'] as const
 function assignElements(soldiers: Soldier[], vehicles: Unit['vehicles']): void {
   const dis = soldiers.filter(s => s.vehId == null)
   const sqLeaders = dis.filter(s => s.pos === 'Squad Leader')
-  // A platoon with no squad leadership — a mortar section, a signal team, a
-  // tank platoon whose crews ARE the platoon — is one element. It gets no
-  // invented rungs; its people hang off it directly.
-  if (!sqLeaders.length) return
+
+  // NO SQUADS. Two shapes end up here:
+  //
+  // A platoon whose CREWS ARE THE PLATOON — armour, guns, scouts — has no
+  // squads because it has no dismounts to put in them. It fights in SECTIONS,
+  // a pair of vehicles each, and that is a real rung: the section is what
+  // manoeuvres, and its leader is the senior crew commander in it. (The
+  // vehicles do not name it and there is no rung per crew — a track is a
+  // thing a soldier is assigned to, not a place in the org.)
+  //
+  // Anything else — a mortar section, a signal team, a retrans crew — IS one
+  // element already. It gets no invented rungs; its people hang off it.
+  if (!sqLeaders.length) {
+    if (vehicles.length < 2) return
+    vehicles.forEach((v, i) => {
+      const sec = `${ORD[Math.floor(i / 2)]} SEC`
+      for (const s of soldiers) if (s.vehId === v.id) s.sec = sec
+    })
+    return
+  }
 
   // PLT HQ takes the platoon leadership and the medic.
   const hq = dis.filter(s =>
