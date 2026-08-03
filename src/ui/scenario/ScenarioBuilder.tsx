@@ -23,6 +23,7 @@ import {
   place, update, moveLive, beginDrag, remove, select, selected, undo, redo,
 } from '../../scenario/edit'
 import { entitiesFromSpec, specFromEntities, saveScenario } from '../../scenario/io'
+import { campaignMissions, referencedPlaces } from '../../scenario/importMission'
 import { planAccessTrack } from '../../world/access'
 import { MapButton, MapControlStack } from '../MapControls'
 import SheetCanvas, { type SheetHandle } from './SheetCanvas'
@@ -198,6 +199,46 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
     value: `${s.packId}/${s.scenarioId}`, label: `${s.packId} · ${s.name}`,
   })), [])
 
+  const missionOptions = useMemo(() => campaignMissions(), [])
+
+  // pull a campaign mission's script in; every place name the current map
+  // can't resolve becomes an authored place staged mid-sheet for the author
+  // to drag into position — the RE-ANCHOR pass (logic transfers verbatim)
+  const importMission = (key: string) => {
+    const m = missionOptions.find(x => `${x.packId}/${x.campaignId}/${x.missionId}` === key)
+    if (!m || !world) return
+    setScript({
+      brief: m.spec.brief,
+      objectives: m.spec.objectives ?? [],
+      triggers: m.spec.triggers ?? [],
+      tutorial: m.spec.tutorial,
+    })
+    const known = new Set([
+      ...ed.entities.filter(e => e.ent === 'place').map(e => e.name),
+      ...world.map.towns.map(t => t.name),
+      ...world.map.features.map(f => f.name),
+    ])
+    const missing = referencedPlaces(m.spec).filter(n => !known.has(n))
+    if (missing.length) {
+      setEd(s => {
+        let st = s
+        const c = world.map.WORLD / 2
+        missing.forEach((nm, i) => {
+          st = place(st, {
+            id: freshId(), ent: 'place', name: nm,
+            x: c, y: c + (i - (missing.length - 1) / 2) * 400,
+          })
+        })
+        return st
+      })
+    }
+    setRail('script')
+    setName(m.spec.name.toUpperCase())
+    setMsg(missing.length
+      ? `IMPORTED ${m.spec.name} — ${missing.length} PLACES NEED ANCHORING, DRAG THEM INTO POSITION`
+      : `IMPORTED ${m.spec.name}`)
+  }
+
   return (
     <Box pos="fixed" inset={0} bg="#05080b"
       style={{ zIndex: 100, display: 'flex', flexDirection: 'column', fontFamily: MONO }}>
@@ -216,6 +257,14 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
           <Select size="xs" w={190} placeholder="OPEN…" value={null}
             onChange={v => { if (v) { const [p, s] = v.split('/'); open(p!, s!) } }}
             data={scenarioOptions} />
+        )}
+        {missionOptions.length > 0 && (
+          <Select size="xs" w={200} placeholder="IMPORT MISSION…" value={null}
+            disabled={!world}
+            onChange={v => { if (v) importMission(v) }}
+            data={missionOptions.map(m => ({
+              value: `${m.packId}/${m.campaignId}/${m.missionId}`, label: m.label,
+            }))} />
         )}
         <Select size="xs" w={110} value={ownerPack} onChange={v => v && setOwnerPack(v)}
           data={installedPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))} />
