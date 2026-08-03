@@ -23,7 +23,13 @@ export default defineConfig(({ mode }) => {
       // watcher full-reloads the app the instant the editor saves, killing the
       // editor mid-save. Ignored here; pack-io invalidates the discovery
       // module after a write instead, so the next navigation still sees it.
-      watch: { ignored: ['**/src/packs/*/maps/**', '**/src/packs/*/scenarios/**'] },
+      watch: {
+        ignored: [
+          '**/src/packs/*/maps/**',
+          '**/src/packs/*/scenarios/**',
+          '**/src/packs/*/campaigns/**',
+        ],
+      },
       // The Groundwork editor's tile services, proxied exactly as its standalone
       // app proxies them: the key stays server-side, and the canvases the builder
       // reads pixels back from are same-origin, never tainted. The package's dev

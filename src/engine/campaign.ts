@@ -241,14 +241,15 @@ export function startCampaign(S: GameState): void {
   S.enemyResources = 0
   S.enemySupplyLift = 0
   S.opforCmd.posture = 'attack'
-  if (spec.opening) {
-    // the CAMPAIGN SCENARIO is authoritative for H-hour: the default A&D
-    // staging is discarded wholesale and opening.json places the world —
-    // structures, garrisons, battlegroups, intel picture, authored gazetteer
+  if (spec.situation) {
+    // the SITUATION (OPORD Paragraph 1) is authoritative for H-hour: the
+    // default A&D staging is discarded wholesale and situation.json places
+    // the world — structures, garrisons, battlegroups, intel picture,
+    // authored gazetteer
     S.structures = []
-    applyScenario(S, spec.opening)
+    applyScenario(S, spec.situation)
   } else {
-    // no opening authored (today's LODGMENT shape — mission 1's triggers
+    // no situation authored (today's LODGMENT shape — mission 1's triggers
     // place the world): strip the default A&D staging down to the campaign's
     // clean slate: the friendly command post AND its airstrip — the
     // lodgment's airfield is division-echelon infrastructure that exists at
@@ -297,7 +298,7 @@ export function startCampaign(S: GameState): void {
     anchors, strongpoint: town, crossing: null, centerTown: null,
     rearStructIds: [], rearUnitIds: [],
   }
-  // opening-placed battlegroups exist from H-hour — let defeat-group
+  // situation-placed battlegroups exist from H-hour — let defeat-group
   // objectives on them latch (spawn-group effects stamp this for scripted ones)
   if (S.enemyGroups.length) S.campaign.eventT = 0
   activateObjective(S, S.campaign) // objective 1 stages the opening fight

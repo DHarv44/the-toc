@@ -367,11 +367,13 @@ export interface TutReactive {
 }
 export interface TutorialSpec { steps: TutStep[]; reactive?: TutReactive[] }
 
-// A campaign MISSION is a SCENARIO (SCENARIO-BUILDER.md, settled 2026-08-02):
-// one content type for skirmishes, campaign missions and (S4) side templates.
-// Missions are script-heavy scenarios — the campaign is continuous, so only
-// the campaign's OPENING scenario places entities; follow-on missions arrive
-// into a world in motion and speak in trigger effects.
+// A campaign MISSION is one ScenarioSpec flavor (SCENARIO-BUILDER.md,
+// vocabulary settled 2026-08-02): SCENARIO = standalone playable setup,
+// MISSION = multi-phase mainline operation, EVENT = small self-contained arc
+// (S4 pool), SITUATION = the campaign's H-hour placement (OPORD Paragraph 1).
+// One file format for all four. Missions are script-heavy — the campaign is
+// continuous, so only the SITUATION places entities; follow-on missions
+// arrive into a world in motion and speak in trigger effects.
 
 export interface CampaignManifest {
   /** The ground this campaign plays on: 'packId/mapId', or a bare pack map id
@@ -395,9 +397,10 @@ export interface CampaignManifest {
 // a fully-loaded campaign: manifest + its scenario files
 export interface CampaignSpec {
   manifest: CampaignManifest
-  /** the CAMPAIGN SCENARIO — H-hour placements for the whole arc. Absent =
-   *  mission 1's triggers place the world (today's LODGMENT shape). */
-  opening?: ScenarioSpec
+  /** the SITUATION (OPORD Paragraph 1) — H-hour placements for the whole
+   *  arc. Absent = mission 1's triggers place the world (today's LODGMENT
+   *  shape). */
+  situation?: ScenarioSpec
   /** the missions, keyed by id — scenarios with script sections */
   missions: Record<string, ScenarioSpec>
 }

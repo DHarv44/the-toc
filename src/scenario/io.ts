@@ -21,7 +21,7 @@ export function entitiesFromSpec(spec: ScenarioSpec, ground: Ground): Entity[] {
 }
 
 export function specFromEntities(
-  meta: Pick<ScenarioSpec, 'name' | 'map' | 'mode' | 'sides' | 'fog'
+  meta: Pick<ScenarioSpec, 'id' | 'name' | 'map' | 'mode' | 'sides' | 'fog'
     | 'brief' | 'objectives' | 'triggers' | 'tutorial'>,
   entities: Entity[], ground: Ground,
 ): ScenarioSpec {
@@ -48,9 +48,8 @@ export function specFromEntities(
   return { ...meta, structures, units, ...(places.length ? { places } : {}) }
 }
 
-/** Write through the dev route (pack-io) — dev-only, like every pack save. */
-export async function saveScenario(packId: string, scenarioId: string, spec: ScenarioSpec): Promise<void> {
-  const res = await fetch(`/__gwscenario?pack=${packId}&id=${scenarioId}`, {
+async function put(url: string, spec: ScenarioSpec): Promise<void> {
+  const res = await fetch(url, {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(spec),
   })
@@ -58,4 +57,24 @@ export async function saveScenario(packId: string, scenarioId: string, spec: Sce
     const body = await res.json().catch(() => ({})) as { error?: string }
     throw new Error(body.error ?? `HTTP ${res.status}`)
   }
+}
+
+/** Write a standalone scenario through the dev route (pack-io) — dev-only,
+ *  like every pack save. */
+export async function saveScenario(packId: string, scenarioId: string, spec: ScenarioSpec): Promise<void> {
+  await put(`/__gwscenario?pack=${packId}&id=${scenarioId}`, spec)
+}
+
+/** Write campaign content — the SITUATION or a MISSION (a new mission id is
+ *  appended to the manifest's mainline server-side; `bindMap` binds an
+ *  unbound campaign's ground on first save). */
+export async function saveCampaignContent(
+  packId: string, campaignId: string,
+  kind: 'situation' | 'mission', spec: ScenarioSpec,
+  opts?: { missionId?: string; bindMap?: string },
+): Promise<void> {
+  const q = new URLSearchParams({ pack: packId, campaign: campaignId, file: kind })
+  if (kind === 'mission') q.set('id', opts?.missionId ?? '')
+  if (opts?.bindMap) q.set('bindMap', opts.bindMap)
+  await put(`/__gwcampaign?${q.toString()}`, spec)
 }

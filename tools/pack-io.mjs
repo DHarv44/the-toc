@@ -42,6 +42,13 @@ function scenarioDir(pack, id) {
   return p.startsWith(ROOT + sep) ? p : null
 }
 
+// A campaign's folder: src/packs/<pack>/campaigns/<id>/. Same guards.
+function campaignDir(pack, id) {
+  if (!SLUG.test(pack) || !SLUG.test(id)) return null
+  const p = resolve(ROOT, pack, 'campaigns', id)
+  return p.startsWith(ROOT + sep) ? p : null
+}
+
 const readBody = (req) => new Promise((res, rej) => {
   let s = ''
   req.on('data', c => { s += c; if (s.length > 8e6) rej(new Error('body too large')) })
@@ -194,6 +201,78 @@ export function packIo() {
           const file = resolve(dir, 'scenario.json')
           await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
           const files = [resolve(process.cwd(), 'src', 'packs', 'scenario-files.ts'), dir]
+            .map(p => p.replace(/\\/g, '/'))
+          for (const [f, mods] of server.moduleGraph.fileToModulesMap) {
+            if (f === files[0] || f.startsWith(files[1] + '/')) {
+              for (const m of mods) server.moduleGraph.invalidateModule(m)
+            }
+          }
+          return send(200, { ok: true, file })
+        } catch (e) {
+          return send(500, { error: String(e?.message ?? e) })
+        }
+      })
+
+      // CAMPAIGN CONTENT saves (SCENARIO-BUILDER.md E5 — the builder writes
+      // into a campaign's folder; one content type, four homes):
+      //   PUT /__gwcampaign?pack=1cd&campaign=iron-triangle&file=situation
+      //   PUT /__gwcampaign?pack=1cd&campaign=iron-triangle&file=mission&id=lodgment
+      // Saving a NEW mission appends its id to the manifest's mainline so the
+      // file is never orphaned; `bindMap=<packId/mapId>` writes the campaign's
+      // ground binding when the manifest has none (how a campaign first gets
+      // its map). Same parse-reserialize + hand invalidation as every route.
+      server.middlewares.use('/__gwcampaign', async (req, res) => {
+        const send = (code, obj) => {
+          res.statusCode = code
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify(obj))
+        }
+        try {
+          const url = new URL(req.url ?? '/', 'http://localhost')
+          const dir = campaignDir(url.searchParams.get('pack') ?? '', url.searchParams.get('campaign') ?? '')
+          const kind = url.searchParams.get('file') ?? ''
+          if (!dir) return send(400, { error: 'bad pack/campaign id' })
+          if (req.method !== 'PUT') return send(405, { error: 'PUT' })
+          const raw = await readBody(req)
+          let parsed
+          try { parsed = JSON.parse(raw) } catch (e) {
+            return send(400, { error: `not valid JSON: ${e.message}` })
+          }
+
+          let file
+          if (kind === 'situation') {
+            file = resolve(dir, 'situation.json')
+            await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
+          } else if (kind === 'mission') {
+            const mid = url.searchParams.get('id') ?? ''
+            if (!SLUG.test(mid)) return send(400, { error: `bad mission id '${mid}'` })
+            await mkdir(resolve(dir, 'missions'), { recursive: true })
+            file = resolve(dir, 'missions', `${mid}.json`)
+            await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
+            // a new mainline mission joins the manifest's order; ports of
+            // existing ids overwrite in place and the mainline is untouched
+            const manifestFile = resolve(dir, 'campaign.json')
+            const manifest = JSON.parse(await readFile(manifestFile, 'utf8'))
+            if (!(manifest.mainline ?? []).includes(mid)) {
+              manifest.mainline = [...(manifest.mainline ?? []), mid]
+              await writeFile(manifestFile, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+            }
+          } else {
+            return send(400, { error: "file must be 'situation' or 'mission'" })
+          }
+
+          // first save onto an unbound campaign binds its ground
+          const bindMap = url.searchParams.get('bindMap')
+          if (bindMap) {
+            const manifestFile = resolve(dir, 'campaign.json')
+            const manifest = JSON.parse(await readFile(manifestFile, 'utf8'))
+            if (manifest.map == null) {
+              manifest.map = bindMap
+              await writeFile(manifestFile, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+            }
+          }
+
+          const files = [resolve(process.cwd(), 'src', 'packs', 'campaign-files.ts'), dir]
             .map(p => p.replace(/\\/g, '/'))
           for (const [f, mods] of server.moduleGraph.fileToModulesMap) {
             if (f === files[0] || f.startsWith(files[1] + '/')) {

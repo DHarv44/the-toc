@@ -13,6 +13,26 @@ The engine ships verbs; the campaign is data; the splash un-greys itself because
 the pack says so. Any campaign-specific content still found in engine code when
 this lands gets moved to pack data as part of the same phase.
 
+## The vocabulary (settled 2026-08-02, user-ratified)
+
+One file format (`ScenarioSpec`) with four homes. "Which kind" = where it's
+saved and what it assumes, never a different schema:
+
+| Word | Means | Lives at |
+|---|---|---|
+| **SCENARIO** | standalone playable setup — own map + mode (A&D/KotH/Base Defense) | `packs/<id>/scenarios/` |
+| **MISSION** | multi-phase operation with a conclusion; parts = objectives/phases in ONE file; script-heavy (arrives into a running world) | `campaigns/<id>/missions/` |
+| **EVENT** | small self-contained arc — a tasking ("raid the cache") or enemy-initiated (mortar team → IDF → QRF); instanced by the S4 pool | `campaigns/<id>/events/` (S4) |
+| **SITUATION** | the campaign's H-hour placement — OPORD Paragraph 1: friendly/enemy disposition + intel picture at t=0 | `campaigns/<id>/situation.json` |
+
+**The H-hour rule** binds them: placed entities only apply when a world is
+CREATED (a SCENARIO start, a campaign's SITUATION). Missions and events speak
+in trigger effects. **Content FLOATS**: open anything, port a COPY anywhere
+(same ground = verbatim; new ground = same relative positions + staged
+re-anchor of unresolvable script names); the saved copy belongs to its
+destination — the training mission ships once and lands in every campaign
+without being rebuilt.
+
 ## The model (settled)
 
 - **A scenario is PACK CONTENT, its own content type**:

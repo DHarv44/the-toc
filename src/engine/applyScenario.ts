@@ -1,5 +1,5 @@
 // APPLY A SCENARIO — authored content enters the sim through this ONE path:
-// the campaign's opening.json (startCampaign), the skirmish scenario flow,
+// the campaign's situation.json (startCampaign), the skirmish scenario flow,
 // the builder's PLAY loop, and (E3) Zeus placements all call the same verbs
 // the player's own orders use — addStructure / deployUnit / spawnEnemy —
 // so nothing placed by an author behaves differently from something placed
