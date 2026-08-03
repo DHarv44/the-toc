@@ -675,6 +675,11 @@ export interface Pack {
   abbr: string            // '1CD'
   nick?: string           // formation nickname: 'First Team'
   motto?: string          // formation motto: 'America's First Team' (division-level heraldry)
+  // the pack this one inherits FUNCTIONAL content from, by id. A thin variant
+  // that re-designates a force fighting with the same platforms names one; an
+  // army of its own names none, so that anything it fails to ship is missing
+  // rather than silently borrowed.
+  inherits?: string
   // NOTE there is no `side` here, and there must not be. A pack is an ARMY.
   // Which side it fights on is the SCENARIO's call (ScenarioSpec.sides) and
   // lives with the installed lineup — the same army can be the enemy in one

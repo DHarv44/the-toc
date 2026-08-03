@@ -6,7 +6,7 @@
 // in a half-state.
 import { useState } from 'react'
 import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
-import { installedPacks } from '../../packs'
+import { allPacks } from '../../packs'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
 import { MODES, MODE_ORDER, type ModeId } from '../../engine/modes'
@@ -44,7 +44,7 @@ export default function ScenarioLibrary({ onOpen, onNew, onExit }: {
   // NEW SCENARIO expands in place
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('NEW SCENARIO')
-  const [newPack, setNewPack] = useState(() => installedPacks()[0]?.id ?? '')
+  const [newPack, setNewPack] = useState(() => allPacks()[0]?.id ?? '')
   const [newType, setNewType] = useState<ModeId>('attack-defend')
   const [newMap, setNewMap] = useState<string | null>(null)
 
@@ -93,7 +93,7 @@ export default function ScenarioLibrary({ onOpen, onNew, onExit }: {
                   onChange={ev => setNewName(ev.currentTarget.value.toUpperCase())} />
                 <Group grow mb={8}>
                   <Select size="xs" label="PACK (SAVES INTO)" value={newPack}
-                    data={installedPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))}
+                    data={allPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))}
                     onChange={v => v && setNewPack(v)} />
                   <Select size="xs" label="TYPE" value={newType}
                     data={TYPE_OPTIONS}

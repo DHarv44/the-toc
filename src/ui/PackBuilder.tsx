@@ -13,7 +13,8 @@
 // of what a pack contains, whichever door you came in through.
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Box, Button, Checkbox, Group, Menu, Table, Text, UnstyledButton } from '@mantine/core'
-import { installedPacks, type Pack } from '../packs'
+import { allPacks, type Pack } from '../packs'
+import PackLibrary from './PackLibrary'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
 import { StaffTable, Td, Th } from './staff'
@@ -515,9 +516,18 @@ function Stat({ label, n }: { label: string; n: number }) {
   )
 }
 
+// The builder proper opens on ONE army, chosen in the library. Same grammar as
+// the Scenario Builder: a document tool opens on its documents, not on
+// whichever document happened to sort first.
 export default function PackBuilder({ onExit }: { onExit: () => void }) {
-  const packs = installedPacks()
-  const [idx, setIdx] = useState(0)
+  const [openId, setOpenId] = useState<string | null>(null)
+  if (!openId) return <PackLibrary onOpen={setOpenId} onExit={onExit} />
+  return <PackEditor openId={openId} onBack={() => setOpenId(null)} />
+}
+
+function PackEditor({ openId, onBack }: { openId: string; onBack: () => void }) {
+  const packs = allPacks()
+  const [idx, setIdx] = useState(() => Math.max(0, packs.findIndex(p => p.id === openId)))
   const [tab, setTab] = useState<BuilderTab>('ECHELON')
   // left nav: the PACK (its content tabs) or its MODELS (the art browser)
   const [view, setView] = useState<'pack' | 'models'>('pack')
@@ -581,7 +591,7 @@ export default function PackBuilder({ onExit }: { onExit: () => void }) {
             CONTENT PACKAGES · {packs.length} INSTALLED
           </Text>
         </Box>
-        <Button size="sm" variant="default" onClick={onExit}>◀ MAIN MENU</Button>
+        <Button size="sm" variant="default" onClick={onBack}>◀ PACKS</Button>
       </Group>
 
       <Group align="flex-start" gap="lg" mt="md" wrap="nowrap">

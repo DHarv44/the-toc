@@ -10,7 +10,7 @@
 // TOC owns nothing terrain here — the ground is read-only, the war is the file.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, SegmentedControl, Select, Text, TextInput } from '@mantine/core'
-import { activePack, installedPacks, PACKS } from '../../packs'
+import { activePack, allPacks, PACKS } from '../../packs'
 import { defaultPlayerFormation, playableFormations, slotBudget } from '../../packs/orgquery'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
@@ -58,8 +58,8 @@ const pickExtras = (s: ScenarioSpec): Extras => ({
 // assignment is the SCENARIO's to make, so this is a starting point to edit,
 // not a property read off either army
 const defaultSides = () => ({
-  friend: activePack('friend')?.id ?? installedPacks()[0]?.id ?? '',
-  hostile: activePack('hostile')?.id ?? installedPacks()[0]?.id ?? '',
+  friend: activePack('friend')?.id ?? allPacks()[0]?.id ?? '',
+  hostile: activePack('hostile')?.id ?? allPacks()[0]?.id ?? '',
 })
 
 const newMission = (n: number): MissionScript =>
@@ -67,7 +67,7 @@ const newMission = (n: number): MissionScript =>
 
 export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
   const [screen, setScreen] = useState<'library' | 'editor'>('library')
-  const [ownerPack, setOwnerPack] = useState(() => installedPacks()[0]?.id ?? '')
+  const [ownerPack, setOwnerPack] = useState(() => allPacks()[0]?.id ?? '')
   const [name, setName] = useState('NEW SCENARIO')
   const [mapRef, setMapRef] = useState<string | null>(null) // 'packId/mapId'
   const [type, setType] = useState<ModeId>('attack-defend')

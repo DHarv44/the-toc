@@ -3,6 +3,8 @@
   "id": "opfor",
   "name": "OPFOR",
   "abbr": "OPFOR",
+  "_inherits_doc": "This pack is a THIN VARIANT: it re-designates a force that fights with the same platforms, so it inherits the canonical pack's functional content rather than restating it. An army of its own declares no parent — see the Mobile Infantry.",
+  "inherits": "1cd",
   "catalogs": {
     "extends": "us-platforms",
     "units": ["INF", "MECH", "ARM", "AT", "CAV", "ARTY"],

@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { Box, Group, Table, Text, UnstyledButton } from '@mantine/core'
 import { useUI } from './store'
-import { installedPacks, type Pack } from '../packs'
+import { allPacks, type Pack } from '../packs'
 import { walkFormation } from '../packs/types'
 import { PaletteIcon } from './palette'
 import { PatchIcon } from './insignia'
@@ -206,7 +206,7 @@ export default function PackViewer() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('UNITS')
   if (ui.console !== 'packs') return null
 
-  const packs = installedPacks()
+  const packs = allPacks()
   const p = packs[Math.min(packIdx, packs.length - 1)]
   if (!p) return null
 

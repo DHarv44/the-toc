@@ -87,6 +87,10 @@ export function packIo() {
             try { parsed = JSON.parse(raw) } catch (e) {
               return send(400, { error: `not valid JSON: ${e.message}` })
             }
+            // a NEW pack has no folder yet — the library creates one by PUTting
+            // its first manifest, exactly as the scenario builder creates a
+            // scenario by saving it
+            await mkdir(resolve(ROOT, id), { recursive: true })
             // re-serialize from the parse, so nothing malformed reaches the file
             await writeFile(file, JSON.stringify(parsed, null, 2) + '\n', 'utf8')
             return send(200, { ok: true, file })

@@ -15,12 +15,6 @@ import type { Pack, PackCatalogs, NamePools } from './types'
 import type { DroneType } from '../domains/air/catalog'
 import { activePack, installLineup, type Lineup } from './install'
 import usPlatforms from './lib/us-platforms.json'
-import cdManifest from './1cd/pack.json'
-import cdNames from './1cd/names.json'
-import opforManifest from './opfor/pack.json'
-import opforNames from './opfor/names.json'
-import miManifest from './mi/pack.json'
-import miNames from './mi/names.json'
 
 export { lineageFor } from './types'
 export type { Pack } from './types'
@@ -117,6 +111,7 @@ function buildPack(
     abbr: man.abbr,
     nick: man.nick,
     motto: man.motto,
+    inherits: man.inherits,
     patch: man.patch,
     catalogs: resolveCatalogs(m, fallback),
     // capability groups follow the catalog: a pack that inherits 1CD's
@@ -157,24 +152,75 @@ function buildPack(
   } as Pack
 }
 
-export const PACK_1CD: Pack = buildPack(cdManifest as Record<string, unknown>, cdNames)
-export const PACK_OPFOR: Pack = buildPack(opforManifest as Record<string, unknown>, opforNames, PACK_1CD)
+// --- discovery --------------------------------------------------------------
+// PACKS ARE FOUND, NOT LISTED. Every other kind of content already works this
+// way — drop a scenario in and it exists, drop a map in and it exists — but
+// packs were hand-imported here, which meant an army could sit complete on
+// disk and be invisible to the whole app because nobody edited this file.
+// A folder under packs/ with a pack.json IS an army.
+const MANIFESTS = import.meta.glob('./*/pack.json', {
+  import: 'default', eager: true,
+}) as Record<string, Record<string, unknown>>
 
-// The Mobile Infantry takes NO fallback: it is a whole army of its own, and
-// inheriting 1CD's rifles or rank ladder would quietly hide the parts it does
-// not actually ship.
-export const PACK_MI: Pack = buildPack(miManifest as Record<string, unknown>, miNames)
+const NAME_POOLS = import.meta.glob('./*/names.json', {
+  import: 'default', eager: true,
+}) as Record<string, Parameters<typeof resolveNames>[0]>
 
-export const PACKS: Record<string, Pack> = {
-  [PACK_1CD.id]: PACK_1CD,
-  [PACK_OPFOR.id]: PACK_OPFOR,
-  [PACK_MI.id]: PACK_MI,
+const folderOf = (path: string): string => path.split('/')[1] ?? ''
+
+/** INHERITANCE, declared by the pack that wants it (`"inherits": "1cd"`).
+ *  A pack that names no parent gets none — which is what a whole army of its
+ *  own needs, since inheriting somebody else's rifles and rank ladder would
+ *  quietly paper over everything it does not actually ship. The loader used to
+ *  decide this, and decided it the same way for everyone. */
+function buildAll(): Record<string, Pack> {
+  const raw = new Map<string, { man: Record<string, unknown>; names?: Parameters<typeof resolveNames>[0] }>()
+  for (const [path, man] of Object.entries(MANIFESTS)) {
+    const dir = folderOf(path)
+    raw.set(String(man.id ?? dir), { man, names: NAME_POOLS[`./${dir}/names.json`] })
+  }
+  const out: Record<string, Pack> = {}
+  const building = new Set<string>()
+  const build = (id: string): Pack | undefined => {
+    if (out[id]) return out[id]
+    const e = raw.get(id)
+    if (!e) return undefined
+    if (building.has(id)) throw new Error(`pack '${id}': inheritance cycle`)
+    building.add(id)
+    const parentId = e.man.inherits as string | undefined
+    const parent = parentId ? build(parentId) : undefined
+    if (parentId && !parent) throw new Error(`pack '${id}' inherits '${parentId}', which does not exist`)
+    building.delete(id)
+    return (out[id] = buildPack(e.man, e.names, parent))
+  }
+  for (const id of raw.keys()) build(id)
+  return out
 }
 
-// the DEFAULT lineup, for a menu screen or a scenario that names no packs.
-// It is a default, not a fact about either army: 1CD is the canonical pack so
-// it takes the player's side, and the OPFOR pack opposes it.
-const DEFAULT_LINEUP: Lineup = { friend: PACK_1CD, hostile: PACK_OPFOR }
+export const PACKS: Record<string, Pack> = buildAll()
+
+/** EVERY ARMY THIS BUILD KNOWS ABOUT — what the content tools browse. This is
+ *  a different question from who is fighting (that is the lineup, below), and
+ *  conflating the two is what made an authored army invisible. */
+export const allPacks = (): readonly Pack[] => Object.values(PACKS)
+
+// the canonical pack: the one every other may inherit from, and the fallback
+// when a lineup names nothing
+export const PACK_1CD: Pack = PACKS['1cd']!
+
+// THE BOOTSTRAP LINEUP — for menu screens and the dev sandbox, which have no
+// scenario to ask. Every real scenario names its own sides, so this decides
+// nothing about any army; it is only what gets loaded before anybody has said
+// otherwise. Written out by id ON PURPOSE: "the first army along" reads as
+// principled and is really just glob order, so adding a pack would silently
+// change who the sandbox fights. A default has to be chosen somewhere, and
+// choosing it visibly is better than deriving it from an accident.
+const DEFAULT_SIDES = { friend: '1cd', hostile: 'opfor' }
+
+const DEFAULT_LINEUP: Lineup = {
+  friend: PACKS[DEFAULT_SIDES.friend] ?? allPacks()[0]!,
+  hostile: PACKS[DEFAULT_SIDES.hostile] ?? allPacks()[0]!,
+}
 
 /** THE ARMY THE PLAYER IS COMMANDING — whichever pack the scenario put on the
  *  friendly side. Not a property of any pack; a pack does not know whose war
@@ -199,7 +245,7 @@ export function installActivePacks(sides?: { friend?: string; hostile?: string }
   installLineup({
     friend: pick(sides?.friend, DEFAULT_LINEUP.friend),
     hostile: pick(sides?.hostile, DEFAULT_LINEUP.hostile),
-  })
+  }, allPacks())
 }
 
 installActivePacks()

@@ -22,7 +22,7 @@ import { Builder, configureBuilder, packBytesFrom, useStore } from '@dharv44/gro
 import { packFromBytes } from '@dharv44/groundwork-core'
 import '@dharv44/groundwork-builder/styles.css'
 import koppenUrl from '@dharv44/groundwork-builder/assets/koppen_0p1.png'
-import { installedPacks } from '../packs'
+import { allPacks } from '../packs'
 import { packMaps, type PackMapEntry } from '../packs/map-files'
 import MapDefaultsEditor from './MapDefaultsEditor'
 
@@ -56,7 +56,7 @@ const writeLast = (packId: string, mapId: string) =>
 export default function MapEditor({ onExit }: { onExit: () => void }) {
   const last = readLast()
   const lastEntry = last ? packMaps(last.packId).find(m => m.mapId === last.mapId) : undefined
-  const [packId, setPackId] = useState(() => lastEntry?.packId ?? installedPacks()[0]?.id ?? '')
+  const [packId, setPackId] = useState(() => lastEntry?.packId ?? allPacks()[0]?.id ?? '')
   const [name, setName] = useState(() => lastEntry?.name.toUpperCase() ?? 'NEW MAP')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -165,7 +165,7 @@ export default function MapEditor({ onExit }: { onExit: () => void }) {
           <Text fz={10} c={msg.startsWith('FAILED') ? '#e8524a' : '#7ec8ff'}>{msg}</Text>
         )}
         <Select size="xs" w={150} value={packId} onChange={v => v && setPackId(v)}
-          data={installedPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))} />
+          data={allPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))} />
         {packMaps().length > 0 && (
           <Select size="xs" w={190} placeholder="OPEN FROM PACK…" value={null}
             onChange={v => { if (v) { const [p, m] = v.split('/'); void load(p!, m!) } }}

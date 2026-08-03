@@ -55,24 +55,33 @@ function merge<T>(reg: Mut<T>, table: Record<string, T> | undefined, what: strin
 export type Side = 'friend' | 'hostile'
 export type Lineup = Record<Side, Pack>
 
-// the currently installed lineup (readable via activePack)
+// the currently installed lineup (readable via activePack), and the packs
+// whose catalogs are in the engine registries
 let lineup: Lineup | null = null
+let loaded: readonly Pack[] = []
 
 export function activePack(side: Side): Pack | null {
   return lineup?.[side] ?? null
 }
 
-/** the installed packs, in install order, without repeats — one army may hold
- *  both sides, and then there is one pack installed, not two */
+/** the packs whose catalogs are loaded, in install order */
 export function installedPacks(): readonly Pack[] {
-  return lineup ? [...new Set([lineup.friend, lineup.hostile])] : []
+  return loaded
 }
 
-/** Install a lineup. The FRIEND pack installs first, which fixes registry
- *  iteration order (golden-relevant). */
-export function installLineup(next: Lineup): void {
+/** Install a lineup, loading EVERY known army's catalogs — not just the two
+ *  that are fighting. Whose platforms exist and who is at war are different
+ *  questions: a content browser needs to build any army's org, and a pack
+ *  whose compositions were absent from the registry could not be inspected at
+ *  all. Catalog keys are content-namespaced and a genuine collision still
+ *  throws, so loading everything costs nothing but the merge.
+ *
+ *  The FRIEND pack installs first, which fixes registry iteration order
+ *  (golden-relevant); the rest follow in discovery order. */
+export function installLineup(next: Lineup, all: readonly Pack[] = []): void {
   lineup = next
-  installPacks(installedPacks())
+  loaded = [...new Set([next.friend, next.hostile, ...all])]
+  installPacks(loaded)
 }
 
 function installPacks(packs: readonly Pack[]): void {
