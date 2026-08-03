@@ -283,8 +283,12 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
           <Text fz={22} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>
             SCENARIO BUILDER
           </Text>
-          <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
-            ONE SCENARIO · THE SHEET IS ITS SITUATION · THE SCRIPT IS ITS MISSIONS
+          {/* the BENCH STATUS — always says what is loaded and what it needs */}
+          <Text fz={10} c={mapRef ? '#7ec8ff' : '#e0b34e'} style={{ letterSpacing: 1.5 }}>
+            {loadedKey ? `EDITING ${loadedKey}` : 'NEW SCENARIO · UNSAVED'}
+            {' · '}{type === 'campaign' ? 'CAMPAIGN' : (MODES[type]?.label ?? type).toUpperCase()}
+            {missions.length > 0 && ` · ${missions.length} MISSION${missions.length > 1 ? 'S' : ''}`}
+            {' · '}{mapRef ? mapRef.toUpperCase() : '⚠ NO GROUND — PICK A MAP'}
           </Text>
         </Box>
         {msg && <Text fz={10} c={msg.startsWith('FAILED') ? '#e8524a' : '#7ec8ff'}>{msg}</Text>}
@@ -343,8 +347,12 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
               position: 'absolute', inset: 0, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
             }}>
-              <Text fz={11} c="dark.3" style={{ letterSpacing: 2 }}>
-                {busy ? 'LOADING GROUND…' : 'PICK A MAP, OR LOAD A SCENARIO FROM THE RIGHT'}
+              <Text fz={11} c="dark.3" ta="center" px={40}
+                style={{ letterSpacing: 2, lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                {busy ? 'LOADING GROUND…'
+                  : loadedKey
+                    ? `${name} IS LOADED BUT HAS NO GROUND BOUND YET.\nPICK A MAP IN THE TOP BAR — SAVING BINDS IT TO THIS SCENARIO.`
+                    : 'PICK A MAP IN THE TOP BAR TO START A NEW SCENARIO,\nOR OPEN AN EXISTING ONE FROM THE LOAD TAB ON THE RIGHT.'}
               </Text>
             </Box>
           )}

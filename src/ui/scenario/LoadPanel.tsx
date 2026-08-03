@@ -23,7 +23,10 @@ export default function LoadPanel({ entries, currentKey, portEnabled, onLoad, on
 }) {
   return (
     <Box p="xs" style={{ fontFamily: MONO }}>
-      <Text fz={9} c="dark.3" mb={6} style={{ letterSpacing: 1.5 }}>LOAD SCENARIO</Text>
+      <Text fz={9} c="dark.3" style={{ letterSpacing: 1.5 }}>LOAD SCENARIO</Text>
+      <Text fz={8.5} c="dark.3" mb={6}>
+        CLICK A ROW = EDIT THE ORIGINAL · PORT = COPY ONTO THE CURRENT MAP
+      </Text>
       {entries.length === 0 && (
         <Text fz={10} c="dark.3">
           NO SCENARIOS IN ANY INSTALLED PACK — BUILD ONE AND SAVE IT
