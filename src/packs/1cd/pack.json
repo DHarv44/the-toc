@@ -71,6 +71,16 @@
     "SUSTAINMENT",
     "SIGNAL"
   ],
+  "_net_doc": "HOW THIS ARMY TALKS ON THE RADIO — net procedure is culture, not machinery. Templates fill by field name: {control} {higher} {callsign} {msg} {range} {closing}, and {n} inside `range`. `higher` is drawn per callsign and held, so a given element always addresses the same station; `closings` are drawn per transmission from the seeded rng, which is why a battle replays with identical chatter.",
+  "net": {
+    "higher": ["COMMAND", "BASE", "TOC", "MOTHER", "NET CONTROL"],
+    "closings": ["OVER", "HOW COPY, OVER", "OUT", "ACKNOWLEDGE, OVER", "SEND IT"],
+    "control": "NET CONTROL",
+    "broadcast": "ALL STATIONS, THIS IS {control}. {msg}, OUT.",
+    "call": "{higher}, THIS IS {callsign}. {msg}{range}, {closing}.",
+    "range": ", {n} CLICKS FROM OUR POSITION",
+    "rangeFloor": 400
+  },
   "_awards_doc": "DECORATIONS AND WHAT EARNS THEM. `on` names the criterion the engine grants against: `wound` for a soldier hurt or killed in action, `wound-civ` for a civilian — a real distinction, since a contractor wounded in the line of duty is not eligible for the Purple Heart and receives the Defense of Freedom Medal instead. An award with no `on` is not granted automatically; the key is reserved so saved rosters stay stable before the rule that awards it exists.",
   "awards": {
     "PURPLE_HEART": {

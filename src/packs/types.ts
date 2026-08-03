@@ -123,6 +123,35 @@ export interface CrewBillets {
   unarmed: Record<string, BilletPlan[]>
 }
 
+// --- the net ----------------------------------------------------------------
+// HOW THIS ARMY TALKS ON THE RADIO. Net procedure is culture: who you address,
+// what you call the station above you, how you sign off, and the shape of the
+// sentence itself. The engine knows the FIELDS a transmission carries — who is
+// speaking, who they are speaking to, the report, a range read-back, a closing
+// proword — and nothing about the words.
+//
+// Templates fill by name: {control} {higher} {callsign} {msg} {range} {closing}
+// and, in `range`, {n} for the distance. A field with nothing to say resolves
+// empty, so a template may reference one that is not always present.
+export interface NetVoice {
+  /** what an element calls the station above it — one per element, held stable
+   *  so a given callsign always addresses the same higher */
+  higher: string[]
+  /** sign-off prowords, drawn per transmission */
+  closings: string[]
+  /** the station that broadcasts to everyone */
+  control: string
+  /** a broadcast to all stations */
+  broadcast: string
+  /** one element's transmission to its higher */
+  call: string
+  /** the range read-back, appended to the report when far enough to matter */
+  range: string
+  /** how far away something has to be before the range is worth saying, in
+   *  metres — under this a report just says what it saw */
+  rangeFloor?: number
+}
+
 // --- awards -----------------------------------------------------------------
 // WHAT THIS ARMY DECORATES ITS PEOPLE WITH. The engine knows only that certain
 // things EARN a decoration; which decoration answers each is the pack's, and
@@ -590,6 +619,7 @@ export interface Pack {
   callsigns?: CallsignStyle // how this army designates a fielded element
   ranks?: RankDef[]       // the rank ladder, junior first (order IS seniority)
   awards?: Record<string, AwardDef> // decorations, and what earns them
+  net?: NetVoice          // how this army talks on the radio
   formation?: Formation   // the whole division (org materializes from this)
   // regimental mottos by battalion designation — real lineage heraldry
   // (rendered on the S1 battalion header's coat of arms)

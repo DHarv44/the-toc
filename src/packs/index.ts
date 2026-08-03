@@ -136,6 +136,11 @@ function buildPack(
     callsigns: man.callsigns,
     ranks: man.ranks ?? fallback?.ranks,
     awards: man.awards ?? fallback?.awards,
+    // net voice is IDENTITY, like callsigns: an opposing force inheriting this
+    // one's procedure would sign off the same way, which is the thing the
+    // split exists to prevent. A pack with none is simply not heard on the net
+    // (only friendly elements transmit today — see comms/radio.ts).
+    net: man.net,
     formation: man.formation,
     mottos: man.mottos,
     nicks: man.nicks,

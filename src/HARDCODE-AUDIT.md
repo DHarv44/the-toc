@@ -36,9 +36,12 @@
    CW5 and CIV existed in rosters but in neither table.
 
 ## Radio & voice
-6. **Net phrasing** — `comms/radio.ts` `NET_HIGHER` (COMMAND/BASE/TOC…),
-   `RADIO_CLOSINGS` (OVER/OUT…): US net culture. Pack voice tables (the
-   OPFOR net should not sound like Fort Cavazos).
+6. ~~**Net phrasing**~~ — DONE (2026-08-03). `Pack.net` holds the higher
+   stations, the closing prowords, and the SENTENCES themselves as templates
+   ({higher} {callsign} {msg} {range} {closing}). radio.ts keeps the shape —
+   who is speaking, to whom, whether a range is worth saying — and no words.
+   Not inherited: a pack with no voice is not heard, so the OPFOR net cannot
+   sound like Fort Cavazos by default.
 7. **Milspeak strings across services** (campaign FRAGOs, asset desk names
    DIV G3/CORPS G3/ASOC, PERSTAT format) — fine for the US pack today, but
    they live in engine files; missions-in-packs (roadmap) is the real fix.
