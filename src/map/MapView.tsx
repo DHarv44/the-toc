@@ -29,7 +29,7 @@ import { frameOf } from '../world/pack/frame'
 import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../world/pack/imagery'
 import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
-import { drawUnitSymbol, drawDroneIcon, drawStructure } from './symbols'
+import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -1092,6 +1092,16 @@ export default function MapView() {
       }
 
       // structures (friendly always; hostile once spotted or fog off)
+      // CONTROL MEASURES the scenario authored — the same operational graphic
+      // the builder drew, under the symbols where a graphic belongs
+      if (S.scenarioPlaces) {
+        for (const [name, p] of S.scenarioPlaces) {
+          drawPlace(ctx, w2sX(p.x), w2sY(p.y), {
+            name, dim: true,
+            ...(p.r != null ? { rPx: p.r * view.ppm } : {}),
+          })
+        }
+      }
       for (const s of S.structures) {
         if (s.side === 'hostile' && S.fogEnabled && !S.structContacts.has(s.id)) continue
         drawStructure(ctx, w2sX(s.x), w2sY(s.y), {

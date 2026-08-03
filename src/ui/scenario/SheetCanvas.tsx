@@ -11,7 +11,7 @@ import { renderPackLayer, TERRAIN_PX } from '../../map/packRender'
 import { terrainOrtho } from '../../map/terrainOrtho'
 import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
-import { drawUnitSymbol, drawStructure } from '../../map/symbols'
+import { drawUnitSymbol, drawStructure, drawPlace } from '../../map/symbols'
 import { PACKS, playerPack } from '../../packs'
 import { echelonOf } from '../../packs/orgquery'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
@@ -275,37 +275,11 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
             dug: e.dug ? 1 : 0, showStrength: false,
           })
         } else {
-          // NAMED PLACE — a control measure has to read on ANY ground, and
-          // this sheet is pale desert as often as it is green. Every stroke
-          // goes down twice: a dark halo, then the bright line on top.
-          const ring = () => {
-            ctx.beginPath()
-            ctx.arc(x, y, e.r! * view.ppm, 0, Math.PI * 2)
-          }
-          const diamond = () => {
-            ctx.beginPath()
-            ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y)
-            ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y)
-            ctx.closePath()
-          }
-          if (e.r != null) {
-            ctx.setLineDash([9, 7])
-            ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.7)'; ring(); ctx.stroke()
-            ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; ring(); ctx.stroke()
-            ctx.setLineDash([])
-          }
-          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.8)'; diamond(); ctx.stroke()
-          ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; diamond(); ctx.stroke()
-          // the NAME rides the centre marker, never the ring edge — a big
-          // zone's rim can be off-screen, and a label you can see while its
-          // handle is somewhere else is how a place becomes uneditable
-          ctx.font = 'bold 10px Consolas, monospace'
-          ctx.textAlign = 'center'
-          ctx.lineWidth = 3
-          ctx.strokeStyle = 'rgba(8,12,16,0.85)'
-          ctx.strokeText(e.name, x, y - 13)
-          ctx.fillStyle = '#ffd050'
-          ctx.fillText(e.name, x, y - 13)
+          // the SAME control-measure graphic the game's BFT draws
+          drawPlace(ctx, x, y, {
+            name: e.name,
+            ...(e.r != null ? { rPx: e.r * view.ppm } : {}),
+          })
           ctx.textAlign = 'left'
         }
         if (allied) ctx.globalAlpha = 1

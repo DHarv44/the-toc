@@ -262,6 +262,46 @@ const ECHELON_MARK: Record<string, string> = {
   division: 'XX', brigade: 'X', battalion: 'II',
 }
 
+// CONTROL MEASURE — a named point or zone from the scenario's own gazetteer
+// (OBJ KHADRA, a phase line's anchor). The operational graphic the author
+// drew IS the graphic the commander reads: the builder sheet and the game's
+// BFT both call this, so there is one definition of what a control measure
+// looks like. Every stroke goes down twice — dark halo, bright line — because
+// this sheet is pale desert as often as it is green.
+export function drawPlace(
+  ctx: Ctx2D, x: number, y: number,
+  opts: { name: string; rPx?: number; dim?: boolean },
+): void {
+  const { name, rPx, dim = false } = opts
+  ctx.save()
+  if (dim) ctx.globalAlpha = 0.75
+  const ring = () => { ctx.beginPath(); ctx.arc(x, y, rPx!, 0, Math.PI * 2) }
+  const diamond = () => {
+    ctx.beginPath()
+    ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y)
+    ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y)
+    ctx.closePath()
+  }
+  if (rPx != null && rPx > 2) {
+    ctx.setLineDash([9, 7])
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.7)'; ring(); ctx.stroke()
+    ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; ring(); ctx.stroke()
+    ctx.setLineDash([])
+  }
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.8)'; diamond(); ctx.stroke()
+  ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; diamond(); ctx.stroke()
+  // the NAME rides the CENTRE marker, never the ring edge — a big zone's rim
+  // is often off-screen, and a label whose handle is elsewhere is unusable
+  ctx.font = 'bold 10px Consolas, monospace'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(8,12,16,0.85)'
+  ctx.strokeText(name, x, y - 13)
+  ctx.fillStyle = '#ffd050'
+  ctx.fillText(name, x, y - 13)
+  ctx.restore()
+}
+
 // Static installation symbol: square frame (triangle for OP), abbr text inside.
 export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureSymbolOpts): void {
   const {
@@ -312,14 +352,23 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
       ctx.stroke()
     }
     // ECHELON above the frame — what tells a division main from a brigade
-    // headquarters from your own command post
+    // headquarters from your own command post. On its own plate in the
+    // symbol's colours: bare characters were lost against terrain, and at
+    // the frame's edge they sat underneath the HQ staff flag.
     const mark = echelon ? ECHELON_MARK[echelon] : null
     if (mark) {
+      ctx.font = 'bold 10px Consolas, monospace'
+      const w = ctx.measureText(mark).width + 8
+      const base = kind === 'HQ' ? -21 : -13   // clear of the staff flag
+      ctx.fillStyle = fill
+      ctx.strokeStyle = edge
+      ctx.lineWidth = 1.4
+      ctx.beginPath()
+      ctx.rect(-w / 2, base - 12, w, 12)
+      ctx.fill(); ctx.stroke()
       ctx.fillStyle = edge
-      ctx.font = 'bold 8px Consolas, monospace'
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
-      ctx.fillText(mark, 0, -14)
-      ctx.textBaseline = 'middle'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(mark, 0, base - 5.5)
     }
   }
   // build progress / hp bar
