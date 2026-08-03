@@ -159,10 +159,10 @@ source badge must read the same on every tab.
 MI the MI (its Third Lieutenant is `ranks`, its company is `bnKinds`, its
 S1/R1/G1 are `staff`):
 - catalogs: `expendables`, `facilities`
-- organisation: `billets`, `organic`, `attached`
-  (`rosters` and `bnKinds` are DONE — the ORG tab, 44488a4. A template's
-  company rung is now toggleable in the UI rather than implicit in whether a
-  JSON key is present.)
+- organisation: `organic`, `attached`
+  (ORG is otherwise DONE — `bnKinds` + `rosters` 44488a4, `billets` 0cb79b3.
+  A template's company rung is toggleable in the UI rather than implicit in
+  whether a JSON key is present.)
 - character: `ranks`, `awards`, `callsigns`, `net`, `reports`, `staff`,
   `mottos`, `nicks`, `audio`
 - content: maps and scenarios
