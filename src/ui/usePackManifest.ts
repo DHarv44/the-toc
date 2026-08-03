@@ -35,6 +35,29 @@ export interface ManifestEditor {
  *  box means "this pack does not say", not "this pack says nothing". */
 const isBlank = (v: unknown): boolean => v === undefined || v === ''
 
+/** HOW A CATALOG TABLE IS AUTHORED — the three forms packs/index.ts resolves,
+ *  and an editor has to know which it is looking at or it will happily
+ *  overwrite one with another:
+ *    own       the pack's own table, keyed by id — editable field by field
+ *    subset    an ARRAY of ids picked out of the `extends` library — the pack
+ *              chooses WHICH entries it fields, and cannot edit them, because
+ *              they belong to the library and are shared BY REFERENCE with
+ *              every other pack drawing on it
+ *    inherited absent: the library's table, or the canonical pack's */
+export type CatalogForm = 'own' | 'subset' | 'inherited'
+
+export function catalogForm(manifest: PackManifest | null, table: string): CatalogForm {
+  const cat = manifest?.catalogs as Record<string, unknown> | undefined
+  const v = cat?.[table]
+  if (Array.isArray(v)) return 'subset'
+  if (v && typeof v === 'object') return 'own'
+  return 'inherited'
+}
+
+/** the `extends` library this pack subsets, if it names one */
+export const catalogLibrary = (manifest: PackManifest | null): string | undefined =>
+  (manifest?.catalogs as Record<string, unknown> | undefined)?.extends as string | undefined
+
 export function usePackManifest(packId: string): ManifestEditor {
   const [manifest, setManifest] = useState<PackManifest | null>(null)
   const [edits, setEdits] = useState<Record<string, unknown>>({})

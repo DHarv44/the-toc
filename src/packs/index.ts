@@ -200,6 +200,12 @@ function buildAll(): Record<string, Pack> {
 
 export const PACKS: Record<string, Pack> = buildAll()
 
+/** THE IDS IN A SHARED LIBRARY TABLE. Exposed for the builder: a pack that
+ *  SUBSETS a library (`catalogs.extends` + an array of ids) has to be able to
+ *  show what else is in there to pick from. */
+export const libraryIds = (lib: string | undefined, table: string): string[] =>
+  Object.keys(((lib ? LIBS[lib] : undefined)?.[table] as Record<string, unknown>) ?? {})
+
 /** EVERY ARMY THIS BUILD KNOWS ABOUT — what the content tools browse. This is
  *  a different question from who is fighting (that is the lineup, below), and
  *  conflating the two is what made an authored army invisible. */
