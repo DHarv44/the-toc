@@ -251,6 +251,15 @@ export interface Unit {
   label: string           // radio callsign designator (e.g. "ECHO-5")
   lineage?: string        // formal parent-formation line (e.g. "1st PLT, A CO, 2-8 CAV")
   attFrom?: string        // donor formation if this type is an attachment (e.g. "2ID")
+  // TASK ORGANIZATION (scenario task-org): the OWNING BATTALION designation
+  // (same vocabulary as OrgSlot.bn, which is where it comes from), and
+  // whether this platoon is task-organized to the player for this operation.
+  // COMMAND DERIVES FROM THESE (domains/forces/command.ts) — the player's own
+  // battalion plus anything attached is theirs to order; every other friendly
+  // formation is a neighbour on the same side, not a unit they command.
+  // (`formation` below is the TACTICAL formation — column/wedge — unrelated.)
+  bn?: string
+  attached?: boolean
   x: number
   y: number
   heading: number
@@ -344,6 +353,10 @@ export interface Structure {
   kind: StructureTypeKey
   x: number
   y: number
+  // OWNING FORMATION (scenario task-org): which formation runs this
+  // installation — a sister brigade's FOB fields ITS garrison, not yours.
+  // Absent = the player's own formation.
+  formation?: string
   label: string
   hp: number
   maxHp: number
@@ -718,6 +731,11 @@ export interface GameState {
   waves: WaveState | null    // Base Defense wave scheduler (null in other modes)
   campaign: CampaignState | null // Campaign mission tracker (null in other modes)
   org: DivOrg | null         // the player pack's full division organization (friend side)
+  // THE CHAIR: the battalion designation the player commands. A campaign
+  // scenario pins it; a skirmish lets the player pick a playable battalion.
+  // The org's task-force marking is built around it, and command over every
+  // friendly unit derives from it (domains/forces/command.ts).
+  playerBn: string
   assets: AssetsState        // division asset pool + request pipeline (ASSET-REQUESTS.md)
   downed: DownedSite[]       // DUSTWUN sites awaiting recovery (friend wipes)
   replT: number              // next replacement-packet arrival (P3 pipeline clock)
@@ -773,6 +791,7 @@ export function createInitialState(): GameState {
     waves: null,
     campaign: null,
     org: null,
+    playerBn: '',
     assets: { pool: [], pending: [], queue: [], windows: [], unlocks: [], favor: 0 },
     downed: [],
     replT: 0,

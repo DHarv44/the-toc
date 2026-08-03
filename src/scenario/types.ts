@@ -37,6 +37,15 @@ export interface ScenarioStructure {
   kind: StructureTypeKey
   x: number
   y: number
+  /** OWNING FORMATION — a designation from the pack's org at any echelon
+   *  ('1CD' division, '3ABCT' brigade, '2-8 CAV' battalion). Drives which
+   *  garrison the installation fields from and the default label. Absent =
+   *  the player's own formation. */
+  formation?: string
+  /** assets sited here at H-hour (ASSET-REQUESTS.md pool kinds): a C-RAM
+   *  section on the FOB, a SHADOW orbit at the CP. Authored quantities are
+   *  authored — difficulty never scales them. */
+  assets?: { asset: string; qty: number }[]
   /** display name — CP GARRYOWEN energy; absent = the engine's default label */
   label?: string
   /** under construction at H-hour (absent = complete) */
@@ -54,6 +63,17 @@ export interface ScenarioUnit {
   type: string
   x: number
   y: number
+  /** OWNING FORMATION — the battalion designation whose org slot this
+   *  platoon draws ('2-8 CAV', '1-9 CAV'). Real slot, real people, real
+   *  lineage. Absent = the player's own formation.
+   *  COMMAND DERIVES FROM TASK ORG: the player's formation (plus anything
+   *  `attached`) is player-controlled; every other friendly formation is
+   *  AI-commanded. There is no player/AI flag — the task org IS the answer. */
+  formation?: string
+  /** task-organized to the player's command for this operation — the pack's
+   *  own attachment concept, authored per scenario ("A CO/91 BEB attached to
+   *  2-8 CAV"). Only meaningful when `formation` is not the player's. */
+  attached?: boolean
   /** radians, world convention (0 = east, +cw); absent = engine default */
   heading?: number
   dug?: boolean
@@ -115,6 +135,11 @@ export interface ScenarioSpec {
   map?: string
   /** which installed pack plays each side; absent = the default lineup */
   sides?: { friend?: string; hostile?: string }
+  /** THE PLAYER'S CHAIR — the battalion designation the player commands.
+   *  Campaign type: script, the author decides who you are. Skirmish types:
+   *  the DEFAULT, and the player may take a different playable battalion at
+   *  launch. Absent = the friend pack's own playerBn. */
+  player?: string
   /** fog of war on (absent = on) */
   fog?: boolean
   situation: ScenarioSituation

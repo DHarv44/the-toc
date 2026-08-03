@@ -210,13 +210,18 @@ function buildStaffSlot(spec: Extract<SlotSpec, { staff: StaffMember[] }>, slotI
   return { soldiers, vehicles }
 }
 
-export function buildDivisionOrg(pack: Pack): DivOrg | null {
+// `playerBn` is THE CHAIR: which battalion the player commands this game.
+// It decides what is task-force (fieldable through CALL UP) — a campaign
+// pins it, a skirmish lets the player pick, and both hand it in here rather
+// than the pack's own default being the only truth (scenario `player`).
+export function buildDivisionOrg(pack: Pack, playerBn?: string): DivOrg | null {
   const f = pack.formation
   if (!f) return null
+  const chair = playerBn ?? f.playerBn
   const slots: OrgSlot[] = []
 
   const addBn = (bde: string, bn: BnPlan, from?: string) => {
-    const allTf = bn.desig === f.playerBn
+    const allTf = bn.desig === chair
     for (const co of bnTemplate(bn.kind)) {
       const tf = allTf || (bn.tfCos ?? []).includes(co.co)
       for (const spec of co.slots) {
@@ -318,7 +323,7 @@ export function buildDivisionOrg(pack: Pack): DivOrg | null {
   // thrown, so a pack can rename a company without breaking the org build.
   for (const ref of f.qrf ?? []) {
     const [co, name] = ref.split(':')
-    const sl = slots.find(s => s.bn === f.playerBn && s.co === co && s.name === name && s.type)
+    const sl = slots.find(s => s.bn === chair && s.co === co && s.name === name && s.type)
     if (sl) sl.qrf = true
   }
 
@@ -354,6 +359,19 @@ export function slotStrength(slots: OrgSlot | OrgSlot[]): SlotStr {
 export function drawSlot(org: DivOrg, type: UnitTypeKey): OrgSlot | null {
   return org.slots.find(sl =>
     sl.tf && sl.type === type && sl.unitId == null
+    && sl.soldiers.some(s => s.status === 'FIT')) ?? null
+}
+
+// First free slot of a type inside a NAMED FORMATION, at any echelon
+// (battalion designation or brigade designation). Deliberately NOT filtered
+// by `tf`: a sister brigade's platoon is a real element with real people —
+// it simply is not in the player's task force, which is exactly what a
+// scenario places when it puts 3ABCT on the map beside you. The TF draw
+// above stays the CALL UP path and is untouched.
+export function drawSlotIn(org: DivOrg, type: UnitTypeKey, formation: string): OrgSlot | null {
+  return org.slots.find(sl =>
+    sl.type === type && sl.unitId == null
+    && (sl.bn === formation || sl.bde === formation)
     && sl.soldiers.some(s => s.status === 'FIT')) ?? null
 }
 
