@@ -8,12 +8,32 @@ import type { Entity } from '../../scenario/edit'
 
 const MONO = 'Consolas, monospace'
 
-export default function Inspector({ e, friendPack, playerFormation, onPatch, onDelete }: {
+// What a roster row says about an entity, in one line.
+const rowLabel = (e: Entity): string =>
+  e.ent === 'place' ? e.name
+    : e.ent === 'structure' ? (e.label || e.kind)
+    : (UNIT_TYPES[e.type]?.abbr ?? e.type)
+
+const rowSub = (e: Entity, playerFormation: string): string => {
+  if (e.ent === 'place') return e.r != null ? `ZONE ${e.r}m` : 'POINT'
+  const own = e.formation && e.formation !== playerFormation
+    ? ` · ${e.formation}${e.ent === 'unit' && e.attached ? ' ATT' : ''}` : ''
+  if (e.ent === 'structure') return `${e.kind}${own}`
+  return `${e.side === 'friend' ? 'BLUFOR' : 'OPFOR'}${own}${e.dug ? ' · DUG' : ''}`
+}
+
+export default function Inspector({
+  e, entities, friendPack, playerFormation, onSelect, onCenter, onPatch, onDelete,
+}: {
   e: Entity | undefined
+  /** everything on the sheet — the roster when nothing is selected */
+  entities: Entity[]
   /** the pack playing BLUFOR — its org drives the formation pickers */
   friendPack: string
   /** the scenario's player chair: anything else friendly is allied AI */
   playerFormation: string
+  onSelect: (id: number) => void
+  onCenter: (id: number) => void
   onPatch: (patch: Partial<Entity>) => void
   onDelete: () => void
 }) {
@@ -21,13 +41,55 @@ export default function Inspector({ e, friendPack, playerFormation, onPatch, onD
   const fmOpts = pack ? formationOptions(pack) : []
   const bnOpts = pack ? battalionOptions(pack) : []
   const assetKinds = Object.keys(pack?.assets ?? {})
+  // THE ROSTER — every placed entity, grouped the way an author thinks about
+  // them. Nothing on this sheet can hide: a symbol under another symbol, or a
+  // zone whose centre is off-screen, is still one click away from here.
+  const groups: { head: string; list: Entity[] }[] = [
+    { head: 'CONTROL MEASURES', list: entities.filter(x => x.ent === 'place') },
+    { head: 'INSTALLATIONS', list: entities.filter(x => x.ent === 'structure') },
+    { head: 'UNITS', list: entities.filter(x => x.ent === 'unit') },
+  ].filter(g => g.list.length > 0)
+
   return (
     <Box w={230} p="xs" style={{ borderLeft: '1px solid #22303d', overflowY: 'auto', fontFamily: MONO }}>
-      <Text fz={9} c="dark.3" mb={6} style={{ letterSpacing: 1.5 }}>INSPECTOR</Text>
       {!e ? (
-        <Text fz={10} c="dark.3">SELECT AN ENTITY — OR ARM A PALETTE ROW AND CLICK THE SHEET</Text>
+        <>
+          <Text fz={9} c="dark.3" mb={2} style={{ letterSpacing: 1.5 }}>
+            ON THE SHEET · {entities.length}
+          </Text>
+          <Text fz={8.5} c="dark.3" mb={8}>CLICK TO SELECT · ◎ TO LOCATE</Text>
+          {entities.length === 0 && (
+            <Text fz={10} c="dark.3">
+              NOTHING PLACED YET — ARM A PALETTE ROW AND CLICK THE SHEET
+            </Text>
+          )}
+          {groups.map(g => (
+            <Box key={g.head} mb={8}>
+              <Text fz={8.5} c="dark.4" mb={3} style={{ letterSpacing: 1.5 }}>{g.head}</Text>
+              {g.list.map(x => (
+                <Group key={x.id} gap={4} wrap="nowrap" mb={2}>
+                  <Box style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                    onClick={() => onSelect(x.id)}>
+                    <Text fz={10} c="#c8d8e8" truncate>{rowLabel(x)}</Text>
+                    <Text fz={8} c="dark.3" truncate>{rowSub(x, playerFormation)}</Text>
+                  </Box>
+                  <Button size="compact-xs" variant="subtle" c="dark.2" px={4}
+                    title="Show on the sheet" onClick={() => onCenter(x.id)}>◎</Button>
+                </Group>
+              ))}
+            </Box>
+          ))}
+        </>
       ) : (
         <>
+          <Group gap={4} mb={6} wrap="nowrap">
+            <Button size="compact-xs" variant="subtle" c="dark.2" px={4} style={{ flex: 1 }}
+              justify="flex-start" onClick={() => onSelect(-1)}>
+              ◀ ALL PLACED ({entities.length})
+            </Button>
+            <Button size="compact-xs" variant="default" px={5}
+              title="Show on the sheet" onClick={() => onCenter(e.id)}>◎</Button>
+          </Group>
           <Text fz={11} c="#dceeff" mb={6}>
             {e.ent === 'structure' ? e.kind
               : e.ent === 'unit' ? (UNIT_TYPES[e.type]?.name ?? e.type)

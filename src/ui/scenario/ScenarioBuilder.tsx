@@ -492,7 +492,13 @@ export default function ScenarioBuilder({ onExit }: { onExit: () => void }) {
               ]} />
           </Box>
           {rail === 'inspect' ? (
-            <Inspector e={selected(ed)} friendPack={sidePacks.friend} playerFormation={player}
+            <Inspector e={selected(ed)} entities={ed.entities}
+              friendPack={sidePacks.friend} playerFormation={player}
+              onSelect={id => setEd(s => select(s, id < 0 ? null : id))}
+              onCenter={id => {
+                const t = ed.entities.find(x => x.id === id)
+                if (t) sheetRef.current?.centerOn(t.x, t.y)
+              }}
               onPatch={patchEntity}
               onDelete={() => setEd(s => (s.sel != null ? remove(s, s.sel) : s))} />
           ) : (

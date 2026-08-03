@@ -113,7 +113,16 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
         const d = Math.hypot(w2sX(e.x) - sx, w2sY(e.y) - sy)
         if (d < bd) { bd = d; best = e }
       }
-      return best
+      if (best) return best
+      // A ZONE'S RING IS A HANDLE TOO. A big objective's centre is often off
+      // the screen you are working on; without this, the only way to select
+      // it is to zoom out and hunt for the middle.
+      for (const e of es) {
+        if (e.ent !== 'place' || e.r == null) continue
+        const d = Math.abs(Math.hypot(w2sX(e.x) - sx, w2sY(e.y) - sy) - e.r * view.ppm)
+        if (d < 10) return e
+      }
+      return null
     }
 
     // ---- pointer state ----
@@ -257,25 +266,37 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
             dug: e.dug ? 1 : 0, showStrength: false,
           })
         } else {
-          // named place — control-measure graphics: amber, dashed zone ring
-          ctx.strokeStyle = '#e8d9a0'
-          ctx.fillStyle = '#e8d9a0'
-          ctx.lineWidth = 1.4
-          if (e.r != null) {
-            ctx.setLineDash([8, 6])
+          // NAMED PLACE — a control measure has to read on ANY ground, and
+          // this sheet is pale desert as often as it is green. Every stroke
+          // goes down twice: a dark halo, then the bright line on top.
+          const ring = () => {
             ctx.beginPath()
-            ctx.arc(x, y, e.r * view.ppm, 0, Math.PI * 2)
-            ctx.stroke()
+            ctx.arc(x, y, e.r! * view.ppm, 0, Math.PI * 2)
+          }
+          const diamond = () => {
+            ctx.beginPath()
+            ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y)
+            ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y)
+            ctx.closePath()
+          }
+          if (e.r != null) {
+            ctx.setLineDash([9, 7])
+            ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.7)'; ring(); ctx.stroke()
+            ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; ring(); ctx.stroke()
             ctx.setLineDash([])
           }
-          // the point marker: a small open diamond
-          ctx.beginPath()
-          ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y)
-          ctx.closePath()
-          ctx.stroke()
-          ctx.font = '10px Consolas, monospace'
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,12,16,0.8)'; diamond(); ctx.stroke()
+          ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffd050'; diamond(); ctx.stroke()
+          // the NAME rides the centre marker, never the ring edge — a big
+          // zone's rim can be off-screen, and a label you can see while its
+          // handle is somewhere else is how a place becomes uneditable
+          ctx.font = 'bold 10px Consolas, monospace'
           ctx.textAlign = 'center'
-          ctx.fillText(e.name, x, y - (e.r != null ? e.r * view.ppm + 6 : 12))
+          ctx.lineWidth = 3
+          ctx.strokeStyle = 'rgba(8,12,16,0.85)'
+          ctx.strokeText(e.name, x, y - 13)
+          ctx.fillStyle = '#ffd050'
+          ctx.fillText(e.name, x, y - 13)
           ctx.textAlign = 'left'
         }
         if (allied) ctx.globalAlpha = 1
