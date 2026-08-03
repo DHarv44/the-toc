@@ -129,6 +129,31 @@ did not and reported OBJECTIVE SECURED at 00:00:00Z.
 
 **Arachnids second**, once there is a working faction to fight.
 
+## The PACK BUILDER — what it still cannot do
+
+It can WRITE now (937d465): one edit path in `ui/usePackManifest`, patching
+the manifest AS AUTHORED so a save never bakes inherited content into a thin
+variant. IDENTITY tab covers name/abbr/nick/motto/patch/inherits/cats/
+startForce. Saving reformats the whole file — the middleware re-serializes.
+
+**Tabs today:** IDENTITY · ECHELON · UNITS · VEHICLES · WEAPONS · AIR ·
+FORMATION · NAMES · ASSETS. Only IDENTITY and model assignment are editable;
+the rest still only display.
+
+**No tab at all** — the sharp bit, because it is most of what makes the MI
+the MI (its suits are `troops`, its Third Lieutenant is `ranks`, its company
+is `bnKinds`, its S1/R1/G1 are `staff`):
+- catalogs: `troops`, `expendables`, `facilities` (`comps` only summarised)
+- organisation: `rosters`, `bnKinds`, `billets`, `organic`, `attached`
+- character: `ranks`, `awards`, `callsigns`, `net`, `reports`, `staff`,
+  `mottos`, `nicks`, `audio`
+- content: maps and scenarios
+
+Suggested order: TROOPS+COMPS, then a CONTENT tab that LISTS a pack's maps
+and scenarios and hands off to the MAP EDITOR / SCENARIO BUILDER (both
+already have working save paths — do not reimplement them), then ORG
+(rosters/bnKinds/billets), then CHARACTER.
+
 ## Still open before bugs are affordable
 
 - **Elements that are not people.** Every element is named soldiers with
