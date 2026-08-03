@@ -21,11 +21,16 @@ import type { ScenarioSpec } from '../scenario/types'
 import { applyScenario } from './applyScenario'
 import { playerPack, installActivePacks } from '../packs'
 import { buildDivisionOrg } from '../packs/org'
+import { defaultPlayerFormation } from '../packs/orgquery'
 import { buildAssetRegistry } from '../domains/assets/registry'
 
 export function initGame(
   map: WorldMap, seed = 1337, difficulty: string = DEFAULT_DIFFICULTY,
   mode: ModeId = DEFAULT_MODE,
+  // THE CHAIR: which battalion the player commands. A campaign scenario pins
+  // it, a skirmish player picks it; the division's task-force marking is built
+  // around it, so it must be known BEFORE the org is materialized.
+  playerBn?: string,
 ): void {
   // Map construction is the caller's job (world/mapref buildGameMap): which
   // ground, which source, mode terrain rerolls — all decided before this
@@ -88,8 +93,10 @@ export function initGame(
   S.counters.designators.friend = 0; S.counters.designators.hostile = 0
   S.counters.lineage = {}
   // the player pack's whole division, people and all — built BEFORE any friendly
-  // unit spawns so the starter force draws real garrison slots (rng-free)
-  S.org = buildDivisionOrg(playerPack())
+  // unit spawns so the starter force draws real garrison slots (rng-free).
+  // The chair decides what is task-force inside it.
+  S.playerBn = playerBn || defaultPlayerFormation(playerPack())
+  S.org = buildDivisionOrg(playerPack(), S.playerBn)
   // the division asset pool the TOC can request from (ASSET-REQUESTS.md);
   // campaign scripting pre-allocates pieces to sister brigades in startCampaign
   S.assets = buildAssetRegistry(playerPack())
@@ -132,8 +139,11 @@ export function initGame(
 export function initScenarioGame(
   map: WorldMap, spec: ScenarioSpec, seed = 1337,
   difficulty: string = DEFAULT_DIFFICULTY,
+  // skirmish only: the player took a different playable battalion than the
+  // scenario's default. A campaign's chair is scripted and never overridden.
+  chair?: string,
 ): void {
-  initGame(map, seed, difficulty, spec.type)
+  initGame(map, seed, difficulty, spec.type, chair || spec.player)
   if (spec.type === 'campaign') return // startCampaign applied the situation
   S.units = []
   S.structures = []

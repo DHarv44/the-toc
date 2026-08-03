@@ -1,7 +1,7 @@
 // Basing: structure construction and fielding ground units from installations.
 // Ported verbatim from src/game/sim.js.
 import { S } from '../../engine/state'
-import type { Side, Structure, Unit } from '../../engine/GameState'
+import type { OrgSlot, Side, Structure, Unit } from '../../engine/GameState'
 import type { Vec2 } from '../../world/WorldMap'
 import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
@@ -21,10 +21,14 @@ import { toast, radio, netRadio } from '../comms/radio'
 export function addStructure(
   side: Side, kind: StructureTypeKey, x: number, y: number,
   label?: string, instant = false,
+  // OWNING FORMATION (scenario task-org): a sister brigade's FOB or the
+  // division main. Absent = the player's own command.
+  formation?: string,
 ): Structure {
   const spec = STRUCTURES[kind]
   const s: Structure = {
     id: S.counters.nextId++, side, kind, x, y,
+    ...(formation ? { formation } : {}),
     label: label || (spec.abbr + '-' + S.counters.nextId),
     hp: spec.hp, maxHp: spec.hp,
     buildT: instant ? 0 : spec.buildTime,
@@ -70,7 +74,14 @@ export function fundingStructure(x: number, y: number): Structure | null {
   return best
 }
 
-export function deployUnit(typeKey: UnitTypeKey, x: number, y: number, free = false): Unit | null {
+export function deployUnit(
+  typeKey: UnitTypeKey, x: number, y: number, free = false,
+  // field THIS org element rather than the first free one of its type — the
+  // scenario task-org path (a named sister-formation platoon). `noSlot` places
+  // without drawing at all, so a scenario can never raid the player's pool for
+  // somebody else's platoon.
+  opts?: { slot?: OrgSlot; noSlot?: boolean },
+): Unit | null {
   // campaign phases can lock fielding; the campaign's own free placements are exempt
   if (!free && !campaignAllows('field')) return toast('FIELDING NOT AUTHORIZED THIS PHASE')
   const type = UNIT_TYPES[typeKey]
@@ -83,7 +94,7 @@ export function deployUnit(typeKey: UnitTypeKey, x: number, y: number, free = fa
     const site = fundingStructure(x, y)
     if (!site) return toast('OUTSIDE DEPLOY ZONE')
   }
-  const u = newUnit(typeKey, 'friend', x, y)
+  const u = newUnit(typeKey, 'friend', x, y, opts)
   S.units.push(u)
   return u
 }

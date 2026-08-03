@@ -13,6 +13,8 @@ import { addStructure, deployUnit } from '../domains/installations/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import { orderMove } from '../domains/forces/orders'
 import { formBattlegroup } from '../domains/opfor/ai'
+import { siteAssetAt } from '../domains/assets/service'
+import { drawSlotIn } from '../packs/org'
 
 function applyUnitAttrs(unit: Unit, u: ScenarioUnit): void {
   if (u.heading != null) unit.heading = u.heading
@@ -36,6 +38,29 @@ function seedIntel(S: GameState, unit: Unit, u: ScenarioUnit): void {
   })
 }
 
+// Field an authored friendly platoon FROM ITS OWN FORMATION. The pack ships
+// the whole division, so a sister brigade's platoon is a real element with
+// real people — it draws that battalion's slot, not one of the player's. When
+// the formation has no such platoon free (an authoring error, or a formation
+// that simply does not field the type), it is placed WITHOUT a draw and says
+// so, rather than quietly consuming the player's task force.
+function fieldForFormation(S: GameState, u: ScenarioUnit, p: { x: number; y: number }): Unit | null {
+  const type = u.type as UnitTypeKey
+  const bn = u.formation
+  if (!bn || bn === S.playerBn) return deployUnit(type, p.x, p.y, true)
+
+  const slot = S.org ? drawSlotIn(S.org, type, bn) : null
+  const unit = deployUnit(type, p.x, p.y, true, slot ? { slot } : { noSlot: true })
+  if (!unit) return null
+  if (!slot) {
+    console.warn(`[scenario] ${bn} has no ${type} platoon free — placed without an org slot`)
+    unit.lineage = bn
+  }
+  unit.bn = bn
+  if (u.attached) unit.attached = true
+  return unit
+}
+
 /** Apply a scenario's SITUATION — the H-hour placement — onto a BUILT world
  *  (S.map ready). Deterministic: scatter draws go through S.rng in
  *  declaration order. */
@@ -55,9 +80,21 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
 
   for (const st of sit.structures) {
     const p = w(st)
-    const s = addStructure(st.side, st.kind, p.x, p.y, st.label, !st.building)
+    const s = addStructure(st.side, st.kind, p.x, p.y, st.label, !st.building, st.formation)
     if (st.stock != null) s.stock = st.stock
     if (st.side === 'hostile' && st.intel === 'known') S.structContacts.add(s.id)
+    // assets the author sited here are already emplaced and operational — the
+    // same effects a delivered one applies (facility/tether/unlock), through
+    // the same service. Asking for more than the division owns is an
+    // authoring error, reported rather than silently swallowed.
+    for (const a of st.assets ?? []) {
+      for (let i = 0; i < Math.max(0, a.qty); i++) {
+        if (!siteAssetAt(a.asset, s)) {
+          console.warn(`[scenario] ${s.label}: no ${a.asset} left in the division pool`)
+          break
+        }
+      }
+    }
   }
   // the builtin anchors follow the placed HQs (same rule as the dev sandbox):
   // player-hq / enemy-base resolve to where the author put the headquarters
@@ -74,7 +111,7 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
     let unit: Unit | null = null
     if (u.side === 'friend') {
       if (u.garrison) continue // in garrison at H-hour — the commander calls it up
-      unit = deployUnit(u.type as UnitTypeKey, p.x, p.y, true)
+      unit = fieldForFormation(S, u, p)
     } else {
       unit = spawnEnemy(u.type as UnitTypeKey, p.x, p.y)
       seedIntel(S, unit, u)

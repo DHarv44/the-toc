@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Box, Text } from '@mantine/core'
 import { S } from '../engine/state'
+import { underPlayerCommand, commandsStructure } from '../domains/forces/command'
 import type { OrgSlot, Unit } from '../engine/GameState'
 import { fieldSlot } from '../domains/installations/orders'
 import { releaseQrf } from '../domains/defense/qrf'
@@ -103,7 +104,9 @@ function BattleGroups() {
   const ui = useUI()
   const [adding, setAdding] = useState<number | null>(null)
   const [qrfPending, setQrfPending] = useState<{ slotId: string; gid: number } | null>(null)
-  const units = S.units.filter(u => u.side === 'friend' && u.strength > 0)
+  // YOUR force — a sister formation's platoons are on the map and on your
+  // side, but they are not in your task organization and never in your rail
+  const units = S.units.filter(u => underPlayerCommand(u) && u.strength > 0)
   const groups = new Map<number, typeof units>()
   const solo: typeof units = []
   for (const u of units) {
@@ -199,14 +202,17 @@ function CallUpFlyout() {
   const close = () => useUI.setState({
     callupOpen: false, callupBase: null, callupCat: null, callupCos: [],
   })
-  const hqId = S.structures.find(s => s.side === 'friend' && s.kind === 'HQ')?.id ?? null
+  // YOUR command post — a sister formation's installations are on the map but
+  // are not places your battalion stages from
+  const hqId = S.structures.find(s =>
+    s.kind === 'HQ' && commandsStructure(s))?.id ?? null
   const baseOf = (sl: OrgSlot) =>
-    S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend') ? sl.garrisonAt! : hqId
-  // WHERE the force sits: every friendly base holding callable troops, HQ
+    S.structures.some(s => s.id === sl.garrisonAt && commandsStructure(s)) ? sl.garrisonAt! : hqId
+  // WHERE the force sits: every base YOU command holding callable troops, HQ
   // first (a FOB only appears once it is built and has soldiers in it)
   const bases = [...new Set(slots.map(baseOf))]
     .map(id => S.structures.find(s => s.id === id))
-    .filter((s): s is NonNullable<typeof s> => !!s)
+    .filter((s): s is NonNullable<typeof s> => !!s && commandsStructure(s))
     .map(b => ({ b, list: slots.filter(sl => baseOf(sl) === b.id) }))
   const catOf = (sl: OrgSlot) => UNIT_TYPES[sl.type as UnitTypeKey].cat
   const cat = ui.callupCat

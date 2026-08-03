@@ -60,6 +60,7 @@ import { nearestLand } from '../world/place'
 import { radio, toast } from '../domains/comms/radio'
 import { playerPack } from '../packs'
 import { buildDivisionOrg, setBnCommander } from '../packs/org'
+import { defaultPlayerFormation } from '../packs/orgquery'
 import { locRef } from '../world/ref'
 import { hashStr } from '../lib/math'
 import { pipelineBacklog } from '../domains/forces/pipeline'
@@ -242,8 +243,12 @@ export function startCampaign(S: GameState): void {
   // Player's name goes on the command group (the player IS that battalion's CO).
   S.units = []
   S.counters.lineage = {}
-  S.org = buildDivisionOrg(playerPack())
-  if (S.org) setBnCommander(S.org, playerPack().formation?.playerBn ?? '2-8 CAV', _commanderPending)
+  // THE CHAIR is scenario data: the campaign's author says which battalion
+  // this operation is about. The task-force marking is built around it, and
+  // the player's name goes on that battalion's command group.
+  S.playerBn = spec.player || defaultPlayerFormation(playerPack())
+  S.org = buildDivisionOrg(playerPack(), S.playerBn)
+  if (S.org) setBnCommander(S.org, S.playerBn, _commanderPending)
   S.enemyGroups = []
   S.nextWave = Infinity        // no economy-driven waves — missions script the OPFOR
   S.enemyResources = 0

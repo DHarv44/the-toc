@@ -6,7 +6,7 @@ import { radio, toast } from '../comms/radio'
 import { deployDrone } from '../air/orders'
 import {
   assetDef, assetDesk, relevance, approve, availableCount, crewReady,
-  DEFAULT_SETUP, REFIT_TIME,
+  applyAssetDelivers, DEFAULT_SETUP, REFIT_TIME,
 } from './service'
 
 const ARRIVE_RANGE = 220
@@ -87,12 +87,9 @@ export function assetsUpdate(_dt: number): void {
       inst.state = 'allocated'
       delete inst.setupT
       if (!st) { inst.state = 'available'; delete inst.holder; delete inst.structId; continue }
-      const d = def.delivers
-      if (d.facility && !st.facilities?.includes(d.facility)) {
-        st.facilities = [...(st.facilities ?? []), d.facility]
-      }
-      if (d.tether) deployDrone(def.delivers.tether!, st.x, st.y)
-      if (d.unlock && !A.unlocks.includes(d.unlock)) A.unlocks.push(d.unlock)
+      // the emplacement itself is shared with scenario task-org (service.ts) —
+      // one definition of what an asset does when it stands up
+      applyAssetDelivers(inst, st)
       radio('NET', 'arrive', `${def.name.toUpperCase()} OPERATIONAL AT ${st.label}`, st.x, st.y)
       toast(`${def.name.toUpperCase()} OPERATIONAL`)
     } else if (inst.state === 'refit') {

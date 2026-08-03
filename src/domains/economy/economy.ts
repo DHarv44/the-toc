@@ -7,6 +7,7 @@
 import { S } from '../../engine/state'
 import type { Side, Drone } from '../../engine/GameState'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
+import { underPlayerCommand } from '../forces/command'
 import { DRONE_TYPES, type DroneTypeKey } from '../air/catalog'
 import { fieldCooldownFor } from './difficulty'
 
@@ -41,6 +42,9 @@ export function forceCount(side: Side = 'friend'): number {
     if (u.side !== side || u.strength <= 0) continue
     if (side === 'hostile' && u.bgGroup == null) continue
     if (u.respFrom) continue // higher-echelon units in the AO are not TF force
+    // …and neither is a sister formation manoeuvring beside you: their
+    // platoons are on your map, not in your task organization
+    if (side === 'friend' && !underPlayerCommand(u)) continue
     n++
   }
   return n

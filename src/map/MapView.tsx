@@ -19,6 +19,7 @@ import { deployUnit, deployStructure, orderReturnToGarrison } from '../domains/i
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
 import { fireMission } from '../domains/fires/orders'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
+import { underPlayerCommand } from '../domains/forces/command'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
@@ -144,7 +145,9 @@ export default function MapView() {
       const pickR = 18 / view.ppm
       let picked: Unit | null = null, pd = Infinity
       for (const u of S.units) {
-        if (u.side !== 'friend') continue
+        // only what you command: a sister formation's platoon is a symbol on
+        // your map, not a unit you can pick up and order
+        if (!underPlayerCommand(u)) continue
         const d = Math.hypot(u.x - wx, u.y - wy)
         if (d < pickR && d < pd) { picked = u; pd = d }
       }
@@ -419,7 +422,7 @@ export default function MapView() {
         const wy0 = s2wY(Math.min(wasMarquee.y0, wasMarquee.y1))
         const wy1 = s2wY(Math.max(wasMarquee.y0, wasMarquee.y1))
         const ids = S.units
-          .filter(u => u.side === 'friend' && u.x >= wx0 && u.x <= wx1 && u.y >= wy0 && u.y <= wy1)
+          .filter(u => underPlayerCommand(u) && u.x >= wx0 && u.x <= wx1 && u.y >= wy0 && u.y <= wy1)
           .map(u => u.id)
         const dIds = S.drones
           .filter(d => d.x >= wx0 && d.x <= wx1 && d.y >= wy0 && d.y <= wy1)

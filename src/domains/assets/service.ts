@@ -14,6 +14,7 @@ import { nearestLand } from '../../world/place'
 import { newUnit } from '../forces/factory'
 import { orderMove } from '../forces/orders'
 import { deriveElements, deriveStrength } from '../forces/casualties'
+import { deployDrone } from '../air/orders'
 import { assetCrewSlot } from '../../packs/org'
 
 // FALLBACKS only — the real numbers are pack data (PackAsset.setupTime /
@@ -41,6 +42,36 @@ export const orbitAssetKind = (drone: string): string | null =>
   assetKindWhere(d => d.delivers.orbit === drone)
 export const windowAssetKind = (drone: string): string | null =>
   assetKindWhere(d => d.delivers.window === drone)
+
+// EMPLACEMENT — what an asset actually DOES once it is standing at a base:
+// grant its facility, put its tethered aerostat up, unlock its capability.
+// Shared by the delivery pipeline (update.ts, when the setup clock runs out)
+// and by scenario task-org (an asset the author sited at H-hour is already
+// emplaced — it did not drive in this morning). State only; the callers own
+// the radio traffic, because an arrival is news and an H-hour fact is not.
+export function applyAssetDelivers(inst: AssetInstance, st: Structure): void {
+  const def = assetDef(inst.kind)
+  if (!def) return
+  const d = def.delivers
+  if (d.facility && !st.facilities?.includes(d.facility)) {
+    st.facilities = [...(st.facilities ?? []), d.facility]
+  }
+  if (d.tether) deployDrone(d.tether, st.x, st.y)
+  if (d.unlock && !S.assets.unlocks.includes(d.unlock)) S.assets.unlocks.push(d.unlock)
+}
+
+/** Scenario task-org: site one pooled instance of `kind` at `st`, already
+ *  operational. Returns false when the division has no such asset left in the
+ *  pool — the author asked for more than the pack ships. */
+export function siteAssetAt(kind: string, st: Structure): boolean {
+  const inst = S.assets.pool.find(a => a.kind === kind && a.state === 'available')
+  if (!inst) return false
+  inst.state = 'allocated'
+  inst.holder = 'TF'
+  inst.structId = st.id
+  applyAssetDelivers(inst, st)
+  return true
+}
 
 // division's voice on the net, by echelon
 export function assetDesk(kind: string): string {
