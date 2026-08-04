@@ -14,6 +14,7 @@ import { orbitAuthority, windowOpen } from '../domains/assets/service'
 import { repairSiteOf } from '../domains/installations/service'
 import { locRef } from '../world/ref'
 import { fmtClock } from './styles'
+import MarchOrders from './MarchOrders'
 import {
   Metric, ReportList, RequestReport, Section, StaffTable, StaffView, Td, Th, type StaffTab,
 } from './staff'
@@ -87,6 +88,9 @@ function S3Console() {
           ))}
         </Section>
       )}
+      {/* MOVEMENT ORDERS sit above the task force list on purpose: the list is
+          a reference, the orders are the thing the S3 is actually working. */}
+      <MarchOrders />
       <Section title={`TASK FORCE — ${friendly.length} FIELDED`}>
         <StaffTable head={
           <><Th>ELEMENT</Th><Th>TYPE</Th><Th>STATE</Th><Th>ROE</Th><Th>WPNS</Th><Th ta="right">STR</Th></>

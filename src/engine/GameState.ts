@@ -52,6 +52,15 @@ export interface MarchPlan {
   gid: number
   order: number[]            // unit ids, FRONT FIRST
   column: MarchColumnType
+  // WHAT THE ORDER SAID. Kept beside the sequence rather than only written
+  // onto the units, because the whole point is that they DIVERGE: a platoon
+  // that gets badly hit reverts to `break` on its own judgement, and a
+  // commander needs to see the difference between the order they gave and the
+  // report they are getting. Absent = the order did not specify and whatever
+  // each element already had stands.
+  roe?: Roe
+  weapons?: WeaponsControl
+  name?: string              // the serial's callsign
 }
 export type WeaponsControl = 'free' | 'tight' | 'hold'
 export type Posture = 'mobile' | 'dig'

@@ -17,6 +17,7 @@ import { DrillRow, TreeLeaf } from './tree'
 import { slotStrength } from '../packs/org'
 import { ownerOf } from '../packs/orgquery'
 import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from './tutTargets'
+import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -145,6 +146,19 @@ function BattleGroups() {
       {[...groups.entries()].map(([gid, list]) => (
         <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
           {list.map(row)}
+          {/* THE RAIL ANSWERS "WHAT DO I HAVE"; the S3 answers "how is it
+              organised". A movement order is an Operations product, so this is
+              a door to it rather than the thing itself — but it carries the
+              state, because whether a column has an order is something you need
+              to see without opening anything. */}
+          {list.length > 1 && (
+            <PaletteRow label="◆ MOVEMENT ORDER"
+              tag={marchPlan(gid)
+                ? `${MARCH_INTERVAL[marchPlan(gid)!.column]} M INTERVAL · LEAD ${
+                  list.find(u => u.id === marchPlan(gid)!.order[0])?.label ?? '—'}`
+                : 'NO ORDER — THE COLUMN SORTS ITSELF'}
+              cost="" onClick={() => ui.setConsole('s3')} />
+          )}
           {adding !== gid && (
             <PaletteRow label="＋ ADD UNIT" tag="ATTACH AN INDEPENDENT OR CALL UP FROM GARRISON" cost=""
               onClick={() => setAdding(gid)} />

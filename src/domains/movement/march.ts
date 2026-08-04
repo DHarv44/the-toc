@@ -21,7 +21,9 @@
 // different platoons, and so does this: the order is over MEMBERS, and each
 // member's own vics stay under their own commander.
 import { S } from '../../engine/state'
-import type { MarchColumnType, MarchPlan, Unit } from '../../engine/GameState'
+import type {
+  MarchColumnType, MarchPlan, Roe, Unit, WeaponsControl,
+} from '../../engine/GameState'
 
 // Metres between vehicles. The interval is a real tactical choice and each
 // setting buys one thing at another's expense:
@@ -45,12 +47,66 @@ export const marchPlan = (gid: number): MarchPlan | undefined =>
  *  first — the lead vehicle is the first vic of the first member. */
 export function setMarchOrder(
   gid: number, order: number[], column: MarchColumnType = 'open',
+  extra: Partial<Pick<MarchPlan, 'roe' | 'weapons' | 'name'>> = {},
 ): MarchPlan {
   const existing = marchPlan(gid)
-  const plan: MarchPlan = { gid, order: [...order], column }
+  const plan: MarchPlan = { gid, order: [...order], column, ...extra }
   if (existing) Object.assign(existing, plan)
   else S.march.push(plan)
-  return existing ?? plan
+  const live = existing ?? plan
+  issue(live)
+  return live
+}
+
+/** Push the order down onto the members. This happens ONCE, when the order is
+ *  given — it is not re-asserted every tick, because a drill that overrides it
+ *  is the element exercising judgement the order cannot anticipate, and a plan
+ *  that stamped itself back on every frame would silently delete that. */
+export function issue(plan: MarchPlan): void {
+  for (const id of plan.order) {
+    const u = S.units.find(x => x.id === id)
+    if (!u || u.strength <= 0) continue
+    if (plan.roe) u.roe = plan.roe
+    if (plan.weapons) u.weapons = plan.weapons
+  }
+}
+
+/** ORDERED vs ACTUAL, per member. The interesting rows are the ones where the
+ *  two disagree: that is the difference between the order the commander gave
+ *  and the report they are getting, and it is the whole reason this is a board
+ *  you watch rather than a form you fill in. */
+export interface MarchState {
+  unitId: number
+  index: number              // place in the order of march, 0 = lead
+  roe: Roe
+  weapons: WeaponsControl
+  /** metres behind the station this member's place in the order asks for */
+  lag: number
+  driftedRoe: boolean
+  driftedWeapons: boolean
+  /** off the road, fighting, or broken down — not station-keeping at all */
+  detached: boolean
+}
+
+export function marchState(gid: number): MarchState[] {
+  const plan = marchPlan(gid)
+  if (!plan) return []
+  const out: MarchState[] = []
+  plan.order.forEach((id, i) => {
+    const u = S.units.find(x => x.id === id)
+    if (!u || u.strength <= 0) return
+    out.push({
+      unitId: id,
+      index: i,
+      roe: u.roe,
+      weapons: u.weapons,
+      lag: 0,                 // filled from the solver's own reading below
+      driftedRoe: !!plan.roe && u.roe !== plan.roe,
+      driftedWeapons: !!plan.weapons && u.weapons !== plan.weapons,
+      detached: !!u.targetId || !!u.breaking || !u.path.length,
+    })
+  })
+  return out
 }
 
 export function clearMarchOrder(gid: number): void {
