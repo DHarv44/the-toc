@@ -38,20 +38,27 @@ import { liftFactor } from '../forces/loadplan'
 import { COLUMN_GAP, STRAGGLE_GAP } from '../forces/orders'
 import { followTheLeader, type Mover, type Slot } from './follow'
 import { MARCH_INTERVAL, inMarchOrder, marchPlan, marchSweep } from './march'
+import { routeLength, routeOf, routeSweep } from './route'
 
 export interface ColumnOrder {
   spd: number     // ordered speed before this unit's own terrain is applied
   wait: boolean   // stopped for the tail — go firm rather than idle in the open
 }
 
-// Gains in metres, keyed to the gap a follower holds. STRAGGLE_GAP is kept as
-// the hard stop so the distance at which a column gives up on its tail is still
-// the one number it always was.
-// How much faster than the column's pace a unit may run to close a gap. The
-// margin is its exact reciprocal so that a formed column asks for no correction
-// at all and runs at the pace itself — see HEADROOM in ./station.ts for why
-// getting this wrong taxes every move in the game.
-const HEADROOM = 1.25
+// PACE MARGIN — how much of the slowest member's speed the column runs at, and
+// therefore how much is left over for anyone behind to close with.
+//
+// This used to hand the solver a fictional ceiling of speed × 1.25 and set the
+// margin to its reciprocal, on the theory that the two cancel. They do inside
+// the solver. They do not survive it: the movement tick caps every unit at its
+// REAL terrain speed (forces/update), so the headroom was granted and then
+// deleted at the point of application, and a lagging member was ordered to
+// close at a speed it was never allowed to drive. Nothing could ever catch up,
+// which is precisely what "they leave the slow ones behind" looks like.
+//
+// The ceiling handed in is now the real one and the margin is a plain fraction,
+// so the 15% is actually there to close with.
+const PACE_MARGIN = 0.85
 
 const OPTS = {
   minGap: COLUMN_GAP * 0.45,
@@ -60,7 +67,7 @@ const OPTS = {
   easeLag: COLUMN_GAP,
   stopLag: STRAGGLE_GAP,
   resumeLag: COLUMN_GAP * 1.1,
-  paceMargin: 1 / HEADROOM,
+  paceMargin: PACE_MARGIN,
   catchUpGain: 0.9,
 }
 
@@ -88,23 +95,47 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
   for (const [gid, raw] of groups) {
     let list = raw
     if (list.length < 2) { holding.delete(gid); continue }
-    const dist = new Map<number, number>()
-    for (const u of list) dist.set(u.id, -remaining(u))
-    // WITH NO ORDER OF MARCH, the column sorts itself by progress every tick.
-    // Fixing an order used to be unworkable for the reason that sort exists:
-    // at the moment a move is issued every unit is bunched at the start with
-    // indistinguishable positions, the order then drifts as the faster ones
-    // pull ahead, and "the vic ahead" ends up pointing at one that is actually
-    // behind — so the front runs free while the rear waits on it.
+    // THE ODOMETER: how far along the COLUMN'S route this member has got,
+    // measured as the shared route's length minus the distance it still has to
+    // drive. One number, one curve, comparable across every member.
     //
-    // WITH ONE, that no longer happens, because ./follow keeps sequence across
-    // lanes at a commanded clearance: a member ordered ahead that has bogged is
-    // caught up to rather than passed. Which is the difference between a column
-    // and a queue — if the lead vic bogs, the column waits on it instead of
-    // quietly reorganising itself around the casualty.
+    //   on the route at arc s   remaining is the route's own tail  → reads s
+    //   still driving to it     remaining carries the join leg too → reads the
+    //                           arc it will enter at, MINUS how far it still
+    //                           has to go to get there. Genuinely behind, by
+    //                           exactly the right amount.
+    //
+    // That second line is the part every previous attempt got wrong. Measuring
+    // by projection put a member that was six hundred metres away and driving a
+    // detour at the arc length it was closest to — a fiction — so it had to be
+    // thrown out of the solve to stop it lying, and a column that throws a
+    // member out is a column that drives off without it. Which is exactly the
+    // complaint: the slow ones get left.
+    //
+    // The old code was `-remaining(u)` and was nearly right. Its flaw was that
+    // each member had its OWN route with its own total length, so the readings
+    // had different origins. One shared route gives them a common one.
+    const route = routeOf(gid)
+    const total = route ? routeLength(route) : 0
+    const dist = new Map<number, number>()
+    for (const u of list) {
+      const d = route ? total - remaining(u) : -remaining(u)
+      dist.set(u.id, d)
+      u.colS = d
+    }
+
+    // THE ORDER OF MARCH IS THE ORDER OF MARCH. Index 0 is the lead and stays
+    // the lead: that is the solver's contract ("array order is slot order") and
+    // it is the whole point of writing an order down. This used to re-sort by
+    // who was furthest along every tick, which meant the designated lead lost
+    // the front of its own column to whichever platoon had the better run.
     const plan = marchPlan(gid)
     if (plan) list = inMarchOrder(gid, list)
-    else list.sort((a, b) => dist.get(b.id)! - dist.get(a.id)!)
+    else if (route) {
+      const rank = new Map(route.order.map((id, i) => [id, i]))
+      list = list.slice().sort((a, b) =>
+        (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity))
+    } else list.sort((a, b) => dist.get(b.id)! - dist.get(a.id)!)
     const gap = plan ? MARCH_INTERVAL[plan.column] : COLUMN_GAP
 
     // The ceiling every member is reckoned against is what it could do ON THE
@@ -128,29 +159,24 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
       // breaking contact is running a detour that would make its distance-to-go
       // jump. Both leave the solve; the column stops waiting on them and the
       // drills take over.
+      // NOTHING ELSE IS EXCLUDED. A member still driving to the route is not a
+      // special case any more — the odometer already reads it as behind by the
+      // distance it has left to cover, so the column simply waits for it, which
+      // is what a column is for.
       const fighting = !!u.targetId || u.breaking
-      // AND SO DOES ONE THAT HAS NOT MADE THE START POINT. `dist` is remaining
-      // distance along a unit's OWN path, which is only a shared coordinate
-      // once everybody is on the same route — until then it also carries the
-      // leg each unit is still driving to reach it, and those differ by a
-      // kilometre or more on broken ground.
-      //
-      // Read as lag, that difference stopped the column dead. The lead's route
-      // was 7.1 km and the followers' were 8.1–8.5, so they registered as
-      // 1.4 km behind before anybody had moved; the lead went to `holding` and
-      // sat at the start line for a hundred seconds while they burned the
-      // difference off. It was waiting for a tail that was never behind it.
-      //
-      // A platoon moving to the SP is FORMING UP, which is not straggling.
-      const forming = u.colRouteN != null && u.path.length > u.colRouteN
       movers[i] = {
         id: u.id,
         dist: dist.get(u.id)!,
         spd: u._spd,
-        // the ceiling has to know about the walkers too, or a platoon short of
-        // lift never registers as a straggler — it just quietly fails to keep up
-        maxSpd: ((st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)) * HEADROOM,
-        out: fighting || forming || !u.path.length,
+        // The REAL ceiling. It is capped again at the point of application
+        // (forces/update) by this unit's own terrain, so handing in anything
+        // larger than the truth here just gets deleted there — which is what
+        // used to happen to every catch-up order the solver ever issued.
+        // The lift factor belongs in it: a platoon with more people than seats
+        // has genuinely lost the speed, and the column has to see that as lag
+        // rather than quietly matching it.
+        maxSpd: (st.speed * liftFactor(u)) / (isFinite(f) ? f : 3),
+        out: fighting || !u.path.length,
       }
       slots[i] = { along: -i * gap, lat: 0, face: 0 }
     }
@@ -174,5 +200,6 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
   // groups that no longer exist
   for (const gid of holding.keys()) if (!groups.has(gid)) holding.delete(gid)
   marchSweep(new Set(groups.keys()))
+  routeSweep(new Set(groups.keys()))
   return out
 }

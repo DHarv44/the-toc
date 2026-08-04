@@ -279,21 +279,28 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   // and the second silently dropped the first.
   const write = (
     next: number[], col?: MarchColumnType,
-    extra: Partial<{ roe: Roe; weapons: WeaponsControl; disabled: DisabledPolicy }> = {},
+    extra: Partial<{
+      roe: Roe; weapons: WeaponsControl; disabled: DisabledPolicy; authored: boolean
+    }> = {},
   ) => {
     const cur = marchPlan(gid)
     setMarchOrder(gid, next, col ?? cur?.column ?? 'open', {
       ...(cur?.roe ? { roe: cur.roe } : {}),
       ...(cur?.weapons ? { weapons: cur.weapons } : {}),
       ...(cur?.disabled ? { disabled: cur.disabled } : {}),
+      ...(cur?.authored ? { authored: true } : {}),
       ...extra,
     })
   }
+  // Moving a serial by hand AUTHORS the order of march. Until somebody does,
+  // the sequence re-forms from where the elements are staged each time the
+  // column is given a route — which is how an order of march is really written.
+  // Once it is authored the column obeys it and pays for the reshuffle.
   const move = (i: number, d: -1 | 1) => {
     const j = i + d
     if (j < 0 || j >= full.length) return
     const v = [...full]; const t = v[i]!; v[i] = v[j]!; v[j] = t
-    write(v)
+    write(v, undefined, { authored: true })
   }
 
   const off = state.filter(s => s.driftedRoe || s.driftedWeapons || s.detached)

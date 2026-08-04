@@ -29,6 +29,7 @@ import type { Soldier, Team, Unit } from '../../engine/GameState'
 import { seniorOf, rankW } from '../../packs/ranks'
 import { radio } from '../comms/radio'
 import { underPlayerCommand } from './command'
+import { marchPlan, setMarchOrder } from '../movement/march'
 
 export const teams = (): Team[] => S.teams
 export const teamById = (id: number): Team | undefined => S.teams.find(t => t.id === id)
@@ -95,6 +96,12 @@ export function formTeam(unitIds: number[], baseId?: number): Team | null {
     formedT: S.t,
   }
   S.teams.push(t)
+  // A TEAM HAS AN ORDER OF MARCH FROM THE MOMENT IT EXISTS. The base element
+  // leads and the rest fall in behind it in the order they were task organized,
+  // because a grouping with no order is not a column — it is four platoons
+  // going the same way, which is what this looked like before. The commander
+  // can rewrite it in the S3; they should not have to write it to get a column.
+  setMarchOrder(t.id, t.members, 'open')
   const cdr = teamCdr(t)
   t.cdrSoldier = cdr?.soldier?.id
   radio(t.name, 'move', `TASK ORGANIZED — ${units.length} ELEMENTS, ${
@@ -110,6 +117,15 @@ export function joinTeam(teamId: number, unitId: number): boolean {
   if (t.members.includes(unitId)) return true
   leaveTeam(unitId, true)
   t.members.push(unitId)
+  // a unit joining a formed column falls in at the TAIL of the order of march,
+  // which is where a joiner actually goes — not wherever a solver would put it
+  const p = marchPlan(t.id)
+  setMarchOrder(t.id, [...(p?.order.filter(id => t.members.includes(id)) ?? []), unitId],
+    p?.column ?? 'open', {
+      ...(p?.roe ? { roe: p.roe } : {}),
+      ...(p?.weapons ? { weapons: p.weapons } : {}),
+      ...(p?.disabled ? { disabled: p.disabled } : {}),
+    })
   radio(t.name, 'move', `${u.label} ATTACHED`, u.x, u.y)
   return true
 }

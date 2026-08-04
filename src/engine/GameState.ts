@@ -67,6 +67,17 @@ export interface MarchPlan {
    *  Absent = recover, because a commander who has not said otherwise has not
    *  authorized anyone to abandon equipment. */
   disabled?: DisabledPolicy
+  /** Did a PERSON set this sequence, or did it fall out of where the elements
+   *  happened to be parked?
+   *
+   *  It matters because a column cannot teleport. An order of march is written
+   *  knowing the staging: you do not tell the platoon at the back of the
+   *  assembly area to lead and expect the other three to let it through. So an
+   *  unauthored order re-forms itself from road position each time the column
+   *  is given a route — the sequence is stable for the whole march, which is
+   *  what a column needs, without fighting the ground it started on. An
+   *  AUTHORED one is obeyed, and the column pays the reshuffle. */
+  authored?: boolean
 }
 
 /** recover  the column waits while it is hooked up and towed. Costs time and
@@ -83,6 +94,28 @@ export interface RecoveryJob {
   byId: number               // the element whose wrecker is doing the work
   t: number                  // seconds elapsed
   need: number               // seconds required (the platform's own figure)
+}
+
+/** THE ROUTE A COLUMN SHARES.
+ *
+ *  The station-keeping solver measures every member against one monotonic
+ *  odometer along ONE path — that is the contract it is written to. Giving
+ *  each member its own path and substituting "distance still to go" for the
+ *  odometer looks equivalent and is not: members carry different amounts of
+ *  the route, and any repath (contact, resume, an individual order) swaps the
+ *  curve underneath them and jumps their reading.
+ *
+ *  So the group owns the polyline, once, and each member's position on it is a
+ *  real arc length. `cum[i]` is the distance from the start point to `pts[i]`,
+ *  so a projection turns into a number in one lookup. */
+export interface ColumnRoute {
+  gid: number
+  pts: Vec2[]
+  cum: number[]              // cumulative arc length, same length as pts
+  /** The order of march, front first. Fixed when the order is given — index 0
+   *  is the lead and STAYS the lead. Re-deriving it from who happens to be
+   *  furthest along is how the lead stops being the lead. */
+  order: number[]
 }
 
 /** THE TASK ORGANIZATION — a named, durable grouping of elements under one
@@ -415,12 +448,11 @@ export interface Unit {
   attackRepathT: number
   groupId: number | null
   colIdx: number | null
-  /** How many of this unit's remaining path points belong to the COLUMN'S OWN
-   *  ROUTE, as against the leg it is still driving to reach it. While
-   *  `path.length` is greater than this, the unit has not made the start point
-   *  yet — it is forming up, not marching, and the column must not read the
-   *  distance it still has to cover as lag. See domains/movement/column. */
-  colRouteN?: number      // slot in a shared-route column, if marching in one
+  /** Where this unit is on its column's shared route, in metres from the start
+   *  point. Tracked forward each tick so it stays monotonic over a route that
+   *  doubles back. This is the odometer the station-keeping solver reads.
+   *  See domains/movement/route. */
+  colS?: number      // slot in a shared-route column, if marching in one
   leadId: number | null
   posture: Posture
   digT: number
@@ -892,6 +924,7 @@ export interface GameState {
   enemyGroups: Battlegroup[]
   march: MarchPlan[]         // authored orders of march, by move-group id
   teams: Team[]              // the task organization — named, durable groupings
+  routes: ColumnRoute[]      // the shared polyline each column is marching on
   recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
@@ -952,6 +985,7 @@ export function createInitialState(): GameState {
     enemyGroups: [],
     march: [],
     teams: [],
+    routes: [],
     recoveries: [],
     hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },

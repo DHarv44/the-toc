@@ -67,6 +67,7 @@ export function initGame(
   // now holds those ids, which is not a stale readout — it is a wrong one.
   S.teams = []
   S.march = []
+  S.routes = []
   S.hazards = []
   S.recoveries = []
   S.replT = 0

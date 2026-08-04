@@ -12,6 +12,8 @@ import { UNIT_TYPES } from './catalog'
 import { effStats, formOf, layoutElements, FORMATION } from './elements'
 import { liftFactor } from './loadplan'
 import { teamOf } from './teams'
+import { marchPlan, setMarchOrder } from '../movement/march'
+import { setRoute } from '../movement/route'
 import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -93,12 +95,40 @@ export function orderGroupMove(
   orderMove(lead.id, x, y, append, attack, gid)
   if (!lead.path.length) return null   // route refused — don't strand the followers
 
-  // Everyone else takes a slot in the column. A follower paths its own short leg
-  // onto the head of the route (with a road bias, so it gets on the network as
-  // directly as it can) and then runs the shared route from there.
+  // ONE ROUTE. The whole column drives the same polyline from the same start
+  // point, and every member's place on it is measured against that one curve
+  // (domains/movement/route). Members used to splice their own leg onto
+  // whichever part of the route was nearest, which cut corners for the
+  // individual and destroyed the shared coordinate the solver needs.
   const route = lead.path.map(p => ({ x: p.x, y: p.y }))
-  // Column order follows position along the route, not selection order, so whoever is
-  // already furthest along leads the tail rather than being made to fall in at the back.
+  // WHERE A MEMBER GETS ON, AND IT IS NEVER AHEAD OF THE LEAD.
+  //
+  // Joining at the nearest point of the route is efficient for the individual
+  // and ruinous for the column: on a 1.3 km route four platoons a few hundred
+  // metres apart entered at arc 0, 83, 266 and 572, so the march started with
+  // the order of march already 570 m out of true. The slot table says everyone
+  // is BEHIND the leader (`along: -i * gap`), and a member that starts ahead of
+  // its slot can only obey by stopping and waiting for the column to catch up —
+  // which is exactly what it looked like: a platoon racing off, halting, and
+  // sitting there while the rest closed.
+  //
+  // So the join is clamped to the leader's own position on the route. At the
+  // moment an order is given that is the start point, which is what a start
+  // point is for; re-issued mid-march it is wherever the head of the column has
+  // got to, which is equally right.
+  // WHERE A MEMBER GETS ON: the nearest point of the route.
+  //
+  // Sending everyone back to one start point is doctrinally tidy and wrong
+  // here. On ground where a route can run five times the straight line, the
+  // leg back to the SP is itself a detour — a platoon parked beside the road
+  // ends up driving away from the column to join it, stays off the axis the
+  // whole march, and is therefore never in the column at all.
+  //
+  // The reason the nearest-point join used to scramble the order was never the
+  // join. It was that the order of march was declared independently of where
+  // the elements were standing, so the two disagreed and the column spent the
+  // march reconciling them. The order is read off road position now, so they
+  // agree by construction.
   const joinAt = (u: Unit): number => {
     let best = 0, bestD = Infinity
     for (let k = 0; k < route.length; k++) {
@@ -107,37 +137,80 @@ export function orderGroupMove(
     }
     return best
   }
-  // Column order is by progress along the route, and that includes the lead vic.
-  // Route owner and column head are different jobs.
-  const ordered = units
-    .map(u => ({ u, k: u.id === lead.id ? 0 : joinAt(u) }))
-    .sort((a, b) => b.k - a.k)   // furthest along the route leads
-  ordered.forEach(({ u, k }, i) => {
+
+  // THE ORDER OF MARCH — settled ONCE, here, and not re-derived every tick
+  // afterwards. That last part is the whole fix: re-sorting by whoever was
+  // furthest along, every frame, is how the designated lead lost the front of
+  // its own column.
+  //
+  // An AUTHORED order is obeyed and the column pays whatever reshuffling costs.
+  // An unauthored one is taken from where the elements are actually standing on
+  // the route, because that is how a real order of march is written — you do
+  // not tell the platoon at the back of the assembly area to lead and expect
+  // the other three to let it past.
+  const plan = marchPlan(gid)
+  const ordered = plan?.authored
+    ? [...units].sort((a, b) => rankIn(plan.order, a.id) - rankIn(plan.order, b.id))
+    : [...units].sort((a, b) => alongOn(route, b) - alongOn(route, a))
+
+  ordered.forEach((u, i) => {
     u.colIdx = i
-    u.leadId = lead.id
-    // the route owner is ON the route by definition — it has no forming-up leg
-    if (u.id === lead.id) { u.colRouteN = u.path.length; return }
-    autoRemount(u)
-    u.bridging = null; u.heldRoute = null; u.breaking = false
-    u.convoy = null; u.attackId = null; u.attackMove = attack
-    u.groupId = gid
-    const mob = effStats(u).mob
-    const entry = route[k]!
-    const join = findPath(S.map!, u.x, u.y, entry.x, entry.y, mob)
-    const shared = route.slice(k + 1)
-    u.path = (join || [{ x: entry.x, y: entry.y }]).concat(shared)
-    // WHERE THE MARCH ACTUALLY BEGINS. Everything before this is the leg to the
-    // start point, and it is not part of the column: a platoon still driving to
-    // the SP is forming up, not straggling, and the difference decides whether
-    // the lead moves off or sits waiting for it (see domains/movement/column).
-    u.colRouteN = shared.length
-    // one leg to the objective — the join is plumbing, not a waypoint the player set
-    u.legs = [{ x, y, n: u.path.length }]
-    u.state = 'moving'
-    u.posture = 'mobile'
+    u.leadId = ordered[0]!.id
+    if (u.id !== lead.id) {
+      autoRemount(u)
+      u.bridging = null; u.heldRoute = null; u.breaking = false
+      u.convoy = null; u.attackId = null; u.attackMove = attack
+      u.groupId = gid
+      const mob = effStats(u).mob
+      const k = joinAt(u)
+      const entry = route[k]!
+      const join = findPath(S.map!, u.x, u.y, entry.x, entry.y, mob)
+      u.path = (join || [{ x: entry.x, y: entry.y }]).concat(route.slice(k + 1))
+      u.legs = [{ x, y, n: u.path.length }]
+      u.state = 'moving'
+      u.posture = 'mobile'
+    }
+    // Seed the odometer where this member will actually get on, so the first
+    // solve does not have to find it from a cold start — the tracker searches
+    // forward from the last reading and a wrong seed sticks.
+    u.colS = undefined
   })
-  netRadio(lead, 'move', `FORMATION MOVING — ${units.length} ELEMENTS, GRID ${grid(x, y)}`, x, y)
+  const r = setRoute(gid, route, ordered.map(u => u.id))
+  // the board shows the sequence the column is actually marching in, authored
+  // or not — an order of march you cannot see is not an order of march
+  setMarchOrder(gid, r.order, plan?.column ?? 'open', {
+    ...(plan?.roe ? { roe: plan.roe } : {}),
+    ...(plan?.weapons ? { weapons: plan.weapons } : {}),
+    ...(plan?.disabled ? { disabled: plan.disabled } : {}),
+    ...(plan?.authored ? { authored: true } : {}),
+  })
+  netRadio(ordered[0]!, 'move', `FORMATION MOVING — ${units.length} ELEMENTS, GRID ${grid(x, y)}`, x, y)
   return gid
+}
+
+const rankIn = (order: number[], id: number): number => {
+  const i = order.indexOf(id)
+  return i < 0 ? Infinity : i
+}
+
+/** How far along a candidate route this unit already is — used once, at issue,
+ *  to read the order the elements are staged in. */
+function alongOn(route: { x: number; y: number }[], u: Unit): number {
+  let best = 0, bestD = Infinity, run = 0
+  for (let k = 0; k < route.length - 1; k++) {
+    const a = route[k]!, b = route[k + 1]!
+    const dx = b.x - a.x, dy = b.y - a.y
+    const len2 = dx * dx + dy * dy
+    const len = Math.sqrt(len2)
+    if (len2 > 0) {
+      let t = ((u.x - a.x) * dx + (u.y - a.y) * dy) / len2
+      t = t < 0 ? 0 : t > 1 ? 1 : t
+      const d = Math.hypot(u.x - (a.x + dx * t), u.y - (a.y + dy * t))
+      if (d < bestD) { bestD = d; best = run + len * t }
+    }
+    run += len
+  }
+  return best
 }
 
 export function orderMove(
@@ -166,7 +239,7 @@ export function orderMove(
   u.attackMove = attack
   u.rtgBase = null // a fresh order supersedes a return-to-garrison in progress
   // a unit given its own order drops out of any column it was marching in
-  if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null; u.colRouteN = undefined }
+  if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null; u.colS = undefined }
   if (append && u.path.length) {
     u.path = u.path.concat(p)
     u.legs.push({ x, y, n: p.length })
@@ -269,7 +342,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
 
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colRouteN = undefined; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined; u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {
