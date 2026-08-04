@@ -1,17 +1,20 @@
 // THE LIBRARY — the Scenario Builder's front door. A document tool opens on
-// its documents: every scenario every installed pack ships, one card each
+// its documents: every scenario every installed pack ships, one row each
 // (type badge, ground, missions), plus NEW SCENARIO. You cannot reach the
 // editor without a scenario AND ground — opening a groundless one (a campaign
 // awaiting its map) asks for the map right here, so the editor never exists
 // in a half-state.
-import { useState } from 'react'
-import { Box, Button, Group, Select, Text, TextInput } from '@mantine/core'
+//
+// It is a LIST, not a wall of cards. Unreal's and Unity's project browsers are
+// dense rows with a filter above them, because a shelf of big cards stops
+// working at about a dozen items and packs will ship more than that.
+import { useMemo, useState } from 'react'
+import { Box, Group, Select, Text, TextInput } from '@mantine/core'
 import { allPacks } from '../../packs'
 import { packMaps } from '../../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../../packs/scenario-files'
 import { MODES, MODE_ORDER, type ModeId } from '../../engine/modes'
-
-const MONO = 'Consolas, monospace'
+import { DATA_FONT, field, INK, Section, TextBtn, UI_FONT } from './panel'
 
 export interface NewScenarioCfg {
   name: string
@@ -20,8 +23,13 @@ export interface NewScenarioCfg {
   mapRef: string
 }
 
-const typeLabel = (t: ModeId) =>
-  t === 'campaign' ? 'CAMPAIGN' : (MODES[t]?.label ?? t).toUpperCase()
+// Mode labels are authored in caps for the game's own screens. The badge in a
+// tool list is chrome, so it is cased like the rest of the chrome — otherwise
+// "Campaign" and "ATTACK & DEFEND" sit in the same column shouting unevenly.
+const typeLabel = (t: ModeId) => {
+  const raw = t === 'campaign' ? 'Campaign' : (MODES[t]?.label ?? t)
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+}
 
 const TYPE_OPTIONS = [
   ...MODE_ORDER.map(id => ({ value: id, label: MODES[id].label })),
@@ -41,133 +49,158 @@ export default function ScenarioLibrary({ onOpen, onNew, onExit }: {
     value: `${m.packId}/${m.mapId}`, label: `${m.packId} · ${m.name}`,
   }))
 
-  // NEW SCENARIO expands in place
-  const [creating, setCreating] = useState(false)
+  const [filter, setFilter] = useState('')
+  // NEW SCENARIO expands in place — the Section owns the open/closed state
   const [newName, setNewName] = useState('NEW SCENARIO')
   const [newPack, setNewPack] = useState(() => allPacks()[0]?.id ?? '')
   const [newType, setNewType] = useState<ModeId>('attack-defend')
   const [newMap, setNewMap] = useState<string | null>(null)
 
-  // opening a groundless scenario expands ITS card into a map prompt
+  // opening a groundless scenario expands ITS row into a map prompt
   const [groundFor, setGroundFor] = useState<string | null>(null) // 'pack/sid'
   const [groundPick, setGroundPick] = useState<string | null>(null)
+
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return scenarios
+    return scenarios.filter(e =>
+      e.name.toLowerCase().includes(q)
+      || e.packId.toLowerCase().includes(q)
+      || e.spec.type.toLowerCase().includes(q))
+  }, [scenarios, filter])
 
   return (
     <Box pos="fixed" inset={0} bg="#05080b" style={{
       zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      fontFamily: MONO, overflowY: 'auto',
+      overflowY: 'auto',
     }}>
-      <Box w={560} py={40}>
-        <Group align="center" mb={4}>
+      <Box w={680} py={36}>
+        <Group align="flex-start" mb={18}>
           <Box style={{ flex: 1 }}>
-            <Text fz={26} fw={700} c="#dceeff" style={{ letterSpacing: 4 }}>
+            <Text style={{
+              fontFamily: DATA_FONT, fontSize: 24, fontWeight: 700, letterSpacing: 1.5,
+              color: INK.value,
+            }}>
               SCENARIO BUILDER
             </Text>
-            <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
-              PICK A SCENARIO TO EDIT — OR START A NEW ONE
+            <Text style={{ fontFamily: UI_FONT, fontSize: 12.5, color: INK.dim }}>
+              Pick a scenario to edit, or start a new one.
             </Text>
           </Box>
-          <Button size="sm" variant="default" onClick={onExit}>◀ MAIN MENU</Button>
+          <TextBtn onClick={onExit}>◀ Main menu</TextBtn>
         </Group>
 
-        <Box mt={24}>
-          {/* NEW SCENARIO — the create card */}
-          <Box mb={10} p={14} style={{
-            border: '1px solid #2a3a48', borderLeft: '3px solid #7ec8ff',
-            borderRadius: 3, background: 'rgba(16,26,36,0.85)',
-            cursor: creating ? 'default' : 'pointer',
-          }}
-            onClick={() => { if (!creating) setCreating(true) }}>
-            <Text fz={15} fw={700} c="#e6f0f8" style={{ letterSpacing: 3 }}>
-              ＋ NEW SCENARIO
-            </Text>
-            {!creating && (
-              <Text fz={10} c="#7f97ab" mt={2}>
-                Name it, pick its pack, its type and its ground — then build
-              </Text>
-            )}
-            {creating && (
-              <Box mt={10} onClick={ev => ev.stopPropagation()}>
-                <TextInput size="xs" label="NAME" value={newName} mb={8}
-                  styles={{ input: { fontFamily: MONO } }}
+        <Box style={{ border: `1px solid ${INK.line}`, borderRadius: 3, overflow: 'hidden' }}>
+          {/* NEW SCENARIO — the create row, expanding in place */}
+          <Section title="＋ New scenario" defaultOpen={false}>
+            <Box p={10}>
+              <Group grow mb={8}>
+                <TextInput size="xs" styles={field} label="Name" value={newName}
                   onChange={ev => setNewName(ev.currentTarget.value.toUpperCase())} />
-                <Group grow mb={8}>
-                  <Select size="xs" label="PACK (SAVES INTO)" value={newPack}
-                    data={allPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))}
-                    onChange={v => v && setNewPack(v)} />
-                  <Select size="xs" label="TYPE" value={newType}
-                    data={TYPE_OPTIONS}
-                    onChange={v => v && setNewType(v as ModeId)} />
-                </Group>
-                <Select size="xs" label="MAP (THE GROUND)" placeholder="PICK A MAP…"
-                  value={newMap} data={mapData} mb={10}
-                  onChange={v => setNewMap(v)} />
-                <Group gap={8}>
-                  <Button size="compact-sm" disabled={!newMap || !newName.trim()}
-                    onClick={() => onNew({
-                      name: newName.trim(), packId: newPack, type: newType, mapRef: newMap!,
-                    })}>
-                    CREATE
-                  </Button>
-                  <Button size="compact-sm" variant="subtle" c="dark.2"
-                    onClick={() => setCreating(false)}>CANCEL</Button>
-                </Group>
-              </Box>
-            )}
+              </Group>
+              <Group grow mb={8}>
+                <Select size="xs" styles={field} label="Pack (saves into)" value={newPack}
+                  data={allPacks().map(p => ({ value: p.id, label: p.abbr ?? p.id }))}
+                  onChange={v => v && setNewPack(v)} />
+                <Select size="xs" styles={field} label="Type" value={newType}
+                  data={TYPE_OPTIONS}
+                  onChange={v => v && setNewType(v as ModeId)} />
+              </Group>
+              <Select size="xs" styles={field} label="Map (the ground)" mb={10}
+                placeholder="pick a map…" value={newMap} data={mapData}
+                onChange={v => setNewMap(v)} />
+              <TextBtn onClick={() => {
+                if (!newMap || !newName.trim()) return
+                onNew({ name: newName.trim(), packId: newPack, type: newType, mapRef: newMap })
+              }}>Create</TextBtn>
+              {(!newMap || !newName.trim()) && (
+                <Text mt={6} style={{ fontFamily: UI_FONT, fontSize: 11.5, color: INK.dim }}>
+                  A scenario needs a name and ground before it can open.
+                </Text>
+              )}
+            </Box>
+          </Section>
+
+          <Box px={10} py={6} style={{ borderTop: `1px solid ${INK.line}` }}>
+            <TextInput size="xs" styles={field} value={filter}
+              placeholder={`Filter ${scenarios.length} scenarios…`}
+              onChange={ev => setFilter(ev.currentTarget.value)} />
           </Box>
 
           {/* the shelf */}
-          {scenarios.map(e => {
+          {shown.map(e => {
             const key = `${e.packId}/${e.scenarioId}`
             const nMissions = e.spec.missions?.length ?? 0
             const mapName = e.spec.map
-              ? (maps.find(m => `${m.packId}/${m.mapId}` === e.spec.map)?.name.toUpperCase()
-                ?? e.spec.map.toUpperCase())
+              ? (maps.find(m => `${m.packId}/${m.mapId}` === e.spec.map)?.name
+                ?? e.spec.map)
               : null
             const asking = groundFor === key
+            const campaign = e.spec.type === 'campaign'
             return (
-              <Box key={key} mb={8} p={14} style={{
-                border: '1px solid #22303d',
-                borderLeft: `3px solid ${e.spec.type === 'campaign' ? '#8a6a2a' : '#2a5a8a'}`,
-                borderRadius: 3, background: 'rgba(16,26,36,0.85)', cursor: 'pointer',
-              }}
+              <Box key={key}
+                style={{
+                  borderTop: `1px solid ${INK.line}`, cursor: 'pointer',
+                  background: asking ? '#141c24' : undefined,
+                }}
+                onMouseEnter={ev => { ev.currentTarget.style.background = '#141c24' }}
+                onMouseLeave={ev => {
+                  ev.currentTarget.style.background = asking ? '#141c24' : 'transparent'
+                }}
                 onClick={() => {
                   if (e.spec.map) onOpen(e, e.spec.map)
                   else { setGroundFor(asking ? null : key); setGroundPick(null) }
                 }}>
-                <Group gap={8} wrap="nowrap">
-                  <Text fz={15} fw={700} c="#e6f0f8" style={{ letterSpacing: 2, flex: 1 }} truncate>
-                    {e.name}
-                  </Text>
-                  <Text fz={9} c="#7ec8ff" style={{ letterSpacing: 1 }}>
+                <Group gap={10} wrap="nowrap" px={12} py={9}>
+                  <Box style={{
+                    width: 3, alignSelf: 'stretch', borderRadius: 2,
+                    background: campaign ? '#8a6a2a' : '#2a5a8a',
+                  }} />
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text truncate style={{
+                      fontFamily: DATA_FONT, fontSize: 14, fontWeight: 700, color: INK.value,
+                    }}>
+                      {e.name}
+                    </Text>
+                    <Text truncate style={{
+                      fontFamily: UI_FONT, fontSize: 11.5, color: INK.dim,
+                    }}>
+                      {mapName ?? '⚠ no ground yet'}
+                      {nMissions > 0 && ` · ${nMissions} mission${nMissions > 1 ? 's' : ''}`}
+                      {' · '}{e.packId} pack
+                    </Text>
+                  </Box>
+                  <Text style={{
+                    fontFamily: UI_FONT, fontSize: 11.5, flex: '0 0 auto',
+                    color: campaign ? INK.warn : INK.accent,
+                  }}>
                     {typeLabel(e.spec.type)}
                   </Text>
                 </Group>
-                <Text fz={10} c="#7f97ab" mt={2}>
-                  {mapName ?? '⚠ NO GROUND YET'}
-                  {nMissions > 0 && ` · ${nMissions} MISSION${nMissions > 1 ? 'S' : ''}`}
-                  {' · '}{e.packId.toUpperCase()} PACK
-                </Text>
                 {asking && (
-                  <Box mt={10} onClick={ev => ev.stopPropagation()}>
-                    <Text fz={10} c="#e0b34e" mb={6}>
-                      THIS SCENARIO HAS NO GROUND — CHOOSE ITS MAP (SAVING BINDS IT)
+                  <Box px={12} pb={10} onClick={ev => ev.stopPropagation()}>
+                    <Text mb={6} style={{ fontFamily: UI_FONT, fontSize: 11.5, color: INK.warn }}>
+                      This scenario has no ground. Choose its map — saving binds it.
                     </Text>
                     <Group gap={8}>
-                      <Select size="xs" placeholder="PICK A MAP…" value={groundPick}
-                        data={mapData} style={{ flex: 1 }}
+                      <Select size="xs" styles={field} placeholder="pick a map…"
+                        value={groundPick} data={mapData} style={{ flex: 1 }}
                         onChange={v => setGroundPick(v)} />
-                      <Button size="compact-sm" disabled={!groundPick}
-                        onClick={() => onOpen(e, groundPick!)}>OPEN</Button>
+                      <TextBtn onClick={() => groundPick && onOpen(e, groundPick)}>Open</TextBtn>
                     </Group>
                   </Box>
                 )}
               </Box>
             )
           })}
-          {scenarios.length === 0 && (
-            <Text fz={10} c="dark.3" mt={8}>
-              NO SCENARIOS IN ANY INSTALLED PACK YET — START WITH NEW SCENARIO
+          {shown.length === 0 && (
+            <Text px={12} py={10} style={{
+              fontFamily: UI_FONT, fontSize: 12.5, color: INK.dim,
+              borderTop: `1px solid ${INK.line}`,
+            }}>
+              {scenarios.length === 0
+                ? 'No scenarios in any installed pack yet — start with New scenario.'
+                : 'Nothing matches that filter.'}
             </Text>
           )}
         </Box>

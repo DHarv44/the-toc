@@ -3,6 +3,7 @@
 // lives in SimLoop/EndScreen and works for every mode. Modes 2 and 3 (Base
 // Defense waves, Zone Capture) slot in here without touching the framework.
 import type { GameState } from './GameState'
+import type { ScenarioSituation } from '../scenario/types'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { spawnScriptedBattlegroup } from '../domains/opfor/ai'
 import { deployUnit } from '../domains/installations/orders'
@@ -24,6 +25,15 @@ export interface ModeSpec {
   // null while the match is still on; called once per tick after deaths resolve
   checkEnd(S: GameState): Outcome | null
   endText: Record<Outcome, { title: string; sub: string }>
+  /** WHAT AN AUTHORED SITUATION MUST CONTAIN for this ruleset to be playable,
+   *  returned as complaints. Lives beside checkEnd because it is the SAME
+   *  knowledge: a mode that judges on the hostile command post needs one to
+   *  exist, and the mode is the only thing that knows that.
+   *
+   *  The builder used to know nothing about it, so a scenario could be
+   *  authored under ATTACK & DEFEND with no enemy CP and be WON at 00:00:00Z
+   *  before a single trooper moved. That happened, to a shipped scenario. */
+  requires?(sit: ScenarioSituation): string[]
 }
 
 // --- Base Defense (waves) tuning -----------------------------------------
@@ -94,6 +104,16 @@ export const MODES: Record<ModeId, ModeSpec> = {
       const fob = S.structures.some(s => s.side === 'friend' && s.kind === 'FOB')
       if (!hq && !fob) return 'lost'
       return null
+    },
+    requires(sit) {
+      const out: string[] = []
+      if (!sit.structures.some(s => s.side === 'hostile' && s.kind === 'HQ')) {
+        out.push('No hostile HQ — this ruleset judges on it, so the match is WON at H-hour')
+      }
+      if (!sit.structures.some(s => s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'FOB'))) {
+        out.push('No friendly HQ or FOB — the match is LOST at H-hour')
+      }
+      return out
     },
     endText: {
       won: {

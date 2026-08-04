@@ -20,11 +20,13 @@ import PackViewer from './ui/PackViewer'
 import PackBuilder from './ui/PackBuilder'
 import MapEditor from './ui/MapEditor'
 import ScenarioBuilder from './ui/scenario/ScenarioBuilder'
+import ErrorBoundary from './ui/ErrorBoundary'
 import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
 import { initGame, initDevGame, initScenarioGame } from './engine/scenario'
-import { startLoop } from './engine/SimLoop'
+import { startLoop, stopLoop } from './engine/SimLoop'
+import type { ScenarioSpec } from './scenario/types'
 import { buildGameMap } from './world/mapref'
 import { packMap, packMaps } from './packs/map-files'
 import { playerPack } from './packs'
@@ -37,6 +39,11 @@ export default function App() {
   const [packs, setPacks] = useState(false) // PACK BUILDER route (menu-level tool)
   const [maps, setMaps] = useState(false)   // MAP EDITOR route (Groundwork, menu-level tool)
   const [scenarios, setScenarios] = useState(false) // SCENARIO BUILDER route (Eden, menu-level tool)
+  // PLAYTEST: a sim running over a document that is still open on the bench.
+  // The builder stays MOUNTED behind it — hidden, not unmounted — so coming
+  // back finds the same undo history, the same selection and the same view.
+  // Losing an hour of authoring to a playtest would make the button useless.
+  const [playtest, setPlaytest] = useState(false)
   // The dev sandbox can swap S.map for another pack map at runtime. Everything
   // reads S live except mount-time work (MapView's baked layer, the initial
   // framing) — so a swap bumps this key and the game layout remounts over the
@@ -101,25 +108,55 @@ export default function App() {
   // the PACK BUILDER hands off to the other two tools rather than
   // reimplementing them: a pack is the HOME of its maps and scenarios, but
   // authoring either is the MAP EDITOR's and SCENARIO BUILDER's job
+  // Each tool sits behind a BOUNDARY. React unmounts the whole tree on an
+  // uncaught render error, so before this a single bad keystroke in a tool
+  // blanked the entire app — with the author's unsaved document inside it.
   if (packs) {
     return (
-      <PackBuilder onExit={() => setPacks(false)}
-        onOpenMaps={() => { setPacks(false); setMaps(true) }}
-        onOpenScenarios={() => { setPacks(false); setScenarios(true) }} />
+      <ErrorBoundary what="PACK BUILDER" onExit={() => setPacks(false)}>
+        <PackBuilder onExit={() => setPacks(false)}
+          onOpenMaps={() => { setPacks(false); setMaps(true) }}
+          onOpenScenarios={() => { setPacks(false); setScenarios(true) }} />
+      </ErrorBoundary>
     )
   }
-  if (maps) return <MapEditor onExit={() => setMaps(false)} />
-  if (scenarios) return <ScenarioBuilder onExit={() => setScenarios(false)} />
-  if (!started) {
-    return <Splash onStart={begin} onPacks={() => setPacks(true)} onMaps={() => setMaps(true)}
-      onScenarios={() => setScenarios(true)} />
+  if (maps) {
+    return (
+      <ErrorBoundary what="MAP EDITOR" onExit={() => setMaps(false)}>
+        <MapEditor onExit={() => setMaps(false)} />
+      </ErrorBoundary>
+    )
+  }
+  // PLAY FROM THE BUILDER. Runs the IN-MEMORY document — saved or not — so an
+  // experiment is playable without first committing it to disk. The whole
+  // point is the loop: change a thing, see it, change it again.
+  const playScenario = (spec: ScenarioSpec) => {
+    void (async () => {
+      if (!spec.map) throw new Error('the scenario has no ground')
+      const [mp, mid] = spec.map.split('/') as [string, string]
+      const map = await buildGameMap({ kind: 'pack', packId: mp, mapId: mid })
+      const isCampaign = spec.type === 'campaign'
+      if (isCampaign) { setActiveScenario(spec); setCampaignTutorial(false) }
+      initScenarioGame(map, spec, isCampaign ? 1 : (Date.now() % 100000))
+      startLoop()
+      setPlaytest(true)
+      setStarted(true)
+    })().catch(e => console.error('playtest failed to start', e))
+  }
+  const endPlaytest = () => {
+    stopLoop()
+    S.map = null            // the builder's own ground is loaded separately
+    setStarted(false)
+    setPlaytest(false)
   }
 
   // top bar over the rail row (P5): [INSTALLATIONS|BATTLE GROUPS] map [FEEDS|NET].
   // Every rail is a real layout sibling — collapsing one genuinely widens the
   // map. The map column is itself a flex COLUMN: the map area (with its
   // overlays) on top, the selection tray as a real row below it.
-  return (
+  // Rendered from a function because a PLAYTEST shows the same layout with a
+  // stop bar over it, and two copies of this would drift apart.
+  const game = (banner: React.ReactNode) => (
     <div ref={shakeRef} key={mapEpoch} style={{
       width: '100vw', height: '100vh', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
@@ -158,6 +195,55 @@ export default function App() {
       {/* end-of-match overlay: unmounts with the layout on NEW GAME, so a fresh
           match always gets a fresh (undismissed) gate */}
       <EndScreenGate onNewGame={() => setStarted(false)} />
+      {banner}
+    </div>
+  )
+
+  // The builder stays MOUNTED underneath a playtest — hidden, so its canvas
+  // measures zero and stops drawing, but its undo history, selection and view
+  // are untouched. Losing an hour of authoring to a playtest would make the
+  // button not worth pressing.
+  if (scenarios) {
+    return (
+      <>
+        <div style={{ display: playtest ? 'none' : 'contents' }}>
+          <ErrorBoundary what="SCENARIO BUILDER" onExit={() => setScenarios(false)}>
+            <ScenarioBuilder onExit={() => setScenarios(false)} onPlay={playScenario} />
+          </ErrorBoundary>
+        </div>
+        {playtest && game(<PlaytestBar onStop={endPlaytest} />)}
+      </>
+    )
+  }
+  if (!started) {
+    return <Splash onStart={begin} onPacks={() => setPacks(true)} onMaps={() => setMaps(true)}
+      onScenarios={() => setScenarios(true)} />
+  }
+  return game(null)
+}
+
+/** The bar that says you are inside a test, and gets you out of it. Unreal
+ *  and Unity both put one over the viewport during play for the same reason:
+ *  without it the running sim is indistinguishable from the real game, and
+ *  there is no obvious way back to what you were editing. */
+function PlaytestBar({ onStop }: { onStop: () => void }) {
+  return (
+    <div style={{
+      position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)',
+      display: 'flex', alignItems: 'center', gap: 12, zIndex: 500,
+      padding: '6px 8px 6px 14px', borderRadius: 3,
+      background: 'rgba(12,26,18,0.94)', border: '1px solid #2f6b4a',
+      boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+      fontFamily: 'Inter, "Segoe UI", system-ui, sans-serif', fontSize: 12.5,
+    }}>
+      <span style={{ color: '#a8e0bd' }}>▶ Playtest — this is your unsaved document</span>
+      <button onClick={onStop} style={{
+        fontFamily: 'inherit', fontSize: 12.5, padding: '4px 12px', borderRadius: 2,
+        border: '1px solid #2f6b4a', background: '#16341f', color: '#dbf0e2',
+        cursor: 'pointer',
+      }}>
+        ■ Stop
+      </button>
     </div>
   )
 }

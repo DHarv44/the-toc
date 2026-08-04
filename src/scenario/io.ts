@@ -27,11 +27,20 @@ export function entitiesFromSituation(sit: ScenarioSituation, ground: Ground): E
   ]
 }
 
+// Norm coords are written at SIX decimal places. The round trip through
+// world metres and back is not bit-exact — a coordinate that went in as
+// 0.1144 comes back as 0.11440000000000002 — so opening a scenario and
+// saving it without touching anything produced a diff on every entity that
+// had never moved. Six places is a few centimetres on any real box: far
+// below the resolution of a symbol you place by hand, and far above the
+// noise floor of the conversion.
+const fix6 = (v: number) => Number(v.toFixed(6))
+
 export function situationFromEntities(entities: Entity[], ground: Ground): ScenarioSituation {
   const f = frameOf(ground.files.manifest)
   const n = (p: { x: number; y: number }) => {
     const { nx, ny } = worldToNorm(f, p.x, p.y)
-    return { x: nx, y: ny }
+    return { x: fix6(nx), y: fix6(ny) }
   }
   const structures: ScenarioStructure[] = []
   const units: ScenarioUnit[] = []
