@@ -15,6 +15,7 @@ import {
 } from '../domains/forces/update'
 import { hazardUpdate } from '../domains/hazards/update'
 import { recoveryUpdate } from '../domains/forces/recovery'
+import { teamSweep } from '../domains/forces/teams'
 import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
 import { interceptUpdate } from '../domains/installations/intercept'
@@ -59,6 +60,7 @@ export function tick(dt: number): void {
   pipelineUpdate(dt)      // P3: combat XP, battlefield promotions, replacements
   assetsUpdate(dt)        // division asset requests: decisions, convoys, setup
   unitDeaths()
+  teamSweep()             // task org: drop dead teams, notice command changing hands
   structureDeaths()       // incl. tethered aerostat teardown
   MODES[S.mode].update?.(S, dt) // mode logic (e.g. hill control clocks), pre-checkEnd
   checkMatchEnd()         // the active mode's win/lose check, right after deaths

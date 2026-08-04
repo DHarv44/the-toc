@@ -32,6 +32,7 @@ import {
   MARCH_INTERVAL, marchMoving, marchPlan, marchState, setMarchOrder, clearMarchOrder,
 } from '../domains/movement/march'
 import { assignSeat, liftState, loadOf } from '../domains/forces/loadplan'
+import { teamById, teamUnits } from '../domains/forces/teams'
 import { Section, StaffTable, Td, Th } from './staff'
 import { useUI } from './store'
 import { centerView } from '../map/view'
@@ -266,7 +267,7 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   const shortOfLift = members.filter(m => liftState(m).walking.length)
 
   return (
-    <Section title={`BG ${gid} — ${members.length} ELEMENTS · ${
+    <Section title={`${teamById(gid)?.name ?? `BG ${gid}`} — ${members.length} ELEMENTS · ${
       plan
         ? `${interval} M INTERVAL · ${Math.round(depth)} M DEEP · ${
             marchMoving(gid) ? 'UNDER WAY' : 'AT THE SP'}`
@@ -412,28 +413,44 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   )
 }
 
-/** Every column under the player's command. Dropped into the S3 console. */
+/** Every column under the player's command. Dropped into the S3 console.
+ *
+ *  TEAMS FIRST, and they appear whether or not they are moving — a march order
+ *  is written BEFORE the SP, not discovered once the column is already rolling.
+ *  Then the scratch groupings: units box-selected and sent somewhere with no
+ *  task organization behind them, which are still columns and still want an
+ *  order of march, they just have no name and no life beyond the move. */
 export default function MarchOrders() {
   useUI() // the store pumps a tick every 100 ms, so this board stays live
-  const groups = new Map<number, Unit[]>()
+  const columns: { gid: number; list: Unit[] }[] = []
+  const claimed = new Set<number>()
+
+  for (const t of S.teams) {
+    const list = teamUnits(t).filter(underPlayerCommand)
+    for (const u of list) claimed.add(u.id)
+    if (list.length > 1) columns.push({ gid: t.id, list })
+  }
+
+  const scratch = new Map<number, Unit[]>()
   for (const u of S.units) {
-    if (u.groupId == null || u.strength <= 0) continue
+    if (u.groupId == null || u.strength <= 0 || claimed.has(u.id)) continue
     if (!underPlayerCommand(u)) continue
-    let g = groups.get(u.groupId)
-    if (!g) { g = []; groups.set(u.groupId, g) }
+    let g = scratch.get(u.groupId)
+    if (!g) { g = []; scratch.set(u.groupId, g) }
     g.push(u)
   }
-  const columns = [...groups.entries()].filter(([, l]) => l.length > 1)
+  for (const [gid, list] of scratch) if (list.length > 1) columns.push({ gid, list })
 
   if (!columns.length) {
     return (
       <Section title="MOVEMENT ORDERS">
         <Note>
-          No columns formed. Two or more elements moving together are a column —
-          group them on the map or in the FORCES rail and they appear here.
+          No columns. A team of two or more elements is a column and appears here as
+          soon as it is task organized — you do not have to move it first to write
+          its order of march.
         </Note>
       </Section>
     )
   }
-  return <>{columns.map(([gid, list]) => <ColumnBoard key={gid} gid={gid} members={list} />)}</>
+  return <>{columns.map(c => <ColumnBoard key={c.gid} gid={c.gid} members={c.list} />)}</>
 }

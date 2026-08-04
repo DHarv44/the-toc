@@ -145,9 +145,17 @@ export function inMarchOrder(gid: number, members: Unit[]): Unit[] {
     (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity))
 }
 
-/** Drop plans whose group has gone. */
+/** Drop plans whose group has gone.
+ *
+ *  `live` is the set of columns actually moving this tick, which is NOT the
+ *  same as the set of groupings that exist: a team that halts is still a team,
+ *  and its order of march is still its order of march. Only a scratch grouping
+ *  — units box-selected and sent somewhere with no task organization behind
+ *  them — dies when it stops, because there was never anything there to keep. */
 export function marchSweep(live: Set<number>): void {
   for (let i = S.march.length - 1; i >= 0; i--) {
-    if (!live.has(S.march[i]!.gid)) S.march.splice(i, 1)
+    const gid = S.march[i]!.gid
+    if (live.has(gid) || S.teams.some(t => t.id === gid)) continue
+    S.march.splice(i, 1)
   }
 }

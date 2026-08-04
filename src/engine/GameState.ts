@@ -62,6 +62,30 @@ export interface MarchPlan {
   weapons?: WeaponsControl
   name?: string              // the serial's callsign
 }
+
+/** THE TASK ORGANIZATION — a named, durable grouping of elements under one
+ *  commander. See domains/forces/teams.ts for what that means and why a move
+ *  group was not already it.
+ *
+ *  `id` IS the move-group id (drawn from the same counter), so a team that
+ *  marches keeps ONE gid for its whole life and the order of march written
+ *  against it survives every subsequent order. That is the entire reason this
+ *  type exists. */
+export interface Team {
+  id: number
+  name: string               // 'TEAM ECHO' — what the net calls it
+  baseId: number             // the element it was named for and built around
+  /** The element DESIGNATED to command, if the commander chose one. Absent =
+   *  whoever is senior, which is also what happens when the designated
+   *  element's leadership is killed. */
+  cdrId?: number | null
+  members: number[]          // unit ids, in the order they joined
+  formedT: number
+  /** Last reported commander (soldier id) — succession is DETECTED, not
+   *  scheduled: the next senior is already in charge, the TOC just has to
+   *  notice and put it on the net. */
+  cdrSoldier?: number
+}
 export type WeaponsControl = 'free' | 'tight' | 'hold'
 export type Posture = 'mobile' | 'dig'
 export type AiRole = 'garrison' | 'bg'
@@ -825,6 +849,7 @@ export interface GameState {
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
   march: MarchPlan[]         // authored orders of march, by move-group id
+  teams: Team[]              // the task organization — named, durable groupings
   hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
@@ -883,6 +908,7 @@ export function createInitialState(): GameState {
     airCooldown: {},
     enemyGroups: [],
     march: [],
+    teams: [],
     hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,

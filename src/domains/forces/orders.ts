@@ -11,6 +11,7 @@ import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { effStats, formOf, layoutElements, FORMATION } from './elements'
 import { liftFactor } from './loadplan'
+import { teamOf } from './teams'
 import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -19,6 +20,15 @@ export const STRAGGLE_GAP = 190  // metres before the column stops and waits for
 
 // allocate a shared movement-group id so co-issued units hold to the slowest pace
 export function newMoveGroup(): number { return S.counters.groupSeq++ }
+
+/** The gid a set of units should march under: their team's, when they are all
+ *  of one team, otherwise none. A scratch grouping — three platoons box-selected
+ *  and sent somewhere — is still a scratch grouping and gets a scratch id. */
+function groupGid(units: Unit[]): number | null {
+  const t = teamOf(units[0]!)
+  if (!t) return null
+  return units.every(u => t.members.includes(u.id)) ? t.id : null
+}
 
 // A carrier that AUTO-dismounted in contact climbs back in when re-tasked out of
 // contact, so the convoy travels mounted instead of crawling on foot. A unit the
@@ -55,11 +65,16 @@ export function orderGroupMove(
     .filter((u): u is Unit => !!u && u.strength > 0)
   if (!units.length) return null
   if (units.length === 1) { orderMove(units[0]!.id, x, y, append, attack, null); return null }
+  // A TEAM MARCHES UNDER ITS OWN ID. Minting a fresh gid for a grouping that
+  // already exists is what used to throw its order of march away every time it
+  // was given a new destination — the plan is keyed on the gid (movement/march)
+  // and the gid changed. A named task organization has one for life.
+  const own = groupGid(units)
   // Appending keeps each unit's own multi-leg waypoint queue — a shared column route
   // collapses the legs into one, which would renumber the player's waypoints out from
   // under them. Columns form on a fresh order.
   if (append) {
-    const gid = newMoveGroup()
+    const gid = own ?? newMoveGroup()
     for (const u of units) orderMove(u.id, x, y, true, attack, gid)
     return gid
   }
@@ -74,7 +89,7 @@ export function orderGroupMove(
     if (real < leadSpd) { leadSpd = real; lead = u }
   }
 
-  const gid = newMoveGroup()
+  const gid = own ?? newMoveGroup()
   orderMove(lead.id, x, y, append, attack, gid)
   if (!lead.path.length) return null   // route refused — don't strand the followers
 

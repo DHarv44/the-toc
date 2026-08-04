@@ -18,6 +18,7 @@ import { slotStrength } from '../packs/org'
 import { ownerOf } from '../packs/orgquery'
 import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from './tutTargets'
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
+import { joinTeam, teamById, teamOf } from '../domains/forces/teams'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -110,14 +111,20 @@ function BattleGroups() {
   // YOUR force — a sister formation's platoons are on the map and on your
   // side, but they are not in your task organization and never in your rail
   const units = S.units.filter(u => underPlayerCommand(u) && u.strength > 0)
+  // THE TASK ORGANIZATION IS THE GROUPING, not whatever move order happened
+  // last. A team survives one of its platoons being sent somewhere on its own;
+  // a move group never did, which is why the rail used to lose a battle group
+  // the moment you tasked a piece of it (see domains/forces/teams).
   const groups = new Map<number, typeof units>()
   const solo: typeof units = []
   for (const u of units) {
-    if (u.groupId != null) {
-      if (!groups.has(u.groupId)) groups.set(u.groupId, [])
-      groups.get(u.groupId)!.push(u)
+    const t = teamOf(u)
+    if (t) {
+      if (!groups.has(t.id)) groups.set(t.id, [])
+      groups.get(t.id)!.push(u)
     } else solo.push(u)
   }
+  const selectedFree = solo.filter(u => ui.selectedIds.includes(u.id))
   const row = (u: (typeof units)[number]) => {
     const type = UNIT_TYPES[u.type]
     const active = ui.selectedIds.includes(u.id)
@@ -136,15 +143,24 @@ function BattleGroups() {
   }
   return (
     <>
-      {/* INDEPENDENT leads; the commander's formed groups follow. (Deliberate
-          NAMED group creation — "＋ NEW GROUP" — is a coming feature; groups
-          currently form from group move orders / box-select.) */}
+      {/* INDEPENDENT leads; the commander's teams follow. */}
       <RailSection label={`Independent (${solo.length})`}>
         {solo.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE FIELDED</Text>}
         {solo.map(row)}
+        {/* Forming a team is an ORGANIZING act, so the verb lives in Operations
+            — but you are looking at your elements here, so the door does too,
+            and it carries the one thing you need to know to use it. */}
+        {solo.length > 1 && (
+          <PaletteRow label="＋ FORM A TEAM"
+            tag={selectedFree.length >= 2
+              ? `${selectedFree.map(u => u.label).join(', ')} SELECTED`
+              : 'SELECT TWO OR MORE, THEN TASK ORGANIZE IN S3'}
+            cost="" onClick={() => ui.setConsole('s3')} />
+        )}
       </RailSection>
       {[...groups.entries()].map(([gid, list]) => (
-        <RailSection key={gid} label={`BG ${gid} (${list.length})`}>
+        <RailSection key={gid}
+          label={`${teamById(gid)?.name ?? `BG ${gid}`} (${list.length})`}>
           {list.map(row)}
           {/* THE RAIL ANSWERS "WHAT DO I HAVE"; the S3 answers "how is it
               organised". A movement order is an Operations product, so this is
@@ -174,7 +190,7 @@ function BattleGroups() {
                   <PaletteRow key={u.id}
                     icon={<PaletteIcon unit={t} w={34} h={24} scale={0.9} />}
                     label={`${u.label} · ${t.abbr}`} tag={u.lineage ?? null} cost=""
-                    onClick={() => { u.groupId = gid; setAdding(null) }} />
+                    onClick={() => { joinTeam(gid, u.id); setAdding(null) }} />
                 )
               })}
               {/* garrisoned elements can join too: fielding + tasking in one
@@ -182,7 +198,7 @@ function BattleGroups() {
               {qrfPending?.gid === gid && (
                 <QrfWarning slotId={qrfPending.slotId}
                   onProceed={() => {
-                    proceedFieldSlot(qrfPending.slotId, u => { u.groupId = gid })
+                    proceedFieldSlot(qrfPending.slotId, u => { joinTeam(gid, u.id) })
                     setQrfPending(null); setAdding(null)
                   }}
                   onCancel={() => setQrfPending(null)} />
@@ -192,7 +208,7 @@ function BattleGroups() {
                   tag={`FROM GARRISON · ${it.tag ?? ''}`} cost=""
                   onClick={() => {
                     guardedFieldSlot(it.key!, id => setQrfPending({ slotId: id, gid }), u => {
-                      u.groupId = gid
+                      joinTeam(gid, u.id)
                       setAdding(null)
                     })
                   }} />

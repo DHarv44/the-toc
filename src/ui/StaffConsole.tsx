@@ -15,6 +15,7 @@ import { repairSiteOf } from '../domains/installations/service'
 import { locRef } from '../world/ref'
 import { fmtClock } from './styles'
 import MarchOrders from './MarchOrders'
+import TaskOrg from './TaskOrg'
 import {
   Metric, ReportList, RequestReport, Section, StaffTable, StaffView, Td, Th, type StaffTab,
 } from './staff'
@@ -88,8 +89,11 @@ function S3Console() {
           ))}
         </Section>
       )}
-      {/* MOVEMENT ORDERS sit above the task force list on purpose: the list is
-          a reference, the orders are the thing the S3 is actually working. */}
+      {/* THE ORDER OF THIS CONSOLE IS THE ORDER AN OPORD IS WRITTEN IN. Task
+          organization first, because everything below it depends on who answers
+          to whom; then the movement orders; then the task force list, which is
+          a reference rather than something the S3 is working. */}
+      <TaskOrg />
       <MarchOrders />
       <Section title={`TASK FORCE — ${friendly.length} FIELDED`}>
         <StaffTable head={

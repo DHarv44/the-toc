@@ -62,6 +62,12 @@ export function initGame(
   S.structContacts = new Set()
   S.scenarioPlaces = null
   S.downed = []
+  // Everything keyed on a UNIT ID or a move-group id has to go with the units.
+  // A team held over from the last game resolves its members against whatever
+  // now holds those ids, which is not a stale readout — it is a wrong one.
+  S.teams = []
+  S.march = []
+  S.hazards = []
   S.replT = 0
   S.radio = []
   S.difficulty = diff.key as DifficultyKey // diff came from the table; key is a real preset key
