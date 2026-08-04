@@ -16,6 +16,7 @@ import { unitCats, PaletteIcon, PaletteRow, garrisonSections, garrisonSlots, slo
 import { DrillRow, TreeLeaf } from './tree'
 import { slotStrength } from '../packs/org'
 import { ownerOf } from '../packs/orgquery'
+import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from './tutTargets'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -79,11 +80,11 @@ export default function ForcesRail() {
       {/* the CALL UP picker flies out to the LEFT of the Forces panel */}
       {ui.bgOpen && ui.callupOpen && <CallUpFlyout />}
       <Rail side="left" title="FORCES" width={270} open={ui.bgOpen} onToggle={ui.toggleBg}
-        tut="rail-forces"
+        tut={TUT.railForces}
         footer={
           // CALL UP is a BUTTON pinned to the rail's bottom — the picker is a
           // flyout panel to the right; the rail's body belongs to the force
-          <div data-tut="call-up">
+          <div data-tut={TUT.callUp}>
             <PaletteRow label="＋ CALL UP" tag="FIELD AN ELEMENT FROM GARRISON" cost=""
               active={ui.callupOpen}
               onClick={() => useUI.setState({ callupOpen: !ui.callupOpen })} />
@@ -255,14 +256,14 @@ function CallUpFlyout() {
           INNER div that hugs the rows, so the ring stops at the last unit
           instead of swallowing the panel's empty space. */}
       <Box style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-      <div data-tut="garrison-list">
+      <div data-tut={TUT.garrisonList}>
         {/* GARRISON — you cannot call up a force without saying where it is
             standing to. HQ at H-hour; a FOB joins the list once it is built. */}
         {bases.map(({ b, list: inBase }) => {
           const baseOpen = ui.callupBase === b.id
           return (
             <div key={b.id}>
-              <DrillRow tut={`callup-base-${b.kind}`} label={b.label}
+              <DrillRow tut={callupBaseTarget(b.kind)} label={b.label}
                 n={inBase.length} str={slotStrength(inBase)} open={baseOpen}
                 onClick={() => useUI.setState({
                   callupBase: baseOpen ? null : b.id, callupCat: null,
@@ -275,7 +276,7 @@ function CallUpFlyout() {
                 const open = cat === c
                 return (
                   <div key={c}>
-                    <DrillRow depth={1} tut={`callup-cat-${c}`} label={c}
+                    <DrillRow depth={1} tut={callupCatTarget(c)} label={c}
                       n={list.length} str={slotStrength(list)} open={open}
                       onClick={() => useUI.setState({ callupCat: open ? null : c })} />
                     {/* COMPANY — how the force is actually organized */}
@@ -286,7 +287,7 @@ function CallUpFlyout() {
                       const coOpen = ui.callupCos.includes(ck)
                       return (
                         <div key={ck}>
-                          <DrillRow depth={2} tut={`callup-co-${c}-${co.co}`}
+                          <DrillRow depth={2} tut={callupCoTarget(c, co.co)}
                             label={`${co.co} · ${co.bn}`} n={co.list.length}
                             str={slotStrength(co.list)} open={coOpen}
                             onClick={() => useUI.setState(s => ({

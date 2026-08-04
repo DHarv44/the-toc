@@ -160,12 +160,13 @@ export default function Outline({
         {missions.map((m, mi) => {
           const objs = m.objectives ?? []
           const trigs = m.triggers ?? []
+          const tut = m.tutorial?.steps ?? []
           const open = sel != null && sel.k !== 'entity' && sel.m === mi
           return (
             <Box key={m.id || mi}>
               <Row depth={0}
                 label={`${String(mi + 1).padStart(2, '0')} · ${m.name || m.id}`}
-                sub={`${objs.length} objective${objs.length === 1 ? '' : 's'} · ${trigs.length} trigger${trigs.length === 1 ? '' : 's'}`}
+                sub={`${objs.length} objective${objs.length === 1 ? '' : 's'} · ${trigs.length} trigger${trigs.length === 1 ? '' : 's'}${tut.length ? ` · ${tut.length} lesson${tut.length === 1 ? '' : 's'}` : ''}`}
                 active={same(sel, { k: 'mission', m: mi })}
                 onClick={() => onSelect({ k: 'mission', m: mi })} />
               {open && (
@@ -185,6 +186,26 @@ export default function Outline({
                       })()}
                       active={same(sel, { k: 'objective', m: mi, i })}
                       onClick={() => onSelect({ k: 'objective', m: mi, i })} />
+                  ))}
+                  {/* THE CURRICULUM, if this mission teaches. Steps are a
+                      linear syllabus; a step's hints unfold once it is the one
+                      you are working on. */}
+                  {tut.length > 0 && <SubHead>Tutorial · in order</SubHead>}
+                  {tut.map((st, s) => (
+                    <Box key={st.id || s}>
+                      <Row depth={2} label={st.id}
+                        sub={`${(st.hints ?? []).length} hint${(st.hints ?? []).length === 1 ? '' : 's'}${st.gate ? ' · holds the war' : ''}`}
+                        note={String(s + 1).padStart(2, '0')}
+                        warn={(st.hints ?? []).length === 0}
+                        active={same(sel, { k: 'tutStep', m: mi, s })}
+                        onClick={() => onSelect({ k: 'tutStep', m: mi, s })} />
+                      {'s' in sel && sel.s === s && (st.hints ?? []).map((h, hi) => (
+                        <Row key={hi} depth={3}
+                          label={h.hide ? '(silent)' : (h.text?.split('\n')[0] || '(no text)')}
+                          active={same(sel, { k: 'tutHint', m: mi, s, h: hi })}
+                          onClick={() => onSelect({ k: 'tutHint', m: mi, s, h: hi })} />
+                      ))}
+                    </Box>
                   ))}
                   {trigs.length > 0 && <SubHead>Triggers · when → do</SubHead>}
                   {trigs.map((t, i) => (

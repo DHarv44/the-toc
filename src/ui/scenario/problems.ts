@@ -23,8 +23,9 @@ import { slotBudget } from '../../packs/orgquery'
 import { isBuiltinPlace, referencedPlaces } from '../../scenario/content'
 import type { Doc, Sel } from '../../scenario/edit'
 import type { WorldMap } from '../../world/WorldMap'
-import type { MissionEffect } from '../../packs/types'
+import type { MissionEffect, TutCondition } from '../../packs/types'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
+import { isTutTarget } from '../tutTargets'
 import { refPlaceName } from './scriptFields'
 
 export interface Problem {
@@ -58,9 +59,15 @@ export function findProblems(doc: Doc, map: WorldMap | null): Problem[] {
     out.push({ level, where, text, at })
 
   // ---- the gazetteer a script may name --------------------------------
+  // Four sources, and ANCHORS are the one that is easy to forget: a campaign
+  // anchor is a named point resolved ONCE at start from a query against the
+  // terrain ('strongpoint' = the town nearest the player HQ). It is authored —
+  // it just is not a pin on the sheet, and treating it as dangling flagged six
+  // correct references in the only campaign that ships.
   const authored = doc.entities.filter(e => e.ent === 'place')
   const known = new Set<string>([
     ...authored.map(e => (e.ent === 'place' ? e.name : '')),
+    ...Object.keys(doc.extras.anchors ?? {}),
     ...(map ? map.towns.map(t => t.name) : []),
     ...(map ? map.features.map(f => f.name) : []),
   ])
@@ -221,6 +228,97 @@ export function findProblems(doc: Doc, map: WorldMap | null): Problem[] {
           }
           if (e.kind !== 'set-roe' && keys.length === 0) {
             add('warn', where, `${t.id} · ${e.kind} names no units`, eat)
+          }
+        }
+      })
+    })
+  })
+
+  // ---- the CURRICULUM ---------------------------------------------------
+  // A tutorial fails silently in the worst way: the lesson simply never
+  // advances, and the player cannot tell a broken step from one they have not
+  // worked out yet.
+  const friendTypes = new Set(Object.keys(PACKS[doc.sides.friend]?.catalogs?.units ?? {}))
+  doc.missions.forEach((m, mi) => {
+    const steps = m.tutorial?.steps ?? []
+    if (!steps.length) return
+    const where = `${String(mi + 1).padStart(2, '0')} tutorial`
+    const seen = new Set<string>()
+
+    steps.forEach((st, s) => {
+      const at: Sel = { k: 'tutStep', m: mi, s }
+      if (!st.id?.trim()) add('error', where, 'A lesson with no id', at)
+      else if (seen.has(st.id)) add('error', where, `Two lessons share the id ${st.id}`, at)
+      seen.add(st.id)
+
+      const hints = st.hints ?? []
+      if (!hints.length) {
+        add('error', where, `${st.id} says nothing — the player is given no cue`, at)
+      }
+      // A HINT LIST IS A DECISION TABLE — the first match renders — BUT an
+      // unconditional hint is only a dead end if it also never yields. `next`
+      // and `dwell` both hand control on, which is exactly how a lesson opens
+      // with two pages the player reads and clicks through. Only a hint with
+      // no condition AND no way out blocks the ones below it.
+      const terminal = hints.findIndex(h => !h.when && !h.next && !h.dwell && !h.hide)
+      if (terminal >= 0 && terminal < hints.length - 1) {
+        add('warn', where,
+          `${st.id}: hint ${terminal + 1} has no condition and never yields, so the ${hints.length - terminal - 1} after it can never render`,
+          at)
+      }
+
+      // every unit type a condition names must be one this army fields
+      const walkTypes = (c: TutCondition | undefined) => {
+        if (!c) return
+        if (c.kind === 'not') { walkTypes(c.of); return }
+        if (c.kind === 'all') { c.of.forEach(walkTypes); return }
+        const one = (c as { type?: string }).type
+        const many = (c as { types?: string[] }).types ?? []
+        for (const t of [one, ...many]) {
+          if (!t) continue
+          if (!friendTypes.has(t)) {
+            add('error', where,
+              `${st.id} waits on "${t}", which ${doc.sides.friend.toUpperCase()} does not field`, at)
+          }
+        }
+      }
+      walkTypes(st.done)
+
+      hints.forEach((h, i) => {
+        const hat: Sel = { k: 'tutHint', m: mi, s, h: i }
+        if (!h.text && !h.hide) {
+          add('error', where, `${st.id} hint ${i + 1} renders an empty card`, hat)
+        }
+        if (h.next && h.dwell != null) {
+          add('warn', where,
+            `${st.id} hint ${i + 1} sets both a dwell and a NEXT button — NEXT wins`, hat)
+        }
+        walkTypes(h.when)
+        const a = h.anchor
+        if (!a) return
+        if (a.kind === 'ui') {
+          // THE TYPO THAT POINTED AT NOTHING. The overlay resolves this with
+          // querySelector; a wrong id produced an unanchored card and no error
+          // anywhere.
+          if (!a.sel) add('error', where, `${st.id} hint ${i + 1} has an empty UI target`, hat)
+          else if (!isTutTarget(a.sel, [...friendTypes])) {
+            add('error', where,
+              `${st.id} hint ${i + 1} points at "${a.sel}", which the interface does not publish`, hat)
+          }
+        } else if (a.kind === 'unit') {
+          if (!friendTypes.has(a.type)) {
+            add('error', where,
+              `${st.id} hint ${i + 1} rings a "${a.type}", which ${doc.sides.friend.toUpperCase()} does not field`, hat)
+          }
+        } else if (a.kind === 'point' || a.kind === 'box') {
+          const n = refPlaceName(a.place)
+          if (!n) add('error', where, `${st.id} hint ${i + 1} points at no place`, hat)
+          else if (!known.has(n) && !isBuiltinPlace(n)) {
+            add('error', where, `${st.id} hint ${i + 1} points at an unauthored place: ${n}`, hat)
+          }
+        } else if (a.kind === 'pan-to') {
+          if (!known.has(a.place) && !isBuiltinPlace(a.place)) {
+            add('error', where, `${st.id} hint ${i + 1} pans to an unauthored place: ${a.place}`, hat)
           }
         }
       })

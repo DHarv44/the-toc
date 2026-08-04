@@ -33,6 +33,7 @@ import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneV
 import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
 import { MapButton, MapControlStack } from './MapControls'
+import { TUT, fieldTarget } from './tutTargets'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active: boolean): CSSProperties => ({
@@ -381,7 +382,7 @@ export function SelectionTray() {
                   const mode = it.mode as UiMode
                   return (
                     <button key={it.mode}
-                      data-tut={it.mode === 'build:FOB' ? 'build-fob' : undefined}
+                      data-tut={it.mode === 'build:FOB' ? TUT.buildFob : undefined}
                       style={btn(ui.mode === mode)}
                       title={`${eng.label} builds a ${it.label} — click the map to site it`}
                       onClick={() => ui.setMode(ui.mode === mode ? 'select' : mode)}>
@@ -393,7 +394,7 @@ export function SelectionTray() {
                   const dt = DRONE_TYPES[k]
                   if (!dt) return null
                   return (
-                    <button key={k} data-tut={k === 'RAVEN' ? 'uas-raven' : undefined} style={btn(false)}
+                    <button key={k} data-tut={k === 'RAVEN' ? TUT.uasRaven : undefined} style={btn(false)}
                       title={`Launch the ${dt.name} over ${carrier.label} — live feed of the ground ahead`}
                       onClick={() => {
                         const d = fieldUnitDrone(carrier.id, k)
@@ -422,12 +423,12 @@ export function SelectionTray() {
               <Seg label="REAR">
                 {homed && (
                   <>
-                    <button data-tut="rtb" style={btn(false)}
+                    <button data-tut={TUT.rtb} style={btn(false)}
                       title="Return to this element's assigned garrison — stand down, refit, absorb replacements"
                       onClick={() => units.forEach(u => orderReturnToGarrison(u.id))}>
                       RTB
                     </button>
-                    <button data-tut="garrison" style={btn(ui.mode === 'garrison')}
+                    <button data-tut={TUT.garrison} style={btn(ui.mode === 'garrison')}
                       title="Reassign garrison: click a friendly base — they stand down there and it becomes home"
                       onClick={() => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison')}>
                       GARRISON →
@@ -435,7 +436,7 @@ export function SelectionTray() {
                   </>
                 )}
                 {logiUnit && (
-                  <button data-tut="supply-run" style={btn(ui.mode === `convoy:${logiUnit.id}`)}
+                  <button data-tut={TUT.supplyRun} style={btn(ui.mode === `convoy:${logiUnit.id}`)}
                     title="Run supply from the HQ to a chosen FOB, then repeat"
                     onClick={() => {
                       if (logiUnit.convoy) orderHold(logiUnit.id)
@@ -458,7 +459,7 @@ export function SelectionTray() {
         <div style={segBar}>
           <Seg label="CMD">
             <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
-            <button data-tut="attack-mode"
+            <button data-tut={TUT.attackMode}
               style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
               onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
           </Seg>
@@ -467,7 +468,7 @@ export function SelectionTray() {
           {segSep}
           <Seg label="ON CONTACT">
             {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-              <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
+              <button key={roe} data-tut={roe === 'break' ? TUT.roeBreak : undefined}
                 style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
                 onClick={() => units.forEach(u => orderRoe(u.id, roe as Roe))}>
                 {label}
@@ -487,7 +488,7 @@ export function SelectionTray() {
             <>
               {segSep}
               <Seg label="POSTURE">
-                <button data-tut="dig-in"
+                <button data-tut={TUT.digIn}
                   style={optBtn(units.every(u => u.posture === 'dig'))}
                   onClick={() => {
                     const allDug = units.every(u => u.posture === 'dig')
@@ -554,7 +555,7 @@ function ContextMenu() {
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', padding: '4px 10px', borderBottom: '1px solid rgba(40,58,72,0.5)' }}>
           <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>DRILL</span>
           {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-            <button key={roe} data-tut={roe === 'break' ? 'roe-break' : undefined}
+            <button key={roe} data-tut={roe === 'break' ? TUT.roeBreak : undefined}
               style={optBtn((u.roe || 'halt') === roe)}
               onClick={() => orderRoe(u.id, roe as Roe)}>{label}</button>
           ))}

@@ -153,5 +153,34 @@ export function missionGhosts(
       }
     })
   })
+
+  // TEACHING CUES. A tutorial anchor that names ground is drawn like anything
+  // else in the script — select a lesson and see where it points. The computed
+  // anchors (attack-pos, screen-marker, force-box…) are worked out from the
+  // running world and are deliberately NOT guessed at here: a preview that
+  // invents a position is worse than no preview, because the author will trust
+  // it. Those say so in the inspector instead.
+  ;(mission.tutorial?.steps ?? []).forEach((st, s) => {
+    ;(st.hints ?? []).forEach((h, i) => {
+      const a = h.anchor
+      if (!a) return
+      const node: Sel = { k: 'tutHint', m, s, h: i }
+      const on = isOn(node) || isOn({ k: 'tutStep', m, s })
+      const label = `${String(s + 1).padStart(2, '0')} ${st.id}`
+      if (a.kind === 'point' || a.kind === 'box') {
+        const p = resolvePlace(a.place, entities, map)
+        if (!p) return
+        out.push({
+          k: 'zone', x: p.x, y: p.y,
+          r: a.kind === 'box' ? a.r : (p.r ?? 200),
+          label, sel: node, on,
+        })
+      } else if (a.kind === 'pan-to') {
+        const p = resolvePlace(a.place, entities, map)
+        if (!p) return
+        out.push({ k: 'push', x: p.x, y: p.y, label: `PAN · ${label}`, sel: node, on })
+      }
+    })
+  })
   return out
 }

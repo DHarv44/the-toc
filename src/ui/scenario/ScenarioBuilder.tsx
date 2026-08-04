@@ -46,6 +46,7 @@ import Palette, { type Armed } from './Palette'
 import Inspector from './Inspector'
 import Outline from './Outline'
 import ScriptInspector from './ScriptInspector'
+import TutInspector from './TutInspector'
 import { missionGhosts } from './ghosts'
 import ContextMenu from './ContextMenu'
 import ProblemsBar from './ProblemsBar'
@@ -142,6 +143,10 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   // TASK ORG on the sheet: what the formation being placed already has, and
   // where the author has over-committed a formation beyond its real strength
   const friendPack = PACKS[doc.sides.friend]
+  // the army's own unit keys — a tutorial names pack nouns, so its pickers
+  // read from the catalog rather than trusting free text
+  const friendUnitTypes = useMemo(
+    () => Object.keys(friendPack?.catalogs?.units ?? {}), [friendPack])
   const placedByType = useMemo(() => {
     const out: Record<string, number> = {}
     for (const e of entities) {
@@ -158,21 +163,25 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   const danglingPlaces = useMemo(() => {
     const known = new Set([
       ...entities.filter(e => e.ent === 'place').map(e => e.name),
+      ...Object.keys(doc.extras.anchors ?? {}),
       ...(world ? world.map.towns.map(t => t.name) : []),
       ...(world ? world.map.features.map(f => f.name) : []),
     ])
     return referencedPlaces(missions).filter(n => !known.has(n) && !isBuiltinPlace(n))
-  }, [entities, world, missions])
+  }, [entities, world, missions, doc.extras.anchors])
 
   // what a script place param can name: authored places first, then the map's
   // real gazetteer (OSM towns/features), then the builtin anchors
   const placeNames = useMemo(() => {
     const authored = entities.filter(e => e.ent === 'place').map(e => e.name)
+    // campaign ANCHORS are authored places too — resolved once at start from a
+    // query against the terrain, so they never appear as a pin on the sheet
+    const anchors = Object.keys(doc.extras.anchors ?? {})
     const gaz = world
       ? [...world.map.towns.map(t => t.name), ...world.map.features.map(f => f.name)]
       : []
-    return [...new Set([...authored, ...gaz, 'player-hq', 'enemy-base'])]
-  }, [entities, world])
+    return [...new Set([...authored, ...anchors, ...gaz, 'player-hq', 'enemy-base'])]
+  }, [entities, world, doc.extras.anchors])
 
   // EVERYTHING WRONG WITH THE DOCUMENT, recomputed as it changes. Cheap: it
   // walks the entities and the script once, and both are small.
@@ -726,11 +735,41 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
                 onArrange={(kind, spacing) =>
                   setEd(s => arrange(s, selIds(s.sel), kind, spacing, axis))}
                 onDelete={() => setEd(s => remove(s, selIds(s.sel)))} />
-            ) : benchMission ? (
-              <ScriptInspector sel={ed.sel} mission={benchMission} placeNames={placeNames}
-                onSelect={s => setEd(st => select(st, s))}
-                onPatchMission={patchMission} onCenter={centerOnPlace} />
-            ) : null}
+            ) : !benchMission ? null
+              : (ed.sel.k === 'tutStep' || ed.sel.k === 'tutHint') ? (
+                (() => {
+                  const steps = benchMission.tutorial?.steps ?? []
+                  const st = steps[ed.sel.s]
+                  if (!st) return null
+                  const setSteps = (v: typeof steps) => patchMission({
+                    tutorial: { ...(benchMission.tutorial ?? {}), steps: v },
+                  })
+                  return (
+                    <TutInspector sel={ed.sel} step={st} stepCount={steps.length}
+                      placeNames={placeNames} unitTypes={friendUnitTypes}
+                      onSelect={s => setEd(x => select(x, s))}
+                      onPatchStep={p => setSteps(steps.map((x, k) =>
+                        (k === (ed.sel as { s: number }).s ? { ...x, ...p } : x)))}
+                      onDeleteStep={() => {
+                        const i = (ed.sel as { s: number }).s
+                        setSteps(steps.filter((_, k) => k !== i))
+                        setEd(x => select(x, { k: 'mission', m: benchM }))
+                      }}
+                      onMoveStep={d => {
+                        const i = (ed.sel as { s: number }).s
+                        const j = i + d
+                        if (j < 0 || j >= steps.length) return
+                        const v = [...steps]; const t = v[i]!; v[i] = v[j]!; v[j] = t
+                        setSteps(v)
+                        setEd(x => select(x, { k: 'tutStep', m: benchM, s: j }))
+                      }} />
+                  )
+                })()
+              ) : (
+                <ScriptInspector sel={ed.sel} mission={benchMission} placeNames={placeNames}
+                  onSelect={s => setEd(st => select(st, s))}
+                  onPatchMission={patchMission} onCenter={centerOnPlace} />
+              )}
           </Box>
         </Box>
       </Box>

@@ -18,6 +18,7 @@ import { ownerOf } from '../packs/orgquery'
 import { STRUCTURES, FACILITIES, type StructureType, type StructureTypeKey, type FacilityKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
 import { drawUnitSymbol, drawStructure, drawDroneIcon } from '../map/symbols'
+import { fieldTarget } from './tutTargets'
 
 // The call-up's top level: the question a commander actually asks under contact
 // ("what kills that tank?", "who clears the buildings?") — not a flat list of
@@ -237,7 +238,7 @@ const slotItem = (sl: OrgSlot, terse = false): PaletteItem => {
     disabled: fielded || noneFit || !a.ready,
     // the tutorial's published anchor family: field-<TYPE> rings the first
     // callable row of that type
-    tutSel: !fielded ? `field-${sl.type}` : undefined,
+    tutSel: !fielded && sl.type ? fieldTarget(sl.type) : undefined,
   }
 }
 // The GARRISON (echelon-real fielding): surfaced by the FORCES rail's CALL UP

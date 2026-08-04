@@ -51,7 +51,7 @@ function Verbs({ onUp, onDown, onDelete }: {
 export default function ScriptInspector({
   sel, mission, placeNames, onSelect, onPatchMission, onCenter,
 }: {
-  sel: Exclude<Sel, { k: 'entity' }>
+  sel: Exclude<Sel, { k: 'entity' } | { k: 'tutStep' } | { k: 'tutHint' }>
   mission: MissionScript
   placeNames: string[]
   onSelect: (s: Sel) => void
@@ -166,16 +166,32 @@ export default function ScriptInspector({
               }])
               onSelect({ k: 'trigger', m, i: triggers.length })
             }}>＋ Trigger</TextBtn>
+            <TextBtn onClick={() => {
+              const steps = mission.tutorial?.steps ?? []
+              onPatchMission({
+                tutorial: {
+                  ...(mission.tutorial ?? {}),
+                  steps: [...steps, {
+                    id: `lesson-${steps.length + 1}`,
+                    done: { kind: 'briefed' },
+                    hints: [{ text: '', next: true }],
+                  }],
+                },
+              })
+              onSelect({ k: 'tutStep', m, s: steps.length })
+            }}>＋ Lesson</TextBtn>
           </Group>
           <Note>Pick one in the outline to edit it.</Note>
         </Section>
 
-        {mission.tutorial && (
+        {mission.tutorial?.reactive?.length ? (
           <Note>
-            Tutorial · {mission.tutorial.steps.length} steps — carried with the
-            mission, edited in the pack file.
+            {mission.tutorial.reactive.length} reactive tip
+            {mission.tutorial.reactive.length === 1 ? '' : 's'} — these fire on an
+            engine verb rather than on progress, and are carried through the
+            file untouched.
           </Note>
-        )}
+        ) : null}
       </Box>
     )
   }

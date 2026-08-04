@@ -18,6 +18,7 @@ import { radioBrief, stopBrief, setBriefMuted, isBriefMuted } from '../audio/aud
 import { playerPack } from '../packs'
 import { commanderOf, topCommander } from '../packs/orgquery'
 import { operationDeck, recoveryDeck, SlideDeck } from './deck'
+import { TUT } from './tutTargets'
 import type { CampaignState, RecoveryRef, StaffShop } from '../engine/GameState'
 
 // What the hosts hand to VtcWindow: an entry out of the orders log or the
@@ -172,7 +173,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
     : [staffTile('XO', 'Executive Officer'), staffTile('S3', 'S3 — Operations'), staffTile('CSM', 'Command Sergeant Major')]
 
   const win = (
-    <div data-tut="vtc-window" style={{
+    <div data-tut={TUT.vtcWindow} style={{
       width: 1760, maxWidth: '96vw',
       background: 'rgba(10,14,19,0.97)', border: '1px solid #2a3a48', borderTop: `3px solid ${AMBER}`,
       borderRadius: 4, fontFamily: 'Consolas, monospace', boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
@@ -199,7 +200,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginLeft: 'auto' }}>
           {review ? 'FROM THE ORDERS LOG' : phase === 'link' ? 'ESTABLISHING SECURE LINK…' : 'LINK ENCRYPTED · LIVE'}
         </span>
-        {!review && <button data-tut="vtc-voice" onClick={() => {
+        {!review && <button data-tut={TUT.vtcVoice} onClick={() => {
           const next = !voiceOff
           setBriefMuted(next)
           setVoiceOff(next)
@@ -313,7 +314,7 @@ export function VtcWindow({ entry, blocking, review, startSlide = 0, onClose }: 
         <span style={{ fontSize: 9, letterSpacing: 1.5, color: '#54708a', marginRight: 'auto' }}>
           {review ? 'REVIEW — NO ACKNOWLEDGEMENT REQUIRED' : 'ACKNOWLEDGE TO RELEASE THE NET'}
         </span>
-        <button data-tut="vtc-ack" onClick={() => { stopBrief(); onClose(); bump() }}
+        <button data-tut={TUT.vtcAck} onClick={() => { stopBrief(); onClose(); bump() }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = AMBER }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3a48' }}
           style={{

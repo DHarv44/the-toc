@@ -29,6 +29,7 @@ import { commandsStructure } from '../domains/forces/command'
 import { STRUCTURES } from '../domains/installations/catalog'
 import type { Vec2 } from '../world/WorldMap'
 import type { RecoveryRef } from '../engine/GameState'
+import { TUT } from './tutTargets'
 
 // terrain layer for the slide's map inset — one render per map, shared
 let _terrain: { mapRef: unknown; cv: HTMLCanvasElement } | null = null
@@ -643,7 +644,7 @@ export function SlideDeck({ deck, live = true, startSlide = 0, onPage }: {
   const page = (n: number | ((s: number) => number)) => { onPage?.(); setSlide(n) }
 
   const navBtn = (dir: -1 | 1, label: string) => (
-    <button data-tut={dir > 0 ? 'vtc-next' : undefined}
+    <button data-tut={dir > 0 ? TUT.vtcNext : undefined}
       onClick={() => page(s => Math.max(0, Math.min(deck.length - 1, s + dir)))}
       style={{
         padding: '2px 10px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
@@ -653,11 +654,11 @@ export function SlideDeck({ deck, live = true, startSlide = 0, onPage }: {
   )
 
   return (
-    <div data-tut="vtc-deck" style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
+    <div data-tut={TUT.vtcDeck} style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
       {/* the preview rail — every page, click to jump. Shares the `vtc-nav`
           tutorial tag with the arrow row below: they are the two ways to drive
           the deck, so a cue rings both */}
-      <div data-tut="vtc-nav" style={{
+      <div data-tut={TUT.vtcNav} style={{
         width: 128, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6,
         overflowY: 'auto', paddingRight: 2,
       }}>
@@ -667,7 +668,7 @@ export function SlideDeck({ deck, live = true, startSlide = 0, onPage }: {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
         <canvas ref={ref} width={1180} height={756} style={{ width: '100%', borderRadius: 2 }} />
-        <div data-tut="vtc-nav" style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+        <div data-tut={TUT.vtcNav} style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
           {navBtn(-1, '◀')}
           <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#54708a' }}>
             SLIDE {Math.min(slide, deck.length - 1) + 1} / {deck.length}

@@ -106,6 +106,11 @@ export type Sel =
   | { k: 'objective'; m: number; i: number }
   | { k: 'trigger'; m: number; i: number }
   | { k: 'effect'; m: number; i: number; j: number }
+  // the CURRICULUM: a mission's tutorial is a third section beside its
+  // objectives and its triggers — an ordered list of lessons, each with its
+  // own ordered list of things it might say
+  | { k: 'tutStep'; m: number; s: number }
+  | { k: 'tutHint'; m: number; s: number; h: number }
 
 /** every entity id on the bench — what the sheet highlights */
 export const selIds = (sel: Sel | null): number[] =>
@@ -337,6 +342,12 @@ function alive(doc: Doc, sel: Sel | null): Sel | null {
   const m = doc.missions[sel.m]
   if (!m) return null
   if (sel.k === 'mission') return sel
+  if (sel.k === 'tutStep' || sel.k === 'tutHint') {
+    const step = m.tutorial?.steps[sel.s]
+    if (!step) return { k: 'mission', m: sel.m }
+    if (sel.k === 'tutStep') return sel
+    return step.hints[sel.h] ? sel : { k: 'tutStep', m: sel.m, s: sel.s }
+  }
   if (sel.k === 'objective') return (m.objectives?.[sel.i] ? sel : { k: 'mission', m: sel.m })
   const t = m.triggers?.[sel.i]
   if (!t) return { k: 'mission', m: sel.m }
