@@ -17,8 +17,9 @@ import { DrillRow, TreeLeaf } from './tree'
 import { slotStrength } from '../packs/org'
 import { ownerOf } from '../packs/orgquery'
 import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from './tutTargets'
-import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
-import { joinTeam, teamById, teamOf } from '../domains/forces/teams'
+import { MARCH_INTERVAL, marchMoving, marchPlan } from '../domains/movement/march'
+import { disbandTeam, formTeam, joinTeam, teamById, teamCdr, teamOf } from '../domains/forces/teams'
+import { toast } from '../domains/comms/radio'
 import { centerView } from '../map/view'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
@@ -125,13 +126,21 @@ function BattleGroups() {
     } else solo.push(u)
   }
   const selectedFree = solo.filter(u => ui.selectedIds.includes(u.id))
-  const row = (u: (typeof units)[number]) => {
+
+  // A row in a team says WHERE IN THE COLUMN it is, because that is the thing
+  // about a team member that is not true of a loose element. LEAD is called out
+  // by name; the rest carry their serial.
+  const row = (u: (typeof units)[number], serial?: number, lastOf?: number) => {
     const type = UNIT_TYPES[u.type]
     const active = ui.selectedIds.includes(u.id)
+    const place = serial == null ? null
+      : serial === 0 ? 'LEAD'
+      : serial === lastOf ? `${String(serial + 1).padStart(2, '0')} · TRAIL`
+      : String(serial + 1).padStart(2, '0')
     return (
       <PaletteRow key={u.id} active={active}
         icon={<PaletteIcon unit={type} w={56} h={38} scale={1.55} />}
-        label={`${u.label} · ${type.abbr}`}
+        label={`${place ? `${place}  ` : ''}${u.label} · ${type.abbr}`}
         tag={`${u.lineage ?? ''}${u.attFrom ? ` · ATT ${u.attFrom}` : ''}`}
         note={`${Math.max(0, Math.round(u.strength))}%`}
         cost=""
@@ -146,22 +155,53 @@ function BattleGroups() {
       {/* INDEPENDENT leads; the commander's teams follow. */}
       <RailSection label={`Independent (${solo.length})`}>
         {solo.length === 0 && <Text fz={10} c="dark.3" px="xs">NONE FIELDED</Text>}
-        {solo.map(row)}
+        {/* `solo.map(row)` would hand Array.map's INDEX in as the march serial
+            and number a list of independent elements as though it were a
+            column. They have no order of march; that is what independent means. */}
+        {solo.map(u => row(u))}
         {/* Forming a team is an ORGANIZING act, so the verb lives in Operations
             — but you are looking at your elements here, so the door does too,
             and it carries the one thing you need to know to use it. */}
         {solo.length > 1 && (
           <PaletteRow label="＋ FORM A TEAM"
             tag={selectedFree.length >= 2
-              ? `${selectedFree.map(u => u.label).join(', ')} SELECTED`
-              : 'SELECT TWO OR MORE, THEN TASK ORGANIZE IN S3'}
-            cost="" onClick={() => ui.setConsole('s3')} />
+              ? `${selectedFree.map(u => u.label).join(', ')} — NAMED FOR ${selectedFree[0]!.label}`
+              : 'SELECT TWO OR MORE INDEPENDENT ELEMENTS'}
+            cost=""
+            onClick={() => {
+              // it forms HERE. Sending the commander to another console to
+              // press a second button was the whole complaint.
+              if (selectedFree.length < 2) return
+              const t = formTeam(selectedFree.map(u => u.id))
+              if (t) toast(`${t.name} TASK ORGANIZED`)
+            }} />
         )}
       </RailSection>
-      {[...groups.entries()].map(([gid, list]) => (
+      {[...groups.entries()].map(([gid, list]) => {
+        const team = teamById(gid)
+        // THE RAIL SHOWS THE COLUMN AS A COLUMN. Members in march order, with
+        // the lead and the trail named — a team section used to be a bag of
+        // rows in whatever order the unit list happened to be in, which told
+        // you nothing about the one thing a team has that loose elements do not.
+        const plan = marchPlan(gid)
+        const rank = new Map((plan?.order ?? team?.members ?? []).map((id, i) => [id, i]))
+        const inOrder = list.slice().sort((a, b) =>
+          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))
+        const cdr = team ? teamCdr(team) : null
+        const str = Math.round(list.reduce((n, u) => n + u.strength, 0) / list.length)
+        return (
         <RailSection key={gid}
-          label={`${teamById(gid)?.name ?? `BG ${gid}`} (${list.length})`}>
-          {list.map(row)}
+          label={`${team?.name ?? `BG ${gid}`} (${list.length}) · ${str}%`}>
+          {/* who answers for it, by name — the S1 fact the S3 board carries and
+              the rail did not, and the one you want when you are looking at the
+              force rather than at the plan */}
+          {cdr && (
+            <Text fz={9} c={cdr.acting ? '#e0b34e' : 'dark.3'} px="xs" pb={2}>
+              {cdr.soldier?.rank ?? ''} {cdr.soldier?.name ?? cdr.unit.label} · {cdr.unit.label}
+              {cdr.acting ? ' · ACTING' : ''}
+            </Text>
+          )}
+          {inOrder.map((u, i) => row(u, i, inOrder.length - 1))}
           {/* THE RAIL ANSWERS "WHAT DO I HAVE"; the S3 answers "how is it
               organised". A movement order is an Operations product, so this is
               a door to it rather than the thing itself — but it carries the
@@ -169,9 +209,10 @@ function BattleGroups() {
               to see without opening anything. */}
           {list.length > 1 && (
             <PaletteRow label="◆ MOVEMENT ORDER"
-              tag={marchPlan(gid)
-                ? `${MARCH_INTERVAL[marchPlan(gid)!.column]} M INTERVAL · LEAD ${
-                  list.find(u => u.id === marchPlan(gid)!.order[0])?.label ?? '—'}`
+              tag={plan
+                ? `${MARCH_INTERVAL[plan.column]} M INTERVAL · ${
+                  plan.authored ? 'ORDER SET BY YOU' : 'ORDER FROM STAGING'} · ${
+                  marchMoving(gid) ? 'UNDER WAY' : 'AT THE SP'}`
                 : 'NO ORDER — THE COLUMN SORTS ITSELF'}
               cost="" onClick={() => ui.setConsole('s3')} />
           )}
@@ -216,8 +257,16 @@ function BattleGroups() {
               <PaletteRow label="CANCEL" cost="" onClick={() => { setAdding(null); setQrfPending(null) }} />
             </>
           )}
+          {/* breaking the team up is a task-org act like forming it, and it
+              belongs next to the thing it breaks rather than one console away */}
+          {team && (
+            <PaletteRow label="✕ DISBAND"
+              tag={`RETURN ${list.length} ELEMENTS TO INDEPENDENT`} cost=""
+              onClick={() => disbandTeam(team.id)} />
+          )}
         </RailSection>
-      ))}
+        )
+      })}
     </>
   )
 }
