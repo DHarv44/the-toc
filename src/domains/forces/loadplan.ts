@@ -27,6 +27,7 @@
 // A battalion TOC does not crew vehicles; it decides who has lift and who does
 // not. What it does track is which SQUAD is on which vic, because that is the
 // granularity at which the loss lands.
+import { S } from '../../engine/state'
 import type { Soldier, Unit, UnitVehicle } from '../../engine/GameState'
 import { UNIT_TYPES } from './catalog'
 import { VEHICLES } from './composition'
@@ -77,23 +78,66 @@ export const needsLift = (u: Unit): Soldier[] => {
     && s.status !== 'KIA' && s.status !== 'MIA')
 }
 
+// --- where a given soldier is actually riding --------------------------------
+// A seat is (unit, vehicle). `seatUnit` absent means the soldier's own platoon,
+// which is the ordinary case and keeps the common path a plain id compare.
+//
+// Everything downstream resolves through here, and the resolution is the reason
+// nothing has to be cleaned up when a host is destroyed: a seat that no longer
+// names a live vehicle is not a seat, so its passenger is walking, in the same
+// tick, without anybody having to notice.
+
+const hostOf = (s: Soldier, own: Unit): Unit | undefined =>
+  s.seatUnit == null ? own : S.units.find(x => x.id === s.seatUnit)
+
+/** The vehicle this soldier is riding in, or undefined if they are on foot. */
+export function vicOf(s: Soldier, own: Unit): UnitVehicle | undefined {
+  if (s.seat == null) return undefined
+  const host = hostOf(s, own)
+  if (!host || host.strength <= 0) return undefined
+  const v = host.vehicles.find(x => x.id === s.seat)
+  return v && v.status !== 'DESTROYED' ? v : undefined
+}
+
+/** This unit's people with nowhere to ride. Kept lean deliberately — it is read
+ *  every tick by liftFactor, so it resolves seats one at a time rather than
+ *  building the whole manifest. */
+export const walking = (u: Unit): Soldier[] => needsLift(u).filter(s => !vicOf(s, u))
+
+/** EVERYONE ABOARD A GIVEN VEHICLE, including passengers from other elements of
+ *  the battle group. Scans the force rather than the unit, which is the price
+ *  of cross-loading being real; only called when a manifest is being read or a
+ *  vehicle has just been hit, never on the movement path. */
+export function aboard(host: Unit, veh: UnitVehicle): { s: Soldier; unit: Unit }[] {
+  const out: { s: Soldier; unit: Unit }[] = []
+  for (const s of needsLift(host)) {
+    if (s.seatUnit == null && s.seat === veh.id) out.push({ s, unit: host })
+  }
+  for (const o of S.units) {
+    if (o.id === host.id || o.strength <= 0) continue
+    for (const s of needsLift(o)) {
+      if (s.seatUnit === host.id && s.seat === veh.id) out.push({ s, unit: o })
+    }
+  }
+  return out
+}
+
 export interface VicLoad {
   veh: UnitVehicle
   seats: number       // nominal
   cap: number         // the most it will take, crammed
   crew: Soldier[]
-  riders: Soldier[]
+  riders: { s: Soldier; unit: Unit }[]
   over: number        // riders past nominal — the ones sitting on the floor
   free: number        // what will still fit before it is full
 }
 
 /** The manifest, vic by vic. */
 export function loadOf(u: Unit): VicLoad[] {
-  const lift = needsLift(u)
   return carrying(u).map(veh => {
     const seats = seatsOn(veh)
     const cap = crushOn(veh)
-    const riders = lift.filter(s => s.seat === veh.id)
+    const riders = aboard(u, veh)
     return {
       veh, seats, cap,
       crew: u.soldiers.filter(s => s.vehId === veh.id && s.status !== 'KIA' && s.status !== 'MIA'),
@@ -106,27 +150,30 @@ export function loadOf(u: Unit): VicLoad[] {
 
 /** Is this vic carrying more than it seats? Read at the moment it is hit. */
 export const isCrammed = (u: Unit, veh: UnitVehicle): boolean =>
-  needsLift(u).filter(s => s.seat === veh.id).length > seatsOn(veh)
+  aboard(u, veh).length > seatsOn(veh)
 
 export interface LiftState {
   seats: number       // nominal dismount seats still rolling
   cap: number         // the most those vics will take, crammed
   lifted: number      // people with a place aboard something
   crammed: number     // of those, how many are riding over the nominal count
+  guests: number      // of those, how many are riding on another element's vics
   walking: Soldier[]  // people with nothing
 }
 
 export function liftState(u: Unit): LiftState {
   const vics = carrying(u)
   const all = needsLift(u)
-  const rolling = new Set(vics.map(v => v.id))
-  const walking = all.filter(s => s.seat == null || !rolling.has(s.seat))
+  const onFoot = walking(u)
   return {
     seats: vics.reduce((n, v) => n + seatsOn(v), 0),
     cap: vics.reduce((n, v) => n + crushOn(v), 0),
-    lifted: all.length - walking.length,
+    lifted: all.length - onFoot.length,
     crammed: loadOf(u).reduce((n, l) => n + l.over, 0),
-    walking,
+    // people of this unit riding on somebody else's vics — the visible half of
+    // a cross-load, and the number that says the team is carrying this platoon
+    guests: all.filter(s => s.seatUnit != null && vicOf(s, u)).length,
+    walking: onFoot,
   }
 }
 
@@ -141,18 +188,30 @@ export function liftState(u: Unit): LiftState {
  *  vic the loss of the fire team, which is what actually happens and what the
  *  commander is choosing between when they set the order of march.
  *
- *  Anyone left over WALKS. That is not a failure to solve — it is the report. */
+ *  Anyone left over WALKS. That is not a failure to solve — it is the report.
+ *
+ *  IT NEVER CROSS-LOADS. Putting a platoon's men on another element's vics is a
+ *  battle-group decision with a cost — those men die when that vic dies, and
+ *  they are no longer where their own commander thinks they are — so it is made
+ *  by a person, in the S3, and never by a solver tidying up after a casualty.
+ *  What this does honour is a cross-load already ordered: a seat on somebody
+ *  else's vic is left exactly where it was put. */
 export function autoLoad(u: Unit): void {
   const vics = carrying(u)
   const rolling = new Set(vics.map(v => v.id))
   const pool = needsLift(u)
-  // drop seats on vics that are gone; keep the ones that still hold
-  for (const s of pool) if (s.seat != null && !rolling.has(s.seat)) s.seat = null
-
-  const free = new Map(vics.map(v => [v.id, seatsOn(v)]))
+  // drop seats that no longer name a live vehicle, wherever they pointed; keep
+  // the ones that still hold, including seats on another element's vics
   for (const s of pool) {
-    if (s.seat != null) free.set(s.seat, (free.get(s.seat) ?? 0) - 1)
+    if (s.seat == null) continue
+    if (s.seatUnit != null) { if (!vicOf(s, u)) { s.seat = null; s.seatUnit = undefined } continue }
+    if (!rolling.has(s.seat)) s.seat = null
   }
+
+  // Free seats count EVERYONE already aboard, not just this platoon's own — a
+  // vic carrying a team-mate's squad has that many fewer places in it, and a
+  // solver that could not see them would sit two squads in the same six seats.
+  const free = new Map(vics.map(v => [v.id, seatsOn(v) - aboard(u, v).length]))
 
   // group the unseated by their sub-element — the squad, not the individual
   const groups: Soldier[][] = []
@@ -197,35 +256,49 @@ export function autoLoad(u: Unit): void {
   }
   place()
   // pass two: what is left rides crammed
-  for (const v of vics) {
-    const taken = pool.filter(s => s.seat === v.id).length
-    free.set(v.id, Math.max(0, crushOn(v) - taken))
-  }
+  for (const v of vics) free.set(v.id, Math.max(0, crushOn(v) - aboard(u, v).length))
   place()
 }
 
-/** Move one soldier to a vic (or off, with `null`). Refuses to overload —
- *  capacity is the constraint the whole thing exists to enforce. Returns false
- *  with nothing changed if it will not fit. */
-export function assignSeat(u: Unit, soldierId: number, vehId: number | null): boolean {
+/** Move one soldier onto a vehicle (or off, with `null`).
+ *
+ *  `host` is whose vehicle — omit it for the soldier's own platoon. Refuses to
+ *  overload, because capacity is the constraint the whole thing exists to
+ *  enforce; returns false with nothing changed if it will not fit. */
+export function assignSeat(
+  u: Unit, soldierId: number, vehId: number | null, host: Unit = u,
+): boolean {
   const s = u.soldiers.find(x => x.id === soldierId)
   if (!s || s.vehId !== null) return false      // crew do not move; that is a billet
-  if (vehId == null) { s.seat = null; return true }
-  const v = u.vehicles.find(x => x.id === vehId && x.status !== 'DESTROYED')
+  if (vehId == null) { s.seat = null; s.seatUnit = undefined; return true }
+  const v = host.vehicles.find(x => x.id === vehId && x.status !== 'DESTROYED')
   if (!v) return false
-  const load = loadOf(u).find(l => l.veh.id === vehId)
-  if (!load || (load.free <= 0 && s.seat !== vehId)) return false   // full is full, even crammed
+  const load = loadOf(host).find(l => l.veh.id === vehId)
+  const already = s.seat === vehId && (s.seatUnit ?? u.id) === host.id
+  if (!load || (load.free <= 0 && !already)) return false   // full is full, even crammed
   s.seat = vehId
+  s.seatUnit = host.id === u.id ? undefined : host.id
   return true
 }
 
-/** Riders aboard a given vic, for the moment it is hit. Only meaningful while
- *  the platoon is MOUNTED — dismounted troops are on the ground beside their
- *  vehicles, and a vic that burns there does not take them with it. */
-export function ridersOn(u: Unit, veh: UnitVehicle): Soldier[] {
-  if (!u.mounted) return []
-  return u.soldiers.filter(s =>
-    s.vehId === null && s.seat === veh.id && s.status === 'FIT')
+/** Riders aboard a given vic, for the moment it is hit — INCLUDING passengers
+ *  from other elements of the battle group, each paired with the platoon that
+ *  will have to account for them.
+ *
+ *  `mounted` is a CARRIER's posture and only rules on the host's own people: a
+ *  rifle platoon that has dismounted is on the ground beside its Strykers, and
+ *  a vic that burns there does not take them with it. It says nothing about a
+ *  medic platoon's HMMWVs, which have no dismount posture at all and simply
+ *  have seats — reading it as a blanket gate meant a guest in the back of one
+ *  walked away from a vehicle that had just been destroyed underneath them. */
+export function ridersOn(u: Unit, veh: UnitVehicle): { s: Soldier; unit: Unit }[] {
+  const carrier = !!UNIT_TYPES[u.type]?.carrier
+  return aboard(u, veh).filter(r => {
+    if (r.s.status !== 'FIT') return false
+    // the host's own dismounts are only aboard if the host is mounted; a guest
+    // is in the back of somebody else's vehicle either way
+    return r.unit.id === u.id ? (u.mounted || !carrier) : true
+  })
 }
 
 // --- the consequence ---------------------------------------------------------
@@ -242,6 +315,6 @@ export function ridersOn(u: Unit, veh: UnitVehicle): Soldier[] {
 export function liftFactor(u: Unit): number {
   const type = UNIT_TYPES[u.type]
   if (!type?.carrier || !u.mounted) return 1
-  if (!liftState(u).walking.length) return 1
+  if (!walking(u).length) return 1
   return Math.min(1, type.speed / type.carrier.speed)
 }

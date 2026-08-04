@@ -124,20 +124,29 @@ export function applyElementLoss(u: Unit, el: UnitElement, catastrophic = false,
     // get off it. The commander who overloaded to keep the platoon rolling paid
     // for the speed here, and the one who spread the load and left people
     // walking paid for it on the clock instead.
+    // SOME OF THEM MAY NOT BE THIS PLATOON'S. A battle group cross-loads, and
+    // when the vic burns the loss lands on whoever those men actually belong
+    // to — rolled and recorded against THEIR unit, which is the entire reason
+    // the manifest names a unit as well as a vehicle.
     const paxKia = crammed ? 0.58 : 0.45
     const paxHurt = crammed ? 0.92 : 0.85
-    for (const s of riders) {
+    const touched = new Set<Unit>([u])
+    for (const { s, unit: own } of riders) {
       if (s.status !== 'FIT') continue
-      const r = roll(u, `pax:${s.id}`)
+      touched.add(own)
+      const r = roll(u, `pax:${own.id}:${s.id}`)
       if (veh.status === 'DESTROYED') {
-        if (r < paxKia) killSoldier(u, s)
-        else if (r < paxHurt) woundSoldier(u, s, 'BURNS')
-      } else if (r < (crammed ? 0.16 : 0.12)) killSoldier(u, s)
-      else if (r < (crammed ? 0.6 : 0.5)) woundSoldier(u, s, 'BLAST CONCUSSION')
+        if (r < paxKia) killSoldier(own, s)
+        else if (r < paxHurt) woundSoldier(own, s, 'BURNS')
+      } else if (r < (crammed ? 0.16 : 0.12)) killSoldier(own, s)
+      else if (r < (crammed ? 0.6 : 0.5)) woundSoldier(own, s, 'BLAST CONCUSSION')
     }
-    // The survivors have no vehicle. Cross-load them onto whatever is left;
-    // anyone the seats run out on walks, and the platoon's pace goes with them.
-    autoLoad(u)
+    // The survivors have no vehicle. Re-seat every platoon that had people in
+    // it; anyone the seats run out on walks, and their pace goes with them.
+    for (const o of touched) {
+      autoLoad(o)
+      if (o !== u) { deriveElements(o); deriveStrength(o) }
+    }
   } else {
     for (const s of soldiers) {
       if (s.status !== 'FIT') continue

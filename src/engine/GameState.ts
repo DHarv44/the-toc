@@ -209,6 +209,12 @@ export interface Soldier {
   // vehicle for a move and can be shifted to another truck without changing
   // anything about who they are. See domains/forces/loadplan.ts.
   seat?: number | null
+  /** WHOSE vehicle, when it is not this soldier's own platoon's. Absent means
+   *  `seat` is a vic in the soldier's own unit, which is the ordinary case.
+   *  A battle group cross-loads across its elements — a platoon short of lift
+   *  rides on a team-mate's vics, which is exactly what being task organized
+   *  together is for. */
+  seatUnit?: number
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
   pid?: string               // stable personnel identity (portrait seed) — survives fielding
   wound?: Wound              // current (or last) injury report

@@ -43,6 +43,7 @@ import { centerView } from '../map/view'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
 const WARN = '#e0b34e'
+const ATT = '#c48fd6'   // another element's people — never mistaken for a warning
 
 const COLUMNS: { id: MarchColumnType; label: string; why: string }[] = [
   { id: 'close', label: 'CLOSE', why: 'Control and road space — night, limited visibility, built-up ground. One fire mission reaches more than one vic.' },
@@ -108,16 +109,21 @@ function liftLine(u: Unit): { text: string; tone: 'ok' | 'cram' | 'foot' } {
   return { text: `${l.lifted}/${l.seats}`, tone: 'ok' }
 }
 
-/** Riders grouped by their sub-element — the squad is the thing that moves
- *  between vics, because the squad is the thing that dies in one. */
-function bySquad(riders: Soldier[]): { key: string; label: string; men: Soldier[] }[] {
-  const out: { key: string; label: string; men: Soldier[] }[] = []
-  const seen = new Map<string, { key: string; label: string; men: Soldier[] }>()
-  for (const s of riders) {
-    const key = s.sec ?? `#${s.id}`
+/** A squad on the manifest, and the platoon it belongs to — which is not always
+ *  the platoon whose vehicle it is sitting in. */
+interface Riders { key: string; label: string; men: Soldier[]; unit: Unit }
+
+/** Riders grouped by their sub-element AND their parent — the squad is the
+ *  thing that moves between vics, because the squad is the thing that dies in
+ *  one, and two platoons can both have a 1ST SQD. */
+function bySquad(riders: { s: Soldier; unit: Unit }[]): Riders[] {
+  const out: Riders[] = []
+  const seen = new Map<string, Riders>()
+  for (const { s, unit } of riders) {
+    const key = `${unit.id}:${s.sec ?? `#${s.id}`}`
     let g = seen.get(key)
     if (!g) {
-      g = { key, label: s.sec ?? (s.pos ?? s.kind), men: [] }
+      g = { key, label: s.sec ?? (s.pos ?? s.kind), men: [], unit }
       seen.set(key, g); out.push(g)
     }
     g.men.push(s)
@@ -126,29 +132,38 @@ function bySquad(riders: Soldier[]): { key: string; label: string; men: Soldier[
 }
 
 /** The manifest for one element: every vic, what is in it, and what is not in
- *  anything. Clicking a squad cross-loads it to the next vic with room — the
- *  one order a TOC actually gives about seating, and capacity refuses the rest. */
-function Manifest({ u }: { u: Unit }) {
-  const load = loadOf(u)
+ *  anything. Clicking a squad cross-loads it to the next vic with room —
+ *  ANYWHERE IN THE TEAM, because that is what being task organized together is
+ *  for. A platoon that has lost its lift rides on a team-mate's vics; the men
+ *  die when that vic dies and they are no longer where their own commander
+ *  thinks they are, which is why it is a decision and never a solver's tidy-up.
+ *
+ *  Capacity refuses the rest. */
+function Manifest({ u, team }: { u: Unit; team: Unit[] }) {
   const lift = liftState(u)
+  // this element's own vics first, then the rest of the battle group's — the
+  // search order is the doctrinal one: look after your own before you ask
+  const hosts = [u, ...team.filter(o => o.id !== u.id)]
+  const decks = hosts.flatMap(h => loadOf(h).map(l => ({ ...l, host: h })))
+  const load = decks.filter(d => d.host.id === u.id)
 
-  /** The next vic, wrapping, with room for the WHOLE group — or null, which is
-   *  the answer far more often than not once a platoon is over its lift. A
+  /** The next deck, wrapping, with room for the WHOLE group — or null, which is
+   *  the answer far more often than not once a battle group is over its lift. A
    *  chip with nowhere to go must look like it, or the board is a button that
    *  does nothing. */
-  const target = (men: Soldier[], fromId: number | null) => {
-    const start = load.findIndex(l => l.veh.id === fromId)
-    for (let n = 1; n <= load.length; n++) {
-      const l = load[(start + n + load.length) % load.length]!
-      if (l.veh.id === fromId || l.free < men.length) continue
-      return l
+  const target = (men: Soldier[], fromId: number | null, fromHost: number | null) => {
+    const start = decks.findIndex(d => d.veh.id === fromId && d.host.id === fromHost)
+    for (let n = 1; n <= decks.length; n++) {
+      const d = decks[(start + n + decks.length) % decks.length]!
+      if ((d.veh.id === fromId && d.host.id === fromHost) || d.free < men.length) continue
+      return d
     }
     return null
   }
-  const shift = (men: Soldier[], fromId: number | null) => {
-    const l = target(men, fromId)
-    if (!l) return
-    for (const s of men) assignSeat(u, s.id, l.veh.id)
+  const shift = (g: Riders, fromId: number | null, fromHost: number | null) => {
+    const d = target(g.men, fromId, fromHost)
+    if (!d) return
+    for (const s of g.men) assignSeat(g.unit, s.id, d.veh.id, d.host)
   }
 
   return (
@@ -156,6 +171,7 @@ function Manifest({ u }: { u: Unit }) {
       <Text style={{ fontFamily: UI, fontSize: 10, letterSpacing: 0.6, color: '#5d6f80' }}>
         {u.label} LOAD PLAN — {lift.lifted} LIFTED OF {lift.lifted + lift.walking.length}
         {lift.crammed > 0 && ` · ${lift.crammed} OVER SEATS`}
+        {lift.guests > 0 && ` · ${lift.guests} RIDING WITH THE TEAM`}
       </Text>
       {load.map(l => (
         <Group key={l.veh.id} gap={8} wrap="nowrap" align="baseline" mt={3}>
@@ -173,18 +189,23 @@ function Manifest({ u }: { u: Unit }) {
           </Text>
           <Group gap={4} wrap="wrap">
             {bySquad(l.riders).map(g => {
-              const to = target(g.men, l.veh.id)
+              const to = target(g.men, l.veh.id, u.id)
+              // a squad from another platoon is somebody else's people in your
+              // vehicle, and the board should never let that read as your own
+              const away = g.unit.id !== u.id
               return (
-                <Box key={g.key} component="button" onClick={() => shift(g.men, l.veh.id)}
+                <Box key={g.key} component="button" onClick={() => shift(g, l.veh.id, u.id)}
                   title={to
-                    ? `Cross-load to ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
-                    : 'Nothing else in this element has room for them'}
+                    ? `Cross-load to ${to.host.label}'s ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
+                    : 'Nothing in the team has room for them'}
                   style={{
                     fontFamily: UI, fontSize: 10.5, padding: '1px 7px', borderRadius: 2,
-                    cursor: to ? 'pointer' : 'default', border: '1px solid #2a3a48',
-                    background: '#141c24', color: to ? '#9fb3c6' : '#5d6f80',
+                    cursor: to ? 'pointer' : 'default',
+                    border: `1px solid ${away ? ATT + '55' : '#2a3a48'}`,
+                    background: away ? '#1d1526' : '#141c24',
+                    color: to ? (away ? ATT : '#9fb3c6') : '#5d6f80',
                   }}>
-                  {g.label} ×{g.men.length}
+                  {away ? `${g.unit.label} ` : ''}{g.label} ×{g.men.length}
                 </Box>
               )
             })}
@@ -203,13 +224,13 @@ function Manifest({ u }: { u: Unit }) {
             {lift.walking.length}
           </Text>
           <Group gap={4} wrap="wrap">
-            {bySquad(lift.walking).map(g => {
-              const to = target(g.men, null)
+            {bySquad(lift.walking.map(s => ({ s, unit: u }))).map(g => {
+              const to = target(g.men, null, null)
               return (
-                <Box key={g.key} component="button" onClick={() => shift(g.men, null)}
+                <Box key={g.key} component="button" onClick={() => shift(g, null, null)}
                   title={to
-                    ? `Put them on ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
-                    : 'Every vic in this element is full — there is no seat for them'}
+                    ? `Put them on ${to.host.label}'s ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
+                    : 'Every vic in the team is full — there is no seat for them'}
                   style={{
                     fontFamily: UI, fontSize: 10.5, padding: '1px 7px', borderRadius: 2,
                     cursor: to ? 'pointer' : 'default',
@@ -225,12 +246,16 @@ function Manifest({ u }: { u: Unit }) {
       )}
       <Note warn={lift.walking.length > 0}>
         {lift.walking.length > 0
-          ? load.some(l => l.free > 0)
-            ? 'The column moves at the pace of the men on foot. Cross-load them, or accept the march table.'
-            : 'Every vic is full. The column moves at walking pace until this element gets lift from somewhere — a recovered vic, or a lighter load.'
+          ? decks.some(d => d.free > 0)
+            ? decks.some(d => d.free > 0 && d.host.id !== u.id)
+              ? 'The column moves at the pace of the men on foot — but the team has seats. Cross-load them onto a team-mate: they ride at vehicle pace, and they burn with that vic if it burns.'
+              : 'The column moves at the pace of the men on foot. Cross-load them, or accept the march table.'
+            : 'Every vic in the team is full. The column moves at walking pace until it gets lift from somewhere — a recovered vic, or a lighter load.'
           : lift.crammed > 0
             ? 'Riding over seats. They are moving at vehicle pace and they are much worse off if the vic is hit.'
-            : 'Everyone has a seat.'}
+            : lift.guests > 0
+              ? 'Under its own lift and riding with the team. Those men are in another element\'s vics, and they are that element\'s casualties if those vics are hit.'
+              : 'Everyone has a seat.'}
       </Note>
     </Box>
   )
@@ -343,7 +368,7 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
       </StaffTable>
 
       {open != null && members.some(m => m.id === open) && (
-        <Manifest u={members.find(m => m.id === open)!} />
+        <Manifest u={members.find(m => m.id === open)!} team={members} />
       )}
 
       <Note>
