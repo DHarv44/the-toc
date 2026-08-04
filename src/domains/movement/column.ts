@@ -36,6 +36,7 @@ import type { Unit } from '../../engine/GameState'
 import { effStats } from '../forces/elements'
 import { COLUMN_GAP, STRAGGLE_GAP } from '../forces/orders'
 import { followTheLeader, type Mover, type Slot } from './follow'
+import { MARCH_INTERVAL, inMarchOrder, marchPlan, marchSweep } from './march'
 
 export interface ColumnOrder {
   spd: number     // ordered speed before this unit's own terrain is applied
@@ -83,17 +84,27 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
     if (!g) { g = []; groups.set(u.groupId, g) }
     g.push(u)
   }
-  for (const [gid, list] of groups) {
+  for (const [gid, raw] of groups) {
+    let list = raw
     if (list.length < 2) { holding.delete(gid); continue }
-    // Column order is recomputed EVERY tick from progress along the route.
-    // Fixing it when the move is issued does not survive contact with reality:
-    // at that moment every unit is bunched at the start with indistinguishable
-    // positions, and the order then drifts as the faster ones pull ahead —
-    // leaving "the vic ahead" pointing at one that is actually behind, so the
-    // front runs free while the rear waits on it.
     const dist = new Map<number, number>()
     for (const u of list) dist.set(u.id, -remaining(u))
-    list.sort((a, b) => dist.get(b.id)! - dist.get(a.id)!)
+    // WITH NO ORDER OF MARCH, the column sorts itself by progress every tick.
+    // Fixing an order used to be unworkable for the reason that sort exists:
+    // at the moment a move is issued every unit is bunched at the start with
+    // indistinguishable positions, the order then drifts as the faster ones
+    // pull ahead, and "the vic ahead" ends up pointing at one that is actually
+    // behind — so the front runs free while the rear waits on it.
+    //
+    // WITH ONE, that no longer happens, because ./follow keeps sequence across
+    // lanes at a commanded clearance: a member ordered ahead that has bogged is
+    // caught up to rather than passed. Which is the difference between a column
+    // and a queue — if the lead vic bogs, the column waits on it instead of
+    // quietly reorganising itself around the casualty.
+    const plan = marchPlan(gid)
+    if (plan) list = inMarchOrder(gid, list)
+    else list.sort((a, b) => dist.get(b.id)! - dist.get(a.id)!)
+    const gap = plan ? MARCH_INTERVAL[plan.column] : COLUMN_GAP
 
     // The ceiling every member is reckoned against is what it could do ON THE
     // GROUND THE COLUMN IS ON — its own nominal speed over the lead unit's
@@ -124,11 +135,17 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
         maxSpd: (st.speed / (isFinite(f) ? f : 3)) * HEADROOM,
         out: fighting || !u.path.length,
       }
-      slots[i] = { along: -i * COLUMN_GAP, lat: 0, face: 0 }
+      slots[i] = { along: -i * gap, lat: 0, face: 0 }
     }
 
     const r = followTheLeader({
-      movers, slots, dt, holding: holding.get(gid), opts: OPTS,
+      movers, slots, dt, holding: holding.get(gid),
+      // THE ORDER IS ONLY AS REAL AS THE CLEARANCE THAT ENFORCES IT. With
+      // sequenceGap at 0 the cross-lane cap does not bite until the gap is
+      // nearly closed, by which point a closing member cannot brake inside its
+      // own decel limit and goes straight past (see ./follow). A column that
+      // was given an order holds it at its own interval.
+      opts: plan ? { ...OPTS, sequenceGap: gap, minGap: gap * 0.45 } : OPTS,
     })
     holding.set(gid, r.holding)
     for (let i = 0; i < list.length; i++) {
@@ -139,5 +156,6 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
   }
   // groups that no longer exist
   for (const gid of holding.keys()) if (!groups.has(gid)) holding.delete(gid)
+  marchSweep(new Set(groups.keys()))
   return out
 }

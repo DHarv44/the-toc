@@ -27,6 +27,18 @@ export type Side = 'friend' | 'hostile'
 
 export type UnitState = 'hold' | 'moving' | 'engaging' | 'firing' | 'bridging'
 export type Roe = 'push' | 'halt' | 'break'          // actions-on-contact drill
+// How tight the column runs. Interval is a real tactical trade — dispersion
+// against artillery and air, versus control and road space (domains/movement/
+// march). Metres per setting live there; this is only the choice.
+export type MarchColumnType = 'close' | 'open' | 'infiltration'
+
+/** A move group's ORDER OF MARCH. Absent = no order was given and the column
+ *  falls back to sorting itself by progress, which is what it always did. */
+export interface MarchPlan {
+  gid: number
+  order: number[]            // unit ids, FRONT FIRST
+  column: MarchColumnType
+}
 export type WeaponsControl = 'free' | 'tight' | 'hold'
 export type Posture = 'mobile' | 'dig'
 export type AiRole = 'garrison' | 'bg'
@@ -776,6 +788,7 @@ export interface GameState {
   nextWave: number
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
+  march: MarchPlan[]         // authored orders of march, by move-group id
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
   version: number
@@ -832,6 +845,7 @@ export function createInitialState(): GameState {
     nextWave: 60,
     airCooldown: {},
     enemyGroups: [],
+    march: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
     version: 0,
