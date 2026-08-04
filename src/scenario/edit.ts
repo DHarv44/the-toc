@@ -224,6 +224,85 @@ export function remove(s: EditorState, ids: number[]): EditorState {
   }
 }
 
+/** THE ARRANGEMENTS a selection can be put into. E2 asked for COMPOSITIONS —
+ *  prefab stamps like "mech platoon dug in". Those name unit TYPES, and types
+ *  are pack nouns: baking MECH into the builder would break the law the whole
+ *  project runs on, and would not survive contact with a second army anyway
+ *  (1CD groups its elements ARMOR / INFANTRY / RECON / FIRES, the Mobile
+ *  Infantry groups its MOBILE INFANTRY / RECONNAISSANCE — even the categories
+ *  are nouns).
+ *
+ *  So the composition is the SHAPE and the selection is the roster. Geometry
+ *  is a verb; it belongs here and works for every army ever written. Place
+ *  whatever the formation actually holds, select it, and put it in a line. */
+export type Arrangement = 'line' | 'column' | 'wedge' | 'perimeter'
+
+export const ARRANGEMENTS: { id: Arrangement; label: string; hint: string }[] = [
+  { id: 'line', label: 'Line abreast', hint: 'Across the axis — a defensive frontage' },
+  { id: 'column', label: 'Column', hint: 'Along the axis — a march order' },
+  { id: 'wedge', label: 'Wedge', hint: 'Point forward — an assault posture' },
+  { id: 'perimeter', label: 'Perimeter', hint: 'A ring — all-round defence of the centre' },
+]
+
+/** Lay the selection out around its own centre, facing `bearing` (radians).
+ *  Units are turned to face it too: an arrangement whose elements all look the
+ *  wrong way is a picture of a formation, not a formation. */
+export function arrange(
+  s: EditorState, ids: number[], kind: Arrangement, spacing: number, bearing: number,
+): EditorState {
+  // UNITS ONLY. An installation is sited on ground somebody chose and a
+  // control measure is a reference the script points at — sweeping either into
+  // a wedge because it happened to fall inside the marquee is never what the
+  // author meant. Arranging is a thing you do to troops.
+  const set = new Set(ids)
+  const picked = s.doc.entities.filter(e => set.has(e.id) && e.ent === 'unit')
+  if (picked.length < 2) return s
+  const cx = picked.reduce((a, e) => a + e.x, 0) / picked.length
+  const cy = picked.reduce((a, e) => a + e.y, 0) / picked.length
+  const n = picked.length
+  // along = the axis of advance; across = the frontage
+  const ax = Math.cos(bearing), ay = Math.sin(bearing)
+  const rx = -ay, ry = ax
+
+  const at = (i: number): { x: number; y: number } => {
+    const mid = (i - (n - 1) / 2) * spacing
+    switch (kind) {
+      case 'line':
+        return { x: cx + rx * mid, y: cy + ry * mid }
+      case 'column':
+        return { x: cx - ax * mid, y: cy - ay * mid }
+      case 'wedge': {
+        // point forward, elements falling back symmetrically behind it
+        const half = Math.abs(i - (n - 1) / 2)
+        return {
+          x: cx + rx * mid - ax * half * spacing * 0.7,
+          y: cy + ry * mid - ay * half * spacing * 0.7,
+        }
+      }
+      case 'perimeter': {
+        const r = (spacing * n) / (2 * Math.PI)
+        const a = bearing + (i / n) * Math.PI * 2
+        return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r }
+      }
+    }
+  }
+
+  const order = new Map(picked.map((e, i) => [e.id, i]))
+  return withEntities(s, s.doc.entities.map(e => {
+    const i = order.get(e.id)
+    if (i === undefined) return e
+    const p = at(i)
+    // on a perimeter every element faces OUT; otherwise they all face the axis
+    const facing = kind === 'perimeter'
+      ? Math.atan2(p.y - cy, p.x - cx)
+      : bearing
+    return {
+      ...e, x: p.x, y: p.y,
+      ...(e.ent === 'unit' ? { heading: facing } : {}),
+    } as Entity
+  }))
+}
+
 /** Ctrl+D — a copy of the selection, nudged clear of the originals and left
  *  selected so the very next drag positions it. The move every scene editor
  *  makes cheap, and the one this tool made twelve clicks. */

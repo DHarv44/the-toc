@@ -6,11 +6,12 @@
 // selection: marquee six platoons, tick DUG IN once. A patch that does not
 // apply to a kind is simply not written to it, so a mixed selection digs the
 // units in and leaves the FOB alone rather than refusing the edit.
+import { useState } from 'react'
 import { Box, Checkbox, Group, NumberInput, Select, Text, TextInput } from '@mantine/core'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import { PACKS } from '../../packs'
 import { formationOptions, battalionOptions } from '../../packs/orgquery'
-import type { Entity } from '../../scenario/edit'
+import { ARRANGEMENTS, type Arrangement, type Entity } from '../../scenario/edit'
 import { DATA_FONT, field, IconBtn, INK, PanelHead, Row, Section, TextBtn, UI_FONT } from './panel'
 
 const kindOf = (e: Entity): string =>
@@ -20,6 +21,7 @@ const kindOf = (e: Entity): string =>
 
 export default function Inspector({
   e, count, friendPack, playerFormation, onCenter, onPatch, onDelete, onDuplicate,
+  onArrange,
 }: {
   /** the single selected entity, or undefined when several are selected */
   e: Entity | undefined
@@ -33,11 +35,14 @@ export default function Inspector({
   onPatch: (patch: Partial<Entity>) => void
   onDelete: () => void
   onDuplicate: () => void
+  /** put the selection into a shape, facing the axis of advance */
+  onArrange: (kind: Arrangement, spacing: number) => void
 }) {
   const pack = PACKS[friendPack]
   const fmOpts = pack ? formationOptions(pack) : []
   const bnOpts = pack ? battalionOptions(pack) : []
   const assetKinds = Object.keys(pack?.assets ?? {})
+  const [spacing, setSpacing] = useState(120)
 
   const head = (
     <PanelHead
@@ -58,6 +63,26 @@ export default function Inspector({
     return (
       <Box style={{ background: INK.bg }}>
         {head}
+        {/* COMPOSITIONS, as shapes rather than prefabs. The roster is whatever
+            you selected — which is the only way a stamp can work across armies
+            that do not share a single unit type between them. */}
+        <Section title="Arrange">
+          <Row label="Spacing">
+            <NumberInput size="xs" styles={field} value={spacing} min={20} step={20}
+              suffix=" m" onChange={v => setSpacing(typeof v === 'number' ? v : 120)} />
+          </Row>
+          {ARRANGEMENTS.map(a => (
+            <Row key={a.id} label={a.label} hint={a.hint}>
+              <TextBtn onClick={() => onArrange(a.id, spacing)}>Apply</TextBtn>
+            </Row>
+          ))}
+          <Text px={10} pb={6} style={{
+            fontFamily: UI_FONT, fontSize: 11.5, color: INK.dim, lineHeight: 1.45,
+          }}>
+            Units only, oriented on the enemy command post. Installations and
+            control measures in the selection are left where they are.
+          </Text>
+        </Section>
         <Section title="Common">
           <Row label="Dug in" hint="Applies to the units in the selection.">
             <Checkbox size="xs" indeterminate

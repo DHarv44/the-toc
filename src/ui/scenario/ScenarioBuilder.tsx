@@ -31,7 +31,7 @@ import type { MissionScript, ScenarioSide, ScenarioSpec } from '../../scenario/t
 import {
   type Doc, type EditorState, type Entity, type Extras, type Sel,
   emptyEditor, openEditor, freshId, dirty, markSaved, carryOf, inKeyOrder,
-  place, update, moveLive, beginDrag, remove, select, selected, duplicate,
+  place, update, moveLive, beginDrag, remove, select, selected, duplicate, arrange,
   selEntity, selIds, selMission, oneEntity, toggleId, setDoc, setMissions, undo, redo,
 } from '../../scenario/edit'
 import {
@@ -533,6 +533,19 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
     setMissions(s, ms => [...ms, newMission(ms.length + 1)]),
     { k: 'mission', m: s.doc.missions.length }))
   const danglingSet = new Set(danglingPlaces)
+  // THE AXIS an arrangement faces: the bearing from the selection to the enemy
+  // command post, because that is what a defensive line is oriented on. With
+  // no enemy CP authored yet, the map's own enemy base stands in.
+  const axis = (() => {
+    const ids = selIds(ed.sel)
+    const picked = entities.filter(e => ids.includes(e.id))
+    if (!picked.length || !world) return -Math.PI / 2
+    const cx = picked.reduce((a, e) => a + e.x, 0) / picked.length
+    const cy = picked.reduce((a, e) => a + e.y, 0) / picked.length
+    const foe = entities.find(e => e.ent === 'structure' && e.side === 'hostile' && e.kind === 'HQ')
+      ?? { x: world.map.enemyBase.x, y: world.map.enemyBase.y }
+    return Math.atan2(foe.y - cy, foe.x - cx)
+  })()
 
   return (
     <Box pos="fixed" inset={0} bg="#05080b"
@@ -710,6 +723,8 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
                 onCenter={() => frameRef.current()}
                 onPatch={patchEntity}
                 onDuplicate={() => setEd(s => duplicate(s, selIds(s.sel)))}
+                onArrange={(kind, spacing) =>
+                  setEd(s => arrange(s, selIds(s.sel), kind, spacing, axis))}
                 onDelete={() => setEd(s => remove(s, selIds(s.sel)))} />
             ) : benchMission ? (
               <ScriptInspector sel={ed.sel} mission={benchMission} placeNames={placeNames}

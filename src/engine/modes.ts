@@ -198,6 +198,19 @@ export const MODES: Record<ModeId, ModeSpec> = {
       if (!hq && !fob) return 'lost'
       return null
     },
+    requires(sit) {
+      const out: string[] = []
+      if (!sit.structures.some(s => s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'FOB'))) {
+        out.push('No friendly HQ or FOB — there is no base to defend, so the match is LOST at H-hour')
+      }
+      // waves muster at a hostile HQ or FOB (opfor/ai fieldingBase). With none
+      // on the board spawnScriptedBattlegroup returns null and the schedule
+      // completes itself: the defense "holds" without an assault ever arriving.
+      if (!sit.structures.some(s => s.side === 'hostile' && (s.kind === 'HQ' || s.kind === 'FOB'))) {
+        out.push('No hostile HQ or FOB — the waves have nowhere to muster, so none will ever come')
+      }
+      return out
+    },
     endText: {
       won: {
         title: 'POSITION HELD',
@@ -250,6 +263,20 @@ export const MODES: Record<ModeId, ModeSpec> = {
       const fob = S.structures.some(s => s.side === 'friend' && s.kind === 'FOB')
       if (!hq && !fob) return 'lost'
       return null
+    },
+    requires(sit) {
+      const out: string[] = []
+      if (!sit.structures.some(s => s.side === 'friend' && (s.kind === 'HQ' || s.kind === 'FOB'))) {
+        out.push('No friendly HQ or FOB — nothing to field from, so the match is LOST at H-hour')
+      }
+      // the hill is engine-placed (pickHill) until the author can put it down
+      // himself, so the only authored requirement is somebody to contest it:
+      // an uncontested zone is a walk-on win against nobody
+      if (!sit.units.some(u => u.side === 'hostile')
+        && !sit.structures.some(s => s.side === 'hostile')) {
+        out.push('Nothing hostile on the board — the hill is uncontested and the clock just runs')
+      }
+      return out
     },
     endText: {
       won: {
