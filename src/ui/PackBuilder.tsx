@@ -24,6 +24,7 @@ import PackCharacter from './PackCharacter'
 import PackVoice from './PackVoice'
 import { usePackManifest } from './usePackManifest'
 import { canAuthor } from '../packs/io'
+import { ReadOnlyBanner } from './packEdit'
 import { isPlayableBn, playableBns, walkFormation, type PackAsset } from '../packs/types'
 import { echelonAt, ownerOf } from '../packs/orgquery'
 import { StaffTable, Td, Th } from './staff'
@@ -566,7 +567,7 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
   // ONE write path for the whole builder (ui/usePackManifest): it re-reads the
   // manifest from disk and patches it field by field, so a save never bakes
   // inherited content into a pack that deliberately declared none.
-  const ed = usePackManifest(p?.id ?? '')
+  const ed = usePackManifest(p)
   const { busy, msg } = ed
 
   const valueOf = (k: string) => edit[k] ?? assigned[k] ?? ''
@@ -699,6 +700,12 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
                 )}
 
                 <Box mt="md">
+                  <ReadOnlyBanner />
+                  {/* a built game shows the whole pack and lets none of it be
+                      typed into — one disabled fieldset beats threading a
+                      readOnly prop through every input on six tabs */}
+                  <Box component="fieldset" disabled={!canAuthor}
+                    style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
                   {tab === 'IDENTITY' ? <PackIdentity p={p} ed={ed} />
                     : tab === 'TROOPS' ? <PackTroops p={p} ed={ed} />
                     : tab === 'COMPS' ? <PackComps p={p} ed={ed} />
@@ -719,6 +726,7 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
                             ),
                           }} />
                       )}
+                  </Box>
                 </Box>
               </>
             )}

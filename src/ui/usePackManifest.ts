@@ -9,6 +9,7 @@
 // everything the builder does not touch passes through untouched.
 import { useCallback, useEffect, useState } from 'react'
 import { canAuthor, loadPackManifest, savePackManifest, type PackManifest } from '../packs/io'
+import type { Pack } from '../packs/types'
 
 export interface ManifestEditor {
   /** the manifest as it sits on disk — null while loading, or on failure */
@@ -58,7 +59,23 @@ export function catalogForm(manifest: PackManifest | null, table: string): Catal
 export const catalogLibrary = (manifest: PackManifest | null): string | undefined =>
   (manifest?.catalogs as Record<string, unknown> | undefined)?.extends as string | undefined
 
-export function usePackManifest(packId: string): ManifestEditor {
+/** A BUILT PACK, viewed as a manifest. When authoring is off there is no file
+ *  to read — but the army itself is right there in the bundle, so the tabs can
+ *  still SHOW it. What they show is the RESOLVED pack (inheritance already
+ *  applied), which is not the same thing as what its pack.json says; the UI
+ *  labels it read-only so nobody mistakes one for the other. */
+const asManifest = (p: Pack): PackManifest => ({
+  id: p.id, name: p.name, abbr: p.abbr, nick: p.nick, motto: p.motto,
+  inherits: p.inherits, patch: p.patch, cats: p.cats, startForce: p.startForce,
+  catalogs: p.catalogs as unknown as Record<string, unknown>,
+  bnKinds: p.bnKinds, rosters: p.rosters, billets: p.billets,
+  ranks: p.ranks, awards: p.awards, callsigns: p.callsigns,
+  staff: p.staff, net: p.net, reports: p.reports,
+  formation: p.formation, mottos: p.mottos, nicks: p.nicks, assets: p.assets,
+})
+
+export function usePackManifest(pack: Pack | undefined): ManifestEditor {
+  const packId = pack?.id ?? ''
   const [manifest, setManifest] = useState<PackManifest | null>(null)
   const [edits, setEdits] = useState<Record<string, unknown>>({})
   const [busy, setBusy] = useState(false)
@@ -68,8 +85,12 @@ export function usePackManifest(packId: string): ManifestEditor {
     let live = true
     setManifest(null); setEdits({}); setMsg(null)
     // a built game has no write path at all, so do not even ask — the request
-    // would fall through to the SPA and come back as index.html
-    if (!canAuthor) return () => { live = false }
+    // would fall through to the SPA and come back as index.html. Show the
+    // army from the bundle instead of showing nothing.
+    if (!canAuthor) {
+      if (pack) setManifest(asManifest(pack))
+      return () => { live = false }
+    }
     loadPackManifest(packId)
       .then(m => { if (live) setManifest(m) })
       .catch(e => { if (live) setMsg(`FAILED to read pack.json: ${String((e as Error).message ?? e)}`) })

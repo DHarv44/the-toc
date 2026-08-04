@@ -8,28 +8,29 @@ import { canAuthor } from '../packs/io'
 import type { Pack } from '../packs/types'
 import type { CatalogForm, ManifestEditor } from './usePackManifest'
 
-/** WHY AN EDITING TAB HAS NOTHING TO EDIT. The write path is a dev-only Vite
- *  middleware, so a BUILT game cannot author — and saying that plainly is the
- *  whole job here. Shipped, this used to surface as
- *  "Unexpected token '<'" because the request fell through to the SPA and the
- *  UI tried to parse index.html as a manifest. */
+/** Shown only while a manifest is genuinely absent — dev, mid-read, or a read
+ *  that failed. A BUILT game is NOT this case: the army is in the bundle, so
+ *  the tabs render it (usePackManifest falls back to the built pack) and the
+ *  banner below just explains why nothing can be typed into it. */
 export function ManifestNotice({ ed }: { ed: ManifestEditor }) {
   if (ed.manifest) return null
-  if (canAuthor) {
-    return <Text fz="sm" c={ed.msg ? '#e8524a' : 'dark.3'} p="md">{ed.msg ?? 'READING pack.json…'}</Text>
-  }
+  return <Text fz="sm" c={ed.msg ? '#e8524a' : 'dark.3'} p="md">{ed.msg ?? 'READING pack.json…'}</Text>
+}
+
+/** One line above the tab content in a built game. The content is all there —
+ *  it just cannot be written, because the write path is a dev-only middleware. */
+export function ReadOnlyBanner() {
+  if (canAuthor) return null
   return (
-    <Box maw={620} p={14} style={{ border: '1px solid #2a3a48', borderRadius: 3 }}>
-      <Group gap={8} mb={6}>
-        <Badge size="sm" variant="outline" color="gray">READ ONLY</Badge>
-        <Text fz={11} c="#9ab8d0">this is a built game</Text>
-      </Group>
-      <Text fz={10} c="dark.3" style={{ lineHeight: 1.7 }}>
-        Pack authoring writes files through the dev server, which a shipped build does not
-        have — it reads packs, it does not write them. Run the project locally to edit
-        content. Every tab that only DISPLAYS a pack works here as normal.
+    <Group gap={8} mb={10} p={8}
+      style={{ border: '1px solid #2a3a48', borderRadius: 3, background: 'rgba(16,26,36,0.6)' }}>
+      <Badge size="sm" variant="outline" color="gray">READ ONLY</Badge>
+      <Text fz={10} c="dark.3">
+        Showing the pack AS RESOLVED — inheritance already applied, which is not the same as
+        what its pack.json says. Editing writes files through the dev server; run the project
+        locally to change anything.
       </Text>
-    </Box>
+    </Group>
   )
 }
 
@@ -52,6 +53,16 @@ export function SaveBar({ ed }: { ed: ManifestEditor }) {
 export function SourceBadge({ form, lib, p, count }: {
   form: CatalogForm; lib?: string; p: Pack; count?: number
 }) {
+  // in a built game the tables come from the RESOLVED pack, so "own" would be
+  // a lie — a subsetted table looks like its own once inheritance is applied
+  if (!canAuthor) {
+    return (
+      <Group gap={8} mb={10}>
+        <Badge size="sm" variant="outline" color="gray">RESOLVED</Badge>
+        {count != null && <Text fz={11} c="#9ab8d0">{count} ENTR{count === 1 ? 'Y' : 'IES'}</Text>}
+      </Group>
+    )
+  }
   if (form === 'own') {
     return (
       <Group gap={8} mb={10}>
