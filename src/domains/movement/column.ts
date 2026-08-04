@@ -129,6 +129,20 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
       // jump. Both leave the solve; the column stops waiting on them and the
       // drills take over.
       const fighting = !!u.targetId || u.breaking
+      // AND SO DOES ONE THAT HAS NOT MADE THE START POINT. `dist` is remaining
+      // distance along a unit's OWN path, which is only a shared coordinate
+      // once everybody is on the same route — until then it also carries the
+      // leg each unit is still driving to reach it, and those differ by a
+      // kilometre or more on broken ground.
+      //
+      // Read as lag, that difference stopped the column dead. The lead's route
+      // was 7.1 km and the followers' were 8.1–8.5, so they registered as
+      // 1.4 km behind before anybody had moved; the lead went to `holding` and
+      // sat at the start line for a hundred seconds while they burned the
+      // difference off. It was waiting for a tail that was never behind it.
+      //
+      // A platoon moving to the SP is FORMING UP, which is not straggling.
+      const forming = u.colRouteN != null && u.path.length > u.colRouteN
       movers[i] = {
         id: u.id,
         dist: dist.get(u.id)!,
@@ -136,7 +150,7 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
         // the ceiling has to know about the walkers too, or a platoon short of
         // lift never registers as a straggler — it just quietly fails to keep up
         maxSpd: ((st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)) * HEADROOM,
-        out: fighting || !u.path.length,
+        out: fighting || forming || !u.path.length,
       }
       slots[i] = { along: -i * gap, lat: 0, face: 0 }
     }

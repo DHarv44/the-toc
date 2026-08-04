@@ -414,7 +414,13 @@ export interface Unit {
   attackMove: boolean
   attackRepathT: number
   groupId: number | null
-  colIdx: number | null      // slot in a shared-route column, if marching in one
+  colIdx: number | null
+  /** How many of this unit's remaining path points belong to the COLUMN'S OWN
+   *  ROUTE, as against the leg it is still driving to reach it. While
+   *  `path.length` is greater than this, the unit has not made the start point
+   *  yet — it is forming up, not marching, and the column must not read the
+   *  distance it still has to cover as lag. See domains/movement/column. */
+  colRouteN?: number      // slot in a shared-route column, if marching in one
   leadId: number | null
   posture: Posture
   digT: number

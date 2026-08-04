@@ -115,7 +115,8 @@ export function orderGroupMove(
   ordered.forEach(({ u, k }, i) => {
     u.colIdx = i
     u.leadId = lead.id
-    if (u.id === lead.id) return   // its path is already the route, set by orderMove
+    // the route owner is ON the route by definition — it has no forming-up leg
+    if (u.id === lead.id) { u.colRouteN = u.path.length; return }
     autoRemount(u)
     u.bridging = null; u.heldRoute = null; u.breaking = false
     u.convoy = null; u.attackId = null; u.attackMove = attack
@@ -123,7 +124,13 @@ export function orderGroupMove(
     const mob = effStats(u).mob
     const entry = route[k]!
     const join = findPath(S.map!, u.x, u.y, entry.x, entry.y, mob)
-    u.path = (join || [{ x: entry.x, y: entry.y }]).concat(route.slice(k + 1))
+    const shared = route.slice(k + 1)
+    u.path = (join || [{ x: entry.x, y: entry.y }]).concat(shared)
+    // WHERE THE MARCH ACTUALLY BEGINS. Everything before this is the leg to the
+    // start point, and it is not part of the column: a platoon still driving to
+    // the SP is forming up, not straggling, and the difference decides whether
+    // the lead moves off or sits waiting for it (see domains/movement/column).
+    u.colRouteN = shared.length
     // one leg to the objective — the join is plumbing, not a waypoint the player set
     u.legs = [{ x, y, n: u.path.length }]
     u.state = 'moving'
@@ -159,7 +166,7 @@ export function orderMove(
   u.attackMove = attack
   u.rtgBase = null // a fresh order supersedes a return-to-garrison in progress
   // a unit given its own order drops out of any column it was marching in
-  if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null }
+  if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null; u.colRouteN = undefined }
   if (append && u.path.length) {
     u.path = u.path.concat(p)
     u.legs.push({ x, y, n: p.length })
@@ -262,7 +269,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
 
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colRouteN = undefined; u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {
