@@ -34,6 +34,9 @@ import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
+import { formTeam, joinTeam, leaveTeam, teamById, teamOf } from '../domains/forces/teams'
+import { underPlayerCommand } from '../domains/forces/command'
+import { toast } from '../domains/comms/radio'
 
 // compact toggle used in the selection tray / fire-mission rows
 const optBtn = (active: boolean): CSSProperties => ({
@@ -160,6 +163,62 @@ function FireMissionPanel() {
 // How the selected units arrange themselves on the ground. Mixed selections
 // read as MIXED and any pick puts all of them into the same formation, which is
 // what "3rd platoon, wedge" means when it goes out over the net.
+// TASK ORGANIZATION, from the map. Three buttons, and which of them exist
+// depends entirely on what is selected — a control that offers you FORM when
+// everything selected is already in a team is a control that has to be read
+// before it can be used.
+//
+// The S3 board remains where a team is EDITED (order of march, interval,
+// contact drill, the load plan). This is only where one gets made and unmade,
+// because that is the decision you make with units under the cursor.
+function TaskOrgSeg({ units }: { units: Unit[] }) {
+  const ui = useUI()
+  const mine = units.filter(underPlayerCommand)
+  if (!mine.length) return null
+  const teams = mine.map(u => teamOf(u))
+  const free = mine.filter((_, i) => !teams[i])
+  const held = mine.filter((_, i) => teams[i])
+  // every selected element already in ONE team — the selection IS a team
+  const only = teams[0] && teams.every(t => t && t.id === teams[0]!.id) ? teams[0]! : null
+  // exactly one team represented, plus loose elements: they can join it
+  const named = [...new Set(teams.filter(Boolean).map(t => t!.id))]
+  const joinTo = named.length === 1 && free.length ? teamById(named[0]!) : null
+
+  return (
+    <>
+      {free.length >= 2 && (
+        <button style={btn(false)}
+          title={`Form ${free.map(u => u.label).join(', ')} into a team, named for ${free[0]!.label}`}
+          onClick={() => {
+            const t = formTeam(free.map(u => u.id))
+            if (t) toast(`${t.name} TASK ORGANIZED`)
+          }}>FORM TEAM</button>
+      )}
+      {joinTo && (
+        <button style={btn(false)}
+          title={`Attach ${free.map(u => u.label).join(', ')} to ${joinTo.name}`}
+          onClick={() => {
+            for (const u of free) joinTeam(joinTo.id, u.id)
+            toast(`${free.length} ATTACHED TO ${joinTo.name}`)
+          }}>JOIN {joinTo.name}</button>
+      )}
+      {held.length > 0 && (
+        <button style={btn(false)}
+          title={`Detach ${held.map(u => u.label).join(', ')} from ${held.length === 1 ? 'its team' : 'their teams'}`}
+          onClick={() => { for (const u of held) leaveTeam(u.id) }}>DETACH</button>
+      )}
+      {only && (
+        <button style={{ ...optBtn(false), color: '#9fb3c6' }}
+          title={`Open ${only.name} in Operations`}
+          onClick={() => ui.setConsole('s3')}>{only.name} ▸</button>
+      )}
+      {!free.length && !held.length && (
+        <span style={{ fontSize: 9, color: '#54708a' }}>—</span>
+      )}
+    </>
+  )
+}
+
 function FormSelect({ units }: { units: Unit[] }) {
   const forms = new Set(units.map(formOf))
   const cur = forms.size === 1 ? FORMATION[[...forms][0]!] : null
@@ -463,6 +522,12 @@ export function SelectionTray() {
               style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
               onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
           </Seg>
+          {segSep}
+          {/* TASK ORG WHERE THE SELECTION IS. Forming a team meant selecting on
+              the map, then opening Operations, then finding the button — three
+              places for one decision. The S3 board is still where a team is
+              EDITED; this is where one gets made. */}
+          <Seg label="TASK ORG"><TaskOrgSeg units={units} /></Seg>
           {segSep}
           <Seg label="FORM"><FormSelect units={units} /></Seg>
           {segSep}

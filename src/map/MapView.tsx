@@ -30,6 +30,7 @@ import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../wo
 import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
+import { marchPlan } from '../domains/movement/march'
 import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -1313,6 +1314,47 @@ export default function MapView() {
           side: 'friend', glyph: UNIT_TYPES[site.type].glyph, stale: true,
           label: `${site.label} DUSTWUN ${age}M`, showStrength: false,
         })
+      }
+
+      // THE TASK ORGANIZATION, ON THE SHEET. A team had no presence on the BFT
+      // at all: four separate icons, no name, no head, no way to see whether
+      // the column was together without opening a console and reading numbers.
+      // Drawn UNDER the symbols so it never competes with them — a thin tie in
+      // march order from the lead back, the name at the head, and the trail
+      // element marked, which between them answer "is it a column or is it
+      // four platoons going the same way" at a glance.
+      for (const t of S.teams) {
+        const mem = t.members
+          .map(id => S.units.find(u => u.id === id))
+          .filter((u): u is Unit => !!u && u.strength > 0)
+        if (mem.length < 2) continue
+        const plan = marchPlan(t.id)
+        const rank = new Map((plan?.order ?? t.members).map((id, i) => [id, i]))
+        const line = mem.slice().sort((a, b) =>
+          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))
+        ctx.save()
+        ctx.strokeStyle = 'rgba(126,200,255,0.30)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([5, 5])
+        ctx.beginPath()
+        line.forEach((u, i) => {
+          const sx = w2sX(u.x), sy = w2sY(u.y)
+          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+        })
+        ctx.stroke()
+        ctx.setLineDash([])
+        const head = line[0]!, tail = line[line.length - 1]!
+        // the head of the column carries the name; the trail is the element
+        // everything else is waiting on when the column goes firm
+        ctx.fillStyle = 'rgba(126,200,255,0.72)'
+        ctx.font = '600 9px Inter, system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(t.name, w2sX(head.x), w2sY(head.y) - 26)
+        ctx.strokeStyle = 'rgba(126,200,255,0.45)'
+        ctx.beginPath()
+        ctx.arc(w2sX(tail.x), w2sY(tail.y), 13, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
       }
 
       // friendly units (always shown — it's blue force tracking)
