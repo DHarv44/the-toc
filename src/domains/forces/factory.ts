@@ -7,6 +7,7 @@ import { nearestLand } from '../../world/place'
 import { UNIT_TYPES, type UnitTypeKey } from './catalog'
 import { buildRoster, initialStowage } from './composition'
 import { initElements } from './elements'
+import { autoLoad } from './loadplan'
 import { playerPack, lineageFor } from '../../packs'
 import { activePack } from '../../packs/install'
 import { assignPersonnel, assignCallsigns } from '../../packs/personnel'
@@ -93,6 +94,9 @@ export function newUnit(
   } else {
     assignPersonnel(u) // names/ranks/billets/callsigns — deterministic, digest-invisible
   }
+  // The load plan, last: it wants the FINAL roster (a slot's people arrive
+  // above) and it seats by sub-element, which assignPersonnel is what writes.
+  autoLoad(u)
   if (side === 'friend' && !opts?.noSlot) S.stats.fielded++ // after-action counter
   return u
 }

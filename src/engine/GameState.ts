@@ -156,6 +156,13 @@ export interface Soldier {
   // each other.
   sec?: string
   team?: string
+  // THE LOAD PLAN. Which vehicle this soldier RIDES IN — unit-local vehicle id,
+  // null/absent = on foot. Deliberately NOT `vehId`: that is the crew billet, a
+  // permanent assignment to a platform, and every roster partition in the game
+  // reads `vehId === null` to mean "dismount". A rider is manifested onto a
+  // vehicle for a move and can be shifted to another truck without changing
+  // anything about who they are. See domains/forces/loadplan.ts.
+  seat?: number | null
   cs?: string                // personal callsign, leadership billets only ("ECHO-5-6")
   pid?: string               // stable personnel identity (portrait seed) — survives fielding
   wound?: Wound              // current (or last) injury report

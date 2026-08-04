@@ -16,14 +16,22 @@
 //   ORDER OF MARCH  position one takes the first contact
 //   INTERVAL        dispersion against a fire mission, against control
 //   ON CONTACT      push through, halt and fight, or break contact
+//
+// And it carries the LOAD PLAN, because a movement order that does not say who
+// is riding in what is not a movement order. See domains/forces/loadplan.ts —
+// the short version is that seats are finite, a platoon can cram past them at a
+// price, and past THAT the surplus walks and the whole column walks with them.
+import { useState } from 'react'
 import { Box, Group, Table, Text } from '@mantine/core'
 import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
+import { VEHICLES } from '../domains/forces/composition'
 import { underPlayerCommand } from '../domains/forces/command'
-import type { MarchColumnType, Roe, Unit, WeaponsControl } from '../engine/GameState'
+import type { MarchColumnType, Roe, Soldier, Unit, WeaponsControl } from '../engine/GameState'
 import {
-  MARCH_INTERVAL, marchPlan, marchState, setMarchOrder, clearMarchOrder,
+  MARCH_INTERVAL, marchMoving, marchPlan, marchState, setMarchOrder, clearMarchOrder,
 } from '../domains/movement/march'
+import { assignSeat, liftState, loadOf } from '../domains/forces/loadplan'
 import { Section, StaffTable, Td, Th } from './staff'
 import { useUI } from './store'
 import { centerView } from '../map/view'
@@ -79,8 +87,149 @@ function Note({ children, warn }: { children: React.ReactNode; warn?: boolean })
   )
 }
 
+// --- the load plan ----------------------------------------------------------
+
+/** The lift line for one element: seats against bodies, in the fewest characters
+ *  that can still be wrong in only one way. */
+function liftLine(u: Unit): { text: string; tone: 'ok' | 'cram' | 'foot' } {
+  const l = liftState(u)
+  if (!l.seats && !l.walking.length) return { text: '—', tone: 'ok' }
+  if (l.walking.length) return { text: `${l.walking.length} ON FOOT`, tone: 'foot' }
+  if (l.crammed) return { text: `${l.lifted}/${l.seats} CRAMMED`, tone: 'cram' }
+  return { text: `${l.lifted}/${l.seats}`, tone: 'ok' }
+}
+
+/** Riders grouped by their sub-element — the squad is the thing that moves
+ *  between vics, because the squad is the thing that dies in one. */
+function bySquad(riders: Soldier[]): { key: string; label: string; men: Soldier[] }[] {
+  const out: { key: string; label: string; men: Soldier[] }[] = []
+  const seen = new Map<string, { key: string; label: string; men: Soldier[] }>()
+  for (const s of riders) {
+    const key = s.sec ?? `#${s.id}`
+    let g = seen.get(key)
+    if (!g) {
+      g = { key, label: s.sec ?? (s.pos ?? s.kind), men: [] }
+      seen.set(key, g); out.push(g)
+    }
+    g.men.push(s)
+  }
+  return out
+}
+
+/** The manifest for one element: every vic, what is in it, and what is not in
+ *  anything. Clicking a squad cross-loads it to the next vic with room — the
+ *  one order a TOC actually gives about seating, and capacity refuses the rest. */
+function Manifest({ u }: { u: Unit }) {
+  const load = loadOf(u)
+  const lift = liftState(u)
+
+  /** The next vic, wrapping, with room for the WHOLE group — or null, which is
+   *  the answer far more often than not once a platoon is over its lift. A
+   *  chip with nowhere to go must look like it, or the board is a button that
+   *  does nothing. */
+  const target = (men: Soldier[], fromId: number | null) => {
+    const start = load.findIndex(l => l.veh.id === fromId)
+    for (let n = 1; n <= load.length; n++) {
+      const l = load[(start + n + load.length) % load.length]!
+      if (l.veh.id === fromId || l.free < men.length) continue
+      return l
+    }
+    return null
+  }
+  const shift = (men: Soldier[], fromId: number | null) => {
+    const l = target(men, fromId)
+    if (!l) return
+    for (const s of men) assignSeat(u, s.id, l.veh.id)
+  }
+
+  return (
+    <Box mt={4} mb={8} ml={12} style={{ borderLeft: '1px solid #22303d', paddingLeft: 10 }}>
+      <Text style={{ fontFamily: UI, fontSize: 10, letterSpacing: 0.6, color: '#5d6f80' }}>
+        {u.label} LOAD PLAN — {lift.lifted} LIFTED OF {lift.lifted + lift.walking.length}
+        {lift.crammed > 0 && ` · ${lift.crammed} OVER SEATS`}
+      </Text>
+      {load.map(l => (
+        <Group key={l.veh.id} gap={8} wrap="nowrap" align="baseline" mt={3}>
+          <Text style={{
+            fontFamily: UI, fontSize: 11, width: 118, flex: '0 0 auto',
+            color: l.veh.status === 'DAMAGED' ? WARN : '#8b9cad',
+          }}>
+            {VEHICLES[l.veh.type]?.name ?? l.veh.type}
+          </Text>
+          <Text style={{
+            fontFamily: UI, fontSize: 11, width: 46, flex: '0 0 auto',
+            color: l.over > 0 ? WARN : '#6d7f90',
+          }}>
+            {l.riders.length}/{l.seats}
+          </Text>
+          <Group gap={4} wrap="wrap">
+            {bySquad(l.riders).map(g => {
+              const to = target(g.men, l.veh.id)
+              return (
+                <Box key={g.key} component="button" onClick={() => shift(g.men, l.veh.id)}
+                  title={to
+                    ? `Cross-load to ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
+                    : 'Nothing else in this element has room for them'}
+                  style={{
+                    fontFamily: UI, fontSize: 10.5, padding: '1px 7px', borderRadius: 2,
+                    cursor: to ? 'pointer' : 'default', border: '1px solid #2a3a48',
+                    background: '#141c24', color: to ? '#9fb3c6' : '#5d6f80',
+                  }}>
+                  {g.label} ×{g.men.length}
+                </Box>
+              )
+            })}
+            {!l.riders.length && (
+              <Text style={{ fontFamily: UI, fontSize: 10.5, color: '#4d5f70' }}>empty</Text>
+            )}
+          </Group>
+        </Group>
+      ))}
+      {lift.walking.length > 0 && (
+        <Group gap={8} wrap="nowrap" align="baseline" mt={4}>
+          <Text style={{ fontFamily: UI, fontSize: 11, width: 118, flex: '0 0 auto', color: WARN }}>
+            ON FOOT
+          </Text>
+          <Text style={{ fontFamily: UI, fontSize: 11, width: 46, flex: '0 0 auto', color: WARN }}>
+            {lift.walking.length}
+          </Text>
+          <Group gap={4} wrap="wrap">
+            {bySquad(lift.walking).map(g => {
+              const to = target(g.men, null)
+              return (
+                <Box key={g.key} component="button" onClick={() => shift(g.men, null)}
+                  title={to
+                    ? `Put them on ${VEHICLES[to.veh.type]?.name ?? to.veh.type}`
+                    : 'Every vic in this element is full — there is no seat for them'}
+                  style={{
+                    fontFamily: UI, fontSize: 10.5, padding: '1px 7px', borderRadius: 2,
+                    cursor: to ? 'pointer' : 'default',
+                    border: `1px solid ${to ? WARN + '55' : '#3d4a56'}`,
+                    background: to ? '#231d10' : '#171d24', color: to ? WARN : '#6d7f90',
+                  }}>
+                  {g.label} ×{g.men.length}
+                </Box>
+              )
+            })}
+          </Group>
+        </Group>
+      )}
+      <Note warn={lift.walking.length > 0}>
+        {lift.walking.length > 0
+          ? load.some(l => l.free > 0)
+            ? 'The column moves at the pace of the men on foot. Cross-load them, or accept the march table.'
+            : 'Every vic is full. The column moves at walking pace until this element gets lift from somewhere — a recovered vic, or a lighter load.'
+          : lift.crammed > 0
+            ? 'Riding over seats. They are moving at vehicle pace and they are much worse off if the vic is hit.'
+            : 'Everyone has a seat.'}
+      </Note>
+    </Box>
+  )
+}
+
 function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   const ui = useUI()
+  const [open, setOpen] = useState<number | null>(null)
   const plan = marchPlan(gid)
   const ordered = plan ? plan.order.filter(id => members.some(m => m.id === id)) : []
   // anything not named in the order falls in at the TAIL — a unit that joins a
@@ -114,20 +263,26 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
 
   const off = state.filter(s => s.driftedRoe || s.driftedWeapons || s.detached)
   const lead = members.find(m => m.id === full[0])
+  const shortOfLift = members.filter(m => liftState(m).walking.length)
 
   return (
     <Section title={`BG ${gid} — ${members.length} ELEMENTS · ${
-      plan ? `${interval} M INTERVAL · ${Math.round(depth)} M DEEP` : 'NO ORDER GIVEN'}`}>
+      plan
+        ? `${interval} M INTERVAL · ${Math.round(depth)} M DEEP · ${
+            marchMoving(gid) ? 'UNDER WAY' : 'AT THE SP'}`
+        : 'NO ORDER GIVEN'}`}>
 
-      <StaffTable head={
+      <StaffTable minWidth={640} head={
         <><Th w={44}>SERIAL</Th><Th>ELEMENT</Th><Th>TYPE</Th>
-          <Th>ORDERED</Th><Th>ACTUAL</Th><Th w={54} ta="right">MOVE</Th></>
+          <Th>ORDERED</Th><Th>ACTUAL</Th><Th w={92}>LIFT</Th>
+          <Th w={54} ta="right">MOVE</Th></>
       }>
         {full.map((id, i) => {
           const u = members.find(m => m.id === id)
           if (!u) return null
           const st = state.find(s => s.unitId === id)
           const drift = !!st && (st.driftedRoe || st.driftedWeapons || st.detached)
+          const lift = liftLine(u)
           return (
             <Table.Tr key={id} onClick={() => { ui.select(id); centerView(u) }}
               style={{ cursor: 'pointer' }}>
@@ -150,6 +305,13 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
                   : plan ? 'ON ORDER'
                   : `${u.roe.toUpperCase()} · ${u.weapons.toUpperCase()}`}
               </Td>
+              <Td c={lift.tone === 'foot' ? WARN : lift.tone === 'cram' ? '#c9a24a' : 'dark.2'}>
+                <Box component="span" title="Open the load plan"
+                  onClick={e => { e.stopPropagation(); setOpen(open === id ? null : id) }}
+                  style={{ cursor: 'pointer' }}>
+                  {open === id ? '▾ ' : '▸ '}{lift.text}
+                </Box>
+              </Td>
               <Td ta="right">
                 <Group gap={6} justify="flex-end" wrap="nowrap">
                   <Box component="span" title="Forward"
@@ -164,6 +326,10 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
           )
         })}
       </StaffTable>
+
+      {open != null && members.some(m => m.id === open) && (
+        <Manifest u={members.find(m => m.id === open)!} />
+      )}
 
       <Note>
         {lead ? `${lead.label} leads and takes the first contact.` : ''}
@@ -202,6 +368,15 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
             onPick={v => write(full, undefined, { weapons: v })} />
         </Box>
       </Box>
+
+      {shortOfLift.length > 0 && (
+        <Note warn>
+          {shortOfLift.map(u => u.label).join(', ')} {shortOfLift.length === 1 ? 'is' : 'are'} short
+          of lift. A column moves at the pace of its slowest element and that is now
+          walking pace — open the load plan and cross-load, or write the march table
+          around it.
+        </Note>
+      )}
 
       {off.length > 0 && (
         <Note warn>

@@ -34,6 +34,7 @@
 import { S } from '../../engine/state'
 import type { Unit } from '../../engine/GameState'
 import { effStats } from '../forces/elements'
+import { liftFactor } from '../forces/loadplan'
 import { COLUMN_GAP, STRAGGLE_GAP } from '../forces/orders'
 import { followTheLeader, type Mover, type Slot } from './follow'
 import { MARCH_INTERVAL, inMarchOrder, marchPlan, marchSweep } from './march'
@@ -132,7 +133,9 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
         id: u.id,
         dist: dist.get(u.id)!,
         spd: u._spd,
-        maxSpd: (st.speed / (isFinite(f) ? f : 3)) * HEADROOM,
+        // the ceiling has to know about the walkers too, or a platoon short of
+        // lift never registers as a straggler — it just quietly fails to keep up
+        maxSpd: ((st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)) * HEADROOM,
         out: fighting || !u.path.length,
       }
       slots[i] = { along: -i * gap, lat: 0, face: 0 }

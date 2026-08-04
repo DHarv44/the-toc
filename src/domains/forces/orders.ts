@@ -10,6 +10,7 @@ import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { effStats, formOf, layoutElements, FORMATION } from './elements'
+import { liftFactor } from './loadplan'
 import { deriveElements } from './casualties'
 import { netRadio, radio, toast } from '../comms/radio'
 
@@ -67,7 +68,9 @@ export function orderGroupMove(
   for (const u of units) {
     const st = effStats(u)
     const f = S.map!.moveFactor(u.x, u.y, st.mob)
-    const real = st.speed / (isFinite(f) ? f : 3)
+    // a platoon that has lost its lift IS the slowest — it should be found so
+    // here, and lead, rather than be discovered trailing a kilometre back
+    const real = (st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)
     if (real < leadSpd) { leadSpd = real; lead = u }
   }
 

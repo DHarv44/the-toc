@@ -91,6 +91,15 @@ export interface MarchState {
 export function marchState(gid: number): MarchState[] {
   const plan = marchPlan(gid)
   if (!plan) return []
+  // IS THE COLUMN UNDER WAY? A halted element is only "not in column" if the
+  // column is going somewhere without it. Sitting at the SP with the order in
+  // hand and nobody moving is not a straggler — it is a column at the SP, and
+  // reporting the whole march as detached the moment it stops is exactly the
+  // kind of false alarm that teaches a commander to ignore the board.
+  const moving = plan.order.some(id => {
+    const u = S.units.find(x => x.id === id)
+    return !!u && u.strength > 0 && u.path.length > 0
+  })
   const out: MarchState[] = []
   plan.order.forEach((id, i) => {
     const u = S.units.find(x => x.id === id)
@@ -103,10 +112,20 @@ export function marchState(gid: number): MarchState[] {
       lag: 0,                 // filled from the solver's own reading below
       driftedRoe: !!plan.roe && u.roe !== plan.roe,
       driftedWeapons: !!plan.weapons && u.weapons !== plan.weapons,
-      detached: !!u.targetId || !!u.breaking || !u.path.length,
+      detached: !!u.targetId || !!u.breaking || (moving && !u.path.length),
     })
   })
   return out
+}
+
+/** Is this column actually rolling? The board reads differently at the SP. */
+export function marchMoving(gid: number): boolean {
+  const plan = marchPlan(gid)
+  if (!plan) return false
+  return plan.order.some(id => {
+    const u = S.units.find(x => x.id === id)
+    return !!u && u.strength > 0 && u.path.length > 0
+  })
 }
 
 export function clearMarchOrder(gid: number): void {

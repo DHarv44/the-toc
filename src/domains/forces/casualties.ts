@@ -14,6 +14,7 @@ import type { DownedSite, ShellKind, Soldier, Unit, UnitElement, UnitVehicle, Wo
 import { T_FOREST, T_URBAN } from '../../world/WorldMap'
 import { UNIT_TYPES } from './catalog'
 import { elemWorld, exposedList, postureFactor } from './elements'
+import { autoLoad, isCrammed, ridersOn } from './loadplan'
 import { DIFFICULTIES, type CasualtyDials, type Difficulty } from '../economy/difficulty'
 import { grantAward, awardFor } from '../../packs/awards'
 import { hashStr } from '../../lib/math'
@@ -86,6 +87,12 @@ export function applyElementLoss(u: Unit, el: UnitElement, catastrophic = false,
   const d = dials()
   const { veh, soldiers } = elementSlice(u, el)
   if (el.kind === 'veh' && veh) {
+    // WHO WAS IN IT. The crew is the billet; the riders are the load plan, and
+    // until there was one they simply were not aboard anything — a squad in the
+    // back of a Bradley outlived the Bradley. Read the manifest BEFORE the
+    // vehicle's status changes, because a destroyed vic carries nobody.
+    const riders = ridersOn(u, veh)
+    const crammed = isCrammed(u, veh)
     const repairable = !catastrophic && roll(u, `rep:${veh.id}`) < d.vehRepairFrac
     veh.status = repairable ? 'DAMAGED' : 'DESTROYED'
     if (!repairable) {
@@ -107,6 +114,30 @@ export function applyElementLoss(u: Unit, el: UnitElement, catastrophic = false,
         else if (r < 0.45) woundSoldier(u, s, 'BLAST CONCUSSION')
       }
     }
+    // THE PEOPLE IN THE BACK. Marginally better odds than the crew on a
+    // catastrophic loss — the ones nearest the ramp get out — and marginally
+    // worse on a mobility kill, because a squad packed in the troop compartment
+    // has nothing to hold on to.
+    //
+    // A CRAMMED VIC IS WORSE, and this is where the load plan's one real trade
+    // gets settled. Men on the floor and across the ramp are the men who do not
+    // get off it. The commander who overloaded to keep the platoon rolling paid
+    // for the speed here, and the one who spread the load and left people
+    // walking paid for it on the clock instead.
+    const paxKia = crammed ? 0.58 : 0.45
+    const paxHurt = crammed ? 0.92 : 0.85
+    for (const s of riders) {
+      if (s.status !== 'FIT') continue
+      const r = roll(u, `pax:${s.id}`)
+      if (veh.status === 'DESTROYED') {
+        if (r < paxKia) killSoldier(u, s)
+        else if (r < paxHurt) woundSoldier(u, s, 'BURNS')
+      } else if (r < (crammed ? 0.16 : 0.12)) killSoldier(u, s)
+      else if (r < (crammed ? 0.6 : 0.5)) woundSoldier(u, s, 'BLAST CONCUSSION')
+    }
+    // The survivors have no vehicle. Cross-load them onto whatever is left;
+    // anyone the seats run out on walks, and the platoon's pace goes with them.
+    autoLoad(u)
   } else {
     for (const s of soldiers) {
       if (s.status !== 'FIT') continue
@@ -238,6 +269,7 @@ export function repairUpdate(u: Unit, dt: number, secsPerVic = 90): void {
   if (!v) return
   v.status = 'OK'
   if (u.side === 'friend') radio(u.label, 'arrive', `MOTORPOOL — ${u.label} VIC RETURNED TO ACTION`, u.x, u.y)
+  autoLoad(u)   // a hull back on the road is seats back on the manifest
   deriveElements(u); deriveStrength(u)
 }
 

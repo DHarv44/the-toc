@@ -13,6 +13,7 @@ import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { stowageMax } from './composition'
 import { effStats } from './elements'
+import { liftFactor } from './loadplan'
 import {
   deriveElements, deriveStrength, downUnit, medicalUpdate,
   processCapture, processWipe, remnantCheck,
@@ -163,7 +164,9 @@ export function movementUpdate(dt: number): void {
       // achieved speed, and not to the ceiling the column solver reasons about:
       // a platoon bogged in a wadi should fall behind and be waited for, not
       // silently drag every platoon on tarmac down to its pace.
-      let spd = st.speed / (isFinite(f) ? f : 3)
+      // liftFactor is the load plan biting: a platoon with more people than
+      // seats moves at the pace of the ones walking (see ./loadplan).
+      let spd = (st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)
       const c = col.get(u.id)
       if (c) {
         spd = Math.min(spd, c.spd)
