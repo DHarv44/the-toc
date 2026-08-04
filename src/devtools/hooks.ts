@@ -21,6 +21,7 @@ import {
 } from '../domains/forces/orders'
 import { fireMission } from '../domains/fires/orders'
 import { setMarchOrder, clearMarchOrder, marchPlan } from '../domains/movement/march'
+import { layHazard } from '../domains/hazards/update'
 // sandbox scripting: standing an OPFOR platoon up on demand is how a drill gets
 // tested (break contact, smoke, QRF) without playing a whole mission to it
 import { spawnEnemy } from '../domains/forces/factory'
@@ -31,7 +32,7 @@ if (typeof window !== 'undefined') {
     orderDroneMove, droneDropWp, droneSet, droneRTB, droneSensorMode, fieldAerostat, airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     spawnEnemy,
-    setMarchOrder, clearMarchOrder, marchPlan,
+    setMarchOrder, clearMarchOrder, marchPlan, layHazard,
     reveal: () => { S.fogEnabled = false },
     fog: (on: boolean) => { S.fogEnabled = on },
     setSpeed: (x: number) => { S.speed = x },

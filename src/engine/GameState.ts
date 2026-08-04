@@ -32,6 +32,20 @@ export type Roe = 'push' | 'halt' | 'break'          // actions-on-contact drill
 // march). Metres per setting live there; this is only the choice.
 export type MarchColumnType = 'close' | 'open' | 'infiltration'
 
+/** Something buried on a route that goes off under ONE vehicle. Unlike every
+ *  other source of damage in the game it does not reach a whole unit, which is
+ *  what makes an order of march cost something. `side` is who LAID it. */
+export interface Hazard {
+  id: number
+  kind: 'mine' | 'ied'
+  x: number
+  y: number
+  r: number                  // trigger radius, metres
+  side: Side
+  armed: boolean
+  t?: number                 // sim time it went off, for the crater
+}
+
 /** A move group's ORDER OF MARCH. Absent = no order was given and the column
  *  falls back to sorting itself by progress, which is what it always did. */
 export interface MarchPlan {
@@ -68,6 +82,12 @@ export interface UnitElement {
                            // point their vics anywhere but straight ahead
   kind: 'veh' | 'troop'
   alive: boolean
+  // HARDENED, or soft-skinned. UnitType.soft says what FRACTION of the unit is
+  // soft — enough to price a whole platoon against enemy DPS, and useless the
+  // moment something happens to one vehicle rather than to all of them. A mine
+  // under the lead vic does not care about the platoon's average. Dismounts
+  // are never hardened.
+  hard?: boolean
   dist?: number            // odometer along the unit's track, metres. MONOTONIC.
   lat?: number             // offset from the route centreline, metres, + = LEFT
   spd?: number             // m/s along the route
@@ -789,6 +809,7 @@ export interface GameState {
   airCooldown: Partial<Record<DroneTypeKey, number>>
   enemyGroups: Battlegroup[]
   march: MarchPlan[]         // authored orders of march, by move-group id
+  hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
   version: number
@@ -846,6 +867,7 @@ export function createInitialState(): GameState {
     airCooldown: {},
     enemyGroups: [],
     march: [],
+    hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
     version: 0,

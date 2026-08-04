@@ -145,7 +145,15 @@ export function initElements(u: Unit): void {
   const type = UNIT_TYPES[u.type]
   const els: UnitElement[] = []
   const nVeh = type.carrier ? type.carrier.veh : type.veh
-  for (let n = 0; n < nVeh; n++) els.push({ ox: 0, oy: 0, oh: 0, kind: 'veh', alive: true })
+  // WHICH vics are hardened, not just how many. `soft` is the fraction of the
+  // unit that is soft-skinned; spend it on real vehicles so an event that hits
+  // ONE of them has something to ask. Hardened first — a mixed element leads
+  // with its protected vehicles, which is also the answer the march order will
+  // want when it asks what is up front.
+  const nHard = Math.round(nVeh * (1 - (type.soft ?? 0)))
+  for (let n = 0; n < nVeh; n++) {
+    els.push({ ox: 0, oy: 0, oh: 0, kind: 'veh', alive: true, hard: n < nHard })
+  }
   const nTrp = type.troops > 0 ? Math.max(1, Math.round(type.troops / 4)) : 0
   for (let n = 0; n < nTrp; n++) els.push({ ox: 0, oy: 0, oh: 0, kind: 'troop', alive: true })
   u.elements = els

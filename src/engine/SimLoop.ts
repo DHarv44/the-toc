@@ -13,6 +13,7 @@ import {
   movementUpdate, drillsUpdate, casualtyReports, surrenderUpdate,
   attritionSync, unitDeaths,
 } from '../domains/forces/update'
+import { hazardUpdate } from '../domains/hazards/update'
 import { recoveryUpdate } from '../domains/forces/recovery'
 import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
@@ -44,6 +45,7 @@ export function tick(dt: number): void {
   supplyUpdate(dt)        // lifts netted against upkeep, both sides
   constructionUpdate(dt)  // construction + garrison reconstitution
   movementUpdate(dt)      // columns, movement, convoy, bridging, dig progress
+  hazardUpdate()          // mines/IEDs: the lead vic finds them, not the unit
   directFireUpdate(dt)    // direct-fire combat + the drills it triggers
   interceptUpdate(dt)     // point defense engages inbound rounds (pre-impact)
   qrfUpdate(dt)           // base QRFs launch on attack, stand down when quiet
