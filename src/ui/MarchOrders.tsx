@@ -308,6 +308,16 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   const shortOfLift = members.filter(m => liftState(m).walking.length)
   const wrecker = wreckerIn(gid)
   const gaps = marchSecurity(gid)
+  // Elements physically ahead of the one their serial puts them behind. Only
+  // meaningful once the column is on a route and has an odometer to read.
+  const passing = full
+    .map((id, i) => ({ u: members.find(m => m.id === id), prev: full[i - 1] }))
+    .filter(({ u, prev }) => {
+      if (!u || prev == null || u.colS == null) return false
+      const ahead = members.find(m => m.id === prev)
+      return !!ahead && ahead.colS != null && u.colS > ahead.colS + 5
+    })
+    .map(({ u }) => u!)
   const stranded = members
     .map(u => ({ u, vics: strandedIn(u) }))
     .filter(x => x.vics.length)
@@ -464,6 +474,20 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
           }}>PUSH {vics.length === 1 ? 'IT' : 'THEM'} OFF</Box>
         </Group>
       ))}
+
+      {/* WHAT RE-ORDERING A FORMED COLUMN COSTS. An authored order is obeyed,
+          and obeying it means an element that is physically ahead of its new
+          place has to stop and let the column go past. Without saying so, that
+          reads as a platoon inexplicably parked — which is the same complaint
+          the order of march was supposed to answer. */}
+      {plan?.authored && passing.length > 0 && (
+        <Note warn>
+          {passing.map(u => u.label).join(', ')} {passing.length === 1 ? 'is' : 'are'} ahead of
+          {passing.length === 1 ? ' its' : ' their'} place in the order and holding for the
+          column to pass. That is what re-ordering a formed column costs — leave the order
+          alone and it forms up from where the elements are standing instead.
+        </Note>
+      )}
 
       {shortOfLift.length > 0 && (
         <Note warn>
