@@ -32,7 +32,8 @@ import type {
 } from '../engine/GameState'
 import { pushDisabled, strandedIn, wreckerIn } from '../domains/movement/recovery'
 import {
-  MARCH_INTERVAL, marchMoving, marchPlan, marchState, setMarchOrder, clearMarchOrder,
+  MARCH_INTERVAL, marchMoving, marchPlan, marchSecurity, marchState,
+  setMarchOrder, clearMarchOrder,
 } from '../domains/movement/march'
 import { assignSeat, liftState, loadOf } from '../domains/forces/loadplan'
 import { teamById, teamUnits } from '../domains/forces/teams'
@@ -274,6 +275,7 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   const lead = members.find(m => m.id === full[0])
   const shortOfLift = members.filter(m => liftState(m).walking.length)
   const wrecker = wreckerIn(gid)
+  const gaps = marchSecurity(gid)
   const stranded = members
     .map(u => ({ u, vics: strandedIn(u) }))
     .filter(x => x.vics.length)
@@ -348,6 +350,18 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
         {lead ? `${lead.label} leads and takes the first contact.` : ''}
         {!plan && ' Until an order is given the column sorts itself by whoever is furthest along.'}
       </Note>
+
+      {/* MARCH SECURITY. Not a second control — a reading of the one above it.
+          A column is ambushed at one point along its length, and the third
+          with nothing hardened in it is the third they pick. */}
+      {gaps.length > 0 && (
+        <Note warn>
+          {gaps.map(g => `${g.band} of the column (${g.elements.join(', ')})`).join(' and ')}
+          {gaps.length === 1 ? ' has' : ' have'} nothing hardened in
+          {gaps.length === 1 ? ' it' : ' them'}. Escorts go at the head, in the middle
+          and at the trail — move something with armour {gaps.length === 1 ? 'there' : 'into each'}.
+        </Note>
+      )}
 
       <Box mt={10}>
         <Text style={{

@@ -141,16 +141,59 @@ export function layoutElements(u: Unit): void {
   })
 }
 
+// --- the short halt --------------------------------------------------------
+// A column that stops on a route does NOT sit in file. It herringbones: vics
+// alternate forty-five degrees off the axis, guns covering both shoulders,
+// which is the difference between a halted convoy and a queue of targets. The
+// formation has been in the table since formations were written and nothing
+// ever adopted it, because nothing knew when a column had gone firm.
+//
+// It is a DRILL, not an order. The crews do it without being told and they undo
+// it without being told, so it restores whatever the commander had actually
+// asked for rather than leaving the column in a security posture it never
+// chose.
+export function goFirm(u: Unit): void {
+  if (u.haltForm != null) return
+  u.haltForm = formOf(u)
+  u.formation = 'herringbone'
+  layoutElements(u)
+}
+
+export function unfirm(u: Unit): void {
+  if (u.haltForm == null) return
+  u.formation = u.haltForm
+  u.haltForm = undefined
+  layoutElements(u)
+}
+
+/** How much of this element is actually protected — the fraction of its live
+ *  vics that are hardened. Foot and fully soft-skinned elements answer 0, which
+ *  is the honest answer to "can it cover anybody". */
+export function hardness(u: Unit): number {
+  const veh = u.elements.filter(e => e.kind === 'veh' && e.alive)
+  if (!veh.length) return 0
+  return veh.filter(e => e.hard).length / veh.length
+}
+
 export function initElements(u: Unit): void {
   const type = UNIT_TYPES[u.type]
   const els: UnitElement[] = []
   const nVeh = type.carrier ? type.carrier.veh : type.veh
-  // WHICH vics are hardened, not just how many. `soft` is the fraction of the
-  // unit that is soft-skinned; spend it on real vehicles so an event that hits
-  // ONE of them has something to ask. Hardened first — a mixed element leads
-  // with its protected vehicles, which is also the answer the march order will
-  // want when it asks what is up front.
-  const nHard = Math.round(nVeh * (1 - (type.soft ?? 0)))
+  // WHICH vics are hardened, not just how many. `soft` is the fraction that is
+  // soft-skinned; spend it on real vehicles so an event that hits ONE of them
+  // has something to ask. Hardened first — a mixed element leads with its
+  // protected vehicles, which is also the answer the march order will want when
+  // it asks what is up front.
+  //
+  // READ IT OFF THE CARRIER WHERE THERE IS ONE. A carrier type's own `soft` is
+  // its DISMOUNTED figure — infantry on foot, which is 1.0 for a rifle platoon
+  // — and using it here hardened the platoon's VEHICLES as though they were the
+  // men walking beside them. A Stryker platoon came out with zero hardened
+  // vics against a carrier that is 0.45 soft, which meant every mine strike on
+  // one was catastrophic (hazards/update reads exactly this flag). effStats has
+  // always made this distinction for damage; this did not.
+  const softFrac = type.carrier ? type.carrier.soft : (type.soft ?? 0)
+  const nHard = Math.round(nVeh * (1 - softFrac))
   for (let n = 0; n < nVeh; n++) {
     els.push({ ox: 0, oy: 0, oh: 0, kind: 'veh', alive: true, hard: n < nHard })
   }

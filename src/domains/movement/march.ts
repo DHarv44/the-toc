@@ -24,6 +24,7 @@ import { S } from '../../engine/state'
 import type {
   MarchColumnType, MarchPlan, Roe, Unit, WeaponsControl,
 } from '../../engine/GameState'
+import { hardness } from '../forces/elements'
 
 // Metres between vehicles. The interval is a real tactical choice and each
 // setting buys one thing at another's expense:
@@ -143,6 +144,51 @@ export function inMarchOrder(gid: number, members: Unit[]): Unit[] {
   const rank = new Map(plan.order.map((id, i) => [id, i]))
   return members.slice().sort((a, b) =>
     (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity))
+}
+
+// --- march security ---------------------------------------------------------
+// THE CHECK A MARCH TABLE ACTUALLY GETS. Escorts go at the head, in the middle
+// and at the trail — not because it is tidy, but because a column is ambushed
+// at one point along its length and whichever third has no protection in it is
+// the third they will pick.
+//
+// This is an ADVISORY, not a setting, and deliberately so: the order of march
+// IS the control, and adding a "distribute the gun trucks" button on top of it
+// would be a second way to say the same thing. What the board owes the
+// commander is a reading of what they have already written.
+//
+// It is not free advice either. The order of march already decides who eats the
+// mine (domains/hazards/update takes the head of the column) and an element
+// with no hardened vics loses them catastrophically.
+
+/** Enough protection to cover somebody else. Half the live vics hardened is the
+ *  bar: below that an element is looking after itself. */
+const ESCORT = 0.5
+
+export interface SecurityGap {
+  band: 'HEAD' | 'CENTRE' | 'TRAIL'
+  elements: string[]        // who is in that band with nothing to cover them
+}
+
+export function marchSecurity(gid: number): SecurityGap[] {
+  const plan = marchPlan(gid)
+  if (!plan) return []
+  const live = plan.order
+    .map(id => S.units.find(u => u.id === id))
+    .filter((u): u is Unit => !!u && u.strength > 0)
+  if (live.length < 3) return []      // two elements have no middle to leave open
+  const n = live.length
+  const bands: SecurityGap['band'][] = ['HEAD', 'CENTRE', 'TRAIL']
+  const out: SecurityGap[] = []
+  for (let b = 0; b < 3; b++) {
+    const from = Math.floor((b * n) / 3)
+    const to = Math.floor(((b + 1) * n) / 3)
+    const slice = live.slice(from, to)
+    if (!slice.length) continue
+    if (slice.some(u => hardness(u) >= ESCORT)) continue
+    out.push({ band: bands[b]!, elements: slice.map(u => u.label) })
+  }
+  return out
 }
 
 /** Drop plans whose group has gone.

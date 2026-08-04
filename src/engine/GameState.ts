@@ -373,6 +373,9 @@ export interface Unit {
   side: Side
   type: UnitTypeKey
   label: string           // radio callsign designator (e.g. "ECHO-5")
+  /** What the commander actually asked for, held while the crews are in the
+   *  halt herringbone so the drill gives it back (domains/forces/elements). */
+  haltForm?: Formation
   lineage?: string        // formal parent-formation line (e.g. "1st PLT, A CO, 2-8 CAV")
   attFrom?: string        // donor formation if this type is an attachment (e.g. "2ID")
   // TASK ORGANIZATION: the formation that COMMANDS this element (OrgSlot.cmd,

@@ -12,7 +12,7 @@ import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
 import { stowageMax } from './composition'
-import { effStats } from './elements'
+import { effStats, goFirm, unfirm } from './elements'
 import { liftFactor } from './loadplan'
 import { inRecovery } from '../movement/recovery'
 import {
@@ -154,8 +154,12 @@ export function movementUpdate(dt: number): void {
       continue
     }
     if (u.path.length) {
-      // any movement abandons a defensive posture
-      if (u.posture === 'dig') { u.posture = 'mobile'; u.digT = 0 }
+      // Any movement abandons a defensive posture — but a unit that is FIRM is
+      // not moving, it is stopped on a route with a route still ahead of it.
+      // Resetting it here every tick meant the going-firm drill below set `dig`
+      // and had it taken straight back off again on the next frame, so a halted
+      // column has never actually gone to ground despite the code saying it did.
+      if (u.posture === 'dig' && !u.colWait) { u.posture = 'mobile'; u.digT = 0 }
       const st = effStats(u)
       const wp = u.path[0]!
       const dx = wp.x - u.x, dy = wp.y - u.y
@@ -174,24 +178,24 @@ export function movementUpdate(dt: number): void {
       // waits for one that has bogged (movement/recovery, movement/follow).
       if (inRecovery(u)) spd = 0
       const c = col.get(u.id)
-      if (c) {
-        spd = Math.min(spd, c.spd)
-        // A column halted for its tail digs in rather than idling in the open —
-        // a stopped convoy is a target.
-        if (c.wait !== !!u.colWait) {
-          u.colWait = c.wait
-          if (c.wait) {
-            u.posture = 'dig'
-            netRadio(u, 'move', 'HOLDING FOR TRAIL ELEMENTS — GOING FIRM', u.x, u.y)
-          } else {
-            u.posture = 'mobile'
-            u.digT = 0
-          }
+      if (c) spd = Math.min(spd, c.spd)
+      // GOING FIRM. A column halted on a route digs in and herringbones rather
+      // than idling in file — a stopped convoy is a queue of targets. Two ways
+      // to be stopped and both get the same drill: waiting for the tail to
+      // close up, and waiting on a recovery.
+      const firm = !!c?.wait || inRecovery(u)
+      if (firm !== !!u.colWait) {
+        u.colWait = firm
+        if (firm) {
+          u.posture = 'dig'
+          goFirm(u)
+          // the recovery already put its own call on the net; don't say it twice
+          if (c?.wait) netRadio(u, 'move', 'HOLDING FOR TRAIL ELEMENTS — HERRINGBONE, GUNS OUT', u.x, u.y)
+        } else {
+          u.posture = 'mobile'
+          u.digT = 0
+          unfirm(u)
         }
-      } else if (u.colWait) {
-        u.colWait = false
-        u.posture = 'mobile'
-        u.digT = 0
       }
       // What the unit's OWN vics are asking for: a platoon whose tail has come
       // off a bend eases until it closes up, and one told to coil stops where it
