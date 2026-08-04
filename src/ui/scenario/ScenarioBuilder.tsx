@@ -443,7 +443,20 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
         missions: [...s.doc.missions, m],
         ...(staged.length ? { entities: [...s.doc.entities, ...staged] } : {}),
       }), { k: 'mission', m: s.doc.missions.length }))
-      setMsg(`PORTED MISSION ${m.name}${staged.length ? ` · ${staged.length} PLACES NEED ANCHORING` : ''}`)
+      // A CURRICULUM TRAVELS WITH ITS MISSION — it is bespoke to it, so the
+      // lessons belong to it (SCENARIO-MODEL decisions log, 2026-08-04). But
+      // its conditions and anchors name PACK NOUNS: a lesson that waits on an
+      // SCT and rings `field-MECH` is nonsense the moment it lands beside a
+      // different army. The problems panel will list every one; this says it
+      // at the moment of the port, when the author can still change their mind.
+      const lessons = m.tutorial?.steps.length ?? 0
+      const foreignArmy = lessons > 0 && (e.spec.sides?.friend ?? '') !== doc.sides.friend
+      setMsg([
+        `PORTED MISSION ${m.name}`,
+        staged.length ? `${staged.length} PLACES NEED ANCHORING` : '',
+        lessons ? `${lessons} LESSONS CAME WITH IT` : '',
+        foreignArmy ? '⚠ WRITTEN FOR ANOTHER ARMY — ITS UNIT TYPES WILL NOT RESOLVE' : '',
+      ].filter(Boolean).join(' · '))
     }
   }
 

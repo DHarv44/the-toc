@@ -229,6 +229,16 @@ post you actually COMMAND — task org again).
 
 ## Decisions log
 
+- 2026-08-04 · a TUTORIAL is BESPOKE to its mission, and stays a SECTION of it
+  (user). Not portable content with its own identity: a curriculum teaches
+  *this* operation, on *this* ground, with *this* army's platforms — its
+  conditions and anchors name pack nouns (`SCT`, `field-MECH`) and scenario
+  places, so "the basic command tutorial" cannot be lifted onto another
+  mission without rewriting most of it anyway. Consequences: it travels with
+  its mission through PORT (correct — the lessons belong to it), the builder
+  edits it in place beside objectives and triggers, and PORT warns when a
+  curriculum lands in a scenario whose BLUFOR is a different army, because
+  every type it names has just become wrong.
 - 2026-08-03 · briefing slides are GENERATED from objectives; authored `notes`
   override but do not follow an edited objective. Generated-by-default because
   a stale briefing line is worse than a plain one.
