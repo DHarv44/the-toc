@@ -59,13 +59,23 @@ export const crushOn = (v: UnitVehicle): number => {
  *  DESTROYED one is a wreck. */
 const carrying = (u: Unit): UnitVehicle[] => u.vehicles.filter(v => v.status !== 'DESTROYED')
 
-/** Everyone still with the platoon who is NOT crew: the people who need lift.
+/** Everyone still with the platoon who needs a ride.
+ *
+ *  Dismounts, plus THE CREW OF A VEHICLE THAT IS NO LONGER CARRYING ANYONE.
+ *  That second half was missing and it mattered: the three men who got out of
+ *  a burning Bradley are not still riding in it, they are standing on a route
+ *  looking for a seat, and pretending otherwise made a destroyed vic cost
+ *  nothing but the vic. Their `vehId` is left alone — it is the billet, and
+ *  they are still that crew — only the manifest changes.
+ *
  *  Evacuated and replaced records have left the unit and are nobody's problem;
  *  a non-evacuated WIA is very much still a passenger. */
-export const needsLift = (u: Unit): Soldier[] =>
-  u.soldiers.filter(s =>
-    s.vehId === null && !s.replaced && !s.evac
+export const needsLift = (u: Unit): Soldier[] => {
+  const gone = new Set(u.vehicles.filter(v => v.status === 'DESTROYED').map(v => v.id))
+  return u.soldiers.filter(s =>
+    (s.vehId === null || gone.has(s.vehId)) && !s.replaced && !s.evac
     && s.status !== 'KIA' && s.status !== 'MIA')
+}
 
 export interface VicLoad {
   veh: UnitVehicle

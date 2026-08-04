@@ -61,6 +61,28 @@ export interface MarchPlan {
   roe?: Roe
   weapons?: WeaponsControl
   name?: string              // the serial's callsign
+  /** WHAT HAPPENS TO A VEHICLE THAT STOPS. A mobility kill in a column is a
+   *  thirty-ton roadblock and somebody has to decide, in advance, which way it
+   *  goes — that is what a movement order is for. See domains/movement/recovery.
+   *  Absent = recover, because a commander who has not said otherwise has not
+   *  authorized anyone to abandon equipment. */
+  disabled?: DisabledPolicy
+}
+
+/** recover  the column waits while it is hooked up and towed. Costs time and
+ *           needs a recovery vehicle somewhere in the column.
+ *  push     shoved off the route and written off. Costs nothing but the truck,
+ *           and its crew now needs a seat in somebody else's. */
+export type DisabledPolicy = 'recover' | 'push'
+
+/** A recovery in progress: one disabled vehicle, one wrecker, a clock. */
+export interface RecoveryJob {
+  gid: number
+  unitId: number             // who owns the casualty
+  vehId: number              // its unit-local vehicle id
+  byId: number               // the element whose wrecker is doing the work
+  t: number                  // seconds elapsed
+  need: number               // seconds required (the platform's own figure)
 }
 
 /** THE TASK ORGANIZATION — a named, durable grouping of elements under one
@@ -285,6 +307,11 @@ export interface UnitVehicle {
   id: number
   type: VehicleKey
   status: VehicleStatus
+  /** What was decided about it when it stopped on a route, so the column does
+   *  not re-decide every tick. `stranded` = the order said recover and there
+   *  was no recovery vehicle, which is a question waiting for the commander.
+   *  See domains/movement/recovery. */
+  recov?: 'towed' | 'pushed' | 'stranded'
 }
 
 // --- division asset requests (ASSET-REQUESTS.md) ----------------------------
@@ -850,6 +877,7 @@ export interface GameState {
   enemyGroups: Battlegroup[]
   march: MarchPlan[]         // authored orders of march, by move-group id
   teams: Team[]              // the task organization — named, durable groupings
+  recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
@@ -909,6 +937,7 @@ export function createInitialState(): GameState {
     enemyGroups: [],
     march: [],
     teams: [],
+    recoveries: [],
     hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,

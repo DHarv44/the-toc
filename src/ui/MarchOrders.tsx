@@ -27,7 +27,10 @@ import { S } from '../engine/state'
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { VEHICLES } from '../domains/forces/composition'
 import { underPlayerCommand } from '../domains/forces/command'
-import type { MarchColumnType, Roe, Soldier, Unit, WeaponsControl } from '../engine/GameState'
+import type {
+  DisabledPolicy, MarchColumnType, Roe, Soldier, Unit, WeaponsControl,
+} from '../engine/GameState'
+import { pushDisabled, strandedIn, wreckerIn } from '../domains/movement/recovery'
 import {
   MARCH_INTERVAL, marchMoving, marchPlan, marchState, setMarchOrder, clearMarchOrder,
 } from '../domains/movement/march'
@@ -54,6 +57,10 @@ const WPN: { id: WeaponsControl; label: string }[] = [
   { id: 'free', label: 'FREE' },
   { id: 'tight', label: 'TIGHT' },
   { id: 'hold', label: 'HOLD' },
+]
+const DISABLED: { id: DisabledPolicy; label: string; why: string }[] = [
+  { id: 'recover', label: 'RECOVER IT', why: 'The column holds while the wrecker hooks it up. The vehicle lives and the motorpool gets it back — and there has to be a recovery vehicle in the column, which was a task organization decision made an hour ago.' },
+  { id: 'push', label: 'PUSH IT OFF', why: 'Shoved off the route and written off. The column does not break stride, and the crew goes looking for a seat in somebody else\'s vic — which may cost you the time anyway.' },
 ]
 
 function Chip<T extends string>({ value, options, onPick }: {
@@ -246,12 +253,13 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   // and the second silently dropped the first.
   const write = (
     next: number[], col?: MarchColumnType,
-    extra: Partial<{ roe: Roe; weapons: WeaponsControl }> = {},
+    extra: Partial<{ roe: Roe; weapons: WeaponsControl; disabled: DisabledPolicy }> = {},
   ) => {
     const cur = marchPlan(gid)
     setMarchOrder(gid, next, col ?? cur?.column ?? 'open', {
       ...(cur?.roe ? { roe: cur.roe } : {}),
       ...(cur?.weapons ? { weapons: cur.weapons } : {}),
+      ...(cur?.disabled ? { disabled: cur.disabled } : {}),
       ...extra,
     })
   }
@@ -265,6 +273,10 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
   const off = state.filter(s => s.driftedRoe || s.driftedWeapons || s.detached)
   const lead = members.find(m => m.id === full[0])
   const shortOfLift = members.filter(m => liftState(m).walking.length)
+  const wrecker = wreckerIn(gid)
+  const stranded = members
+    .map(u => ({ u, vics: strandedIn(u) }))
+    .filter(x => x.vics.length)
 
   return (
     <Section title={`${teamById(gid)?.name ?? `BG ${gid}`} — ${members.length} ELEMENTS · ${
@@ -369,6 +381,43 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
             onPick={v => write(full, undefined, { weapons: v })} />
         </Box>
       </Box>
+
+      {/* A DISABLED VEHICLE. The decision has to be made here, in the order,
+          because the moment it is needed is the worst moment to be asking. */}
+      <Box mt={10}>
+        <Text style={{
+          fontFamily: UI, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.6, color: '#5d6f80',
+        }}>DISABLED VEHICLES</Text>
+        <Box mt={3}>
+          <Chip value={plan?.disabled ?? 'recover'} options={DISABLED}
+            onPick={v => write(full, undefined, { disabled: v })} />
+        </Box>
+        <Note>{DISABLED.find(d => d.id === (plan?.disabled ?? 'recover'))?.why}</Note>
+        {(plan?.disabled ?? 'recover') === 'recover' && !wrecker && (
+          <Note warn>
+            Nothing in this column can recover anything. The order stands and cannot be
+            carried out — attach the support element, or say PUSH IT OFF and mean it.
+          </Note>
+        )}
+        {wrecker && (plan?.disabled ?? 'recover') === 'recover' && (
+          <Note>{wrecker.label} carries the recovery.</Note>
+        )}
+      </Box>
+
+      {/* THE QUESTION WAITING FOR AN ANSWER — a vic stopped on the route with
+          no way to tow it. The net already asked; this is where it gets said. */}
+      {stranded.map(({ u, vics }) => (
+        <Group key={u.id} gap={8} mt={8} align="center" wrap="nowrap">
+          <Text style={{ fontFamily: UI, fontSize: 11, color: WARN, flex: 1 }}>
+            {u.label} — {vics.length} VIC{vics.length === 1 ? '' : 'S'} DISABLED AND STRANDED.
+            Nothing can tow {vics.length === 1 ? 'it' : 'them'}.
+          </Text>
+          <Box component="button" onClick={() => pushDisabled(u.id)} style={{
+            fontFamily: UI, fontSize: 11, padding: '3px 10px', borderRadius: 2, cursor: 'pointer',
+            border: '1px solid #6b3230', background: '#2a1614', color: '#e0a09b',
+          }}>PUSH {vics.length === 1 ? 'IT' : 'THEM'} OFF</Box>
+        </Group>
+      ))}
 
       {shortOfLift.length > 0 && (
         <Note warn>

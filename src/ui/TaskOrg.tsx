@@ -197,12 +197,17 @@ function TeamBoard({ t }: { t: Team }) {
           holding it either way.
         </Note>
       )}
-      {list.some(u => isCrossAttached(t, u)) && (
-        <Note>
-          {list.filter(u => isCrossAttached(t, u)).map(u => u.label).join(', ')} are
-          cross-attached — fighting for this team's commander, not their own company's.
-        </Note>
-      )}
+      {(() => {
+        const x = list.filter(u => isCrossAttached(t, u))
+        if (!x.length) return null
+        return (
+          <Note>
+            {x.map(u => u.label).join(', ')} {x.length === 1 ? 'is' : 'are'} cross-attached —
+            fighting for this team's commander, not {x.length === 1 ? 'its' : 'their'} own
+            company's.
+          </Note>
+        )
+      })()}
     </Box>
   )
 }

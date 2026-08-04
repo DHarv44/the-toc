@@ -14,6 +14,7 @@ import { UNIT_TYPES } from './catalog'
 import { stowageMax } from './composition'
 import { effStats } from './elements'
 import { liftFactor } from './loadplan'
+import { inRecovery } from '../movement/recovery'
 import {
   deriveElements, deriveStrength, downUnit, medicalUpdate,
   processCapture, processWipe, remnantCheck,
@@ -167,6 +168,11 @@ export function movementUpdate(dt: number): void {
       // liftFactor is the load plan biting: a platoon with more people than
       // seats moves at the pace of the ones walking (see ./loadplan).
       let spd = (st.speed * liftFactor(u)) / (isFinite(f) ? f : 3)
+      // A vehicle on the end of a tow cable is not driving anywhere, and
+      // neither is the wrecker on the other end of it. The column's own solver
+      // does the rest: it waits for a member that has stopped exactly as it
+      // waits for one that has bogged (movement/recovery, movement/follow).
+      if (inRecovery(u)) spd = 0
       const c = col.get(u.id)
       if (c) {
         spd = Math.min(spd, c.spd)

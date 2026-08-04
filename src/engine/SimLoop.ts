@@ -16,6 +16,7 @@ import {
 import { hazardUpdate } from '../domains/hazards/update'
 import { recoveryUpdate } from '../domains/forces/recovery'
 import { teamSweep } from '../domains/forces/teams'
+import { recoveryUpdate as vehRecoveryUpdate } from '../domains/movement/recovery'
 import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
 import { interceptUpdate } from '../domains/installations/intercept'
@@ -47,6 +48,7 @@ export function tick(dt: number): void {
   constructionUpdate(dt)  // construction + garrison reconstitution
   movementUpdate(dt)      // columns, movement, convoy, bridging, dig progress
   hazardUpdate()          // mines/IEDs: the lead vic finds them, not the unit
+  vehRecoveryUpdate(dt)   // disabled vics on a route: tow them or push them off
   directFireUpdate(dt)    // direct-fire combat + the drills it triggers
   interceptUpdate(dt)     // point defense engages inbound rounds (pre-impact)
   qrfUpdate(dt)           // base QRFs launch on attack, stand down when quiet

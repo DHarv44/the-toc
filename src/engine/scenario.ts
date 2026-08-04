@@ -68,6 +68,7 @@ export function initGame(
   S.teams = []
   S.march = []
   S.hazards = []
+  S.recoveries = []
   S.replT = 0
   S.radio = []
   S.difficulty = diff.key as DifficultyKey // diff came from the table; key is a real preset key

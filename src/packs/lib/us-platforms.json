@@ -69,6 +69,7 @@
     "ESV": { "key": "ESV", "name": "M1132 Engineer Sqd Vehicle", "crew": 2, "pax": 8, "weapons": ["M2_50"], "expend": ["M76_SMOKE"], "soft": 0.6, "mob": "tracked", "speed": 8 },
     "SP155": { "key": "SP155", "name": "M109 Paladin", "crew": 4, "pax": 0, "weapons": ["M109_155"], "expend": ["M76_SMOKE"], "soft": 0.5, "mob": "tracked", "speed": 7 },
     "FMTV": { "key": "FMTV", "name": "FMTV cargo truck", "crew": 2, "pax": 0, "weapons": [], "soft": 1.0, "mob": "wheeled", "speed": 12 },
+    "M984": { "key": "M984", "name": "M984A4 wrecker", "crew": 3, "pax": 2, "weapons": ["M2_50"], "soft": 0.85, "mob": "wheeled", "speed": 11, "recovery": 90 },
     "RETRANS": { "key": "RETRANS", "name": "Retrans truck", "crew": 2, "pax": 2, "weapons": [], "soft": 0.8, "mob": "wheeled", "speed": 12 },
     "AH64": { "key": "AH64", "name": "AH-64E Apache", "crew": 2, "pax": 0, "weapons": ["M230", "HELLFIRE"], "soft": 0.6, "mob": "wheeled", "speed": 50 },
     "UH60": { "key": "UH60", "name": "UH-60M Black Hawk", "crew": 4, "pax": 11, "weapons": ["M240"], "soft": 0.8, "mob": "wheeled", "speed": 48 },
@@ -205,7 +206,7 @@
       ]
     },
     "SIG": { "unit": "SIG", "vehicles": [{ "type": "RETRANS", "n": 2 }], "dismounts": [{ "kind": "SIGNALLER", "n": 7 }, { "kind": "LEADER", "n": 1 }] },
-    "LOG": { "unit": "LOG", "vehicles": [{ "type": "FMTV", "n": 5 }], "dismounts": [] },
+    "LOG": { "unit": "LOG", "vehicles": [{ "type": "FMTV", "n": 4 }, { "type": "M984", "n": 1 }], "dismounts": [] },
     "MED": { "unit": "MED", "vehicles": [{ "type": "HMMWV", "n": 2 }], "dismounts": [{ "kind": "MEDIC", "n": 5 }, { "kind": "LEADER", "n": 1 }] }
   },
   "drones": {

@@ -111,6 +111,11 @@ export interface VehicleType {
   soft: number
   mob: Mobility
   speed: number
+  /** RECOVERY: seconds to hook up and tow one disabled vehicle. Present only
+   *  on platforms built for it — a cargo truck cannot drag a Bradley off a
+   *  route, and a column without one of these has no recovery option at all,
+   *  only the choice of what to leave behind (domains/movement/recovery). */
+  recovery?: number
 }
 
 export type VehicleKey = string
