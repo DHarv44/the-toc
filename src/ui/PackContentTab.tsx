@@ -47,15 +47,15 @@ export default function PackContentTab({ p, onOpenMaps, onOpenScenarios }: {
     <Box maw={860}>
       {/* MAPS */}
       <Group gap={8} mb={8} align="baseline">
-        <Text fz={11} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>MAPS</Text>
-        <Text fz={10} c="dark.3">{maps.length}</Text>
-        <Button size="compact-xs" variant="default" ml="auto" onClick={onOpenMaps}
+        <Text fz={15} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>MAPS</Text>
+        <Text fz={15} c="dark.3">{maps.length}</Text>
+        <Button size="compact-sm" variant="default" ml="auto" onClick={onOpenMaps}
           disabled={!onOpenMaps}>
           OPEN MAP EDITOR
         </Button>
       </Group>
       {maps.length === 0 && (
-        <Text fz={10} c="dark.3" mb={14}>
+        <Text fz={15} c="dark.3" mb={14}>
           This pack ships no ground. Author one in the MAP EDITOR and save it into
           {' '}<span style={{ fontFamily: MONO }}>{p.id}</span> — a scenario can still borrow
           another pack's map in the meantime.
@@ -64,8 +64,8 @@ export default function PackContentTab({ p, onOpenMaps, onOpenScenarios }: {
       {maps.map(m => (
         <Row key={m.mapId}>
           <Group gap={10} wrap="nowrap" align="baseline">
-            <Text fz={12} fw={700} c="#dceeff">{m.name}</Text>
-            <Text fz={10} c="dark.3" style={{ fontFamily: MONO, flex: 1 }}>
+            <Text fz={16} fw={700} c="#dceeff">{m.name}</Text>
+            <Text fz={15} c="dark.3" style={{ fontFamily: MONO, flex: 1 }}>
               {p.id}/{m.mapId}
             </Text>
             {/* WHO FIGHTS ON THIS GROUND — counted across every pack, not just
@@ -75,7 +75,7 @@ export default function PackContentTab({ p, onOpenMaps, onOpenScenarios }: {
               const on = packScenarios().filter(s => s.spec.map === `${p.id}/${m.mapId}`)
               const foreign = on.filter(s => s.packId !== p.id).length
               return (
-                <Text fz={10} c="dark.3">
+                <Text fz={15} c="dark.3">
                   {on.length} SCENARIO{on.length === 1 ? '' : 'S'}
                   {foreign > 0 && ` · ${foreign} FROM ANOTHER PACK`}
                 </Text>
@@ -87,15 +87,15 @@ export default function PackContentTab({ p, onOpenMaps, onOpenScenarios }: {
 
       {/* SCENARIOS */}
       <Group gap={8} mt={20} mb={8} align="baseline">
-        <Text fz={11} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>SCENARIOS</Text>
-        <Text fz={10} c="dark.3">{scenarios.length}</Text>
-        <Button size="compact-xs" variant="default" ml="auto" onClick={onOpenScenarios}
+        <Text fz={15} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>SCENARIOS</Text>
+        <Text fz={15} c="dark.3">{scenarios.length}</Text>
+        <Button size="compact-sm" variant="default" ml="auto" onClick={onOpenScenarios}
           disabled={!onOpenScenarios}>
           OPEN SCENARIO BUILDER
         </Button>
       </Group>
       {scenarios.length === 0 && (
-        <Text fz={10} c="dark.3">
+        <Text fz={15} c="dark.3">
           This pack ships no scenarios, so there is no way to play it. Author one in the
           SCENARIO BUILDER — it decides which army takes which side, so a pack becomes
           playable the moment a scenario names it.
@@ -109,27 +109,27 @@ export default function PackContentTab({ p, onOpenMaps, onOpenScenarios }: {
         return (
           <Row key={s.scenarioId}>
             <Group gap={10} wrap="nowrap" align="baseline">
-              <Text fz={12} fw={700} c="#dceeff">{s.name}</Text>
-              <Badge size="xs" variant="outline" color={isCampaign ? 'yellow' : 'blue'}>
+              <Text fz={16} fw={700} c="#dceeff">{s.name}</Text>
+              <Badge size="sm" variant="outline" color={isCampaign ? 'yellow' : 'blue'}>
                 {isCampaign ? 'CAMPAIGN' : (MODES[s.spec.type]?.label ?? s.spec.type).toUpperCase()}
               </Badge>
-              <Text fz={10} c="dark.3" style={{ fontFamily: MONO, flex: 1 }}>
+              <Text fz={15} c="dark.3" style={{ fontFamily: MONO, flex: 1 }}>
                 {p.id}/{s.scenarioId}
               </Text>
-              {isCampaign && <Text fz={10} c="dark.3">{n} MISSION{n === 1 ? '' : 'S'}</Text>}
+              {isCampaign && <Text fz={15} c="dark.3">{n} MISSION{n === 1 ? '' : 'S'}</Text>}
             </Group>
             <Group gap={14} mt={4}>
-              <Text fz={10} c={g ? (g.foreign ? '#c8a25f' : 'dark.3') : 'orange.5'}>
+              <Text fz={15} c={g ? (g.foreign ? '#c8a25f' : 'dark.3') : 'orange.5'}>
                 GROUND: {g ? `${g.name.toUpperCase()}${g.foreign ? ` · BORROWED FROM ${g.packId?.toUpperCase()}` : ''}`
                   : 'NONE — bind a map in the SCENARIO BUILDER'}
               </Text>
               {sides && (
-                <Text fz={10} c="dark.3">
+                <Text fz={15} c="dark.3">
                   SIDES: {(sides.friend ?? '?').toUpperCase()} vs {(sides.hostile ?? '?').toUpperCase()}
                   {sides.friend && sides.friend !== p.id && ' — this pack is not the player here'}
                 </Text>
               )}
-              {s.spec.player && <Text fz={10} c="dark.3">CHAIR: {s.spec.player}</Text>}
+              {s.spec.player && <Text fz={15} c="dark.3">CHAIR: {s.spec.player}</Text>}
             </Group>
           </Row>
         )

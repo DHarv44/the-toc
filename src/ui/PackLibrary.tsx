@@ -85,7 +85,7 @@ export default function PackLibrary({ onOpen, onExit }: {
         <Group align="center" mb={4}>
           <Box style={{ flex: 1 }}>
             <Text fz={26} fw={700} c="#dceeff" style={{ letterSpacing: 4 }}>PACK BUILDER</Text>
-            <Text fz={10} c="dark.3" style={{ letterSpacing: 1.5 }}>
+            <Text fz={15} c="dark.3" style={{ letterSpacing: 1.5 }}>
               PICK AN ARMY TO INSPECT AND EDIT — OR START A NEW ONE
             </Text>
           </Box>
@@ -100,27 +100,27 @@ export default function PackLibrary({ onOpen, onExit }: {
             cursor: creating ? 'default' : 'pointer',
           }}
             onClick={() => { if (!creating) { setCreating(true); setMsg(null) } }}>
-            <Text fz={15} fw={700} c="#e6f0f8" style={{ letterSpacing: 3 }}>＋ NEW PACK</Text>
+            <Text fz={18} fw={700} c="#e6f0f8" style={{ letterSpacing: 3 }}>＋ NEW PACK</Text>
             {!creating && (
-              <Text fz={10} c="#7f97ab" mt={2}>
+              <Text fz={15} c="#7f97ab" mt={2}>
                 Name the army — it saves a manifest into src/packs/ and the app finds it
               </Text>
             )}
             {creating && (
               <Box mt={10} onClick={ev => ev.stopPropagation()}>
                 <Group grow mb={8}>
-                  <TextInput size="xs" label="NAME" value={newName}
+                  <TextInput size="sm" label="NAME" value={newName}
                     styles={{ input: { fontFamily: MONO } }}
                     onChange={ev => setNewName(ev.currentTarget.value)} />
-                  <TextInput size="xs" label="ABBR" value={newAbbr} maxLength={8}
+                  <TextInput size="sm" label="ABBR" value={newAbbr} maxLength={8}
                     styles={{ input: { fontFamily: MONO } }}
                     onChange={ev => setNewAbbr(ev.currentTarget.value.toUpperCase())} />
                 </Group>
-                <Select size="xs" label="INHERITS (OPTIONAL)" value={inherits} clearable
+                <Select size="sm" label="INHERITS (OPTIONAL)" value={inherits} clearable
                   placeholder="NOTHING — AN ARMY OF ITS OWN"
                   data={packs.map(p => ({ value: p.id, label: `${p.abbr ?? p.id} — ${p.name}` }))}
                   onChange={setInherits} mb={4} />
-                <Text fz={9} c="dark.3" mb={10}>
+                <Text fz={14} c="dark.3" mb={10}>
                   A parent supplies functional content this pack does not ship — platforms,
                   billets, ranks. Leave it empty for a whole army of its own: inheriting
                   somebody else's rifles hides what yours is missing.
@@ -132,7 +132,7 @@ export default function PackLibrary({ onOpen, onExit }: {
                   </Button>
                   <Button size="compact-sm" variant="subtle" c="dark.2"
                     onClick={() => setCreating(false)}>CANCEL</Button>
-                  <Text fz={10} c={taken ? 'orange.5' : 'dark.3'}>
+                  <Text fz={15} c={taken ? 'orange.5' : 'dark.3'}>
                     {taken ? `src/packs/${newId}/ ALREADY EXISTS`
                       : newId ? `src/packs/${newId}/pack.json` : 'NAME IT FIRST'}
                   </Text>
@@ -142,7 +142,7 @@ export default function PackLibrary({ onOpen, onExit }: {
           </Box>
 
           {msg && (
-            <Text fz={11} c={msg.startsWith('FAILED') ? 'orange.5' : '#7ec87e'} mb={10}>{msg}</Text>
+            <Text fz={15} c={msg.startsWith('FAILED') ? 'orange.5' : '#7ec87e'} mb={10}>{msg}</Text>
           )}
 
           {/* the shelf — every army this build knows about */}
@@ -159,14 +159,14 @@ export default function PackLibrary({ onOpen, onExit }: {
                   {p.patch && <PatchIcon id={p.patch} h={30} />}
                   <Box style={{ flex: 1, minWidth: 0 }}>
                     <Group gap={8} wrap="nowrap">
-                      <Text fz={15} fw={700} c="#e6f0f8" style={{ letterSpacing: 2 }}>
+                      <Text fz={18} fw={700} c="#e6f0f8" style={{ letterSpacing: 2 }}>
                         {p.abbr ?? p.id}
                       </Text>
-                      <Text fz={12} c="#9ab8d0" truncate style={{ flex: 1 }}>{p.name}</Text>
-                      {p.nick && <Text fz={10} c="#c8a25f">{p.nick.toUpperCase()}</Text>}
+                      <Text fz={16} c="#9ab8d0" truncate style={{ flex: 1 }}>{p.name}</Text>
+                      {p.nick && <Text fz={15} c="#c8a25f">{p.nick.toUpperCase()}</Text>}
                     </Group>
-                    <Text fz={10} c="dark.3" mt={3}>{summarize(p)}</Text>
-                    <Text fz={10} c="dark.3" mt={2}>
+                    <Text fz={15} c="dark.3" mt={3}>{summarize(p)}</Text>
+                    <Text fz={15} c="dark.3" mt={2}>
                       {p.id}
                       {parent ? ` · INHERITS ${parent.toUpperCase()}` : ' · STANDALONE'}
                       {` · ${count(nMaps, 'MAP')} · ${count(nScen, 'SCENARIO')}`}

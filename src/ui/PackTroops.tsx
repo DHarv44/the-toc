@@ -44,13 +44,13 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     return (
       <Box maw={700}>
         <SourceBadge form={form} lib={lib} p={p} />
-        <Text fz={10} c="dark.3" mb={12} maw={560}>
+        <Text fz={15} c="dark.3" mb={12} maw={560}>
           This pack authors no troop kinds of its own, so it fields somebody else's —
           {' '}{Object.keys(p.catalogs?.troops ?? {}).length} of them. Taking ownership copies
           them in as a starting point; after that they are yours to change, and nothing
           upstream will change them again.
         </Text>
-        <Button size="xs" variant="default"
+        <Button size="sm" variant="default"
           onClick={() => setTroops({ ...(p.catalogs?.troops ?? {}) })}>
           AUTHOR OWN TABLE ({Object.keys(p.catalogs?.troops ?? {}).length} KINDS)
         </Button>
@@ -65,8 +65,8 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     return (
       <Box maw={700}>
         <SourceBadge form={form} lib={lib} p={p} />
-        <Text fz={10} c="dark.3" mb={12} maw={560}>{SUBSET_NOTE}</Text>
-        <MultiSelect size="xs" data={libraryIds(lib, 'troops')} value={chosen} searchable
+        <Text fz={15} c="dark.3" mb={12} maw={560}>{SUBSET_NOTE}</Text>
+        <MultiSelect size="sm" data={libraryIds(lib, 'troops')} value={chosen} searchable
           label="KINDS THIS PACK FIELDS" styles={{ input: { fontFamily: MONO } }}
           onChange={v => setTroops(v.length ? v : undefined)} />
         <SaveBar ed={ed} />
@@ -95,7 +95,7 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
       <SourceBadge form={form} p={p} count={keys.length} />
 
       {keys.length === 0 && (
-        <Text fz={10} c="dark.3" mb={10}>
+        <Text fz={15} c="dark.3" mb={10}>
           No troop kinds. A composition is built out of these, so an army with none can
           field nothing.
         </Text>
@@ -108,21 +108,21 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
             style={{ border: '1px solid #22303d', borderRadius: 3, background: 'rgba(16,26,36,0.6)' }}>
             <Group gap={10} wrap="nowrap" align="flex-end">
               <Box w={140} style={{ flex: '0 0 auto' }}>
-                <Text fz={9} c="dark.3" style={{ letterSpacing: 1.5 }}>KEY</Text>
-                <Text fz={12} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
+                <Text fz={14} c="dark.3" style={{ letterSpacing: 1.5 }}>KEY</Text>
+                <Text fz={16} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
               </Box>
-              <TextInput size="xs" label="NAME" value={t.name ?? ''} style={{ flex: 1 }}
+              <TextInput size="sm" label="NAME" value={t.name ?? ''} style={{ flex: 1 }}
                 styles={{ input: { fontFamily: MONO } }}
                 onChange={e => patch(k, { name: e.currentTarget.value })} />
-              <Button size="compact-xs" variant="subtle" color="red" onClick={() => drop(k)}>
+              <Button size="compact-sm" variant="subtle" color="red" onClick={() => drop(k)}>
                 REMOVE
               </Button>
             </Group>
             <Group gap={10} mt={8} grow align="flex-start">
-              <MultiSelect size="xs" label="WEAPONS" data={weaponOpts} value={t.weapons ?? []}
+              <MultiSelect size="sm" label="WEAPONS" data={weaponOpts} value={t.weapons ?? []}
                 searchable styles={{ input: { fontFamily: MONO } }}
                 onChange={v => patch(k, { weapons: v })} />
-              <MultiSelect size="xs" label="EXPENDABLES" data={expendOpts} value={t.expend ?? []}
+              <MultiSelect size="sm" label="EXPENDABLES" data={expendOpts} value={t.expend ?? []}
                 searchable styles={{ input: { fontFamily: MONO } }}
                 onChange={v => patch(k, { expend: v.length ? v : undefined })} />
             </Group>
@@ -131,14 +131,14 @@ export default function PackTroops({ p, ed }: { p: Pack; ed: ManifestEditor }) {
       })}
 
       <Group gap={8} mt={12}>
-        <TextInput size="xs" placeholder="NEW_KIND_KEY" value={newKey} spellCheck={false}
+        <TextInput size="sm" placeholder="NEW_KIND_KEY" value={newKey} spellCheck={false}
           styles={{ input: { fontFamily: MONO } }} w={220}
           onChange={e => setNewKey(e.currentTarget.value)}
           onKeyDown={e => { if (e.key === 'Enter') add() }} />
-        <Button size="compact-xs" variant="default" disabled={!newKey.trim()} onClick={add}>
+        <Button size="compact-sm" variant="default" disabled={!newKey.trim()} onClick={add}>
           ＋ ADD KIND
         </Button>
-        <Text fz={9} c="dark.3">
+        <Text fz={14} c="dark.3">
           A key is an id — compositions and billet tables both name it.
         </Text>
       </Group>

@@ -24,10 +24,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const Th = ({ children }: { children?: React.ReactNode }) => (
-  <Table.Th><Text fz={10} c="dark.3" style={{ letterSpacing: 1 }}>{children}</Text></Table.Th>
+  <Table.Th><Text fz={15} c="dark.3" style={{ letterSpacing: 1 }}>{children}</Text></Table.Th>
 )
 const Td = ({ children, c = 'dark.1' }: { children?: React.ReactNode; c?: string }) => (
-  <Table.Td><Text fz={11} c={c} style={{ fontVariantNumeric: 'tabular-nums' }}>{children}</Text></Table.Td>
+  <Table.Td><Text fz={15} c={c} style={{ fontVariantNumeric: 'tabular-nums' }}>{children}</Text></Table.Td>
 )
 
 function UnitsTable({ p }: { p: Pack }) {
@@ -115,7 +115,7 @@ function WeaponsTable({ p }: { p: Pack }) {
 
 function DronesTable({ p }: { p: Pack }) {
   const drones = Object.values(p.catalogs.drones ?? {})
-  if (!drones.length) return <Text fz={11} c="dark.3" mt={6}>No air platforms in this pack.</Text>
+  if (!drones.length) return <Text fz={15} c="dark.3" mt={6}>No air platforms in this pack.</Text>
   return (
     <Table withRowBorders={false} verticalSpacing={2}>
       <Table.Thead><Table.Tr>
@@ -138,21 +138,21 @@ function DronesTable({ p }: { p: Pack }) {
 
 function Formation({ p }: { p: Pack }) {
   const f = p.formation
-  if (!f) return <Text fz={11} c="dark.3" mt={6}>No formation tree (placeholder pack).</Text>
+  if (!f) return <Text fz={15} c="dark.3" mt={6}>No formation tree (placeholder pack).</Text>
   return (
     <Group gap="lg" align="flex-start" mt={6} wrap="wrap">
       {/* the tree at whatever depth the pack declares — each top-level
           formation gets a column, everything under it indents by its rung */}
       {f.under.map(top => (
         <Box key={top.desig} miw={170}>
-          <Text fz={12} fw={700} c="#dceeff">{top.desig}{top.nick ? ` — ${top.nick}` : ''}</Text>
+          <Text fz={16} fw={700} c="#dceeff">{top.desig}{top.nick ? ` — ${top.nick}` : ''}</Text>
           {walkFormation({ ...f, under: top.under ?? [] }).map(w => {
             const n = w.node
             const player = n.desig === f.chair
             return (
-              <Text key={w.path.join('/')} fz={11} c={player ? '#e8c547' : 'dark.1'} pl={10 + w.rung * 10}>
-                {n.desig} <Text span fz={9} c="dark.3">({n.kind ?? '—'}{player ? ' · PLAYER' : n.tfCos ? ` · TF: ${n.tfCos.join(', ')}` : ''})</Text>
-                {p.nicks?.[n.desig] && <Text span fz={9} c="dark.2"> “{p.nicks[n.desig]}”</Text>}
+              <Text key={w.path.join('/')} fz={15} c={player ? '#e8c547' : 'dark.1'} pl={10 + w.rung * 10}>
+                {n.desig} <Text span fz={14} c="dark.3">({n.kind ?? '—'}{player ? ' · PLAYER' : n.tfCos ? ` · TF: ${n.tfCos.join(', ')}` : ''})</Text>
+                {p.nicks?.[n.desig] && <Text span fz={14} c="dark.2"> “{p.nicks[n.desig]}”</Text>}
               </Text>
             )
           })}
@@ -163,14 +163,14 @@ function Formation({ p }: { p: Pack }) {
 }
 
 function Names({ p }: { p: Pack }) {
-  if (!p.names) return <Text fz={11} c="dark.3" mt={6}>No name pools — generation uses the neutral default.</Text>
+  if (!p.names) return <Text fz={15} c="dark.3" mt={6}>No name pools — generation uses the neutral default.</Text>
   return (
     <Box mt={6}>
-      <Text fz={11} c="dark.1"><Text span c="dark.3" fz={10}>MALE ({p.names.male.length}) </Text>{p.names.male.slice(0, 60).join(', ')}{p.names.male.length > 60 ? ' …' : ''}</Text>
-      <Text fz={11} c="dark.1" mt={4}><Text span c="dark.3" fz={10}>FEMALE ({p.names.female.length}) </Text>{p.names.female.slice(0, 60).join(', ')}{p.names.female.length > 60 ? ' …' : ''}</Text>
-      <Text fz={11} c="dark.1" mt={4}><Text span c="dark.3" fz={10}>LAST ({p.names.last.length}) </Text>{p.names.last.slice(0, 80).join(', ')}{p.names.last.length > 80 ? ' …' : ''}</Text>
+      <Text fz={15} c="dark.1"><Text span c="dark.3" fz={15}>MALE ({p.names.male.length}) </Text>{p.names.male.slice(0, 60).join(', ')}{p.names.male.length > 60 ? ' …' : ''}</Text>
+      <Text fz={15} c="dark.1" mt={4}><Text span c="dark.3" fz={15}>FEMALE ({p.names.female.length}) </Text>{p.names.female.slice(0, 60).join(', ')}{p.names.female.length > 60 ? ' …' : ''}</Text>
+      <Text fz={15} c="dark.1" mt={4}><Text span c="dark.3" fz={15}>LAST ({p.names.last.length}) </Text>{p.names.last.slice(0, 80).join(', ')}{p.names.last.length > 80 ? ' …' : ''}</Text>
       {p.people && Object.keys(p.people).length > 0 && (
-        <Text fz={11} c="#e8c547" mt={4}>{Object.keys(p.people).length} explicit roster pin(s)</Text>
+        <Text fz={15} c="#e8c547" mt={4}>{Object.keys(p.people).length} explicit roster pin(s)</Text>
       )}
     </Box>
   )
@@ -229,8 +229,8 @@ export default function PackViewer() {
                 border: `1px solid ${i === packIdx ? '#7ec8ff' : '#22303d'}`, borderRadius: 4,
                 background: i === packIdx ? '#14202c' : '#0d141c',
               }}>
-              <Text fz={13} fw={700} c={i === packIdx ? '#dceeff' : 'dark.2'}>
-                {pk.abbr} <Text span fz={9} c="dark.2">{pk.nick ?? pk.id}</Text>
+              <Text fz={18} fw={700} c={i === packIdx ? '#dceeff' : 'dark.2'}>
+                {pk.abbr} <Text span fz={14} c="dark.2">{pk.nick ?? pk.id}</Text>
               </Text>
             </UnstyledButton>
           ))}
@@ -243,7 +243,7 @@ export default function PackViewer() {
             style={{
               borderBottom: `2px solid ${t === tab ? '#7ec8ff' : 'transparent'}`,
             }}>
-            <Text fz={11} fw={700} c={t === tab ? '#dceeff' : 'dark.3'} style={{ letterSpacing: 1 }}>{t}</Text>
+            <Text fz={15} fw={700} c={t === tab ? '#dceeff' : 'dark.3'} style={{ letterSpacing: 1 }}>{t}</Text>
           </UnstyledButton>
         ))}
       </Group>

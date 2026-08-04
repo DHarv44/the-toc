@@ -35,12 +35,12 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     return (
       <Box maw={700}>
         <SourceBadge form={form} lib={lib} p={p} />
-        <Text fz={10} c="dark.3" mb={12} maw={560}>
+        <Text fz={15} c="dark.3" mb={12} maw={560}>
           This pack authors no compositions of its own, so its elements are built to somebody
           else's establishment — {n} of them. Taking ownership copies them in as a starting
           point; after that they are yours, and nothing upstream will change them again.
         </Text>
-        <Button size="xs" variant="default" onClick={() => setComps({ ...(p.catalogs?.comps ?? {}) })}>
+        <Button size="sm" variant="default" onClick={() => setComps({ ...(p.catalogs?.comps ?? {}) })}>
           AUTHOR OWN TABLE ({n} COMPOSITIONS)
         </Button>
         <SaveBar ed={ed} />
@@ -53,8 +53,8 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     return (
       <Box maw={700}>
         <SourceBadge form={form} lib={lib} p={p} />
-        <Text fz={10} c="dark.3" mb={12} maw={560}>{SUBSET_NOTE}</Text>
-        <MultiSelect size="xs" data={libraryIds(lib, 'comps')} value={chosen} searchable
+        <Text fz={15} c="dark.3" mb={12} maw={560}>{SUBSET_NOTE}</Text>
+        <MultiSelect size="sm" data={libraryIds(lib, 'comps')} value={chosen} searchable
           label="COMPOSITIONS THIS PACK FIELDS" styles={{ input: { fontFamily: MONO } }}
           onChange={v => setComps(v.length ? v : undefined)} />
         <SaveBar ed={ed} />
@@ -96,7 +96,7 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
       <SourceBadge form={form} p={p} count={keys.length} />
 
       {keys.length === 0 && (
-        <Text fz={10} c="dark.3" mb={10}>
+        <Text fz={15} c="dark.3" mb={10}>
           No compositions. A unit type with none cannot be built, so nothing here can be fielded.
         </Text>
       )}
@@ -113,18 +113,18 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           <Box key={k} mb={10} p={10}
             style={{ border: '1px solid #22303d', borderRadius: 3, background: 'rgba(16,26,36,0.6)' }}>
             <Group gap={10} wrap="nowrap" align="baseline">
-              <Text fz={12} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
-              <Text fz={10} c="dark.3" style={{ flex: 1 }}>
+              <Text fz={16} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
+              <Text fz={15} c="dark.3" style={{ flex: 1 }}>
                 {p.catalogs?.units?.[k]?.name ?? 'NO UNIT TYPE OF THIS KEY'}
               </Text>
-              <Badge size="xs" variant="outline" color={mismatch ? 'orange' : 'gray'}>
+              <Badge size="sm" variant="outline" color={mismatch ? 'orange' : 'gray'}>
                 {heads} TROOPS{declared != null ? ` · DECLARED ${declared}` : ''}
               </Badge>
-              <Button size="compact-xs" variant="subtle" color="red" onClick={() => drop(k)}>REMOVE</Button>
+              <Button size="compact-sm" variant="subtle" color="red" onClick={() => drop(k)}>REMOVE</Button>
             </Group>
 
             {mismatch && (
-              <Text fz={9} c="orange.5" mt={4}>
+              <Text fz={14} c="orange.5" mt={4}>
                 The unit type declares {declared} and this roster builds {heads}. Strength comes
                 from the ROSTER, so the declaration is the one that is wrong.
               </Text>
@@ -132,37 +132,37 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
 
             <Group gap={20} mt={10} align="flex-start">
               <Box style={{ flex: 1 }}>
-                <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>VEHICLES</Text>
-                {veh.length === 0 && <Text fz={10} c="dark.3" mb={4}>none — this element walks</Text>}
+                <Text fz={14} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>VEHICLES</Text>
+                {veh.length === 0 && <Text fz={15} c="dark.3" mb={4}>none — this element walks</Text>}
                 {veh.map((r, i) => (
                   <Group key={i} gap={6} mb={4} wrap="nowrap">
-                    <Select size="xs" data={vehOpts} value={r.type ?? null} searchable
+                    <Select size="sm" data={vehOpts} value={r.type ?? null} searchable
                       style={{ flex: 1 }} styles={{ input: { fontFamily: MONO } }}
                       onChange={v => v && setRow(k, 'vehicles', i, { type: v })} />
-                    <NumberInput size="xs" w={70} min={1} value={r.n}
+                    <NumberInput size="sm" w={70} min={1} value={r.n}
                       onChange={v => setRow(k, 'vehicles', i, { n: Number(v) || 1 })} />
-                    <Button size="compact-xs" variant="subtle" color="red"
+                    <Button size="compact-sm" variant="subtle" color="red"
                       onClick={() => dropRow(k, 'vehicles', i)}>✕</Button>
                   </Group>
                 ))}
-                <Button size="compact-xs" variant="default" mt={2} disabled={!vehOpts.length}
+                <Button size="compact-sm" variant="default" mt={2} disabled={!vehOpts.length}
                   onClick={() => addRow(k, 'vehicles')}>＋ VEHICLE</Button>
               </Box>
 
               <Box style={{ flex: 1 }}>
-                <Text fz={9} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>DISMOUNTS</Text>
+                <Text fz={14} c="dark.3" mb={4} style={{ letterSpacing: 1.5 }}>DISMOUNTS</Text>
                 {dis.map((r, i) => (
                   <Group key={i} gap={6} mb={4} wrap="nowrap">
-                    <Select size="xs" data={kindOpts} value={r.kind ?? null} searchable
+                    <Select size="sm" data={kindOpts} value={r.kind ?? null} searchable
                       style={{ flex: 1 }} styles={{ input: { fontFamily: MONO } }}
                       onChange={v => v && setRow(k, 'dismounts', i, { kind: v })} />
-                    <NumberInput size="xs" w={70} min={1} value={r.n}
+                    <NumberInput size="sm" w={70} min={1} value={r.n}
                       onChange={v => setRow(k, 'dismounts', i, { n: Number(v) || 1 })} />
-                    <Button size="compact-xs" variant="subtle" color="red"
+                    <Button size="compact-sm" variant="subtle" color="red"
                       onClick={() => dropRow(k, 'dismounts', i)}>✕</Button>
                   </Group>
                 ))}
-                <Button size="compact-xs" variant="default" mt={2} disabled={!kindOpts.length}
+                <Button size="compact-sm" variant="default" mt={2} disabled={!kindOpts.length}
                   onClick={() => addRow(k, 'dismounts')}>＋ DISMOUNT</Button>
               </Box>
             </Group>
@@ -171,15 +171,15 @@ export default function PackComps({ p, ed }: { p: Pack; ed: ManifestEditor }) {
       })}
 
       <Group gap={8} mt={12}>
-        <Select size="xs" w={260} placeholder="UNIT TYPE WITH NO COMPOSITION" value={newKey}
+        <Select size="sm" w={260} placeholder="UNIT TYPE WITH NO COMPOSITION" value={newKey}
           data={unitOpts.map(u => ({ value: u, label: `${u} — ${p.catalogs.units[u]?.name ?? u}` }))}
           onChange={setNewKey} />
-        <Button size="compact-xs" variant="default" disabled={!newKey}
+        <Button size="compact-sm" variant="default" disabled={!newKey}
           onClick={() => { if (newKey) { setComps({ ...table, [newKey]: { unit: newKey, vehicles: [], dismounts: [] } }); setNewKey(null) } }}>
           ＋ ADD COMPOSITION
         </Button>
         {unitOpts.length === 0 && keys.length > 0 && (
-          <Text fz={9} c="dark.3">Every unit type this pack ships already has one.</Text>
+          <Text fz={14} c="dark.3">Every unit type this pack ships already has one.</Text>
         )}
       </Group>
 

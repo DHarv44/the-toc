@@ -8,6 +8,26 @@ import type { RadioKind } from '../engine/GameState'
 export { clamp } from '../lib/math'
 export { fmtClock } from '../lib/format'
 
+// TYPE SCALE — fixed rungs, and a FLOOR of 11.
+//
+// Picking a size per element ratchets downward: each one gets chosen as
+// "slightly less important than the thing beside it", and with no rungs to
+// land on it drifts. This file already said 11 for panel text and the UI had
+// drifted to 219 declarations at 11 or below, 76 of them at 9 and 8 — sizes
+// nobody can comfortably read on a real monitor.
+//
+// Shrinking type is also the cheap way to fit a dense form. When something
+// does not fit at BODY, the answer is fewer columns or progressive disclosure,
+// not a smaller font.
+export const FZ = {
+  hint: 14,   // incidental notes, the smallest anything may be
+  body: 15,   // descriptions, table cells, form text
+  label: 14,  // section and field labels
+  item: 16,   // a named thing in a list
+  head: 18,   // panel headings
+  title: 26,  // screen titles
+} as const
+
 export const panel: CSSProperties = {
   background: 'rgba(12,18,24,0.92)', border: '1px solid #2a3a48',
   color: '#c8d8e8', padding: 8, fontSize: 11, borderRadius: 3,

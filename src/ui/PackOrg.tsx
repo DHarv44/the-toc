@@ -85,13 +85,13 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     plan: Plan; onChange: (n: Partial<Plan>) => void; onDrop?: () => void; label?: string
   }) => (
     <Group gap={6} mt={4} wrap="nowrap" align="flex-end">
-      {label && <Text fz={9} c="dark.3" w={70} style={{ flex: '0 0 auto' }}>{label}</Text>}
-      <TextInput size="xs" style={{ flex: 1 }} value={plan.pos ?? ''} placeholder="Rifleman"
+      {label && <Text fz={14} c="dark.3" w={70} style={{ flex: '0 0 auto' }}>{label}</Text>}
+      <TextInput size="sm" style={{ flex: 1 }} value={plan.pos ?? ''} placeholder="Rifleman"
         onChange={e => onChange({ pos: e.currentTarget.value })} />
-      <TextInput size="xs" w={200} value={rankText(plan.rank)} placeholder="PVT, PFC, SPC"
+      <TextInput size="sm" w={200} value={rankText(plan.rank)} placeholder="PVT, PFC, SPC"
         styles={{ input: { fontFamily: MONO } }}
         onChange={e => onChange({ rank: rankValue(e.currentTarget.value) })} />
-      {onDrop && <Button size="compact-xs" variant="subtle" color="red" onClick={onDrop}>✕</Button>}
+      {onDrop && <Button size="compact-sm" variant="subtle" color="red" onClick={onDrop}>✕</Button>}
     </Group>
   )
 
@@ -100,13 +100,13 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     <Box mb={14}>
       <Group gap={8} mb={6}>
         <Badge size="sm" variant="outline" color="yellow">INHERITED</Badge>
-        <Text fz={11} c="#9ab8d0">from {p.inherits ?? 'the canonical pack'}</Text>
+        <Text fz={15} c="#9ab8d0">from {p.inherits ?? 'the canonical pack'}</Text>
       </Group>
-      <Text fz={10} c="dark.3" mb={10} maw={560}>
+      <Text fz={15} c="dark.3" mb={10} maw={560}>
         This pack authors no {what} of its own, so its formations are built to somebody
         else's — {n} of them. Taking ownership copies them in; after that they are yours.
       </Text>
-      <Button size="xs" variant="default" onClick={onTake}>AUTHOR OWN {what.toUpperCase()} ({n})</Button>
+      <Button size="sm" variant="default" onClick={onTake}>AUTHOR OWN {what.toUpperCase()} ({n})</Button>
     </Box>
   )
 
@@ -115,19 +115,19 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     s: SlotPlan; onChange: (n: Partial<SlotPlan>) => void; onDrop: () => void
   }) => (
     <Group gap={6} mb={4} wrap="nowrap" align="flex-end">
-      <TextInput size="xs" w={120} value={s.name} placeholder="1st PLT"
+      <TextInput size="sm" w={120} value={s.name} placeholder="1st PLT"
         styles={{ input: { fontFamily: MONO } }}
         onChange={e => onChange({ name: e.currentTarget.value })} />
-      <Select size="xs" w={150} data={ROLES} value={s.role ?? ''}
+      <Select size="sm" w={150} data={ROLES} value={s.role ?? ''}
         onChange={v => onChange({ role: v || undefined })} />
       {/* a slot is EITHER a fieldable unit type or a hand-built roster */}
-      <Select size="xs" w={150} clearable placeholder="UNIT TYPE" data={unitOpts}
+      <Select size="sm" w={150} clearable placeholder="UNIT TYPE" data={unitOpts}
         value={s.type ?? null} styles={{ input: { fontFamily: MONO } }}
         onChange={v => onChange({ type: v ?? undefined, roster: v ? undefined : s.roster })} />
-      <Select size="xs" w={150} clearable placeholder="ROSTER" data={rosterKeys}
+      <Select size="sm" w={150} clearable placeholder="ROSTER" data={rosterKeys}
         value={s.roster ?? null} styles={{ input: { fontFamily: MONO } }}
         onChange={v => onChange({ roster: v ?? undefined, type: v ? undefined : s.type })} />
-      <Button size="compact-xs" variant="subtle" color="red" onClick={onDrop}>✕</Button>
+      <Button size="compact-sm" variant="subtle" color="red" onClick={onDrop}>✕</Button>
     </Group>
   )
 
@@ -138,7 +138,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           onChange={n => write(list.map((x, j) => (j === i ? { ...x, ...n } : x)))}
           onDrop={() => write(list.filter((_, j) => j !== i))} />
       ))}
-      <Button size="compact-xs" variant="default" mt={2}
+      <Button size="compact-sm" variant="default" mt={2}
         onClick={() => write([...list, { name: 'NEW SLOT' }])}>＋ SLOT</Button>
     </>
   )
@@ -147,7 +147,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
     <Box maw={900}>
       <Group gap={4} mb={14}>
         {(['templates', 'rosters', 'billets'] as const).map(s => (
-          <Button key={s} size="compact-xs" variant={section === s ? 'filled' : 'default'}
+          <Button key={s} size="compact-sm" variant={section === s ? 'filled' : 'default'}
             onClick={() => setSection(s)}>
             {s === 'templates' ? `TEMPLATES (${Object.keys(kinds).length})`
               : s === 'rosters' ? `ROSTERS (${rosterKeys.length})`
@@ -168,13 +168,13 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
             return (
               <Box key={k} mb={10} p={10} style={CARD}>
                 <Group gap={10} wrap="nowrap" align="center">
-                  <Text fz={12} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
-                  <TextInput size="xs" w={110} placeholder="branch" value={plan.branch ?? ''}
+                  <Text fz={16} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
+                  <TextInput size="sm" w={110} placeholder="branch" value={plan.branch ?? ''}
                     onChange={e => setKinds({ ...kinds, [k]: { ...plan, branch: e.currentTarget.value || undefined } })} />
-                  <Badge size="xs" variant="outline" color={hasCos ? 'blue' : 'green'}>
+                  <Badge size="sm" variant="outline" color={hasCos ? 'blue' : 'green'}>
                     {hasCos ? 'HAS A COMPANY RUNG' : 'ELEMENTS HANG DIRECTLY OFF IT'}
                   </Badge>
-                  <Button size="compact-xs" variant="subtle" ml="auto"
+                  <Button size="compact-sm" variant="subtle" ml="auto"
                     onClick={() => setKinds({
                       ...kinds,
                       [k]: hasCos
@@ -183,7 +183,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                     })}>
                     {hasCos ? 'REMOVE THE RUNG' : 'ADD A COMPANY RUNG'}
                   </Button>
-                  <Button size="compact-xs" variant="subtle" color="red"
+                  <Button size="compact-sm" variant="subtle" color="red"
                     onClick={() => { const { [k]: _g, ...rest } = kinds; setKinds(rest) }}>REMOVE</Button>
                 </Group>
 
@@ -192,13 +192,13 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                     {(plan.companies ?? []).map((c, ci) => (
                       <Box key={ci} mt={6} pl={10} style={{ borderLeft: '2px solid #2a3a48' }}>
                         <Group gap={6} mb={4}>
-                          <TextInput size="xs" w={120} value={c.co}
+                          <TextInput size="sm" w={120} value={c.co}
                             styles={{ input: { fontFamily: MONO } }}
                             onChange={e => setKinds({
                               ...kinds,
                               [k]: { ...plan, companies: plan.companies!.map((x, j) => j === ci ? { ...x, co: e.currentTarget.value } : x) },
                             })} />
-                          <Button size="compact-xs" variant="subtle" color="red"
+                          <Button size="compact-sm" variant="subtle" color="red"
                             onClick={() => setKinds({ ...kinds, [k]: { ...plan, companies: plan.companies!.filter((_, j) => j !== ci) } })}>
                             ✕ COMPANY
                           </Button>
@@ -209,7 +209,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                         }))}
                       </Box>
                     ))}
-                    <Button size="compact-xs" variant="default" mt={6}
+                    <Button size="compact-sm" variant="default" mt={6}
                       onClick={() => setKinds({ ...kinds, [k]: { ...plan, companies: [...(plan.companies ?? []), { co: 'NEW CO', slots: [] }] } })}>
                       ＋ COMPANY
                     </Button>
@@ -224,14 +224,14 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           })}
           {ownsKinds && (
             <Group gap={8} mt={12}>
-              <TextInput size="xs" w={220} placeholder="NEW-KIND-KEY" value={newKind}
+              <TextInput size="sm" w={220} placeholder="NEW-KIND-KEY" value={newKind}
                 styles={{ input: { fontFamily: MONO } }}
                 onChange={e => setNewKind(e.currentTarget.value.toUpperCase())} />
-              <Button size="compact-xs" variant="default" disabled={!newKind.trim() || !!kinds[newKind.trim()]}
+              <Button size="compact-sm" variant="default" disabled={!newKind.trim() || !!kinds[newKind.trim()]}
                 onClick={() => { setKinds({ ...kinds, [newKind.trim()]: { slots: [] } }); setNewKind('') }}>
                 ＋ TEMPLATE
               </Button>
-              <Text fz={9} c="dark.3">A formation names one of these as its `kind`.</Text>
+              <Text fz={14} c="dark.3">A formation names one of these as its `kind`.</Text>
             </Group>
           )}
         </>
@@ -247,11 +247,11 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           {ownsRosters && Object.entries(rosters).map(([k, list]) => (
             <Box key={k} mb={10} p={10} style={CARD}>
               <Group gap={10} wrap="nowrap" align="center">
-                <Text fz={12} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
-                <Text fz={10} c="dark.3" style={{ flex: 1 }}>
+                <Text fz={16} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
+                <Text fz={15} c="dark.3" style={{ flex: 1 }}>
                   {list.reduce((n, b) => n + (b.n ?? 1), 0)} PEOPLE
                 </Text>
-                <Button size="compact-xs" variant="subtle" color="red"
+                <Button size="compact-sm" variant="subtle" color="red"
                   onClick={() => { const { [k]: _g, ...rest } = rosters; setRosters(rest) }}>REMOVE</Button>
               </Group>
               {/* leaders are listed LAST — casualty order, which is what makes
@@ -261,24 +261,24 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                   setRosters({ ...rosters, [k]: list.map((x, j) => (j === i ? { ...x, ...n } : x)) })
                 return (
                   <Group key={i} gap={6} mt={4} wrap="nowrap" align="flex-end">
-                    <Select size="xs" w={140} data={troopOpts} value={b.kind ?? null} searchable
+                    <Select size="sm" w={140} data={troopOpts} value={b.kind ?? null} searchable
                       placeholder="TROOP KIND" styles={{ input: { fontFamily: MONO } }}
                       onChange={v => v && write({ kind: v })} />
-                    <TextInput size="xs" style={{ flex: 1 }} value={b.pos} placeholder="S1 — Personnel"
+                    <TextInput size="sm" style={{ flex: 1 }} value={b.pos} placeholder="S1 — Personnel"
                       onChange={e => write({ pos: e.currentTarget.value })} />
-                    <Select size="xs" w={90} data={rankOpts} value={b.rank ?? null} searchable
+                    <Select size="sm" w={90} data={rankOpts} value={b.rank ?? null} searchable
                       placeholder="RANK" styles={{ input: { fontFamily: MONO } }}
                       onChange={v => v && write({ rank: v })} />
-                    <TextInput size="xs" w={110} value={b.sec ?? ''} placeholder="sub-element"
+                    <TextInput size="sm" w={110} value={b.sec ?? ''} placeholder="sub-element"
                       onChange={e => write({ sec: e.currentTarget.value || undefined })} />
-                    <NumberInput size="xs" w={64} min={1} value={b.n ?? 1}
+                    <NumberInput size="sm" w={64} min={1} value={b.n ?? 1}
                       onChange={v => write({ n: Number(v) > 1 ? Number(v) : undefined })} />
-                    <Button size="compact-xs" variant="subtle" color="red"
+                    <Button size="compact-sm" variant="subtle" color="red"
                       onClick={() => setRosters({ ...rosters, [k]: list.filter((_, j) => j !== i) })}>✕</Button>
                   </Group>
                 )
               })}
-              <Button size="compact-xs" variant="default" mt={6}
+              <Button size="compact-sm" variant="default" mt={6}
                 onClick={() => setRosters({ ...rosters, [k]: [...list, { kind: troopOpts[0] ?? '', pos: 'NEW BILLET', rank: rankOpts[0] ?? '' }] })}>
                 ＋ BILLET
               </Button>
@@ -286,14 +286,14 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
           ))}
           {ownsRosters && (
             <Group gap={8} mt={12}>
-              <TextInput size="xs" w={220} placeholder="NEW_ROSTER_KEY" value={newRoster}
+              <TextInput size="sm" w={220} placeholder="NEW_ROSTER_KEY" value={newRoster}
                 styles={{ input: { fontFamily: MONO } }}
                 onChange={e => setNewRoster(e.currentTarget.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))} />
-              <Button size="compact-xs" variant="default" disabled={!newRoster.trim() || !!rosters[newRoster.trim()]}
+              <Button size="compact-sm" variant="default" disabled={!newRoster.trim() || !!rosters[newRoster.trim()]}
                 onClick={() => { setRosters({ ...rosters, [newRoster.trim()]: [] }); setNewRoster('') }}>
                 ＋ ROSTER
               </Button>
-              <Text fz={9} c="dark.3">Leaders go LAST — a roster is written in casualty order.</Text>
+              <Text fz={14} c="dark.3">Leaders go LAST — a roster is written in casualty order.</Text>
             </Group>
           )}
         </>
@@ -316,7 +316,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
               write({ crew: { ...billets.crew, [armed]: { ...seats(armed), [size]: list } } })
             return (
               <>
-                <Text fz={10} c="dark.3" mb={12} maw={620}>
+                <Text fz={15} c="dark.3" mb={12} maw={620}>
                   What each job is CALLED and who holds it. The engine keeps only the shape —
                   that a group's LAST entries are its leadership, because rosters run in
                   casualty order, and that seat 0 of an armed vehicle commands it. Every title
@@ -324,28 +324,28 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                   drawn by hash: the same billet is not the same rank in every platoon.
                 </Text>
 
-                <Text fz={11} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>DEFAULT</Text>
-                <Text fz={9} c="dark.3" mb={4}>Anyone a table below does not name.</Text>
+                <Text fz={15} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>DEFAULT</Text>
+                <Text fz={14} c="dark.3" mb={4}>Anyone a table below does not name.</Text>
                 <Box mb={16} p={8} style={CARD}>
                   <PlanRow plan={billets.default ?? { pos: '', rank: '' }}
                     onChange={n => write({ default: { ...billets.default, ...n } })} />
                 </Box>
 
-                <Text fz={11} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>
+                <Text fz={15} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>
                   DISMOUNT — BY TROOP KIND
                 </Text>
-                <Text fz={9} c="dark.3" mb={6}>
+                <Text fz={14} c="dark.3" mb={6}>
                   FROM END names the billets at the back of a kind's group — that is where a
                   platoon's command sits, because the last one standing is the leader.
                 </Text>
                 {Object.entries(dis).map(([k, t]) => (
                   <Box key={k} mb={8} p={10} style={CARD}>
                     <Group gap={10} align="center">
-                      <Text fz={12} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
-                      <Text fz={9} c="dark.3" style={{ flex: 1 }}>
+                      <Text fz={16} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>{k}</Text>
+                      <Text fz={14} c="dark.3" style={{ flex: 1 }}>
                         {p.catalogs?.troops?.[k]?.name ?? 'NO TROOP KIND OF THIS KEY'}
                       </Text>
-                      <Button size="compact-xs" variant="subtle" color="red"
+                      <Button size="compact-sm" variant="subtle" color="red"
                         onClick={() => { const { [k]: _g, ...rest } = dis; write({ dismount: rest }) }}>
                         REMOVE
                       </Button>
@@ -362,41 +362,41 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                         onDrop={() => setKind(k, { fromStart: t.fromStart!.filter((_, j) => j !== i) })} />
                     ))}
                     <Group gap={6} mt={6}>
-                      <Button size="compact-xs" variant="default"
+                      <Button size="compact-sm" variant="default"
                         onClick={() => setKind(k, { fromEnd: [...(t.fromEnd ?? []), { pos: 'Leader', rank: '' }] })}>
                         ＋ FROM END
                       </Button>
-                      <Button size="compact-xs" variant="default"
+                      <Button size="compact-sm" variant="default"
                         onClick={() => setKind(k, { fromStart: [...(t.fromStart ?? []), { pos: 'Gunner', rank: '' }] })}>
                         ＋ FROM START
                       </Button>
                     </Group>
                   </Box>
                 ))}
-                <Select size="xs" w={260} mb={18} value={null} placeholder="＋ TROOP KIND WITH NO BILLETS"
+                <Select size="sm" w={260} mb={18} value={null} placeholder="＋ TROOP KIND WITH NO BILLETS"
                   data={troopOpts.filter(t => !dis[t])}
                   onChange={v => v && write({ dismount: { ...dis, [v]: { pos: 'Trooper', rank: '' } } })} />
 
-                <Text fz={11} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>
+                <Text fz={15} fw={700} c="#9ab8d0" mb={2} style={{ letterSpacing: 1.5 }}>
                   CREW — BY SEAT
                 </Text>
-                <Text fz={9} c="dark.3" mb={6}>
+                <Text fz={14} c="dark.3" mb={6}>
                   Keyed by CREW SIZE ('*' = any size not named); the last seat repeats for any
                   further hands. An army that crews nothing leaves these empty.
                 </Text>
                 {(['armed', 'unarmed'] as const).map(a => (
                   <Box key={a} mb={10}>
-                    <Text fz={10} c="#9ab8d0" mb={4}>{a.toUpperCase()}</Text>
+                    <Text fz={15} c="#9ab8d0" mb={4}>{a.toUpperCase()}</Text>
                     {Object.keys(seats(a)).length === 0 && (
-                      <Text fz={9} c="dark.3" mb={4}>none — nothing of this pack's is crewed</Text>
+                      <Text fz={14} c="dark.3" mb={4}>none — nothing of this pack's is crewed</Text>
                     )}
                     {Object.entries(seats(a)).map(([size, list]) => (
                       <Box key={size} mb={6} p={8} style={CARD}>
                         <Group gap={10}>
-                          <Text fz={11} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>
+                          <Text fz={15} fw={700} c="#dceeff" style={{ fontFamily: MONO }}>
                             {size === '*' ? 'ANY SIZE' : `${size}-HAND`}
                           </Text>
-                          <Button size="compact-xs" variant="subtle" color="red" ml="auto"
+                          <Button size="compact-sm" variant="subtle" color="red" ml="auto"
                             onClick={() => { const { [size]: _g, ...rest } = seats(a); write({ crew: { ...billets.crew, [a]: rest } }) }}>
                             REMOVE
                           </Button>
@@ -406,7 +406,7 @@ export default function PackOrg({ p, ed }: { p: Pack; ed: ManifestEditor }) {
                             onChange={n => setSeats(a, size, list.map((x, j) => j === i ? { ...x, ...n } : x))}
                             onDrop={() => setSeats(a, size, list.filter((_, j) => j !== i))} />
                         ))}
-                        <Button size="compact-xs" variant="default" mt={6}
+                        <Button size="compact-sm" variant="default" mt={6}
                           onClick={() => setSeats(a, size, [...list, { pos: 'Crewman', rank: '' }])}>＋ SEAT</Button>
                       </Box>
                     ))}

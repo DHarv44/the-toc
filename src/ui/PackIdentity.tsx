@@ -24,13 +24,13 @@ function Field({ label, hint, own, inherited, children }: {
   return (
     <Box mb={14}>
       <Group gap={8} align="baseline" mb={3}>
-        <Text fz={10} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>{label}</Text>
+        <Text fz={15} fw={700} c="#9ab8d0" style={{ letterSpacing: 1.5 }}>{label}</Text>
         {!own && inherited && (
-          <Badge size="xs" variant="outline" color="yellow">INHERITED · {inherited}</Badge>
+          <Badge size="sm" variant="outline" color="yellow">INHERITED · {inherited}</Badge>
         )}
       </Group>
       {children}
-      {hint && <Text fz={9} c="dark.3" mt={3}>{hint}</Text>}
+      {hint && <Text fz={14} c="dark.3" mt={3}>{hint}</Text>}
     </Box>
   )
 }
@@ -40,7 +40,7 @@ export default function PackIdentity({ p, ed }: { p: Pack; ed: ManifestEditor })
 
   const str = (k: string) => String(ed.value(k) ?? '')
   const text = (k: string, placeholder?: string) => (
-    <TextInput size="xs" value={str(k)} placeholder={placeholder} spellCheck={false}
+    <TextInput size="sm" value={str(k)} placeholder={placeholder} spellCheck={false}
       styles={{ input: { fontFamily: MONO } }}
       onChange={e => ed.set(k, e.currentTarget.value)} />
   )
@@ -87,7 +87,7 @@ export default function PackIdentity({ p, ed }: { p: Pack; ed: ManifestEditor })
 
       <Field label="INHERITS" own={ed.owns('inherits')}
         hint="A parent supplies FUNCTIONAL content this pack does not ship — platforms, billets, ranks. Leave it empty for an army of its own: borrowing somebody else's rifles hides what yours is missing.">
-        <Select size="xs" clearable data={parents} value={str('inherits') || null}
+        <Select size="sm" clearable data={parents} value={str('inherits') || null}
           placeholder="NOTHING — AN ARMY OF ITS OWN"
           onChange={v => ed.set('inherits', v ?? undefined)} />
       </Field>
@@ -95,7 +95,7 @@ export default function PackIdentity({ p, ed }: { p: Pack; ed: ManifestEditor })
       <Field label="CAPABILITY GROUPS" own={ed.owns('cats')}
         inherited={p.inherits}
         hint="The order CALL UP drills through them. Each answers a question a commander asks under contact.">
-        <TextInput size="xs" value={cats.join(', ')} spellCheck={false}
+        <TextInput size="sm" value={cats.join(', ')} spellCheck={false}
           placeholder="ARMOR, INFANTRY, RECONNAISSANCE"
           styles={{ input: { fontFamily: MONO } }}
           onChange={e => {
@@ -107,36 +107,36 @@ export default function PackIdentity({ p, ed }: { p: Pack; ed: ManifestEditor })
       <Field label="STARTING FORCE" own={ed.owns('startForce')} inherited={p.inherits}
         hint="What is already on the ground when a battle opens, IN FIELDING ORDER — the difficulty decides how many of these get fielded, so the tiers are prefixes of this one list.">
         <Group gap={6} mb={6} wrap="wrap">
-          {force.length === 0 && <Text fz={10} c="dark.3">NONE — this army starts with nothing on the ground</Text>}
+          {force.length === 0 && <Text fz={15} c="dark.3">NONE — this army starts with nothing on the ground</Text>}
           {force.map((k, i) => (
             <Badge key={`${k}:${i}`} size="sm" variant="outline" color="blue"
               rightSection={
-                <Text span fz={10} style={{ cursor: 'pointer' }}
+                <Text span fz={15} style={{ cursor: 'pointer' }}
                   onClick={() => setForce(force.filter((_, j) => j !== i))}>✕</Text>
               }>
               {i + 1}. {k}
             </Badge>
           ))}
         </Group>
-        <Select size="xs" placeholder="＋ ADD AN ELEMENT" value={null}
+        <Select size="sm" placeholder="＋ ADD AN ELEMENT" value={null}
           data={units.map(u => ({ value: u, label: `${u} — ${p.catalogs.units[u]?.name ?? u}` }))}
           onChange={v => v && setForce([...force, v])} />
         {units.length === 0 && (
-          <Text fz={9} c="orange.5" mt={3}>
+          <Text fz={14} c="orange.5" mt={3}>
             This pack ships no unit types yet — author some before it can field anything.
           </Text>
         )}
       </Field>
 
       <Group gap={10} mt="lg" pt={12} style={{ borderTop: '1px solid #22303d' }}>
-        <Button size="xs" variant={ed.dirty ? 'filled' : 'default'}
+        <Button size="sm" variant={ed.dirty ? 'filled' : 'default'}
           disabled={!ed.dirty || ed.busy} onClick={() => void ed.save()}>
           {ed.busy ? 'SAVING…' : 'SAVE TO pack.json'}
         </Button>
         {ed.msg && (
-          <Text fz={10} c={ed.msg.startsWith('FAILED') ? '#e8524a' : '#7ec87e'}>{ed.msg}</Text>
+          <Text fz={15} c={ed.msg.startsWith('FAILED') ? '#e8524a' : '#7ec87e'}>{ed.msg}</Text>
         )}
-        <Text fz={9} c="dark.3" ml="auto">
+        <Text fz={14} c="dark.3" ml="auto">
           src/packs/{p.id}/pack.json · RELOAD TO SEE IT APPLIED
         </Text>
       </Group>

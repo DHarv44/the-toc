@@ -25,7 +25,7 @@ export function ReadOnlyBanner() {
     <Group gap={8} mb={10} p={8}
       style={{ border: '1px solid #2a3a48', borderRadius: 3, background: 'rgba(16,26,36,0.6)' }}>
       <Badge size="sm" variant="outline" color="gray">READ ONLY</Badge>
-      <Text fz={10} c="dark.3">
+      <Text fz={15} c="dark.3">
         Showing the pack AS RESOLVED — inheritance already applied, which is not the same as
         what its pack.json says. Editing writes files through the dev server; run the project
         locally to change anything.
@@ -38,12 +38,12 @@ export function SaveBar({ ed }: { ed: ManifestEditor }) {
   if (!canAuthor) return null
   return (
     <Group gap={10} mt="lg" pt={12} style={{ borderTop: '1px solid #22303d' }}>
-      <Button size="xs" variant={ed.dirty ? 'filled' : 'default'}
+      <Button size="sm" variant={ed.dirty ? 'filled' : 'default'}
         disabled={!ed.dirty || ed.busy} onClick={() => void ed.save()}>
         {ed.busy ? 'SAVING…' : 'SAVE TO pack.json'}
       </Button>
       {ed.msg && (
-        <Text fz={10} c={ed.msg.startsWith('FAILED') ? '#e8524a' : '#7ec87e'}>{ed.msg}</Text>
+        <Text fz={15} c={ed.msg.startsWith('FAILED') ? '#e8524a' : '#7ec87e'}>{ed.msg}</Text>
       )}
     </Group>
   )
@@ -59,7 +59,7 @@ export function SourceBadge({ form, lib, p, count }: {
     return (
       <Group gap={8} mb={10}>
         <Badge size="sm" variant="outline" color="gray">RESOLVED</Badge>
-        {count != null && <Text fz={11} c="#9ab8d0">{count} ENTR{count === 1 ? 'Y' : 'IES'}</Text>}
+        {count != null && <Text fz={15} c="#9ab8d0">{count} ENTR{count === 1 ? 'Y' : 'IES'}</Text>}
       </Group>
     )
   }
@@ -68,7 +68,7 @@ export function SourceBadge({ form, lib, p, count }: {
       <Group gap={8} mb={10}>
         <Badge size="sm" variant="outline" color="green">OWN TABLE</Badge>
         {count != null && (
-          <Text fz={11} c="#9ab8d0">{count} ENTR{count === 1 ? 'Y' : 'IES'}</Text>
+          <Text fz={15} c="#9ab8d0">{count} ENTR{count === 1 ? 'Y' : 'IES'}</Text>
         )}
       </Group>
     )
@@ -77,14 +77,14 @@ export function SourceBadge({ form, lib, p, count }: {
     return (
       <Group gap={8} mb={6}>
         <Badge size="sm" variant="outline" color="blue">SUBSET</Badge>
-        <Text fz={11} c="#9ab8d0">of the '{lib}' library</Text>
+        <Text fz={15} c="#9ab8d0">of the '{lib}' library</Text>
       </Group>
     )
   }
   return (
     <Group gap={8} mb={6}>
       <Badge size="sm" variant="outline" color="yellow">INHERITED</Badge>
-      <Text fz={11} c="#9ab8d0">
+      <Text fz={15} c="#9ab8d0">
         {lib ? `from the '${lib}' library` : `from ${p.inherits ?? 'the canonical pack'}`}
       </Text>
     </Group>

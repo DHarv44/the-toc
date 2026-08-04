@@ -85,7 +85,7 @@ function ModelCell({ value, options, urlFor, onPick }: {
               border: '1px dashed #22303d', borderRadius: 3,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Text fz={8} c="dark.4">SET</Text>
+              <Text fz={14} c="dark.4">SET</Text>
             </Box>
           )}
           <Text fz={8.5} c={label ? '#9ab8d0' : 'dark.4'} ta="center" truncate>
@@ -95,12 +95,12 @@ function ModelCell({ value, options, urlFor, onPick }: {
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Item onClick={() => onPick('')}>
-          <Text fz={11} c="dark.3">— no model —</Text>
+          <Text fz={15} c="dark.3">— no model —</Text>
         </Menu.Item>
         {options.map(o => (
           <Menu.Item key={o.value} onClick={() => onPick(o.value)}
             leftSection={<Box w={44}>{thumb(o.value, 30)}</Box>}>
-            <Text fz={11} c="#dceeff">{o.label}</Text>
+            <Text fz={15} c="#dceeff">{o.label}</Text>
           </Menu.Item>
         ))}
       </Menu.Dropdown>
@@ -176,10 +176,10 @@ function ModelsSection({ p }: { p: Pack }) {
   return (
     <>
       <Group gap="md" mt="xs" mb={8} align="center">
-        <Text fz={9} c="dark.3" style={{ letterSpacing: 2 }}>
+        <Text fz={14} c="dark.3" style={{ letterSpacing: 2 }}>
           {files.length} FILE(S) IN models/
         </Text>
-        <Checkbox size="xs" checked={showParts} onChange={e => setShowParts(e.currentTarget.checked)}
+        <Checkbox size="sm" checked={showParts} onChange={e => setShowParts(e.currentTarget.checked)}
           label={`SHOW PARTS${partCount ? ` (${partCount})` : ''}`}
           disabled={!partCount}
           styles={{ label: { fontSize: 9, letterSpacing: 1.5, color: '#54708a' } }} />
@@ -191,19 +191,19 @@ function ModelsSection({ p }: { p: Pack }) {
         return (
           <Box key={f.url} mb="lg">
             <Group gap={10} align="baseline" wrap="wrap">
-              <Text fz={14} fw={700} c="#7ec8ff">{f.path.split('/').pop()}</Text>
-              <Text fz={10} c="dark.3">{f.path}</Text>
+              <Text fz={18} fw={700} c="#7ec8ff">{f.path.split('/').pop()}</Text>
+              <Text fz={15} c="dark.3">{f.path}</Text>
             </Group>
-            {!i && <Text fz={11} c="dark.3" mt={4}>reading…</Text>}
-            {err && <Text fz={11} c={BAD_C} mt={4}>{err}</Text>}
+            {!i && <Text fz={15} c="dark.3" mt={4}>reading…</Text>}
+            {err && <Text fz={15} c={BAD_C} mt={4}>{err}</Text>}
             {g && (
               <>
                 <Group gap="lg" mt={2} wrap="wrap">
-                  <Text fz={10} c="dark.3">{kb(g.bytes)}</Text>
-                  <Text fz={10} c="dark.3">{g.tris.toLocaleString()} TRIS</Text>
-                  <Text fz={10} c="dark.3">{g.materials} MAT · {g.textures} TEX</Text>
+                  <Text fz={15} c="dark.3">{kb(g.bytes)}</Text>
+                  <Text fz={15} c="dark.3">{g.tris.toLocaleString()} TRIS</Text>
+                  <Text fz={15} c="dark.3">{g.materials} MAT · {g.textures} TEX</Text>
                   {/* compression is the thing an author needs to see at a glance */}
-                  <Text fz={10} c={g.extensions.length ? WARN_C : 'dark.4'}>
+                  <Text fz={15} c={g.extensions.length ? WARN_C : 'dark.4'}>
                     {g.extensions.length ? g.extensions.join(', ') : 'NO COMPRESSION'}
                   </Text>
                 </Group>
@@ -218,8 +218,8 @@ function ModelsSection({ p }: { p: Pack }) {
                     <Box key={m.name} w={190} style={{ flex: '0 0 auto' }}>
                       <ModelPreview url={f.url} node={m.node} />
                       <Group gap={6} wrap="nowrap" align="baseline" mt={4}>
-                        <Text fz={12} fw={700} c={m.part ? 'dark.1' : '#dceeff'} truncate>{m.name}</Text>
-                        {m.part && <Text fz={8} c="dark.3" style={{ flex: '0 0 auto' }}>PART</Text>}
+                        <Text fz={16} fw={700} c={m.part ? 'dark.1' : '#dceeff'} truncate>{m.name}</Text>
+                        {m.part && <Text fz={14} c="dark.3" style={{ flex: '0 0 auto' }}>PART</Text>}
                       </Group>
                       <Text fz={9.5} c="dark.3">{m.tris.toLocaleString()} tris</Text>
                       <Text fz={9.5} c={WARN_C} truncate>
@@ -319,7 +319,7 @@ const COL_BADGE = 200
 const COL_NUM = 92
 
 const Cell = ({ children, w = COL_NUM }: { children?: React.ReactNode; w?: number }) => (
-  <Text span fz={10} c="dark.3" w={w} ta="right"
+  <Text span fz={15} c="dark.3" w={w} ta="right"
     style={{ flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' }}>{children}</Text>
 )
 
@@ -356,14 +356,14 @@ function Row({ depth = 0, open, label, sub, badges, subs, vic, pax, head, onClic
       }}
       onMouseEnter={e => { if (onClick) e.currentTarget.style.background = '#101a24' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-      <Text span fz={11} c="dark.3" w={12} style={{ flex: '0 0 auto' }}>
+      <Text span fz={15} c="dark.3" w={12} style={{ flex: '0 0 auto' }}>
         {onClick ? (open ? '▾' : '▸') : ''}
       </Text>
       {head
-        ? <Text span fz={9} c="dark.3" style={{ flex: 1, minWidth: 0, letterSpacing: 1.5 }}>{label}</Text>
+        ? <Text span fz={14} c="dark.3" style={{ flex: 1, minWidth: 0, letterSpacing: 1.5 }}>{label}</Text>
         : <>
             <Text span fz={s.fz} fw={s.fw} c={s.c} style={{ flex: '0 0 auto' }}>{label}</Text>
-            <Text span fz={10} c="dark.3" truncate style={{ flex: 1, minWidth: 0 }}>{sub ?? ''}</Text>
+            <Text span fz={15} c="dark.3" truncate style={{ flex: 1, minWidth: 0 }}>{sub ?? ''}</Text>
           </>}
       <Group gap={6} w={COL_BADGE} justify="flex-end" wrap="nowrap"
         style={{ flex: '0 0 auto' }}>{badges}</Group>
@@ -447,9 +447,9 @@ function EchelonTree({ p }: { p: Pack }) {
                   <Row depth={2} open={open.has(nk)} onClick={() => toggle(nk)}
                     label={bn.desig} sub={nick(bn.desig)}
                     badges={<>
-                      {canPlay && <Badge size="xs" variant="light" color="lime">PLAYABLE</Badge>}
-                      {isCampaign && <Badge size="xs" variant="light" color="yellow">CAMPAIGN</Badge>}
-                      {donor && <Badge size="xs" variant="outline" color="grape">ATT {donor}</Badge>}
+                      {canPlay && <Badge size="sm" variant="light" color="lime">PLAYABLE</Badge>}
+                      {isCampaign && <Badge size="sm" variant="light" color="yellow">CAMPAIGN</Badge>}
+                      {donor && <Badge size="sm" variant="outline" color="grape">ATT {donor}</Badge>}
                     </>}
                     subs={num(bn.cos.length, 'CO')} vic={num(vics(bnSlots), 'VIC')}
                     pax={num(billets(bnSlots), 'BILLETS')} />
@@ -465,11 +465,11 @@ function EchelonTree({ p }: { p: Pack }) {
                           <Row key={sl.id} depth={4} label={sl.name} sub={sl.lin}
                             badges={<>
                               {sl.type
-                                ? <Badge size="xs" variant="light" color="blue">{sl.type}</Badge>
-                                : <Badge size="xs" variant="outline" color="gray">STAFF</Badge>}
-                              {sl.tf && <Badge size="xs" variant="light" color="teal">TF</Badge>}
+                                ? <Badge size="sm" variant="light" color="blue">{sl.type}</Badge>
+                                : <Badge size="sm" variant="outline" color="gray">STAFF</Badge>}
+                              {sl.tf && <Badge size="sm" variant="light" color="teal">TF</Badge>}
                               {donorOf(sl) && (
-                                <Badge size="xs" variant="outline" color="grape">{donorOf(sl)}</Badge>
+                                <Badge size="sm" variant="outline" color="grape">{donorOf(sl)}</Badge>
                               )}
                             </>}
                             vic={num(sl.vehicles.length, 'VIC')}
@@ -605,7 +605,7 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
       <Group align="flex-start" gap="lg" mt="md" wrap="nowrap">
         {/* installed packs */}
         <Box w={230} style={{ flex: '0 0 auto' }}>
-          <Text fz={9} c="dark.3" mb={6} style={{ letterSpacing: 2 }}>INSTALLED</Text>
+          <Text fz={14} c="dark.3" mb={6} style={{ letterSpacing: 2 }}>INSTALLED</Text>
           {packs.map((pk, i) => (
             <UnstyledButton key={pk.id} w="100%" onClick={() => { setIdx(i); setView('pack') }} mb={6}>
               <Group gap={10} wrap="nowrap" p={10}
@@ -615,8 +615,8 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
                 }}>
                 {pk.patch && <PatchIcon id={pk.patch} h={26} />}
                 <Box miw={0}>
-                  <Text fz={13} fw={700} c={i === idx ? '#dceeff' : 'dark.1'}>{pk.abbr}</Text>
-                  <Text fz={9} c="dark.2" style={{ letterSpacing: 1 }}>
+                  <Text fz={18} fw={700} c={i === idx ? '#dceeff' : 'dark.1'}>{pk.abbr}</Text>
+                  <Text fz={14} c="dark.2" style={{ letterSpacing: 1 }}>
                     {pk.nick ? `${pk.nick} · ` : ''}{pk.id}
                   </Text>
                 </Box>
@@ -624,19 +624,19 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
             </UnstyledButton>
           ))}
           {/* sections of the SELECTED pack that are not one of its data tables */}
-          <Text fz={9} c="dark.3" mt="lg" mb={6} style={{ letterSpacing: 2 }}>SECTIONS</Text>
+          <Text fz={14} c="dark.3" mt="lg" mb={6} style={{ letterSpacing: 2 }}>SECTIONS</Text>
           <UnstyledButton w="100%" onClick={() => setView('models')}>
             <Group gap={10} wrap="nowrap" p={10}
               style={{
                 border: `1px solid ${view === 'models' ? '#7ec8ff' : '#22303d'}`, borderRadius: 4,
                 background: view === 'models' ? '#14202c' : '#0d141c',
               }}>
-              <Text fz={13} fw={700} c={view === 'models' ? '#dceeff' : 'dark.1'}>MODELS</Text>
-              <Text fz={9} c="dark.3" style={{ letterSpacing: 1 }}>ART · ASSIGNMENT</Text>
+              <Text fz={18} fw={700} c={view === 'models' ? '#dceeff' : 'dark.1'}>MODELS</Text>
+              <Text fz={14} c="dark.3" style={{ letterSpacing: 1 }}>ART · ASSIGNMENT</Text>
             </Group>
           </UnstyledButton>
 
-          <Text fz={9} c="dark.4" mt={10} style={{ lineHeight: 1.6 }}>
+          <Text fz={14} c="dark.4" mt={10} style={{ lineHeight: 1.6 }}>
             Packs are DISCOVERED: a folder under src/packs/ with a pack.json is an army.
             Drop one in and it exists — no code change. The app must reload to see a new
             one, because discovery is a build-time glob.
@@ -651,9 +651,9 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
               <Box>
                 <Group gap={8} align="baseline">
                   <Text fz={20} fw={700} c="#dceeff">{p.name}</Text>
-                  {p.nick && <Text fz={12} c="#e8c547">“{p.nick}”</Text>}
+                  {p.nick && <Text fz={16} c="#e8c547">“{p.nick}”</Text>}
                 </Group>
-                <Text fz={10} c="dark.3">
+                <Text fz={15} c="dark.3">
                   {p.motto ? `${p.motto} · ` : ''}{p.id}
                 </Text>
               </Box>
@@ -678,7 +678,7 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
                   {BUILDER_TABS.map(t => (
                     <UnstyledButton key={t} onClick={() => setTab(t)} px={10} py={5}
                       style={{ borderBottom: `2px solid ${t === tab ? '#7ec8ff' : 'transparent'}` }}>
-                      <Text fz={11} fw={700} c={t === tab ? '#dceeff' : 'dark.3'}
+                      <Text fz={15} fw={700} c={t === tab ? '#dceeff' : 'dark.3'}
                         style={{ letterSpacing: 1 }}>{t}</Text>
                     </UnstyledButton>
                   ))}
@@ -687,15 +687,15 @@ function PackEditor({ openId, onBack, onOpenMaps, onOpenScenarios }: {
                 {/* the VEHICLES tab is where a platform gets its model */}
                 {tab === 'VEHICLES' && (
                   <Group gap="md" align="center" mt="sm">
-                    <Text fz={9} c="dark.3" style={{ letterSpacing: 2 }}>
+                    <Text fz={14} c="dark.3" style={{ letterSpacing: 2 }}>
                       MODELS ASSIGNED — {Object.values(p.catalogs.vehicles ?? {})
                         .filter(v => valueOf(v.key)).length} OF {Object.keys(p.catalogs.vehicles ?? {}).length}
                     </Text>
-                    <Button size="xs" variant={dirty ? 'filled' : 'default'}
+                    <Button size="sm" variant={dirty ? 'filled' : 'default'}
                       disabled={!dirty || busy} onClick={save}>
                       {busy ? 'SAVING…' : 'SAVE TO pack.json'}
                     </Button>
-                    {msg && <Text fz={10} c={msg.startsWith('FAILED') ? BAD_C : '#7ec87e'}>{msg}</Text>}
+                    {msg && <Text fz={15} c={msg.startsWith('FAILED') ? BAD_C : '#7ec87e'}>{msg}</Text>}
                   </Group>
                 )}
 
