@@ -62,6 +62,33 @@ export interface FollowOpts {
                         // leader is stopped, so the slot never catches up.
   shiftFactor: number   // pace multiplier while the shape is still shifting
   speedLimit: number    // route-imposed cap on the whole group
+  // ORDER OF MARCH. Without this, sequence is only held inside a lane: a mover
+  // whose slot is behind yours but whose lateral offset differs — it swung wide
+  // round an obstacle, or it sits in a staggered slot — stops being constrained
+  // and sails past you. For a platoon changing shape that is mostly harmless.
+  // For a march column, the order IS the plan, so it has to hold across files.
+  //
+  // Slots that are ABREAST (equal `along`) never constrain each other, which is
+  // what keeps a line or a wedge from deadlocking against itself.
+  keepSequence: boolean
+  // Clearance held when order-keeping ACROSS lanes. This is not cosmetic: with
+  // it at 0 the cap is `aheadSpd + gap/closeTime`, which only bites once the
+  // gap is nearly closed, and by then a closing mover cannot brake inside its
+  // own decel limit. Measured on a three-vic column with the middle vic mired
+  // at 1 m/s and the others at 9:
+  //
+  //   keepSequence off      the tail PASSES the mired vic (-14 m)
+  //   on,  sequenceGap 0    the tail passes it and ends 288 m ahead
+  //   on,  sequenceGap 40   holds station exactly 40 m behind it
+  //
+  // So a caller that actually needs its order of march kept — a march column —
+  // must set this to its INTERVAL. 0 is right only where lateral separation
+  // stays inside `laneWidth` and same-lane spacing governs anyway.
+  sequenceGap: number
+  // Shifts every slot sideways. A parent parks a whole subgroup off the
+  // centreline with it — which is how a column holds the right half of the road
+  // and leaves the left for passing and oncoming.
+  lateralOrigin: number
   // Speed multiplier for a mover at a lateral offset, 0..1. This belongs INSIDE
   // the solver because the solver CHOOSES the lateral offset, so it has to
   // price it: a wide formation that pushes vics off the road slows the group by
@@ -89,6 +116,9 @@ export const FOLLOW_DEFAULTS: FollowOpts = {
   repositionSpd: 3,
   shiftFactor: 0.8,
   speedLimit: Infinity,
+  keepSequence: true,
+  sequenceGap: 0,
+  lateralOrigin: 0,
   mobility: null,
 }
 
@@ -97,6 +127,8 @@ export type FollowStatus =
   | 'pacing' | 'easing' | 'stopped'          // the leader
   | 'in-slot' | 'closing' | 'max-speed'      // a follower keeping up, or not
   | 'holding-back' | 'blocked' | 'shifting'
+  | 'sequenced'                              // held back to keep the order of
+                                             // march, not by anything in its lane
   | 'off-track' | 'repositioning'
   | 'stopping' | 'in-place'                  // settling into a halt posture
 
@@ -190,7 +222,10 @@ export function followTheLeader(input: FollowInput): FollowResult {
   for (const i of live) {
     const m = all[i]!, s = input.slots[i]!
     const l = i === live[0] ? 0 : lead.dist + (s.along - leadSlot.along) - m.dist
-    const le = s.lat - (m.lat ?? 0)
+    // lateralOrigin shifts the WHOLE shape sideways; it cancels out of `lag`
+    // because that is measured along the route, and only ever moves the lateral
+    // station everyone is driving toward
+    const le = s.lat + opt.lateralOrigin - (m.lat ?? 0)
     lag.set(i, l); latErr.set(i, le)
     const mo = mobilityAt(m, m.lat ?? 0, opt)
     const t = m.maxSpd * mo
@@ -267,26 +302,50 @@ export function followTheLeader(input: FollowInput): FollowResult {
       status = 'holding-back'
     }
 
-    // Don't overrun whoever is ahead of you IN YOUR OWN LANE. The check reads
-    // LIVE lateral, not slot lateral — so the moment a mover has slewed clear
-    // it stops being blocked, which is what lets a column fan out into line
-    // instead of jamming against itself.
+    // TWO CONSTRAINTS, same shape, different clearance:
+    //   same lane   physical spacing. Don't drive into the back of anyone. The
+    //               check reads LIVE lateral, not slot lateral, so the moment a
+    //               mover has slewed clear it stops being blocked — which is
+    //               what lets a column fan out into line instead of jamming.
+    //   other lane  SEQUENCE. Don't overtake someone whose slot is ahead of
+    //               yours just because you have a clear lane beside them.
+    //
+    // Slots that are abreast (equal `along`) fall out of both, so a line has no
+    // order to keep and cannot deadlock against itself.
     let gapAhead: number | null = null, cap = Infinity
+    let capKind: 'blocked' | 'sequenced' | null = null
     for (const j of order) {
       if (j === i) continue
       const o = all[j]!
-      if (Math.abs((o.lat ?? 0) - (m.lat ?? 0)) > opt.laneWidth) continue
       if (o.dist <= m.dist) continue
       if (input.slots[j]!.along <= s.along) continue   // that one is the yielder
+      const sameLane = Math.abs((o.lat ?? 0) - (m.lat ?? 0)) <= opt.laneWidth
+      if (!sameLane && !(opt.keepSequence && !halt)) continue
+      const clear = sameLane ? opt.minGap : opt.sequenceGap
       const g = o.dist - m.dist
-      if (gapAhead === null || g < gapAhead) {
-        gapAhead = g
-        cap = Math.max(0, (cmd.get(j) ?? o.spd) + (g - opt.minGap) / opt.closeTime)
+      const room = g - clear
+      // Pace off what the mover ahead is ACHIEVING, not what it was ordered to
+      // do: its order can be flat out while mud pins it at a crawl, and
+      // following the order drives you straight through it.
+      const aheadSpd = Math.min(cmd.get(j) ?? Infinity, o.spd)
+      // Two caps, take the lower. The linear one is station-keeping. The second
+      // is BRAKING DISTANCE — the fastest you can be going and still bleed down
+      // to their speed before you reach them. Without it, a vic doing 44 closing
+      // on a stopped one is told "slow to 12" and eats the gap before its own
+      // decel limit can act.
+      let c = aheadSpd + room / opt.closeTime
+      if (m.decel != null && m.decel > 0) {
+        c = Math.min(c, Math.sqrt(Math.max(0, aheadSpd * aheadSpd + 2 * m.decel * room)))
       }
+      c = Math.max(0, c)
+      // the LOWEST cap, not the nearest mover's: a close vic running fast must
+      // not mask a stopped one just beyond it
+      if (c < cap) { cap = c; gapAhead = g; capKind = sameLane ? 'blocked' : 'sequenced' }
     }
     if (cap < target) {
       target = cap
-      if (gapAhead !== null && gapAhead < opt.minGap * 2) status = 'blocked'
+      if (capKind === 'sequenced') status = 'sequenced'
+      else if (gapAhead !== null && gapAhead < opt.minGap * 2) status = 'blocked'
     }
 
     const reverse = halt ? Math.max(opt.maxReverse, opt.repositionSpd) : opt.maxReverse
