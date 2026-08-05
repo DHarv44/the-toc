@@ -87,6 +87,13 @@ export default function HUD() {
             ? 'Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)'
             : "Satellite underlay — this world's own ground, rendered top-down"}
           onClick={ui.toggleSat}>SAT</MapButton>
+        {/* CONTROL MEASURES. The one thing the commander puts on the sheet that
+            is not a unit and not an order — coordination, written down. Armed
+            here because it is a MAP tool, and it stays armed so a phase line
+            plan goes down in three strokes rather than three round trips. */}
+        <MapButton small active={ui.mode === 'phaseline'}
+          title="Draw a phase line — drag across the axis. Elements report crossing it."
+          onClick={() => ui.setMode(ui.mode === 'phaseline' ? 'select' : 'phaseline')}>PL</MapButton>
         <MapButton small active={ui.overlays.fires}
           title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
           onClick={() => ui.toggleOverlay('fires')}>FIRES</MapButton>

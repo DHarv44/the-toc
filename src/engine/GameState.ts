@@ -96,6 +96,20 @@ export interface RecoveryJob {
   need: number               // seconds required (the platform's own figure)
 }
 
+/** CONTROL MEASURES — the graphics a staff draws on a map to control a fight.
+ *  See domains/control/measures for what each one MEANS; this is only the
+ *  geometry and the record of who has passed it. */
+export type MeasureKind = 'phaseline' | 'checkpoint' | 'objective'
+
+export interface ControlMeasure {
+  id: number
+  kind: MeasureKind
+  name: string               // 'BLUE', '01', 'OBJ 1' — decorated by measureLabel
+  pts: Vec2[]                // two for a line, one for a point
+  /** unit ids that have crossed/reached it, so a line is called once */
+  crossed: number[]
+}
+
 /** THE ROUTE A COLUMN SHARES.
  *
  *  The station-keeping solver measures every member against one monotonic
@@ -452,7 +466,10 @@ export interface Unit {
    *  point. Tracked forward each tick so it stays monotonic over a route that
    *  doubles back. This is the odometer the station-keeping solver reads.
    *  See domains/movement/route. */
-  colS?: number      // slot in a shared-route column, if marching in one
+  colS?: number
+  /** Which side of each phase line this element was on last tick, so a crossing
+   *  is a sign change rather than a proximity test (domains/control/measures). */
+  plSide?: Record<number, number>      // slot in a shared-route column, if marching in one
   leadId: number | null
   posture: Posture
   digT: number
@@ -925,6 +942,7 @@ export interface GameState {
   march: MarchPlan[]         // authored orders of march, by move-group id
   teams: Team[]              // the task organization — named, durable groupings
   routes: ColumnRoute[]      // the shared polyline each column is marching on
+  measures: ControlMeasure[] // phase lines, checkpoints, objectives
   recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
@@ -986,6 +1004,7 @@ export function createInitialState(): GameState {
     march: [],
     teams: [],
     routes: [],
+    measures: [],
     recoveries: [],
     hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },

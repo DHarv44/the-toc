@@ -16,6 +16,7 @@ import {
 import { hazardUpdate } from '../domains/hazards/update'
 import { recoveryUpdate } from '../domains/forces/recovery'
 import { teamSweep } from '../domains/forces/teams'
+import { measureUpdate } from '../domains/control/measures'
 import { recoveryUpdate as vehRecoveryUpdate } from '../domains/movement/recovery'
 import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
@@ -63,6 +64,7 @@ export function tick(dt: number): void {
   assetsUpdate(dt)        // division asset requests: decisions, convoys, setup
   unitDeaths()
   teamSweep()             // task org: drop dead teams, notice command changing hands
+  measureUpdate()         // control measures: who has crossed what, and say so
   structureDeaths()       // incl. tethered aerostat teardown
   MODES[S.mode].update?.(S, dt) // mode logic (e.g. hill control clocks), pre-checkEnd
   checkMatchEnd()         // the active mode's win/lose check, right after deaths

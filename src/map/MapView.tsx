@@ -31,6 +31,8 @@ import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
+import { addMeasure } from '../domains/control/measures'
+import { toast } from '../domains/comms/radio'
 import { teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 
@@ -280,6 +282,11 @@ export default function MapView() {
         return
       }
       const mode = useUI.getState().mode
+      // the phase-line drag reuses the formation-line rubber band so the
+      // commander can see the line they are laying before they commit it
+      if (leftDown && mode === 'phaseline') {
+        lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
+      }
       if (leftDown && mode === 'select') {
         // left-drag over the map: marquee selection box
         const moved = Math.hypot(mX(e) - leftDown.x, mY(e) - leftDown.y)
@@ -389,8 +396,25 @@ export default function MapView() {
       if (e.button !== 0) return
       // ---- LEFT BUTTON: selection (and modal placement) ----
       const wasMarquee = marquee
+      const wasDown = leftDown
       marquee = null; leftDown = null
       const wx = s2wX(mX(e)), wy = s2wY(mY(e))
+
+      // DRAWING A PHASE LINE: drag across the axis of advance. It stays in the
+      // mode so a commander can lay PL BLUE, AMBER and GREEN in three strokes
+      // rather than re-arming the tool between each; Escape or the button ends
+      // it, like every other modal placement here.
+      if (ui.mode === 'phaseline') {
+        lineDrag = null
+        if (wasDown) {
+          const ax = s2wX(wasDown.x), ay = s2wY(wasDown.y)
+          if (Math.hypot(wx - ax, wy - ay) > 60) {
+            const m = addMeasure('phaseline', [{ x: ax, y: ay }, { x: wx, y: wy }])
+            if (m) toast(`PL ${m.name} ON THE GRAPHIC`)
+          }
+        }
+        return
+      }
 
       // modal placement modes place on left-click
       if (ui.mode.startsWith('deploy:')) {
@@ -998,6 +1022,51 @@ export default function MapView() {
         ctx.closePath()
         ctx.fill()
       }
+      // CONTROL MEASURES. Drawn under the units and over the terrain, in the
+      // conventional way: a phase line is a plain line with its name at BOTH
+      // ends, because a staff reads it from whichever side they are on; a
+      // checkpoint is a small triangle with its number; an objective is a
+      // labelled blob. Nothing here is decorative — a measure a unit has passed
+      // dims, so the sheet shows the operation's progress and not just its plan.
+      for (const m of S.measures) {
+        const done = m.crossed.length > 0
+        ctx.save()
+        ctx.strokeStyle = done ? 'rgba(120,170,140,0.55)' : 'rgba(60,180,120,0.85)'
+        ctx.fillStyle = ctx.strokeStyle
+        ctx.lineWidth = 1.6
+        ctx.font = '600 10px Inter, system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        const label = m.kind === 'phaseline' ? `PL ${m.name}`
+          : m.kind === 'checkpoint' ? `CP ${m.name}` : m.name
+        if (m.kind === 'phaseline' && m.pts.length > 1) {
+          const a = m.pts[0]!, b = m.pts[1]!
+          const ax = w2sX(a.x), ay = w2sY(a.y), bx = w2sX(b.x), by = w2sY(b.y)
+          ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+          // tick the ends so a phase line is not mistaken for a route
+          const ang = Math.atan2(by - ay, bx - ax) + Math.PI / 2
+          for (const [ex, ey] of [[ax, ay], [bx, by]] as const) {
+            ctx.beginPath()
+            ctx.moveTo(ex - Math.cos(ang) * 7, ey - Math.sin(ang) * 7)
+            ctx.lineTo(ex + Math.cos(ang) * 7, ey + Math.sin(ang) * 7)
+            ctx.stroke()
+          }
+          ctx.fillText(label, ax, ay - 11)
+          ctx.fillText(label, bx, by - 11)
+        } else if (m.pts.length) {
+          const p = m.pts[0]!
+          const px = w2sX(p.x), py = w2sY(p.y)
+          if (m.kind === 'checkpoint') {
+            ctx.beginPath()
+            ctx.moveTo(px, py - 9); ctx.lineTo(px + 8, py + 6); ctx.lineTo(px - 8, py + 6)
+            ctx.closePath(); ctx.stroke()
+          } else {
+            ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2); ctx.stroke()
+          }
+          ctx.fillText(label, px, py - 14)
+        }
+        ctx.restore()
+      }
+
       // THE MARCH TABLE, ON THE ROUTE. A column's route was a blue line and
       // nothing else: no distance, no time, no depth. Those three numbers are
       // what a march order IS, and reading them meant opening a console — so

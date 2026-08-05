@@ -68,6 +68,7 @@ export function initGame(
   S.teams = []
   S.march = []
   S.routes = []
+  S.measures = []
   S.hazards = []
   S.recoveries = []
   S.replT = 0
