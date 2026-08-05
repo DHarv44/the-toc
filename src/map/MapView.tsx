@@ -646,7 +646,7 @@ export default function MapView() {
         const r = taskOrganize(sel.map(u => u.id))
         if (r.kind === 'formed') toast(`${r.team!.name} TASK ORGANIZED`)
         else if (r.kind === 'joined') toast(`${r.n} ATTACHED TO ${r.team!.name}`)
-        else toast('SELECT TWO OR MORE LOOSE ELEMENTS, OR A TEAM PLUS THE ONES JOINING IT')
+        else toast('ALREADY ONE TEAM — ADD WHAT IS JOINING IT, OR SHIFT+G TO DETACH')
       }
     }
     function onKeyUp(e: KeyboardEvent) { heldKeys.delete(e.key.toLowerCase()) }

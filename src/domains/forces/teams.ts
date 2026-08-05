@@ -148,16 +148,39 @@ export function taskOrganize(unitIds: number[]):
     .map(id => S.units.find(u => u.id === id))
     .filter((u): u is Unit => !!u && u.strength > 0 && underPlayerCommand(u))
   if (!units.length) return { kind: 'none', n: 0 }
-  const free = units.filter(u => !teamOf(u))
-  const named = [...new Set(units.map(u => teamOf(u)?.id).filter((v): v is number => v != null))]
-  if (named.length === 1 && free.length) {
-    const t = teamById(named[0]!)
-    if (t) {
-      for (const u of free) joinTeam(t.id, u.id)
-      return { kind: 'joined', team: t, n: free.length }
-    }
+
+  // WHICH TEAM IS THE DESTINATION: the one with the most of ITS OWN members in
+  // the selection, not the biggest team on the map. That is what makes this one
+  // verb able to cross-attach.
+  //
+  // Pull one platoon out of Team Bravo with alt-click, add Team Alpha, and the
+  // counts read Bravo 1, Alpha 2 — so the platoon goes to Alpha, which is
+  // exactly the move the player described by making that selection. Weighing
+  // whole teams instead would have sent Alpha into Bravo because Bravo is
+  // bigger, which is the opposite order and a much larger act.
+  //
+  // Cross-attachment is the thing a task organization exists to record, and
+  // until now the only way to do it was detach, then re-select, then attach.
+  const count = new Map<number, number>()
+  for (const u of units) {
+    const t = teamOf(u)
+    if (t) count.set(t.id, (count.get(t.id) ?? 0) + 1)
   }
-  if (!named.length && free.length >= 2) {
+  let destId: number | null = null, best = 0
+  for (const [id, n] of count) if (n > best) { best = n; destId = id }
+
+  if (destId != null) {
+    const dest = teamById(destId)
+    const joining = units.filter(u => teamOf(u)?.id !== destId)
+    if (dest && joining.length) {
+      for (const u of joining) joinTeam(dest.id, u.id)
+      return { kind: 'joined', team: dest, n: joining.length }
+    }
+    return { kind: 'none', n: units.length }
+  }
+
+  const free = units.filter(u => !teamOf(u))
+  if (free.length >= 2) {
     const t = formTeam(free.map(u => u.id))
     if (t) return { kind: 'formed', team: t, n: free.length }
   }
