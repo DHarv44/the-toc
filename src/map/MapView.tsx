@@ -31,7 +31,7 @@ import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
-import { addMeasure, measureLabel, removeMeasure } from '../domains/control/measures'
+import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/control/measures'
 import { toast } from '../domains/comms/radio'
 import { teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
@@ -211,7 +211,7 @@ export default function MapView() {
       let best: ControlMeasure | null = null, bd = Infinity
       for (const m of S.measures) {
         let d: number
-        if (m.kind === 'phaseline' && m.pts.length > 1) {
+        if (isLine(m.kind) && m.pts.length > 1) {
           const a = m.pts[0]!, b = m.pts[1]!
           const dx = b.x - a.x, dy = b.y - a.y
           const len2 = dx * dx + dy * dy
@@ -306,9 +306,9 @@ export default function MapView() {
         return
       }
       const mode = useUI.getState().mode
-      // the phase-line drag reuses the formation-line rubber band so the
+      // the drawn-line drag reuses the formation-line rubber band so the
       // commander can see the line they are laying before they commit it
-      if (leftDown && mode === 'measure:phaseline') {
+      if (leftDown && (mode === 'measure:phaseline' || mode === 'measure:boundary')) {
         lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
       }
       if (leftDown && mode === 'select') {
@@ -442,11 +442,11 @@ export default function MapView() {
           toast(`${measureLabel(hit)} OFF THE GRAPHIC`)
           return
         }
-        if (kind === 'phaseline') {
+        if (isLine(kind)) {
           if (!wasDown) return
           const ax = s2wX(wasDown.x), ay = s2wY(wasDown.y)
           if (Math.hypot(wx - ax, wy - ay) > 60) {
-            const m = addMeasure('phaseline', [{ x: ax, y: ay }, { x: wx, y: wy }])
+            const m = addMeasure(kind, [{ x: ax, y: ay }, { x: wx, y: wy }])
             if (m) toast(`${measureLabel(m)} ON THE GRAPHIC`)
           }
         } else {
@@ -1069,15 +1069,47 @@ export default function MapView() {
       // labelled blob. Nothing here is decorative — a measure a unit has passed
       // dims, so the sheet shows the operation's progress and not just its plan.
       for (const m of S.measures) {
-        const done = m.crossed.length > 0
+        // a boundary never "completes" — it divides ground, it is not progress
+        const done = m.kind !== 'boundary' && m.crossed.length > 0
         ctx.save()
-        ctx.strokeStyle = done ? 'rgba(120,170,140,0.55)' : 'rgba(60,180,120,0.85)'
+        ctx.strokeStyle = m.kind === 'boundary' ? 'rgba(215,170,70,0.9)'
+          : done ? 'rgba(120,170,140,0.55)' : 'rgba(60,180,120,0.85)'
         ctx.fillStyle = ctx.strokeStyle
         ctx.lineWidth = 1.6
         ctx.font = '600 10px Inter, system-ui, sans-serif'
         ctx.textAlign = 'center'
         const label = m.kind === 'phaseline' ? `PL ${m.name}`
           : m.kind === 'checkpoint' ? `CP ${m.name}` : m.name
+        if (m.kind === 'boundary' && m.pts.length > 1) {
+          // A BOUNDARY IS LABELLED BY WHOSE GROUND LIES EITHER SIDE OF IT —
+          // that IS the graphic. A line with a name on it would be a phase
+          // line; what a staff reads off a boundary is "us here, them there",
+          // so the team names go out to their own side of the line.
+          const a = m.pts[0]!, b = m.pts[1]!
+          const ax = w2sX(a.x), ay = w2sY(a.y), bx = w2sX(b.x), by = w2sY(b.y)
+          ctx.lineWidth = 2.4
+          ctx.setLineDash([14, 7])
+          ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+          ctx.setLineDash([])
+          // Offsets are worked out in WORLD space and converted, not measured on
+          // the screen: the sign that names a sector comes from the world
+          // geometry, and screen Y runs the other way — doing it in pixels puts
+          // each team's name on the far side of its own boundary.
+          const wdx = b.x - a.x, wdy = b.y - a.y
+          const wl = Math.hypot(wdx, wdy) || 1
+          const wnx = -wdy / wl, wny = wdx / wl
+          const wmx = (a.x + b.x) / 2, wmy = (a.y + b.y) / 2
+          const nSide = Math.sign(wdx * (wmy + wny - a.y) - wdy * (wmx + wnx - a.x))
+          const off = 26 / view.ppm
+          for (const [id, s] of [[m.owners?.neg ?? null, -1], [m.owners?.pos ?? null, 1]] as const) {
+            const t = id == null ? null : S.teams.find(x => x.id === id)
+            const dir = s === nSide ? 1 : -1
+            ctx.fillText(t?.name ?? 'UNASSIGNED',
+              w2sX(wmx + wnx * off * dir), w2sY(wmy + wny * off * dir) + 3)
+          }
+          ctx.restore()
+          continue
+        }
         if (m.kind === 'phaseline' && m.pts.length > 1) {
           const a = m.pts[0]!, b = m.pts[1]!
           const ax = w2sX(a.x), ay = w2sY(a.y), bx = w2sX(b.x), by = w2sY(b.y)

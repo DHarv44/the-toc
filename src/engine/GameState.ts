@@ -99,7 +99,7 @@ export interface RecoveryJob {
 /** CONTROL MEASURES — the graphics a staff draws on a map to control a fight.
  *  See domains/control/measures for what each one MEANS; this is only the
  *  geometry and the record of who has passed it. */
-export type MeasureKind = 'phaseline' | 'checkpoint' | 'objective'
+export type MeasureKind = 'phaseline' | 'checkpoint' | 'objective' | 'boundary'
 
 export interface ControlMeasure {
   id: number
@@ -108,6 +108,12 @@ export interface ControlMeasure {
   pts: Vec2[]                // two for a line, one for a point
   /** unit ids that have crossed/reached it, so a line is called once */
   crossed: number[]
+  /** BOUNDARY ONLY — whose ground is on each side. The key is the sign the
+   *  geometry gives that side; which one is visually left is arbitrary and
+   *  irrelevant, what matters is that a point on the map resolves to an owner.
+   *  Fixed at the moment the line is drawn: a boundary that follows a team
+   *  around as it manoeuvres is not a boundary, it is a leash. */
+  owners?: { neg: number | null; pos: number | null }
 }
 
 /** THE ROUTE A COLUMN SHARES.

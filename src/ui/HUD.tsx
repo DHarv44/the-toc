@@ -96,6 +96,7 @@ export default function HUD() {
           ['phaseline', 'PL', 'Phase line — DRAG across the axis. Elements report crossing it.'],
           ['checkpoint', 'CP', 'Checkpoint — click to drop one. Elements report reaching it.'],
           ['objective', 'OBJ', 'Objective — click to drop one. Elements report arriving on it.'],
+          ['boundary', 'BDY', "Boundary — DRAG between two teams. Divides whose ground is whose: crossing it is reported, and fires into the far side need the owner's clearance."],
         ] as const).map(([kind, label, tip]) => (
           <MapButton key={kind} small active={ui.mode === `measure:${kind}`}
             title={`${tip}  Click an existing graphic to remove it.`}

@@ -3,6 +3,7 @@ import { S } from '../../engine/state'
 import type { ShellKind } from '../../engine/GameState'
 import { UNIT_TYPES } from '../forces/catalog'
 import { campaignAllows } from '../../engine/campaign'
+import { clearFires } from '../control/measures'
 import { toast, radio } from '../comms/radio'
 import { grid } from '../../lib/format'
 
@@ -30,6 +31,18 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   const shell = opts.shell || 'HE'
   const rounds = Math.min(opts.rounds || ind.salvo, Math.floor(u.ammo ?? ind.salvo))
   const sheafMul = opts.sheaf === 'AREA' ? 2.2 : opts.sheaf === 'POINT' ? 0.55 : 1
+  const danger = ind.scatter * sheafMul + ind.blast + 80
+  // CLEARANCE OF FIRES. If a boundary says this grid belongs to another team,
+  // they get asked before the guns are laid — and they say no when the sheaf
+  // would land on top of them. Checked HERE, before a round is spent or the
+  // battery is committed, because a refused mission is one that never happened.
+  if (friendly) {
+    const clr = clearFires(u, x, y, danger)
+    if (clr) {
+      radio(clr.who, clr.ok ? 'fires' : 'damage', clr.call, x, y)
+      if (!clr.ok) return toast(`CHECK FIRE — ${clr.who} HAS ELEMENTS VIC TGT`)
+    }
+  }
   // no supply charge (nothing is purchased): the basic load (u.ammo) and the
   // reload cooldown are the honest limiters — resupply is physical (LOG/base)
   u.ammo = (u.ammo ?? rounds) - rounds
@@ -53,7 +66,6 @@ export function fireMission(unitId: number, x: number, y: number, opts: FireMiss
   if (u.side === 'friend') {
     last.splashFrom = u.label
     // danger close advisory
-    const danger = ind.scatter * sheafMul + ind.blast + 80
     if (S.units.some(f => f.side === 'friend' && f.id !== u.id && Math.hypot(f.x - x, f.y - y) < danger)) {
       radio(u.label, 'damage', `DANGER CLOSE — FRIENDLIES NEAR TGT GRID ${grid(x, y)}`, x, y)
     }
