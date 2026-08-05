@@ -35,7 +35,7 @@ import { IMAGERY_CREDIT } from '../world/pack/imagery'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
 import { formTeam, joinTeam, leaveTeam, teamById, teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
-import { MARCH_INTERVAL, marchMoving, marchPlan } from '../domains/movement/march'
+import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../domains/movement/march'
 import { underPlayerCommand } from '../domains/forces/command'
 import { toast } from '../domains/comms/radio'
 
@@ -432,7 +432,53 @@ export function SelectionTray() {
           ))}
         </div>
       )}
-      {/* ACTIONS — things the element DOES when you press them, grouped by what
+      {/* THE ORDER YOU ARE GIVING, AT THE ECHELON YOU ARE GIVING IT.
+          This row is about the FORMATION: where it goes, how it marches, who
+          is in it. It exists separately because a battalion commander moving a
+          company team and a platoon leader picking a wedge are not the same
+          act, and putting both in one strip of identical buttons — which is
+          what this was — makes the player sort them out every single time. */}
+      {units.length > 0 && (
+        <div style={segBar}>
+          <Seg label="CMD">
+            <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
+            <button data-tut={TUT.attackMode}
+              style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
+              onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
+          </Seg>
+          {selTeam && (
+            <>
+              {segSep}
+              {/* TEAM orders — the ones that belong to the column rather than to
+                  any element in it. The interval is the dispersion decision and
+                  it lived only in the S3; it is a march order and it belongs
+                  where you are giving march orders. */}
+              <Seg label="TEAM">
+                <button style={btn(false)}
+                  title="Halt the whole column where it stands"
+                  onClick={() => units.forEach(u => orderHold(u.id))}>HALT COLUMN</button>
+                {([['close', 'CLOSE'], ['open', 'OPEN'], ['infiltration', 'INFIL']] as const)
+                  .map(([c, label]) => (
+                    <button key={c} style={optBtn((selPlan?.column ?? 'open') === c)}
+                      title={`${MARCH_INTERVAL[c]} m between vehicles`}
+                      onClick={() => setMarchOrder(selTeam.id, selPlan?.order ?? selTeam.members, c, {
+                        ...(selPlan?.roe ? { roe: selPlan.roe } : {}),
+                        ...(selPlan?.weapons ? { weapons: selPlan.weapons } : {}),
+                        ...(selPlan?.disabled ? { disabled: selPlan.disabled } : {}),
+                        ...(selPlan?.authored ? { authored: true } : {}),
+                      })}>{label}</button>
+                  ))}
+                <button style={{ ...optBtn(false), color: '#9fb3c6' }}
+                  title="Order of march, actions on contact, disabled-vehicle policy, load plan"
+                  onClick={() => ui.setConsole('s3')}>ORDER OF MARCH ▸</button>
+              </Seg>
+            </>
+          )}
+          {segSep}
+          <Seg label="TASK ORG"><TaskOrgSeg units={units} /></Seg>
+        </div>
+      )}
+      {/* ACTIONS — things the ELEMENT does when you press them, grouped by what
           kind of doing it is: move/posture, fight, engineer + organic assets,
           then the administrative ones. */}
       <div style={segBar}>
@@ -562,19 +608,6 @@ export function SelectionTray() {
           difference between the two rows. */}
       {units.length > 0 && (
         <div style={segBar}>
-          <Seg label="CMD">
-            <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
-            <button data-tut={TUT.attackMode}
-              style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
-              onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
-          </Seg>
-          {segSep}
-          {/* TASK ORG WHERE THE SELECTION IS. Forming a team meant selecting on
-              the map, then opening Operations, then finding the button — three
-              places for one decision. The S3 board is still where a team is
-              EDITED; this is where one gets made. */}
-          <Seg label="TASK ORG"><TaskOrgSeg units={units} /></Seg>
-          {segSep}
           <Seg label="FORM"><FormSelect units={units} /></Seg>
           {segSep}
           {/* STANDING STATE, not actions. These say what the element WILL do,
