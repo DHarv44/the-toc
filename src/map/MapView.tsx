@@ -30,7 +30,7 @@ import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../wo
 import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
-import { marchPlan } from '../domains/movement/march'
+import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
 import { teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 
@@ -977,6 +977,69 @@ export default function MapView() {
         ctx.closePath()
         ctx.fill()
       }
+      // THE MARCH TABLE, ON THE ROUTE. A column's route was a blue line and
+      // nothing else: no distance, no time, no depth. Those three numbers are
+      // what a march order IS, and reading them meant opening a console — so
+      // the sheet could show you a route without telling you anything about it.
+      //
+      // Drawn for the SELECTED team only. This is detail you inspect, not
+      // clutter every column carries around; the whole point of the roll-up is
+      // that the map stays readable until you ask it a question.
+      for (const t of S.teams) {
+        if (!t.members.some(id => ui.selectedIds.includes(id))) continue
+        const plan = marchPlan(t.id)
+        const mem = t.members
+          .map(id => S.units.find(u => u.id === id))
+          .filter((u): u is Unit => !!u && u.strength > 0 && u.path.length > 0)
+        if (mem.length < 2) continue
+        const rank = new Map((plan?.order ?? t.members).map((id, i) => [id, i]))
+        const head = mem.slice().sort((a, b) =>
+          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))[0]!
+        // distance still to run, and the pace the COLUMN can actually hold —
+        // the slowest element's, because that is what a column moves at
+        let togo = 0, px = head.x, py = head.y
+        for (const p of head.path) { togo += Math.hypot(p.x - px, p.y - py); px = p.x; py = p.y }
+        const pace = Math.min(...mem.map(u => u._spd || 0).filter(v => v > 0.2))
+        const eta = isFinite(pace) && pace > 0 ? togo / pace : Infinity
+        const gap = MARCH_INTERVAL[plan?.column ?? 'open']
+        const depth = gap * Math.max(0, mem.length - 1)
+        const rp = head.path[head.path.length - 1]!
+        const hx = w2sX(head.x), hy = w2sY(head.y)
+        const rx = w2sX(rp.x), ry = w2sY(rp.y)
+
+        ctx.save()
+        // SP where the head is now, RP at the objective — the two ends every
+        // march table names
+        ctx.strokeStyle = 'rgba(126,200,255,0.8)'
+        ctx.lineWidth = 2
+        for (const [mx, my] of [[hx, hy], [rx, ry]] as const) {
+          ctx.beginPath(); ctx.arc(mx, my, 7, 0, Math.PI * 2); ctx.stroke()
+        }
+        ctx.font = '600 9px Inter, system-ui, sans-serif'
+        ctx.fillStyle = 'rgba(126,200,255,0.9)'
+        ctx.textAlign = 'center'
+        ctx.fillText('SP', hx, hy - 11)
+        ctx.fillText('RP', rx, ry - 11)
+
+        // the readout, on the route near the objective
+        const km = togo >= 1000 ? `${(togo / 1000).toFixed(1)} KM` : `${Math.round(togo)} M`
+        const mins = isFinite(eta) ? Math.round(eta / 60) : null
+        const line = `${t.name} · ${km} TO RP · ${
+          mins == null ? 'HALTED' : mins >= 60
+            ? `ETA ${Math.floor(mins / 60)}H ${String(mins % 60).padStart(2, '0')}M`
+            : `ETA ${mins} MIN`} · ${Math.round(depth)} M DEEP`
+        ctx.font = '600 10px Inter, system-ui, sans-serif'
+        const w = ctx.measureText(line).width
+        ctx.fillStyle = 'rgba(10,20,30,0.78)'
+        ctx.fillRect(rx - w / 2 - 6, ry + 12, w + 12, 15)
+        ctx.strokeStyle = 'rgba(126,200,255,0.35)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(rx - w / 2 - 6, ry + 12, w + 12, 15)
+        ctx.fillStyle = 'rgba(190,225,255,0.95)'
+        ctx.fillText(line, rx, ry + 23)
+        ctx.restore()
+      }
+
       for (const d of S.drones) {
         if (!d.route || !d.route.length || ui.selectedIds.includes(d.id)) continue
         ctx.strokeStyle = 'rgba(74,208,192,0.25)'
