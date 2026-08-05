@@ -446,6 +446,18 @@ export default function MapView() {
           else { ui.setSelected([picked.obj.id]); ui.bindDrone(picked.obj.id) }
           return
         }
+        // CLICKING A TEAM SELECTS THE TEAM. When the column is rolled up into
+        // one symbol, that symbol stands for every element in it — picking one
+        // platoon out of an icon the player cannot even see the parts of would
+        // be picking something they did not click on. Ctrl still toggles a
+        // single element, for taking one out of the task organization.
+        const team = teamOf(picked.obj as Unit)
+        if (team && !e.ctrlKey) {
+          const live = team.members.filter(id =>
+            S.units.some(u => u.id === id && u.strength > 0))
+          ui.setSelected(live.length ? live : [picked.obj.id])
+          return
+        }
         if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
         else ui.setSelected([picked.obj.id])
         return
@@ -1340,13 +1352,19 @@ export default function MapView() {
         })
       }
 
-      // THE TASK ORGANIZATION, ON THE SHEET. A team had no presence on the BFT
-      // at all: four separate icons, no name, no head, no way to see whether
-      // the column was together without opening a console and reading numbers.
-      // Drawn UNDER the symbols so it never competes with them — a thin tie in
-      // march order from the lead back, the name at the head, and the trail
-      // element marked, which between them answer "is it a column or is it
-      // four platoons going the same way" at a glance.
+      // THE TASK ORGANIZATION, ON THE SHEET, AT THE RIGHT ECHELON.
+      //
+      // Five platoons in one place drew five overlapping icons and five labels
+      // on top of each other, which is unreadable and is also the wrong answer:
+      // a battalion commander looking at a company team wants to see A COMPANY
+      // TEAM. So a team ROLLS UP into one symbol — the base element's branch
+      // with the company echelon bar over it, carrying the team's name, its
+      // aggregate strength and how many elements are in it.
+      //
+      // It EXPANDS when you select it, or when you are zoomed in far enough
+      // that the elements are legibly apart. That is the BFT convention and the
+      // RTS one: the icon you command at, and the detail you inspect at.
+      const rolled = new Set<number>()
       for (const t of S.teams) {
         const mem = t.members
           .map(id => S.units.find(u => u.id === id))
@@ -1356,8 +1374,17 @@ export default function MapView() {
         const rank = new Map((plan?.order ?? t.members).map((id, i) => [id, i]))
         const line = mem.slice().sort((a, b) =>
           (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))
+        const head = line[0]!, tail = line[line.length - 1]!
+        const picked = mem.some(u => ui.selectedIds.includes(u.id))
+        // how far apart the column actually is on screen — a team strung over
+        // two kilometres of road at high zoom is not one icon, it is a column
+        const spreadPx = Math.hypot(
+          w2sX(head.x) - w2sX(tail.x), w2sY(head.y) - w2sY(tail.y))
+        const expand = picked || spreadPx > 90
+
         ctx.save()
-        ctx.strokeStyle = 'rgba(126,200,255,0.30)'
+        // the tie through the column, in march order, under everything
+        ctx.strokeStyle = expand ? 'rgba(126,200,255,0.34)' : 'rgba(126,200,255,0.20)'
         ctx.lineWidth = 1
         ctx.setLineDash([5, 5])
         ctx.beginPath()
@@ -1367,23 +1394,43 @@ export default function MapView() {
         })
         ctx.stroke()
         ctx.setLineDash([])
-        const head = line[0]!, tail = line[line.length - 1]!
-        // the head of the column carries the name; the trail is the element
-        // everything else is waiting on when the column goes firm
-        ctx.fillStyle = 'rgba(126,200,255,0.72)'
-        ctx.font = '600 9px Inter, system-ui, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText(t.name, w2sX(head.x), w2sY(head.y) - 26)
-        ctx.strokeStyle = 'rgba(126,200,255,0.45)'
-        ctx.beginPath()
-        ctx.arc(w2sX(tail.x), w2sY(tail.y), 13, 0, Math.PI * 2)
-        ctx.stroke()
         ctx.restore()
+
+        if (expand) {
+          // the name rides the head of the column; the trail is the element
+          // everyone else goes firm for
+          ctx.save()
+          ctx.fillStyle = 'rgba(126,200,255,0.78)'
+          ctx.font = '600 10px Inter, system-ui, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(t.name, w2sX(head.x), w2sY(head.y) - 28)
+          ctx.strokeStyle = 'rgba(126,200,255,0.45)'
+          ctx.beginPath()
+          ctx.arc(w2sX(tail.x), w2sY(tail.y), 13, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.restore()
+          continue
+        }
+
+        // ROLLED UP. One symbol, at the head of the column where the commander
+        // is, wearing the BASE element's branch — a team is named for and built
+        // around a company, and it is drawn as that company with whatever is
+        // cross-attached to it. Strength is the aggregate.
+        for (const u of mem) rolled.add(u.id)
+        const base = mem.find(u => u.id === t.baseId) ?? head
+        const str = mem.reduce((n, u) => n + u.strength, 0) / mem.length
+        drawUnitSymbol(ctx, w2sX(head.x), w2sY(head.y), {
+          side: 'friend', glyph: UNIT_TYPES[base.type].glyph, echelon: 'co',
+          label: `${t.name} ×${mem.length}`,
+          strength: str, selected: false,
+          contact: Math.max(...mem.map(contactLevel)),
+        })
       }
 
-      // friendly units (always shown — it's blue force tracking)
+      // friendly units (always shown — it's blue force tracking), except the
+      // ones currently represented by their team's rolled-up symbol
       for (const u of S.units) {
-        if (u.side !== 'friend') continue
+        if (u.side !== 'friend' || rolled.has(u.id)) continue
         const type = UNIT_TYPES[u.type]
         drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
           side: 'friend', glyph: type.glyph, label: `${u.label} ${type.abbr}`,

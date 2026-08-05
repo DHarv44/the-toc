@@ -26,7 +26,7 @@ export interface UnitSymbolOpts {
   stale?: boolean
   label?: string
   strength?: number
-  echelon?: 'plt' | ''
+  echelon?: 'plt' | 'co' | ''
   dug?: number
   showStrength?: boolean
   contact?: number
@@ -102,12 +102,23 @@ export function drawUnitSymbol(ctx: Ctx2D, x: number, y: number, opts: UnitSymbo
     ctx.setLineDash([])
   }
 
-  // echelon (platoon: three dots above frame)
-  if (echelon === 'plt') {
-    ctx.fillStyle = edge
+  // ECHELON, above the frame. The 2525 ladder, as far up as this game goes:
+  //   plt  three dots        a platoon
+  //   co   one vertical bar  a company / troop / battery — and therefore a
+  //                          company TEAM, which is what a task organized
+  //                          grouping of platoons is drawn as
+  {
     const ey = side === 'friend' ? -FH / 2 - 5 : -19
-    for (const dx of [-5, 0, 5]) {
-      ctx.beginPath(); ctx.arc(dx, ey, 1.6, 0, Math.PI * 2); ctx.fill()
+    if (echelon === 'plt') {
+      ctx.fillStyle = edge
+      for (const dx of [-5, 0, 5]) {
+        ctx.beginPath(); ctx.arc(dx, ey, 1.6, 0, Math.PI * 2); ctx.fill()
+      }
+    } else if (echelon === 'co') {
+      ctx.strokeStyle = edge
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(0, ey - 4); ctx.lineTo(0, ey + 4); ctx.stroke()
+      ctx.lineWidth = 1.6
     }
   }
 
