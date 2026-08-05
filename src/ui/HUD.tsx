@@ -34,7 +34,8 @@ import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
-import { formTeam, joinTeam, leaveTeam, teamById, teamOf } from '../domains/forces/teams'
+import { formTeam, joinTeam, leaveTeam, teamById, teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
+import { MARCH_INTERVAL, marchMoving, marchPlan } from '../domains/movement/march'
 import { underPlayerCommand } from '../domains/forces/command'
 import { toast } from '../domains/comms/radio'
 
@@ -219,6 +220,14 @@ function TaskOrgSeg({ units }: { units: Unit[] }) {
   )
 }
 
+/** The one value a selection shares, or MIXED. A standing order that reads as
+ *  blank because two elements disagree is the thing you most need told. */
+function stateOf(units: Unit[], pick: (u: Unit) => string): string {
+  if (!units.length) return '—'
+  const vals = new Set(units.map(pick))
+  return vals.size === 1 ? [...vals][0]!.toUpperCase() : 'MIXED'
+}
+
 function FormSelect({ units }: { units: Unit[] }) {
   const forms = new Set(units.map(formOf))
   const cur = forms.size === 1 ? FORMATION[[...forms][0]!] : null
@@ -276,6 +285,8 @@ export function SelectionTray() {
   useUI((s) => s.tick)
   const ui = useUI()
   const [min, setMin] = useState(false)
+  // the roster starts SHUT for a team — the headline is the team, not its parts
+  const [roster, setRoster] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter((u): u is Unit => !!u)
   const selDrones = ui.selectedIds.map(id => S.drones.find(d => d.id === id)).filter((d): d is Drone => !!d)
   if (!units.length && !selDrones.length) return null
@@ -284,6 +295,16 @@ export function SelectionTray() {
   // supply run is inherently one truck → one FOB, so it shows for a single logi unit
   const logiUnit = units.length === 1 && UNIT_TYPES[units[0]!.type].logi ? units[0]! : null
   const count = units.length + selDrones.length
+  // THE SELECTION IS A TEAM when every element of it belongs to the same one
+  // and the whole team is picked — which is what clicking a rolled-up symbol
+  // gives you, and what the tray should then be about.
+  const t0 = units.length ? teamOf(units[0]!) : undefined
+  const selTeam = t0 && units.length === teamUnits(t0).length
+    && units.every(u => t0.members.includes(u.id)) ? t0 : null
+  const selCdr = selTeam ? teamCdr(selTeam) : null
+  const selPlan = selTeam ? marchPlan(selTeam.id) : null
+  const teamStr = selTeam && units.length
+    ? Math.round(units.reduce((n, u) => n + u.strength, 0) / units.length) : 0
 
   // minimized: the body goes away, leaving a slim restore row under the map
   if (min) {
@@ -304,18 +325,43 @@ export function SelectionTray() {
       background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
       padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
     }}>
-      {/* header: what is selected, and the two controls that are about the
-          TRAY rather than about the units — they were buried at the end of the
-          action row, reading as orders when neither is one */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>{count} SELECTED</span>
+      {/* WHO YOU ARE COMMANDING — one line, and for a team it is the team.
+          This used to say "5 SELECTED" over five near-identical cards that
+          repeated the FORCES rail verbatim and never once named the thing the
+          player had actually picked. A commander looking at a company team
+          wants its name, who answers for it, what it is worth and whether it
+          is moving; the roster is a detail you open, not the headline. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {selTeam ? (
+          <>
+            <span style={{ color: '#7ec8ff', fontSize: 11.5, letterSpacing: 1 }}>{selTeam.name}</span>
+            <span style={{ color: '#8ba3b8', fontSize: 9.5 }}>
+              {teamUnits(selTeam).length} ELEMENTS · {teamStr}%
+              {selCdr ? ` · ${selCdr.soldier?.rank ?? ''} ${selCdr.soldier?.name ?? ''}` : ''}
+              {selCdr?.acting ? ' (ACTING)' : ''}
+            </span>
+            {selPlan && (
+              <span style={{ color: '#54708a', fontSize: 9 }}>
+                {MARCH_INTERVAL[selPlan.column]} M · {marchMoving(selTeam.id) ? 'UNDER WAY' : 'AT THE SP'}
+              </span>
+            )}
+          </>
+        ) : (
+          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>{count} SELECTED</span>
+        )}
         <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
+        <button style={{ ...optBtn(roster), color: '#7c92a6' }}
+          title={roster ? 'Hide the roster' : 'Show the elements'}
+          onClick={() => setRoster(r => !r)}>{roster ? '▾' : '▸'} ROSTER</button>
         <button style={{ ...optBtn(false), color: '#7c92a6' }} title="Clear selection"
           onClick={() => ui.setSelected([])}>CLEAR</button>
         <button style={{ ...optBtn(false), color: '#7c92a6' }} title="Minimize"
           onClick={() => setMin(true)}>—</button>
       </div>
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{
+        display: roster ? 'flex' : 'none',
+        gap: 5, flexWrap: 'wrap', justifyContent: 'center',
+      }}>
         {units.map(u => {
           const type = UNIT_TYPES[u.type]
           const str = Math.max(0, Math.round(u.strength))
@@ -531,7 +577,11 @@ export function SelectionTray() {
           {segSep}
           <Seg label="FORM"><FormSelect units={units} /></Seg>
           {segSep}
-          <Seg label="ON CONTACT">
+          {/* STANDING STATE, not actions. These say what the element WILL do,
+              indefinitely, and the label carries the current value so it reads
+              without having to work out which of three buttons is lit. Mixed
+              selections say so rather than showing nothing highlighted. */}
+          <Seg label={`ON CONTACT · ${stateOf(units, u => u.roe || 'halt')}`}>
             {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
               <button key={roe} data-tut={roe === 'break' ? TUT.roeBreak : undefined}
                 style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
@@ -540,7 +590,7 @@ export function SelectionTray() {
               </button>
             ))}
           </Seg>
-          <Seg label="WPNS">
+          <Seg label={`WEAPONS · ${stateOf(units, u => u.weapons || 'free')}`}>
             {([['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const).map(([w, label]) => (
               <button key={w}
                 style={optBtn(units.every(u => (u.weapons || 'free') === w))}
