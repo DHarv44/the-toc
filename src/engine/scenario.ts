@@ -135,11 +135,19 @@ export function initGame(
   // WHICH elements is the player pack's (its own platforms, in its own order);
   // HOW MANY is the difficulty's. A tier that named unit types could only
   // describe one army — it handed a Mobile Infantry company an Abrams.
+  // THE ASSEMBLY AREA IS DISPERSED, because a bunched one is a fire mission.
+  // Thirteen platoons on an 86-degree arc at 260 m put them thirty metres
+  // apart: every icon on the map sat on top of every other icon, every label
+  // was illegible, and the force was a single aim point. Real elements in an
+  // AA sit hundreds of metres apart and IN DEPTH — so the arc is wider and the
+  // radius steps through three bands, which also stops the whole force reading
+  // as beads on one ring.
   const startForce = (playerPack().startForce ?? []).slice(0, diff.startForce)
   startForce.forEach((typeKey, i) => {
     const n = startForce.length
-    const a = -Math.PI / 2 + (n > 1 ? (i / (n - 1) - 0.5) * 1.5 : 0)
-    const p = nearestLand(S.map!, S.map!.fob.x + Math.cos(a) * 260, S.map!.fob.y + Math.sin(a) * 260)
+    const a = -Math.PI / 2 + (n > 1 ? (i / (n - 1) - 0.5) * 3.0 : 0)
+    const r = 620 + (i % 3) * 300
+    const p = nearestLand(S.map!, S.map!.fob.x + Math.cos(a) * r, S.map!.fob.y + Math.sin(a) * r)
     deployUnit(typeKey, p.x, p.y, true)
   })
 
