@@ -144,10 +144,22 @@ function BattleGroups() {
         tag={`${u.lineage ?? ''}${u.attFrom ? ` · ATT ${u.attFrom}` : ''}`}
         note={`${Math.max(0, Math.round(u.strength))}%`}
         cost=""
-        onClick={() => {
-          ui.select(u.id)
-          centerView(u)
-        }} />
+        // A LIST YOU CAN ACTUALLY PICK FROM. This rail's own FORM A TEAM sits
+        // under the words SELECT TWO OR MORE INDEPENDENT ELEMENTS — and rows
+        // replaced the selection on every click, with or without a modifier, so
+        // the instruction described something the rail could not do and the
+        // button under it could never fire. Ctrl and shift add.
+        //
+        // And a click no longer flies the camera across the map. Looking at a
+        // row is not the same as going there: a single click SELECTS, a double
+        // click TAKES YOU. The old behaviour threw the view at whatever you
+        // touched, which made reading down the rail a series of jump cuts and
+        // routinely left the rest of the force off screen.
+        onClick={e => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) ui.toggleSelect(u.id)
+          else ui.select(u.id)
+        }}
+        onDoubleClick={() => { ui.select(u.id); centerView(u) }} />
     )
   }
   return (
@@ -166,7 +178,7 @@ function BattleGroups() {
           <PaletteRow label="＋ FORM A TEAM"
             tag={selectedFree.length >= 2
               ? `${selectedFree.map(u => u.label).join(', ')} — NAMED FOR ${selectedFree[0]!.label}`
-              : 'SELECT TWO OR MORE INDEPENDENT ELEMENTS'}
+              : 'CTRL-CLICK TWO OR MORE INDEPENDENT ELEMENTS — OR MARQUEE THEM AND PRESS G'}
             cost=""
             onClick={() => {
               // it forms HERE. Sending the commander to another console to
@@ -200,6 +212,27 @@ function BattleGroups() {
               {cdr.soldier?.rank ?? ''} {cdr.soldier?.name ?? cdr.unit.label} · {cdr.unit.label}
               {cdr.acting ? ' · ACTING' : ''}
             </Text>
+          )}
+          {/* THE HEADING IS THE TEAM, SO IT SELECTS THE TEAM. It was inert:
+              the rail could name a grouping, list it in march order and tell
+              you who commanded it, and offered no way to actually take hold of
+              it — the only route was finding a member out on the map. Clicking
+              the team is the most obvious thing a player will try in a panel
+              full of teams, and it did nothing. */}
+          {team && (
+            <PaletteRow label={`▣ COMMAND ${team.name}`}
+              tag={`SELECT ALL ${list.length} ELEMENTS · DOUBLE-CLICK TO GO THERE`}
+              active={list.every(u => ui.selectedIds.includes(u.id))
+                && ui.selectedIds.length === list.length}
+              cost=""
+              onClick={() => ui.setSelected(list.map(u => u.id))}
+              onDoubleClick={() => {
+                ui.setSelected(list.map(u => u.id))
+                centerView({
+                  x: list.reduce((n, u) => n + u.x, 0) / list.length,
+                  y: list.reduce((n, u) => n + u.y, 0) / list.length,
+                })
+              }} />
           )}
           {inOrder.map((u, i) => row(u, i, inOrder.length - 1))}
           {/* THE RAIL ANSWERS "WHAT DO I HAVE"; the S3 answers "how is it

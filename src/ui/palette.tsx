@@ -1,7 +1,7 @@
 // Deploy palette primitives: the shared MIL-STD-2525 icon renderer, the row/header
 // chrome, and the rules for what a given selection is allowed to field.
 // Ported verbatim from src/ui/palette.jsx.
-import { useRef, useEffect, type ReactNode } from 'react'
+import { useRef, useEffect, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { ActionIcon, Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { S } from '../engine/state'
 import type { OrgSlot, Unit } from '../engine/GameState'
@@ -67,19 +67,26 @@ export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale =
   return <canvas ref={ref} style={{ width: W, height: H, flex: '0 0 auto' }} />
 }
 
-export function PaletteRow({ icon, label, tag, cost, active, onClick, disabled, note, onPlus }: {
+export function PaletteRow({
+  icon, label, tag, cost, active, onClick, onDoubleClick, disabled, note, onPlus,
+}: {
   icon?: ReactNode
   label: string
   tag?: string | null
   cost?: number | string | null
   active?: boolean
-  onClick?: () => void
+  /** The EVENT, not just the fact of the click — a list of elements has to be
+   *  able to honour ctrl and shift, and a handler that never sees the modifiers
+   *  cannot. (Callers that do not care keep ignoring the argument.) */
+  onClick?: (e: ReactMouseEvent) => void
+  onDoubleClick?: (e: ReactMouseEvent) => void
   disabled?: boolean
   note?: string | null
   onPlus?: () => void
 }) {
   return (
     <UnstyledButton component="div" onClick={disabled ? undefined : onClick}
+      onDoubleClick={disabled ? undefined : onDoubleClick}
       style={{
         display: 'block', width: '100%', cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.45 : 1,
