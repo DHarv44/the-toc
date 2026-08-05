@@ -5,11 +5,12 @@ import type { ShellKind } from '../engine/GameState'
 import type { Sheaf } from '../domains/fires/orders'
 
 // mode: 'select' | 'deploy:<TYPE>' | 'deploy:DRONE' | 'build:<KIND>' | 'target' | 'bridge'
-// 'phaseline' is a DRAW mode: drag across the axis and it lays a phase line.
-// Control measures are the one thing the player puts on the map that is not a
-// unit and not an order — they are how a commander writes coordination down.
-export type UiMode = 'select' | 'target' | 'bridge' | 'garrison' | 'phaseline'
-  | `deploy:${string}` | `build:${string}`
+// `measure:<kind>` is a DRAW mode — a phase line is dragged across the axis, a
+// checkpoint and an objective are clicked down. Control measures are the one
+// thing the player puts on the map that is neither a unit nor an order: they
+// are how a commander writes coordination down.
+export type UiMode = 'select' | 'target' | 'bridge' | 'garrison'
+  | `measure:${string}` | `deploy:${string}` | `build:${string}`
 export type CmdMode = 'move' | 'attack'
 
 export interface Feed {

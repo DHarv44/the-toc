@@ -88,12 +88,20 @@ export default function HUD() {
             : "Satellite underlay — this world's own ground, rendered top-down"}
           onClick={ui.toggleSat}>SAT</MapButton>
         {/* CONTROL MEASURES. The one thing the commander puts on the sheet that
-            is not a unit and not an order — coordination, written down. Armed
-            here because it is a MAP tool, and it stays armed so a phase line
-            plan goes down in three strokes rather than three round trips. */}
-        <MapButton small active={ui.mode === 'phaseline'}
-          title="Draw a phase line — drag across the axis. Elements report crossing it."
-          onClick={() => ui.setMode(ui.mode === 'phaseline' ? 'select' : 'phaseline')}>PL</MapButton>
+            is neither a unit nor an order — coordination, written down. Armed
+            here because they are MAP tools, and each stays armed so a plan goes
+            down in a few strokes rather than a few round trips. Clicking an
+            existing graphic while armed takes it back off. */}
+        {([
+          ['phaseline', 'PL', 'Phase line — DRAG across the axis. Elements report crossing it.'],
+          ['checkpoint', 'CP', 'Checkpoint — click to drop one. Elements report reaching it.'],
+          ['objective', 'OBJ', 'Objective — click to drop one. Elements report arriving on it.'],
+        ] as const).map(([kind, label, tip]) => (
+          <MapButton key={kind} small active={ui.mode === `measure:${kind}`}
+            title={`${tip}  Click an existing graphic to remove it.`}
+            onClick={() => ui.setMode(
+              ui.mode === `measure:${kind}` ? 'select' : `measure:${kind}`)}>{label}</MapButton>
+        ))}
         <MapButton small active={ui.overlays.fires}
           title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
           onClick={() => ui.toggleOverlay('fires')}>FIRES</MapButton>

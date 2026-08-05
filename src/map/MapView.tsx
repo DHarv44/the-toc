@@ -11,7 +11,7 @@
 // command panel.
 import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
-import type { Unit, Drone, Structure } from '../engine/GameState'
+import type { ControlMeasure, MeasureKind, Unit, Drone, Structure } from '../engine/GameState'
 import {
   orderMove, orderGroupMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
 } from '../domains/forces/orders'
@@ -31,7 +31,7 @@ import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
-import { addMeasure } from '../domains/control/measures'
+import { addMeasure, measureLabel, removeMeasure } from '../domains/control/measures'
 import { toast } from '../domains/comms/radio'
 import { teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
@@ -203,6 +203,30 @@ export default function MapView() {
       return null
     }
 
+    /** The measure under the cursor: nearest point for a marker, nearest point
+     *  ON the segment for a line — you grab a phase line by the line, not by
+     *  its ends. */
+    function pickMeasure(wx: number, wy: number): ControlMeasure | null {
+      const r = 22 / view.ppm
+      let best: ControlMeasure | null = null, bd = Infinity
+      for (const m of S.measures) {
+        let d: number
+        if (m.kind === 'phaseline' && m.pts.length > 1) {
+          const a = m.pts[0]!, b = m.pts[1]!
+          const dx = b.x - a.x, dy = b.y - a.y
+          const len2 = dx * dx + dy * dy
+          let t = len2 > 0 ? ((wx - a.x) * dx + (wy - a.y) * dy) / len2 : 0
+          t = t < 0 ? 0 : t > 1 ? 1 : t
+          d = Math.hypot(wx - (a.x + dx * t), wy - (a.y + dy * t))
+        } else {
+          const p = m.pts[0]!
+          d = Math.hypot(wx - p.x, wy - p.y)
+        }
+        if (d < r && d < bd) { bd = d; best = m }
+      }
+      return best
+    }
+
     // hostiles are clickable only if we can actually see them
     function pickEnemy(wx: number, wy: number): Unit | null {
       const pickR = 18 / view.ppm
@@ -284,7 +308,7 @@ export default function MapView() {
       const mode = useUI.getState().mode
       // the phase-line drag reuses the formation-line rubber band so the
       // commander can see the line they are laying before they commit it
-      if (leftDown && mode === 'phaseline') {
+      if (leftDown && mode === 'measure:phaseline') {
         lineDrag = { x0: leftDown.x, y0: leftDown.y, x1: mX(e), y1: mY(e) }
       }
       if (leftDown && mode === 'select') {
@@ -400,18 +424,34 @@ export default function MapView() {
       marquee = null; leftDown = null
       const wx = s2wX(mX(e)), wy = s2wY(mY(e))
 
-      // DRAWING A PHASE LINE: drag across the axis of advance. It stays in the
-      // mode so a commander can lay PL BLUE, AMBER and GREEN in three strokes
-      // rather than re-arming the tool between each; Escape or the button ends
-      // it, like every other modal placement here.
-      if (ui.mode === 'phaseline') {
+      // DRAWING CONTROL MEASURES. A phase line is DRAGGED across the axis of
+      // advance; a checkpoint and an objective are CLICKED down, because that
+      // is the shape of the thing in each case. The tool stays armed so a
+      // commander lays PL BLUE, AMBER and GREEN in three strokes rather than
+      // re-arming between each; Escape or the button ends it, like every other
+      // modal placement here.
+      //
+      // Clicking an existing measure REMOVES it — a graphic you can put down
+      // and not take up is a graphic nobody will risk drawing.
+      if (ui.mode.startsWith('measure:')) {
         lineDrag = null
-        if (wasDown) {
+        const kind = ui.mode.slice(8) as MeasureKind
+        const hit = pickMeasure(wx, wy)
+        if (hit) {
+          removeMeasure(hit.id)
+          toast(`${measureLabel(hit)} OFF THE GRAPHIC`)
+          return
+        }
+        if (kind === 'phaseline') {
+          if (!wasDown) return
           const ax = s2wX(wasDown.x), ay = s2wY(wasDown.y)
           if (Math.hypot(wx - ax, wy - ay) > 60) {
             const m = addMeasure('phaseline', [{ x: ax, y: ay }, { x: wx, y: wy }])
-            if (m) toast(`PL ${m.name} ON THE GRAPHIC`)
+            if (m) toast(`${measureLabel(m)} ON THE GRAPHIC`)
           }
+        } else {
+          const m = addMeasure(kind, [{ x: wx, y: wy }])
+          if (m) toast(`${measureLabel(m)} ON THE GRAPHIC`)
         }
         return
       }
