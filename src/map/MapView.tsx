@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
 import type { Unit, Drone, Structure } from '../engine/GameState'
 import {
-  orderMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
+  orderMove, orderGroupMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
 } from '../domains/forces/orders'
 import { deployUnit, deployStructure, orderReturnToGarrison } from '../domains/installations/orders'
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
@@ -31,6 +31,7 @@ import { terrainOrtho } from './terrainOrtho'
 import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { marchPlan } from '../domains/movement/march'
+import { teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -455,16 +456,39 @@ export default function MapView() {
       if (!e.ctrlKey) ui.setSelected([])
     }
 
-    // An ad-hoc marquee selection is not a formation — it's several units given the same
-    // order. Each paths independently and moves at its own speed. Column behaviour
-    // (shared route, pace cap, station-keeping) belongs to real combat groups, which
-    // don't exist yet; orderGroupMove is waiting for them.
+    // A TEAM MOVES AS A COLUMN. Anything else is several units given the same
+    // order, each pathing independently at its own speed.
+    //
+    // This used to be the second thing unconditionally: every move the player
+    // issued went out as individual orderMove calls with groupId null, so there
+    // was no shared route, no pace cap and no station-keeping — for ANY
+    // selection, task organized or not. The comment that stood here said column
+    // behaviour "belongs to real combat groups, which don't exist yet". They do
+    // now, and nothing had told this. The whole march-order, order-of-march and
+    // interval apparatus was unreachable from the game: the fast elements ran
+    // ahead, the slow ones were left, and the designated lead ended up in the
+    // middle of its own column, exactly as reported.
     function issueMoves(units: Unit[], wx: number, wy: number, append: boolean, attack = false) {
-      const cols = Math.ceil(Math.sqrt(units.length))
-      const rows = Math.ceil(units.length / cols)
+      // partition by task organization, preserving selection order within each
+      const byTeam = new Map<number, Unit[]>()
+      const loose: Unit[] = []
+      for (const u of units) {
+        const t = teamOf(u)
+        if (!t) { loose.push(u); continue }
+        const g = byTeam.get(t.id) ?? []
+        g.push(u); byTeam.set(t.id, g)
+      }
+      for (const [, g] of byTeam) {
+        // a lone member of a team is not a column — give it its own order
+        if (g.length < 2) { loose.push(g[0]!); continue }
+        orderGroupMove(g.map(u => u.id), wx, wy, append, attack)
+      }
+      if (!loose.length) return
+      const cols = Math.ceil(Math.sqrt(loose.length))
+      const rows = Math.ceil(loose.length / cols)
       // A new waypoint NEVER touches an earlier one — orderMove appends from
       // the end of the existing route and leaves everything before it alone.
-      units.forEach((u, k) => {
+      loose.forEach((u, k) => {
         const ox = ((k % cols) - (cols - 1) / 2) * 90
         const oy = (Math.floor(k / cols) - (rows - 1) / 2) * 90
         orderMove(u.id, wx + ox, wy + oy, append, attack, null)
