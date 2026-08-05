@@ -224,10 +224,15 @@ function TaskOrgSeg({ units }: { units: Unit[] }) {
           title={`Detach ${held.map(u => u.label).join(', ')} from ${held.length === 1 ? 'its team' : 'their teams'}`}
           onClick={() => { for (const u of held) leaveTeam(u.id) }}>DETACH</button>
       )}
+      {/* A BUTTON HAS TO SAY WHAT IT DOES. This read `TEAM BRAVO ▸`, which is
+          the shape of "select the team" and is not what it does — it leaves the
+          map for a full-screen staff console. Selecting a team is the task org
+          bar's job now (ui/TaskOrgBar), so this one is free to name its own:
+          the movement order is the document it opens. */}
       {only && (
         <button style={{ ...optBtn(false), color: '#9fb3c6' }}
-          title={`Open ${only.name} in Operations`}
-          onClick={() => ui.setConsole('s3')}>{only.name} ▸</button>
+          title={`Open ${only.name}'s movement order — order of march, interval, actions on contact, load plan`}
+          onClick={() => ui.setConsole('s3')}>MOVEMENT ORDER ▸</button>
       )}
       {!free.length && !held.length && (
         <span style={{ fontSize: 9, color: '#54708a' }}>—</span>
@@ -294,6 +299,15 @@ const segBar: CSSProperties = {
 }
 const segSep = <div style={{ width: 1, alignSelf: 'stretch', background: '#25384a' }} />
 
+// The command dock. `minHeight` is the reservation — three control rows' worth,
+// held whether or not there is a selection to put in them, so the map never
+// resizes underneath a click. See the empty case in SelectionTray.
+const trayShell: CSSProperties = {
+  flex: '0 0 auto', minHeight: 74,
+  background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
+  padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
+}
+
 
 // The selection tray is a LAYOUT ROW below the map (P5), not a map overlay —
 // App mounts it as a sibling under the map wrapper.
@@ -305,7 +319,20 @@ export function SelectionTray() {
   const [roster, setRoster] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter((u): u is Unit => !!u)
   const selDrones = ui.selectedIds.map(id => S.drones.find(d => d.id === id)).filter((d): d is Drone => !!d)
-  if (!units.length && !selDrones.length) return null
+  // THE GROUND MUST NOT MOVE WHEN YOU CLICK ON IT. The tray is a layout row, so
+  // appearing on the first selection used to shrink the map and shift every
+  // symbol up sixty pixels — under a cursor that was mid-click, on a battlefield
+  // the player was reading. The space is reserved whether or not anything is in
+  // it: an empty command dock is what a real console looks like anyway.
+  if (!units.length && !selDrones.length) {
+    return (
+      <div style={{ ...trayShell, alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#2f4152', fontSize: 9.5, letterSpacing: 1.5 }}>
+          SELECT AN ELEMENT OR A TEAM — 1-9 PICKS A TEAM
+        </span>
+      </div>
+    )
+  }
   const anyIndirect = units.some(u => UNIT_TYPES[u.type].indirect)
   const anyBridge = units.some(u => UNIT_TYPES[u.type].canBridge)
   // supply run is inherently one truck → one FOB, so it shows for a single logi unit
@@ -336,11 +363,7 @@ export function SelectionTray() {
   }
 
   return (
-    <div style={{
-      flex: '0 0 auto',
-      background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
-      padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
-    }}>
+    <div style={trayShell}>
       {/* WHO YOU ARE COMMANDING — one line, and for a team it is the team.
           This used to say "5 SELECTED" over five near-identical cards that
           repeated the FORCES rail verbatim and never once named the thing the

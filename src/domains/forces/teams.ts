@@ -130,6 +130,40 @@ export function joinTeam(teamId: number, unitId: number): boolean {
   return true
 }
 
+/** THE ONE TASK-ORGANIZE VERB.
+ *
+ *  The map needs to do this without the player looking away from it — task
+ *  organizing is a decision you make with units under the cursor, and making
+ *  the commander drop their eyes to a button rail to do it is how a grouping
+ *  never gets formed at all. But a hotkey that re-derived "what should this
+ *  selection become" would be a second rule beside the tray's, and two rules
+ *  for one decision drift.
+ *
+ *  So the rule lives here, once, and reads the selection the way a commander
+ *  would: loose elements become a team; loose elements alongside exactly one
+ *  existing team join it; anything else is already organized and says so. */
+export function taskOrganize(unitIds: number[]):
+{ kind: 'formed' | 'joined' | 'none'; team?: Team; n: number } {
+  const units = unitIds
+    .map(id => S.units.find(u => u.id === id))
+    .filter((u): u is Unit => !!u && u.strength > 0 && underPlayerCommand(u))
+  if (!units.length) return { kind: 'none', n: 0 }
+  const free = units.filter(u => !teamOf(u))
+  const named = [...new Set(units.map(u => teamOf(u)?.id).filter((v): v is number => v != null))]
+  if (named.length === 1 && free.length) {
+    const t = teamById(named[0]!)
+    if (t) {
+      for (const u of free) joinTeam(t.id, u.id)
+      return { kind: 'joined', team: t, n: free.length }
+    }
+  }
+  if (!named.length && free.length >= 2) {
+    const t = formTeam(free.map(u => u.id))
+    if (t) return { kind: 'formed', team: t, n: free.length }
+  }
+  return { kind: 'none', n: units.length }
+}
+
 /** Detach an element. `quiet` for internal moves (joining another team) where
  *  the net call would be noise — the attachment call says it already. */
 export function leaveTeam(unitId: number, quiet = false): void {

@@ -65,25 +65,55 @@ const DISABLED: { id: DisabledPolicy; label: string; why: string }[] = [
   { id: 'push', label: 'PUSH IT OFF', why: 'Shoved off the route and written off. The column does not break stride, and the crew goes looking for a seat in somebody else\'s vic — which may cost you the time anyway.' },
 ]
 
-function Chip<T extends string>({ value, options, onPick }: {
+/** ORDERED, or merely TRUE.
+ *
+ *  A standing order and the state the force happens to be in are different
+ *  facts, and a board that draws them identically is worse than one that shows
+ *  neither — you cannot tell what you told them from what they are doing. So a
+ *  value the commander ORDERED is filled solid; a value that is simply what
+ *  every element is currently on is outlined, dashed, and captioned as such. */
+function Chip<T extends string>({ value, ordered = true, options, onPick }: {
   value: T | undefined
+  ordered?: boolean
   options: { id: T; label: string }[]
   onPick: (v: T) => void
 }) {
   return (
     <Group gap={4} wrap="wrap">
-      {options.map(o => (
-        <Box key={o.id} component="button" onClick={() => onPick(o.id)} style={{
-          fontFamily: UI, fontSize: 11, letterSpacing: 0.4, padding: '3px 9px',
-          borderRadius: 2, cursor: 'pointer',
-          border: `1px solid ${value === o.id ? '#3d7cb8' : '#2a3a48'}`,
-          background: value === o.id ? '#1d3d5c' : '#141c24',
-          color: value === o.id ? '#dceeff' : '#8b9cad',
-        }}>
-          {o.label}
-        </Box>
-      ))}
+      {options.map(o => {
+        const on = value === o.id
+        return (
+          <Box key={o.id} component="button" onClick={() => onPick(o.id)} style={{
+            fontFamily: UI, fontSize: 11, letterSpacing: 0.4, padding: '3px 9px',
+            borderRadius: 2, cursor: 'pointer',
+            border: `1px ${on && !ordered ? 'dashed' : 'solid'} ${on ? '#3d7cb8' : '#2a3a48'}`,
+            background: on ? (ordered ? '#1d3d5c' : '#16222e') : '#141c24',
+            color: on ? (ordered ? '#dceeff' : '#8fb6d8') : '#8b9cad',
+          }}>
+            {o.label}
+          </Box>
+        )
+      })}
     </Group>
+  )
+}
+
+/** The one value the whole column shares, or null for MIXED. */
+function shared<T>(vals: T[]): T | null {
+  const s = new Set(vals)
+  return s.size === 1 ? [...s][0]! : null
+}
+
+/** MIXED is not a footnote. An element on a different drill from the rest of
+ *  its column is the single most important thing this board can tell a
+ *  commander, and it has to be legible without reading a table. */
+function Mixed({ what }: { what: string }) {
+  return (
+    <Box component="span" style={{
+      fontFamily: UI, fontSize: 10, letterSpacing: 0.6, marginLeft: 8,
+      padding: '2px 7px', borderRadius: 2,
+      border: `1px solid ${WARN}55`, background: '#231d10', color: WARN,
+    }}>MIXED — {what}</Box>
   )
 }
 
@@ -303,6 +333,13 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
     write(v, undefined, { authored: true })
   }
 
+  // WHAT THE COLUMN IS ACTUALLY ON, which is a different question from what it
+  // was told. Every element carries a drill whether or not anybody ordered one,
+  // so a board that reads only the plan reports "not specified" about a force
+  // that is very specifically on PUSH — and then, one column to the left,
+  // claims they are ON ORDER. Both readings come off the elements now.
+  const liveRoe = shared(members.map(m => m.roe))
+  const liveWpn = shared(members.map(m => m.weapons))
   const off = state.filter(s => s.driftedRoe || s.driftedWeapons || s.detached)
   const lead = members.find(m => m.id === full[0])
   const shortOfLift = members.filter(m => liftState(m).walking.length)
@@ -359,7 +396,12 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
               <Td c={drift ? WARN : 'dark.1'}>
                 {st?.detached ? 'NOT IN COLUMN'
                   : drift ? `${st!.roe.toUpperCase()} · ${st!.weapons.toUpperCase()}`
-                  : plan ? 'ON ORDER'
+                  // ON ORDER means "doing what it was told" — which requires
+                  // having been told. A plan that names an order of march and
+                  // nothing else has ordered no drill, and reporting the whole
+                  // column as ON ORDER against an order nobody gave is the one
+                  // thing a board must never do.
+                  : (plan?.roe || plan?.weapons) ? 'ON ORDER'
                   : `${u.roe.toUpperCase()} · ${u.weapons.toUpperCase()}`}
               </Td>
               <Td c={lift.tone === 'foot' ? WARN : lift.tone === 'cram' ? '#c9a24a' : 'dark.2'}>
@@ -418,24 +460,35 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
       <Box mt={10}>
         <Text style={{
           fontFamily: UI, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.6, color: '#5d6f80',
-        }}>ACTIONS ON CONTACT</Text>
+        }}>ACTIONS ON CONTACT{!liveRoe && <Mixed what="not every element is on the same drill" />}</Text>
         <Box mt={3}>
-          <Chip value={plan?.roe} options={ROES} onPick={v => write(full, undefined, { roe: v })} />
+          <Chip value={plan?.roe ?? liveRoe ?? undefined} ordered={!!plan?.roe}
+            options={ROES} onPick={v => write(full, undefined, { roe: v })} />
         </Box>
-        <Note>
-          {ROES.find(r => r.id === plan?.roe)?.why
-            ?? 'Not specified — each element keeps whatever drill it already had.'}
+        <Note warn={!liveRoe}>
+          {!liveRoe
+            ? `Split: ${members.map(m => `${m.label} ${m.roe.toUpperCase()}`).join(', ')}. Pick one to put the whole column on it.`
+            : plan?.roe
+              ? ROES.find(r => r.id === plan.roe)?.why
+              : `Not ordered — the column is on ${
+                ROES.find(r => r.id === liveRoe)?.label ?? liveRoe?.toUpperCase()
+              } because that is what its elements were already doing. Pick it to make it the order.`}
         </Note>
       </Box>
 
       <Box mt={10}>
         <Text style={{
           fontFamily: UI, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.6, color: '#5d6f80',
-        }}>WEAPONS CONTROL</Text>
+        }}>WEAPONS CONTROL{!liveWpn && <Mixed what="elements are on different weapons control" />}</Text>
         <Box mt={3}>
-          <Chip value={plan?.weapons} options={WPN}
-            onPick={v => write(full, undefined, { weapons: v })} />
+          <Chip value={plan?.weapons ?? liveWpn ?? undefined} ordered={!!plan?.weapons}
+            options={WPN} onPick={v => write(full, undefined, { weapons: v })} />
         </Box>
+        {!liveWpn && (
+          <Note warn>
+            Split: {members.map(m => `${m.label} ${m.weapons.toUpperCase()}`).join(', ')}.
+          </Note>
+        )}
       </Box>
 
       {/* A DISABLED VEHICLE. The decision has to be made here, in the order,

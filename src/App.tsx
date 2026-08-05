@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import BaseUnderFire, { IncomingBanner } from './ui/BaseUnderFire'
 import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
+import TaskOrgBar from './ui/TaskOrgBar'
 import TopBar from './ui/TopBar'
 import CommandRail from './ui/CommandRail'
 import ForcesRail from './ui/ForcesRail'
@@ -183,6 +184,9 @@ export default function App() {
             {/* base-under-fire INCOMING banner: top of the map/console pane */}
             <IncomingBanner />
           </div>
+          {/* the force, always on screen and always one key away — above the
+              tray, because it is what you pick BEFORE you have a selection */}
+          <TaskOrgBar />
           <SelectionTray />
         </div>
         <FeedsPanel />

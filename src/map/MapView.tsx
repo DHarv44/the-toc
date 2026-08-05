@@ -33,7 +33,7 @@ import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbo
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
 import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/control/measures'
 import { toast } from '../domains/comms/radio'
-import { teamOf } from '../domains/forces/teams'
+import { leaveTeam, taskOrganize, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -536,8 +536,14 @@ export default function MapView() {
         // platoon out of an icon the player cannot even see the parts of would
         // be picking something they did not click on. Ctrl still toggles a
         // single element, for taking one out of the task organization.
+        // ALT ISOLATES. Commanding a team is the common case and gets the plain
+        // click; tasking ONE platoon out of it is the rare, deliberate one and
+        // gets a modifier. Ctrl was already the only way in and it is the wrong
+        // verb — it TOGGLES, so alt-clicking a member of a selected team took
+        // that platoon OUT of the selection and left the other three, which is
+        // the opposite of "just this one".
         const team = teamOf(picked.obj as Unit)
-        if (team && !e.ctrlKey) {
+        if (team && !e.ctrlKey && !e.altKey) {
           const live = team.members.filter(id =>
             S.units.some(u => u.id === id && u.strength > 0))
           ui.setSelected(live.length ? live : [picked.obj.id])
@@ -622,6 +628,26 @@ export default function MapView() {
       if ('wasd'.includes(k)) heldKeys.add(k)
       if (k === 'q') useUI.getState().setCmdMode('move')
       if (k === 'e') useUI.getState().setCmdMode('attack')
+      // TASK ORGANIZE WITHOUT LOOKING AWAY. G is the group key in every RTS
+      // ever made, and task organizing is the decision this game is about — it
+      // should not require dropping your eyes to a button rail while the
+      // elements you mean are under the cursor. Shift+G breaks the grouping.
+      if (k === 'g' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        const sel = selectedFriendlies()
+        if (!sel.length) return
+        if (e.shiftKey) {
+          const held = sel.filter(u => teamOf(u))
+          if (!held.length) return toast('NOTHING IN THE SELECTION IS TASK ORGANIZED')
+          for (const u of held) leaveTeam(u.id)
+          toast(`${held.length} DETACHED`)
+          return
+        }
+        const r = taskOrganize(sel.map(u => u.id))
+        if (r.kind === 'formed') toast(`${r.team!.name} TASK ORGANIZED`)
+        else if (r.kind === 'joined') toast(`${r.n} ATTACHED TO ${r.team!.name}`)
+        else toast('SELECT TWO OR MORE LOOSE ELEMENTS, OR A TEAM PLUS THE ONES JOINING IT')
+      }
     }
     function onKeyUp(e: KeyboardEvent) { heldKeys.delete(e.key.toLowerCase()) }
     function onBlur() { heldKeys.clear() }
@@ -1605,13 +1631,26 @@ export default function MapView() {
         // two kilometres of road at high zoom is not one icon, it is a column
         const spreadPx = Math.hypot(
           w2sX(head.x) - w2sX(tail.x), w2sY(head.y) - w2sY(tail.y))
-        const expand = picked || spreadPx > 90
+        const expand = picked || spreadPx > 110
+
+        // AN ELEMENT ON A DIFFERENT DRILL FROM ITS TEAM IS THE EXCEPTION A TOC
+        // EXISTS TO NOTICE, and the map is where the commander is looking. It
+        // rides the team plate as a mark rather than waiting in a console.
+        const split = new Set(mem.map(u => u.roe)).size > 1
+          || (!!plan?.roe && mem.some(u => u.roe !== plan.roe))
 
         ctx.save()
-        // the tie through the column, in march order, under everything
-        ctx.strokeStyle = expand ? 'rgba(126,200,255,0.34)' : 'rgba(126,200,255,0.20)'
-        ctx.lineWidth = 1
-        ctx.setLineDash([5, 5])
+        // THE TIE THROUGH THE COLUMN, in march order, under everything.
+        //
+        // This was 1 px at 20% alpha, which is to say invisible: a team could be
+        // formed, named and given a commander and the sheet looked exactly as it
+        // had before. The task organization is the most important structure on
+        // this map and it was the faintest thing drawn on it. A grouping the
+        // player made is worth as much ink as a road.
+        ctx.strokeStyle = picked ? 'rgba(255,214,126,0.75)'
+          : expand ? 'rgba(126,200,255,0.5)' : 'rgba(126,200,255,0.34)'
+        ctx.lineWidth = picked ? 2.2 : 1.6
+        ctx.setLineDash(picked ? [] : [6, 4])
         ctx.beginPath()
         line.forEach((u, i) => {
           const sx = w2sX(u.x), sy = w2sY(u.y)
@@ -1622,14 +1661,34 @@ export default function MapView() {
         ctx.restore()
 
         if (expand) {
-          // the name rides the head of the column; the trail is the element
-          // everyone else goes firm for
+          // THE NAME RIDES THE HEAD OF THE COLUMN, on a plate. Bare text at 78%
+          // alpha over hillshade and roads is unreadable exactly where the map
+          // is busiest, which is where the units are — so it gets a background,
+          // like every label on a real overlay.
+          const hx = w2sX(head.x), hy = w2sY(head.y) - 30
           ctx.save()
-          ctx.fillStyle = 'rgba(126,200,255,0.78)'
           ctx.font = '600 10px Inter, system-ui, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.fillText(t.name, w2sX(head.x), w2sY(head.y) - 28)
-          ctx.strokeStyle = 'rgba(126,200,255,0.45)'
+          ctx.textAlign = 'left'
+          const label = `${t.name} ×${mem.length}`
+          const tw = ctx.measureText(label).width
+          const pad = 5, dot = split ? 9 : 0
+          const bw = tw + pad * 2 + dot, bx = hx - bw / 2
+          ctx.fillStyle = picked ? 'rgba(46,38,14,0.92)' : 'rgba(10,20,30,0.82)'
+          ctx.strokeStyle = picked ? 'rgba(255,214,126,0.9)' : 'rgba(126,200,255,0.45)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.rect(bx, hy - 8, bw, 14)
+          ctx.fill(); ctx.stroke()
+          ctx.fillStyle = picked ? '#ffd67e' : 'rgba(160,215,255,0.95)'
+          ctx.fillText(label, bx + pad, hy + 2)
+          if (split) {
+            ctx.fillStyle = '#e0b34e'
+            ctx.beginPath()
+            ctx.arc(bx + bw - pad - 1, hy - 1, 2.6, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          // the trail is the element everyone else goes firm for
+          ctx.strokeStyle = picked ? 'rgba(255,214,126,0.6)' : 'rgba(126,200,255,0.45)'
           ctx.beginPath()
           ctx.arc(w2sX(tail.x), w2sY(tail.y), 13, 0, Math.PI * 2)
           ctx.stroke()
@@ -1647,9 +1706,17 @@ export default function MapView() {
         drawUnitSymbol(ctx, w2sX(head.x), w2sY(head.y), {
           side: 'friend', glyph: UNIT_TYPES[base.type].glyph, echelon: 'co',
           label: `${t.name} ×${mem.length}`,
-          strength: str, selected: false,
+          strength: str, selected: picked,
           contact: Math.max(...mem.map(contactLevel)),
         })
+        if (split) {
+          ctx.save()
+          ctx.fillStyle = '#e0b34e'
+          ctx.beginPath()
+          ctx.arc(w2sX(head.x) + 15, w2sY(head.y) - 13, 2.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
       }
 
       // friendly units (always shown — it's blue force tracking), except the
