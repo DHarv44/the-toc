@@ -473,6 +473,12 @@ export interface Unit {
    *  doubles back. This is the odometer the station-keeping solver reads.
    *  See domains/movement/route. */
   colS?: number
+  /** WHERE IT STOPPED, when a halting column released it at its station short
+   *  of the objective. Its path is spent from that moment, so distance-to-go
+   *  would read it as standing on the route's end — a lie by exactly the
+   *  interval it is holding, and one the elements behind it would close on.
+   *  Frozen here instead, and cleared by the next order. */
+  colStop?: number
   /** Which side of each phase line this element was on last tick, so a crossing
    *  is a sign change rather than a proximity test (domains/control/measures). */
   plSide?: Record<number, number>      // slot in a shared-route column, if marching in one

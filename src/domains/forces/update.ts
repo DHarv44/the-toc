@@ -20,6 +20,7 @@ import {
   processCapture, processWipe, remnantCheck,
 } from './casualties'
 import { solveColumns } from '../movement/column'
+import { teamOf } from './teams'
 import { stationUpdate, stationSweep } from '../movement/station'
 import { trailUpdate } from '../fires/expendables'
 import { netRadio, radio, toast } from '../comms/radio'
@@ -178,6 +179,33 @@ export function movementUpdate(dt: number): void {
       // waits for one that has bogged (movement/recovery, movement/follow).
       if (inRecovery(u)) spd = 0
       const c = col.get(u.id)
+      // THE COLUMN HALTS AS A COLUMN. Every member's route ends on the same
+      // grid, so left alone they all drive to it and the battalion finishes the
+      // march standing on one point — which is not a formation, it is a fire
+      // mission waiting to be called. So a member that has closed to its
+      // station behind the element in front is FINISHED: the remaining route
+      // ahead of it is ground that belongs to somebody else, and it stops here,
+      // one march interval back, guns out.
+      if (c?.halt && c.station) {
+        const leg = u.legs[u.legs.length - 1]
+        u.colStop = u.colS
+        u.path = []; u.legs = []
+        u.state = 'hold'
+        if (!u.breaking) { u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined }
+        if (!u.colWait) { u.colWait = true; goFirm(u) }
+        // ONE REPORT PER COLUMN, WHEN THE TAIL IS IN. Four platoons each
+        // calling the same grid is the same noise a column reporting one phase
+        // line four times would be — and closure is a fact about the whole
+        // grouping, not about any one element. So it is the LAST one in that
+        // gets on the net, and what it says is that everybody is up.
+        const rest = S.units.filter(x => x.groupId === u.groupId && x.strength > 0)
+        if (leg && rest.every(x => !x.path.length)) {
+          const t = teamOf(u)
+          radio(t?.name ?? u.label, 'arrive',
+            `CLOSED ON GRID ${grid(leg.x, leg.y)} — ALL ELEMENTS UP`, u.x, u.y)
+        }
+        continue
+      }
       if (c) spd = Math.min(spd, c.spd)
       // GOING FIRM. A column halted on a route digs in and herringbones rather
       // than idling in file — a stopped convoy is a queue of targets. Two ways

@@ -174,6 +174,7 @@ export function orderGroupMove(
     // solve does not have to find it from a cold start — the tracker searches
     // forward from the last reading and a wrong seed sticks.
     u.colS = undefined
+    u.colStop = undefined
   })
   const r = setRoute(gid, route, ordered.map(u => u.id))
   // the board shows the sequence the column is actually marching in, authored
@@ -240,6 +241,7 @@ export function orderMove(
   u.rtgBase = null // a fresh order supersedes a return-to-garrison in progress
   // a unit given its own order drops out of any column it was marching in
   if (!append) { u.groupId = groupId; u.colIdx = null; u.leadId = null; u.colS = undefined }
+  u.colStop = undefined  // a fresh order un-parks a member released at station
   if (append && u.path.length) {
     u.path = u.path.concat(p)
     u.legs.push({ x, y, n: p.length })

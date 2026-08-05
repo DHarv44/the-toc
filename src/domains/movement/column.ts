@@ -43,6 +43,12 @@ import { routeLength, routeOf, routeSweep } from './route'
 export interface ColumnOrder {
   spd: number     // ordered speed before this unit's own terrain is applied
   wait: boolean   // stopped for the tail — go firm rather than idle in the open
+  /** the head of the column has stopped on the objective and the rest are
+   *  closing to their stations behind it — a halt, not a march */
+  halt: boolean
+  /** this member has reached its station in that halt. Its march is over: the
+   *  ground ahead of it belongs to the element in front. */
+  station: boolean
 }
 
 // PACE MARGIN — how much of the slowest member's speed the column runs at, and
@@ -95,6 +101,9 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
   for (const [gid, raw] of groups) {
     let list = raw
     if (list.length < 2) { holding.delete(gid); continue }
+    // A COLUMN THAT HAS FINISHED ITS MARCH IS NOT BEING CONTROLLED. Nobody has
+    // anywhere to be, so there is nothing to solve and nothing to say.
+    if (list.every(u => !u.path.length)) { holding.delete(gid); continue }
     // THE ODOMETER: how far along the COLUMN'S route this member has got,
     // measured as the shared route's length minus the distance it still has to
     // drive. One number, one curve, comparable across every member.
@@ -119,7 +128,12 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
     const total = route ? routeLength(route) : 0
     const dist = new Map<number, number>()
     for (const u of list) {
-      const d = route ? total - remaining(u) : -remaining(u)
+      // A member released at its station has no path left, so distance-to-go
+      // would put it on the objective — one interval further forward than it
+      // is, every tick, for as long as it sits there. The elements behind it
+      // read that gap and close on it. Its real arc is frozen instead.
+      const d = u.colStop != null ? u.colStop
+        : route ? total - remaining(u) : -remaining(u)
       dist.set(u.id, d)
       u.colS = d
     }
@@ -159,10 +173,14 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
       // breaking contact is running a detour that would make its distance-to-go
       // jump. Both leave the solve; the column stops waiting on them and the
       // drills take over.
-      // NOTHING ELSE IS EXCLUDED. A member still driving to the route is not a
-      // special case any more — the odometer already reads it as behind by the
-      // distance it has left to cover, so the column simply waits for it, which
-      // is what a column is for.
+      // NOTHING ELSE IS EXCLUDED, and in particular NOT a member that has
+      // arrived. Dropping the arrived is how a convoy ended up in a heap: the
+      // lead reached the objective, its empty path took it out of the solve,
+      // the next platoon inherited an unconstrained lead slot and drove onto
+      // the same grid, its path emptied, and so on down the column until every
+      // element in the battalion was standing on one point. An arrived member
+      // is not absent from the column — it is the stopped thing at the front of
+      // it, and everyone behind holds their interval off it.
       const fighting = !!u.targetId || u.breaking
       movers[i] = {
         id: u.id,
@@ -176,13 +194,20 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
         // has genuinely lost the speed, and the column has to see that as lag
         // rather than quietly matching it.
         maxSpd: (st.speed * liftFactor(u)) / (isFinite(f) ? f : 3),
-        out: fighting || !u.path.length,
+        out: fighting,
       }
       slots[i] = { along: -i * gap, lat: 0, face: 0 }
     }
 
+    // THE HALT. Once the head of the column has stopped on the objective the
+    // group is no longer marching, it is closing up and going firm. The solver
+    // already knows the difference — a halt pins the leader in place and lets
+    // everyone form around it, including backing off if they overran — so it
+    // only ever needed telling.
+    const halt = !lead.path.length
+
     const r = followTheLeader({
-      movers, slots, dt, holding: holding.get(gid),
+      movers, slots, dt, halt, holding: holding.get(gid),
       // THE ORDER IS ONLY AS REAL AS THE CLEARANCE THAT ENFORCES IT. With
       // sequenceGap at 0 the cross-lane cap does not bite until the gap is
       // nearly closed, by which point a closing member cannot brake inside its
@@ -194,7 +219,12 @@ export function solveColumns(dt: number): Map<number, ColumnOrder> {
     for (let i = 0; i < list.length; i++) {
       const o = r.orders[i]
       if (!o) continue
-      out.set(list[i]!.id, { spd: o.spd, wait: o.status === 'stopped' })
+      out.set(list[i]!.id, {
+        spd: o.spd,
+        wait: o.status === 'stopped',
+        halt,
+        station: o.status === 'in-place',
+      })
     }
   }
   // groups that no longer exist
