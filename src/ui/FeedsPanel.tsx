@@ -6,18 +6,14 @@
 import { useRef } from 'react'
 import { Box, Group, Text, UnstyledButton } from '@mantine/core'
 import { useUI } from './store'
-import { RailStrip } from './Rail'
 import { FeedWindow } from './HUD'
 
 export default function FeedsPanel() {
   const ui = useUI()
   const dragging = useRef(false)
 
-  const strip = (
-    <RailStrip side="right" open={ui.feedsOpen} onToggle={ui.toggleFeeds}
-      title={`FEEDS${ui.feeds.length ? ` (${ui.feeds.length})` : ''}`} />
-  )
-  if (!ui.feedsOpen) return strip
+  // the tab is in the edge column (ui/Rail RailTabs), which never moves
+  if (!ui.feedsOpen) return null
 
   const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
@@ -39,7 +35,6 @@ export default function FeedsPanel() {
 
   return (
     <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
-      {strip}
       <Box w={ui.feedsW} style={{
         flex: '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         background: 'var(--mantine-color-dark-7)', borderLeft: '1px solid var(--mantine-color-dark-4)',

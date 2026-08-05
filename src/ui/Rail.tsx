@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import { Box, Group, Stack, Text, ScrollArea, UnstyledButton, Tooltip } from '@mantine/core'
 import { RAIL_W } from './styles'
+import { useUI } from './store'
 
 // The tab itself — exported so FeedsPanel (custom width/resize) can share it.
 export function RailStrip({ side, title, open, onToggle, tut }: {
@@ -22,12 +23,18 @@ export function RailStrip({ side, title, open, onToggle, tut }: {
       position={side === 'left' ? 'right' : 'left'} withArrow>
       <UnstyledButton data-tut={tut} onClick={onToggle} w={RAIL_W.strip}
         style={{
-          flex: '0 0 auto',
+          flex: '0 0 auto', paddingBottom: 10, borderRadius: 2,
+          // A TAB HAS TO LOOK LIKE ITS OWN TARGET. Two of these sit against
+          // each other on the same edge, and drawn as flush panes of the same
+          // colour they read as one strip with two words on it — which is
+          // exactly how you end up opening COMMAND when you meant FORCES.
           background: open ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-dark-7)',
-          [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--mantine-color-dark-4)',
+          border: `1px solid ${open ? 'var(--mantine-color-toc-7)' : 'var(--mantine-color-dark-5)'}`,
+          borderLeftWidth: side === 'left' ? 0 : 1,
+          borderRightWidth: side === 'left' ? 1 : 0,
         }}>
         <Stack gap="xs" align="center" pt="xs">
-          <Text span fz={11} c="dark.2">{icon}</Text>
+          <Text span fz={11} c={open ? 'toc.3' : 'dark.2'}>{icon}</Text>
           <Text span fz="lg" fw={700} c={open ? 'toc.3' : 'dark.3'}
             style={{ writingMode: 'vertical-rl', letterSpacing: 2 }}>
             {title}
@@ -35,6 +42,45 @@ export function RailStrip({ side, title, open, onToggle, tut }: {
         </Stack>
       </UnstyledButton>
     </Tooltip>
+  )
+}
+
+/** THE TAB COLUMN — pinned to the screen edge, and it never moves.
+ *
+ *  The tabs used to ride each panel's INBOARD edge, on the theory that the
+ *  handle you pulled should stay on the hand that pulled it. It does not: two
+ *  rails share this edge, so opening COMMAND inserted its panel ahead of both
+ *  tabs and slid FORCES two hundred and seventy pixels to the right. The tab
+ *  you were aiming at moved because you opened the one next to it.
+ *
+ *  A drawer handle that relocates when you pull it is broken. So every tab for
+ *  a side lives in one fixed column against the screen edge, and the panels
+ *  open inboard of it. Nothing a player can do moves a tab now, which is the
+ *  whole point of a tab.
+ *
+ *  It reads the store itself rather than taking props: the app shell would
+ *  otherwise re-render at the UI pump's 10 Hz just to keep two chevrons right. */
+export function RailTabs({ side }: { side: 'left' | 'right' }) {
+  const ui = useUI()
+  const tabs = side === 'left'
+    ? [
+        { title: 'COMMAND', open: ui.leftOpen, onToggle: ui.toggleLeft },
+        { title: 'FORCES', open: ui.bgOpen, onToggle: ui.toggleBg },
+      ]
+    : [
+        { title: `FEEDS${ui.feeds.length ? ` (${ui.feeds.length})` : ''}`, open: ui.feedsOpen, onToggle: ui.toggleFeeds },
+        { title: 'JBC-P NET', open: ui.netOpen, onToggle: ui.toggleNet },
+      ]
+  return (
+    <Box style={{
+      flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 6,
+      minHeight: 0, background: 'var(--mantine-color-dark-9)',
+    }}>
+      {tabs.map(t => (
+        <RailStrip key={t.title} side={side} title={t.title}
+          open={t.open} onToggle={t.onToggle} />
+      ))}
+    </Box>
   )
 }
 
@@ -48,8 +94,10 @@ export default function Rail({ side, title, width, open, onToggle, footer, tut, 
   tut?: string
   children?: ReactNode
 }) {
-  const strip = <RailStrip side={side} title={title} open={open} onToggle={onToggle} tut={tut} />
-  if (!open) return strip
+  // The tab lives in the edge column (RailTabs) — a rail that is shut renders
+  // nothing at all now, because its handle is not its own to draw.
+  void title; void onToggle; void tut
+  if (!open) return null
 
   const panel = (
     <Box w={width} style={{
@@ -70,15 +118,7 @@ export default function Rail({ side, title, width, open, onToggle, footer, tut, 
     </Box>
   )
 
-  // the tab rides the panel's INBOARD edge — the handle you grabbed to pull the
-  // drawer out stays on the hand that pulled it, so left rails put the strip on
-  // the panel's right and right rails put it on the panel's left. Either way the
-  // tabs read against the map, not against the screen edge behind the panel.
-  return (
-    <Box style={{ flex: '0 0 auto', display: 'flex', minHeight: 0 }}>
-      {side === 'left' ? <>{panel}{strip}</> : <>{strip}{panel}</>}
-    </Box>
-  )
+  return panel
 }
 
 // Section label used inside a rail: caption plus a fading rule.

@@ -8,6 +8,7 @@ import TaskOrgBar from './ui/TaskOrgBar'
 import TopBar from './ui/TopBar'
 import CommandRail from './ui/CommandRail'
 import ForcesRail from './ui/ForcesRail'
+import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
@@ -166,6 +167,10 @@ export default function App() {
       <BaseUnderFire shakeRef={shakeRef} />
       <TopBar />
       <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+        {/* every tab for this edge, in one column that nothing can move — see
+            ui/Rail RailTabs. Opening a rail used to slide its neighbour's tab
+            across by the panel width. */}
+        <RailTabs side="left" />
         <CommandRail />
         <ForcesRail />
         {/* map column: map area above, selection tray below */}
@@ -191,6 +196,7 @@ export default function App() {
         </div>
         <FeedsPanel />
         <NetPanel />
+        <RailTabs side="right" />
       </div>
       {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}
       <VtcOpener />
