@@ -87,13 +87,34 @@ export default function MapView() {
     // the full gazetteer + the licence line the ODbL requires on the sheet
     const packLabels = packPlaceLabels(S.map!, ground)
     const attribution = ground.files.manifest.attribution.map(a => `${a.source} — ${a.licence}`).join('  ·  ')
-    // dev sandbox frames both bases in one screen; everything else opens on the
-    // HQ (campaign included — the whole theater is the playfield, no AO crops)
-    const dv = S.map!.devView
+    // THE FIRST THING A COMMANDER SEES IS THEIR OWN FORCE.
+    //
+    // The game opened on nine kilometres of ground centred two klicks north of
+    // the FOB, so a battalion occupying a kilometre and a half of it arrived as
+    // an illegible smudge in one corner — every icon overlapping, no label
+    // readable, and the player's first act was to hunt for their own units and
+    // zoom in. Frame the force instead: its bounding box plus a margin, floored
+    // so a tightly-laagered battalion does not open at street level.
     const vpMin = Math.min(window.innerWidth || 1280, window.innerHeight || 720)
-    const view = viewRef.current = dv
-      ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
-      : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
+    const mine = S.units.filter(u => u.side === 'friend' && u.strength > 0)
+    let view: View
+    if (mine.length) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      for (const u of mine) {
+        x0 = Math.min(x0, u.x); x1 = Math.max(x1, u.x)
+        y0 = Math.min(y0, u.y); y1 = Math.max(y1, u.y)
+      }
+      const span = Math.max(x1 - x0, y1 - y0, 900) * 2.2
+      view = { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, ppm: Math.max(0.02, vpMin / span) }
+    } else {
+      // no force yet (the map editor's preview, an empty scenario): fall back to
+      // the map's authored framing, then to the base
+      const dv = S.map!.devView
+      view = dv
+        ? { cx: dv.cx, cy: dv.cy, ppm: Math.max(0.02, vpMin / dv.fit) }
+        : { cx: S.map!.fob.x, cy: S.map!.fob.y - 2000, ppm: Math.max(0.02, vpMin / 9000) }
+    }
+    viewRef.current = view
     ;(window as unknown as { __view?: View }).__view = view // dev hook
 
     // The canvas is a flex column between the side rails, so it no longer starts at
