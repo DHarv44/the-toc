@@ -167,8 +167,13 @@ export default function TeamStation({ teamId }: { teamId: number }) {
           Breaking it into layers is CONSOLE.md step 6, deliberately AFTER the
           console is functional — and a stand-in that had to be undone would be
           worse than an empty box that says what it is waiting for. */}
+      {/* AND IT HOLDS ITS SHAPE. A map pane is a WINDOW ONTO GROUND: widen it
+          at a fixed height and it stops being a view of the same picture and
+          starts being a different one — the ground you can see changes with the
+          panel's width alone. 16:9 is the COP's own proportion, so the station
+          frames the world the way the map beside it does. */}
       <div style={{
-        flex: '0 0 auto', height: 148, margin: '8px 8px 2px',
+        flex: '0 0 auto', aspectRatio: '16 / 9', margin: '8px 8px 2px',
         border: '1px dashed #2a3a48', borderRadius: 3,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 4, background: 'rgba(14,20,27,0.6)', textAlign: 'center', padding: '0 14px',
