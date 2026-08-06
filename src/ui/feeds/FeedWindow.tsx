@@ -504,7 +504,9 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
   const winIcon: CSSProperties = { fontSize: 12, lineHeight: 1 }
 
   return (
-    <Box ref={boxRef} style={{
+    // the id is how a popped-out MIRROR finds this feed's canvas to copy from —
+    // see ui/feeds/PoppedFeeds
+    <Box ref={boxRef} data-feed={feed.id} style={{
       ...boxStyle, display: 'flex', flexDirection: 'column',
       border: '1px solid #2a3a48', borderRadius: winMode === 'max' ? 0 : 3, overflow: 'hidden',
       background: '#020304', zIndex: 40, // UAV window sits above the map controls / other HUD
@@ -616,19 +618,21 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
               <ActionIcon size="md" variant="default" title="Restore to window" style={winIcon}
                 onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'win' })}>❐</ActionIcon>
             )}
-            {/* OUT ONTO ITS OWN SCREEN. A sensor picture is a 16:9 object and
-                the rail is a 340 px column — on one monitor that is a trade the
-                commander makes knowingly, on two it is not a trade at all.
-                KNOWN FAULT: closing the popped window with the OS titlebar X
-                crashes the renderer. A station survives that because it is a 2D
-                canvas; this is WebGL, and its GPU context has to be released
-                BEFORE its document dies, which that button gives nobody the
-                chance to do. Closing it with the ✕ in the window itself is the
-                safe path. Unresolved — see CONSOLE.md step 5. */}
+            {/* OUT ONTO ITS OWN SCREEN — as a MIRROR, not as a second view.
+                The GL context stays in this document, where its lifetime is
+                ours; the window gets a plain 2D canvas that copies this one
+                every frame. That is what stops the crash: closing that window
+                destroys nothing but a 2D canvas, which is memory the page
+                owns. See ui/feeds/PoppedFeeds. */}
             {!feed.popped && (
-              <ActionIcon size="md" variant="default" title="Pop out to its own window" style={winIcon}
+              <ActionIcon size="md" variant="default" title="Show this feed on its own screen" style={winIcon}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => ui.setFeed(feed.id, { popped: true, winMode: 'win' })}>⧉</ActionIcon>
+                onClick={() => ui.setFeed(feed.id, { popped: true })}>⧉</ActionIcon>
+            )}
+            {feed.popped && (
+              <ActionIcon size="md" variant="filled" title="Close the window on the other screen" style={winIcon}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => ui.setFeed(feed.id, { popped: false })}>⧉</ActionIcon>
             )}
             <ActionIcon size="md" variant="default" title="Close" style={winIcon}
               onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.closeFeed(feed.id)}>×</ActionIcon>

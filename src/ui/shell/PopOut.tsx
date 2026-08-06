@@ -124,33 +124,16 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     // alive. flushSync forces React to run the cleanup now — cancelling the
     // loop, disposing the renderer, releasing the context in the proper order —
     // rather than scheduling it for a document that will not exist.
+    // A POPPED WINDOW MUST NOT OWN A GPU CONTEXT. Nothing here can enforce
+    // that — it is the caller's job, and ui/feeds/PoppedFeeds is why: a feed
+    // sends a 2D MIRROR to its window and keeps the WebGL context in this
+    // document. Every attempt to sequence a GL context's death inside a window
+    // the user can close failed, because the ownership is wrong, not the order.
     const onUnload = () => {
-      // 0. KILL THE GPU CONTEXTS BEFORE ANYTHING ELSE.
-      //
-      //    This is the whole crash. A 2D canvas is memory the page owns and
-      //    dies harmlessly with its document; a WebGL context is a GPU-process
-      //    resource with a compositor surface behind it, and letting the
-      //    document take it down uninvited is a use-after-free over there —
-      //    STATUS_ACCESS_VIOLATION, the renderer dying, nothing catchable.
-      //
-      //    Unmounting React first was not enough, because the release still
-      //    went through three.js and the scheduler and landed after the
-      //    document was gone. WEBGL_lose_context is the one call that takes
-      //    the context away NOW, synchronously, while its document is still
-      //    standing. Everything downstream then finds a lost context, which is
-      //    a case three.js already knows how to survive.
-      for (const cv of Array.from(win.document.querySelectorAll('canvas'))) {
-        // getContext returns the EXISTING context — this does not create one,
-        // and a 2D canvas simply answers null to both
-        const gl = (cv.getContext('webgl2') ?? cv.getContext('webgl')) as WebGLRenderingContext | null
-        gl?.getExtension('WEBGL_lose_context')?.loseContext()
-      }
-      // 1. then let go of the dying document, synchronously
+      // let go of the dying document synchronously, then put the content back
+      // on the NEXT task — never inside this handler, which runs while the
+      // window is still unloading
       flushSync(() => setHost(null))
-      // 2. and put the content back on the NEXT task, not in this handler.
-      //    Doing it here rebuilt the feed — a second WebGL context — in the
-      //    console while this window was still unloading, and that race is what
-      //    took the page down: it came back, then everything died.
       setTimeout(() => closed.current(), 0)
     }
     // pagehide as well: beforeunload does not fire on every close path, and a

@@ -204,9 +204,8 @@ export default function App() {
         <NetPanel />
         <RailTabs side="right" />
       </div>
-      {/* feeds that have been sent to their own screen — mounted HERE, not in
-          the FEEDS rail, because a popped-out feed has to survive the rail
-          being shut. See ui/shell/PopOut. */}
+      {/* feeds mirrored onto a second screen — the GL context stays in this
+          document; those windows hold a 2D copy. See ui/feeds/PoppedFeeds. */}
       <PoppedFeeds />
       {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}
       <VtcOpener />
