@@ -14,7 +14,7 @@ in *Priority* are the actual plan.
 **Status:** ✅ shipped · 🟡 partial · ⬜ not started · ☠ dead
 An unmarked heading is not started. ⬜ is used only where something *looks* built but isn't —
 so nobody plans work off a false lead. Statuses were verified against the source, not
-self-reported. Last audited **2026-08-02**. **Completed items live in the Shipped Archive
+self-reported. Last audited **2026-08-06**. **Completed items live in the Shipped Archive
 at the bottom of this file** — the sections above it are the open work. When a section
 here contradicts a dated block in `src/MODES.md` or `GROUNDWORK.md`, those win (written
 at ship time; this file is periodically re-audited).
@@ -23,10 +23,30 @@ at ship time; this file is periodically re-audited).
 
 ## Status at a Glance
 
-**Last audited 2026-08-02.** Full shipped detail: the Groundwork plan of record in
-`GROUNDWORK.md`; dated blocks in `src/MODES.md`; personnel/composition model in
-`src/FORCE-MODEL.md`; asset-request design in `src/ASSET-REQUESTS.md`; open
-engine-content debt in `src/HARDCODE-AUDIT.md`.
+**Last audited 2026-08-06.** Full shipped detail: the console-room plan of record in
+`src/CONSOLE.md`; the Groundwork plan of record in `GROUNDWORK.md`; dated blocks in
+`src/MODES.md`; personnel/composition model in `src/FORCE-MODEL.md`; asset-request
+design in `src/ASSET-REQUESTS.md`; open engine-content debt in `src/HARDCODE-AUDIT.md`.
+
+**The 2026-08-03/06 wave — THE CONSOLE (the TOC became a room):**
+- **Four-wall layout** (`src/CONSOLE.md` is the plan of record, steps 1–6 shipped):
+  S-shop CONSOLES on the left wall (full columns, tabbed), TEAM STATIONS on the right
+  wall, the COP in the middle, an RTS-style dock on the bottom. The FORCES rail is
+  DEAD; COMMAND is a tabbed console (OVERVIEW / INSTALLATIONS / GARRISON / ACTIONS).
+- **Team stations** — the dock commands ELEMENTS; the station commands the TEAM:
+  header, live station map (locked centre, player zoom, no pan), the team's full
+  action set incl. deployables, order of march, standing orders, team-filtered NET.
+  Teams are the commander-created named battle groups the Later band asked for.
+- **The dock** — quick info/actions for the SELECTED object, roster with installation
+  pickers on the project's own tree controls, click-to-centre.
+- **Pop-out** — stations and feeds go to real OS windows (`ui/shell/PopOut`: shared JS
+  context, style adoption, portal-aware overlays). The rule it cost us: **A POPPED
+  WINDOW MUST NOT OWN A GPU CONTEXT** — the feed's GL context stays in the main
+  document; the popped window gets the whole feed UI with a per-frame 2D MIRROR of
+  the sensor picture. No SharedWorker needed for any of it.
+- **The map monolith is dead** — `MapView.tsx` 1750 → 810 lines; rendering is LAYERS
+  (`src/map/layers/*` over a `Frame` context), and the station map is the proof: a
+  second pane composed from the same layer list.
 
 **The 2026-08-01/02 wave — GROUNDWORK (the ground became real):**
 - **Real Earth is the only ground.** The Groundwork terrain builder is consumed as
@@ -96,31 +116,65 @@ is one-directional; the OPFOR reads ground truth).
 
 ## Priority
 
-*(Re-cut 2026-08-02: the former "Now" band — asset crews #21, base under fire #14,
-name pools #27 — is ✅ shipped, and the entire Groundwork arc P0–P7 + satellite
-landed on top. The former "Next" band promotes to Now.)*
+*(Re-cut 2026-08-06: the CONSOLE arc shipped — steps 1–6 of `src/CONSOLE.md`: the
+four-wall room, team stations, S-shop consoles, the RTS dock, pop-out, the map-layer
+decomposition. The new Now is the user's 2026-08-06 list: make the FIGHT right —
+attacking, the AI, recovery — and stand up SKIRMISH as a real front door.)*
 
-### Now — the enablers
-1. **Iron Triangle ground** *(user-gated — content, not code)* — author real pack
-   ground for the campaign in the MAP EDITOR, set its `map.json` reference, and
-   re-anchor the mission place refs (ASHFORD-chain gazetteer → real names). The
-   campaign machinery is intact and waiting; the splash un-greys itself.
-2. **Hardcode audit (#28)** — work `src/HARDCODE-AUDIT.md` top-down: billet/rank
-   tables, callsign pools, radio voice culture, force lists, base naming, MED rates,
-   insignia/awards → pack data.
-3. **Attack aviation (#26)** — AH-64 attack weapons teams from the pack's own 1ACB +
-   A-10/AC-130 CAS windows; commander-level control only (designate an EA, desired
-   effects/restrictions, CLEARED HOT / ABORT — crew AI services targets; the manual
-   FIRE button dies everywhere, SPECTRE migrates).
-4. **P4: OPFOR faction pack (#10)** — upgrade the opfor pack from placeholder to
-   the DPRK-flavored fictional faction: its own platforms, org, names, heraldry.
-5. **S4 LOGSTAT + materiel ledger** — CL V rolls up from real stowage, CL VII from
-   org hulls; LOGSTATS tab per the PERSTAT pattern; replaces the last supply-point
-   plumbing.
-6. **Save / continue** — fully seeded sim, plain serializable state. CAVEAT: shared
-   roster references (org slot ↔ fielded unit ↔ DUSTWUN site) must re-link on load;
+### Now — the fight
+1. **Attack honors the order of march (+ attack rework)** — bug first: when a team
+   attacks, the scout runs way ahead even though it is 3rd in line — attack movement
+   ignores the column that ordinary movement keeps. Fix that, then the broader pass:
+   what "attack" should look like for a team (approach in march order, deploy at the
+   objective, not a foot race). See Bugs & Fixes.
+2. **Downed units linger** — wrecks/casualty sites disappear way too fast. They
+   should stay on the map long enough to matter — and to be RECOVERED (see 5).
+3. **Team tasking + EXECUTE, and the AI engine** *(design discussion FIRST —
+   user-gated)* — console step 7, the one never started: give a team an objective,
+   press EXECUTE, the team routes itself there and does it. Lands on the friendly-
+   commander AI (the Decision Layer pointed our way) — as much engine work as console
+   work. See *Team Tasking & EXECUTE* under Command & Control.
+4. **Skirmish lobby** *(design the page FIRST)* — a C&C-style skirmish setup board
+   built on PACKS: pick a pack → its maps → a scenario → build the task force +
+   assets under a BUDGET (difficulty). See *Skirmish Lobby* under Game Modes.
+5. **Recovery & repair + the 9-line request flow** *(design discussion FIRST)* —
+   towing, cramming wounded into vics, medics/mechanics with treatment radii, 9-line
+   MEDEVAC + CAS requests with commander/DIV-HQ approval echelons, visible evac
+   birds, smoked LZs, recovery taskings. See *Recovery & Repair* under Sustainment.
+6. **Save / Continue campaigns** — the full serializer + splash CONTINUE (the stub
+   exists). Fully seeded sim, plain serializable state. CAVEAT: shared roster
+   references (org slot ↔ fielded unit ↔ DUSTWUN site) must re-link on load;
    S.assets/convoys serialize clean. Map identity is solved: `map.ref` rebuilds the
    ground from the pack.
+
+### Next — the map grows up
+7. **Named routes** *(design discussion)* — routes convoys use CONSISTENTLY;
+   GREEN/AMBER/RED status (RED = IED threat / not EOD-cleared); how the player builds
+   them is the open question. See *Named Routes* under Command & Control.
+8. **Commander's map graphics** *(design discussion)* — draw on the COP: arrows,
+   POIs, boundaries, phase lines. See *Commander's Map Graphics* under Command &
+   Control.
+9. **Sun & time-of-day** — the sun renders correctly and MOVES with time; the ground
+   has a real lat/lon, so the light can be astronomically honest. See Assets &
+   Systems.
+10. **UAV feed in the team station** *(discuss)* — a feed pane alongside the station
+    map. Docked is easy; a POPPED station must take a mirror (the GPU-context rule).
+
+### Carried enablers *(the former Now — all still real, none blocking the fight)*
+- **Iron Triangle ground** *(user-gated — content, not code)* — author the campaign's
+  real ground in the MAP EDITOR, re-anchor mission place refs; the splash un-greys
+  itself.
+- **Hardcode audit (#28)** — work `src/HARDCODE-AUDIT.md` top-down.
+- **Attack aviation (#26)** — AH-64 teams + CAS windows; clearance semantics only
+  (designate, effects/restrictions, CLEARED HOT / ABORT — the manual FIRE button
+  dies everywhere, SPECTRE migrates).
+- **P4: OPFOR faction pack (#10)** — the DPRK-flavored fictional faction, upgraded
+  in place: platforms, org, names, heraldry.
+- **S4 materiel ledger** — the LOGSTAT console shipped; the open half is the ledger
+  behind it: CL V from real stowage, CL VII from org hulls.
+- **Tutorial prose** — the pack tutorial still TELLS the player to open the FORCES
+  rail that no longer exists; gating was remapped, the words are a content fix.
+- **Dev PACK viewer** — still a left-hand console that never became a real page.
 
 ### Standing — Groundwork upstream asks *(fixed in terrain-builder, republished, TOC pulls)*
 Session-restore timing (host shim in place — remove after) · builder viewer-UI reorg
@@ -136,15 +190,17 @@ finding) · symmetric fog & counter-recon · After Action Reviews · 2525 symbol
 audit · unit net-intel cueing (spot reports orient nearby units) · zone capture ·
 spec ops · scenario builder · call for fire (approve/deny, ammo as the currency) ·
 counter-battery · SEAD/air defense · UAV sensor realism · smoke triggers · true LOS ·
-E&E / LZ evac (DUSTWUN extension) · staff-report competence scaling · unit wiki ·
+E&E / LZ evac (DUSTWUN extension — folds into *Recovery & Repair*) ·
+staff-report competence scaling · unit wiki ·
 urban depth (recast: real cities exist now — the open piece is route-clearance
 GAMEPLAY) · helipad installation · Starship Troopers total-conversion pack (the
 satellite-as-content and theme groundwork is laid).
 
 ### Someday — architecture
-SharedWorker sim → pop-out feeds, detachable map views, combat-group dashboard, and
-eventually multiplayer. Deliberately last: it's the same client/server split, so doing it
-early buys nothing until the game underneath is worth spreading across screens.
+SharedWorker sim → multiplayer. *(Trimmed 2026-08-06: pop-out feeds, detachable team
+views and the combat-group dashboard SHIPPED without it — `window.open` shares the JS
+context, and the GPU-context rule made feeds safe via 2D mirrors. What remains behind
+the SharedWorker is only what genuinely needs a second sim client: true multiplayer.)*
 
 ---
 
@@ -480,7 +536,31 @@ in is what you have.
   the alert/QRF machinery is exactly what *Symmetric Fog* wants the OPFOR to do in
   the big modes too.
 
-### 7. Skirmish — Player-Built Scenarios ⬜
+### Skirmish Lobby — the Setup Board ⬜ *(user 2026-08-06 — DESIGN THE PAGE FIRST)*
+The skirmish front door, rebuilt as a proper RTS setup screen — think Command &
+Conquer's skirmish board or any classic RTS skirmish builder, fitted to THIS game
+and driven entirely by **PACKS**:
+- **Flow: PACK → map → scenario → force.** The player picks a pack, then one of that
+  pack's maps, then a scenario (the builder's output — every pack scenario is
+  playable from here), then builds out the skirmish: task force, assets, staging.
+- **A BUDGET as difficulty** — the player composes their force under an allocation
+  budget, so building the task force is itself strategic. Difficulty levels set the
+  budget (and the OPFOR's). Doctrine note: this is honest to the economy split
+  decided under C2 & Echelon — skirmish is the sandbox where a game-y budget
+  belongs; the campaign stays doctrinal allocation from higher.
+- **Everything on the board is pack data** — maps, org, platforms, assets, scenarios:
+  the lobby is a read of the installed packs, so a total-conversion pack (Starship
+  Troopers) gets a full skirmish experience for free.
+- Open questions for the page design: what "build out" means at setup vs. H-hour
+  (pre-placed staging vs. fielding in-game from a bigger allocation), OPFOR
+  composition control (pick their pack? their posture?), and where the existing mode
+  chooser (A&D / Base Defense / KotH) sits in the flow.
+- Design notes: the splash's CAMPAIGNS picker (E4c) is the pattern; `applyScenario`
+  already composes a world from a scenario + org; the T-track slot-budget UI in the
+  builder is the budget mechanic's dry run. This entry supersedes the "mode chooser
+  then map size" sketch in the menu-structure note above.
+
+### 7. Skirmish — Player-Built Scenarios 🟡 *(the BUILDER shipped as Eden — what remains is the play-side wrapper, now designed as the Skirmish Lobby above)*
 *(Note 2026-07-23: "Skirmish" is now also the main-menu umbrella for all single-match
 modes — see the menu structure note above. This entry is the future custom-scenario
 capability inside that menu.)*
@@ -711,6 +791,21 @@ as a bug ("the world just ends"). Needs a deliberate treatment.
   colour to the horizon band so the seam disappears. Decide first whether haze alone hides it at
   the highest altitude before building an apron.
 
+### Sun & Time-of-Day — the Light Moves ⬜ *(user 2026-08-06)*
+The sun should show CORRECTLY and move with time:
+- **Astronomically honest** — the ground is real Earth with a real lat/lon, and the
+  sim has a clock: sun azimuth/elevation can be computed, not faked. Dawn comes up
+  where dawn actually comes up on that map.
+- **The feed lives it** — directional light + shadows in the engine scene track the
+  sun; low sun means long shadows and glare on the EO camera; IR doesn't care; the
+  existing day/night split becomes a continuous cycle instead of a binary.
+- **The BFT can hint it** — hillshade azimuth following the sun is a cheap, classy
+  touch (currently a fixed Lambertian azimuth).
+- Design notes: a solar-position function of (map lat/lon, date, sim clock) driving
+  the engine scene's directional light and the night-mode threshold; tune shadow cost
+  against four feeds rendering at once. Pairs with *Sensor Horizon* (tint by sun) and
+  NVG (moon phase, someday).
+
 ### Better Three.js Assets, Particles & Effects
 The drone feed carries the game's only real "ground truth" imagery, but its scene is built from
 merged primitive boxes and a handful of sprites. It should look like an actual EO/IR downlink.
@@ -915,14 +1010,14 @@ slower, fuzzier, and sometimes the only thing that sees through terrain and fog:
 
 ## Command & Control
 
-### Staff-Section Views (S1–S6) 🟡 *(S1 SHIPPED 2026-07-25 — console model, not view-filters)*
-**Shipped:** the S1 console (battalion heraldry header, roster by company with
-casualty/recovery states, S1-crew cards, division chain, PERSTATS tab), staff
-reports (request + post-mission auto → VTC-then-document, unread badges, TopBar
-routing), and the ▤ Command Dashboard. The shipped model is a full CONSOLE view over
-the map column per shop — richer than the original "filter presets" idea below.
-Next shop: **S4** (LOGSTATS + motorpool/OR rates + the materiel ledger), then S2.
-Original sketch (kept for the remaining shops):
+### Staff-Section Views (S1–S6) 🟡 *(console model shipped for every shop but S5)*
+**Shipped:** the S1 console (2026-07-25: heraldry header, roster by company,
+casualty/recovery states, PERSTATS tab), then S4 LOGSTAT, S2 INTSUM, S3 and S6
+consoles, staff reports (request + auto → VTC-then-document), the ▤ Command
+Dashboard — and the 2026-08 CONSOLE rework made every shop a full left-wall column
+(`src/CONSOLE.md`). The open pieces are DEPTH per console (S4's materiel ledger is
+the flagged one — Carried enablers) and **S5 Plans**, the one seat with no console.
+Original sketch (kept for reference):
 The TOC UI reorganized the way a real battalion staff splits the fight — one COP, with
 switchable staff-section views that filter overlays and panels to one seat's concerns
 (design law 4: you're playing every seat; this makes each seat feel like a seat):
@@ -1043,6 +1138,64 @@ units take it without hesitation — both playtest engineers died this way.
 - Design notes: an additive cost keyed off `S.contacts` at order time. Keep it away
   from the AI's own moves until *Symmetric Fog* gives it an honest picture too.
   Combat groups (escorted moves) are the deeper fix.
+
+### Team Tasking & EXECUTE ⬜ *(user 2026-08-06 — console step 7, the one never started; NEEDS DESIGN DISCUSSION before build)*
+The step `src/CONSOLE.md` ends on: a team is given an **objective/task**, the
+commander presses **EXECUTE**, and the team builds its route to the objective and
+does it — on its own.
+- **The station is the surface** — the team station already holds the order of march
+  and standing orders; a TASKING block (objective + task type + EXECUTE) completes it.
+- **The engine is the real work** — this lands on a **friendly-commander AI** that is
+  close to nonexistent: units execute orders, the campaign scores objectives, nobody
+  in between DECIDES anything. The OPFOR Decision Layer (utility scoring, schemes,
+  reserve) is the architecture — pointed our way, obeying the iron rule (only
+  player-legal orders; the player can always grab the stick back, law 4).
+- **Task vocabulary** — start from what the sim already resolves: SEIZE (attack +
+  hold), CLEAR, SCREEN, DEFEND, ESCORT (pairs with *Named Routes*), RECON. Each is
+  an objective + a scheme, not a new mechanic.
+- Open questions for the discussion: how much initiative between EXECUTE and done
+  (does the team call for fire? break off?), what interrupts a tasking (contact?
+  casualties threshold?), how progress reads back (net traffic + station status),
+  and whether taskings chain (on SEIZE complete → DEFEND in place).
+
+### Named Routes — MSRs the Battalion Owns ⬜ *(user 2026-08-06 — NEEDS DESIGN DISCUSSION before build)*
+Routes as first-class objects, not per-order pathfinding output:
+- **End goal: convoys use them CONSISTENTLY** — a LOG run assigned to MSR GREEN takes
+  MSR GREEN every time, not a fresh A\* that happens to differ per run. Predictable
+  friendly traffic is what makes route security a game.
+- **Route status** — GREEN/AMBER/RED: a route goes RED on IED threat or because EOD
+  hasn't cleared it (the *EOD Unit* under Engineering & Terrain is the counterpart —
+  this is the gameplay that unit was waiting for). Status renders on the BFT and
+  gates convoy willingness.
+- **Routes as a useful layer** — named on the sheet (real TOCs name their MSRs/ASRs,
+  law 0), referenced in net traffic ("IED STRIKE, MSR GREEN VIC ..."), the spine of
+  convoy security / route clearance missions (the *Urban gameplay depth* entry's
+  ROUTE IRISH energy lives here).
+- **Open: how the player builds one** — draw it on the map? promote a computed route
+  ("save as MSR")? engineer/EOD survey to commission it? Discuss.
+- Design notes: a named route = a polyline pinned to the road graph + a status; the
+  router takes a "follow route X" constraint for assigned traffic; threat events mark
+  segments; an EOD CLEAR tasking walks it and resets status. The map already renders
+  from a layer list — routes are a natural layer. Pairs with *Threat-Aware Routing*
+  (soft cost everywhere vs. hard doctrine on named routes) and *Commander's Map
+  Graphics*.
+
+### Commander's Map Graphics — Draw the Operation ⬜ *(user 2026-08-06 — NEEDS DESIGN DISCUSSION before build)*
+Let the player draw UP the map the way a real battle captain does: arrows (axes of
+advance), POIs, boundaries, phase lines, objective areas.
+- **This is the most law-0 feature on the board** — a COP you can't put graphics on
+  isn't a COP. The scenario BUILDER already authors control measures and the map
+  already RENDERS them (the measures layer); this item is runtime authoring by the
+  commander, in-game, on the same vocabulary.
+- **Graphics are a layer** — the step-6 decomposition made this cheap: a drawing
+  layer in the layer list, editing tools in the map chrome.
+- Open questions: symbology set (freehand vs. proper 2525 control measures — likely
+  measures with a light touch), persistence (save with the session; share to a
+  scenario?), and whether graphics MEAN anything to the sim — a boundary the AI
+  respects, a phase line taskings can trigger on — or stay purely visual first
+  (recommended v1: visual only, meaning arrives with *Team Tasking*).
+- Design notes: reuse the builder's measure-drawing interactions and the pack
+  control-measure renderer; store as session state (serializes with Save/Continue).
 
 ## Enemy AI / OPFOR 🟡
 
@@ -1305,6 +1458,44 @@ Give losses weight and a recovery path, requested like a call for fire:
   killed split feeds how much is recoverable. **The WIA/KIA/golden-hour mechanics now live in
   *The Battalion Roster* — this entry is its MEDEVAC delivery step.**
 
+### Recovery & Repair — Nobody Left on the Field ⬜ *(user 2026-08-06 — NEEDS DESIGN DISCUSSION before build; absorbs the 9-line delivery step above + the E&E/LZ evac entry)*
+The full recovery loop: downed vics and wounded troops are things the battalion goes
+and GETS, with the request traffic a real TOC would run.
+- **Wrecks linger first** *(prerequisite, cheap)* — downed units disappear way too
+  quickly today. A site you never see can't be recovered; persistence is what makes
+  everything below exist. (Now band #2.)
+- **Self-recovery by type** — teams and units recover a downed element based on what
+  they are: a vic can be **towed** by something heavy enough; wounded get **crammed
+  into vics that have space**; dismounts carry their casualties. Type-driven, not
+  universal.
+- **Medics and mechanics have a RADIUS** — a medical unit and a mechanic/motor-pool
+  unit each project a treatment/repair aura: friendly units inside it get injuries
+  treated and vics repaired over time.
+- **Field fixes are PARTIAL, on purpose** — treatment and repair in the field don't
+  restore to full: the wounded still need to evac and RECOVER (the Battalion
+  Roster's golden-hour/RTD machinery), and a patched vic still needs to make it back
+  to the motor pool. Field care buys function, not wholeness.
+- **9-lines and CAS go up the chain** — units request their own 9-line MEDEVAC and
+  CAS; the commander approves what's within his authority, and anything above it
+  goes up to DIV HQ (the division asset pipeline is exactly this machinery —
+  relevance → availability → approve/deny/queue).
+- **The evac is REAL and visible** — on an approved 9-line, an **LZ is established**
+  and the **evac bird appears on the map** (3-227 GSAB has real airframes and crews).
+  If the requesting unit is still in contact, they **smoke the LZ**. Open: do evac
+  birds carry gunners (door guns suppressing the treeline is great feed material —
+  or is a hot LZ simply an abort risk, per the E&E entry)?
+- **Vehicle recovery is a tasking** — a recoverable dead vic prompts the commander to
+  send a recovery element (the mechanic/motor-pool unit's other job); ties into
+  *Team Tasking* (RECOVER as a task type) and DUSTWUN's site model, which already
+  tracks downed sites and recovery objectives.
+- Open questions for the discussion: which platforms tow what (tracked needs an M88?
+  wheeled tows wheeled?), casualty capacity per vic type, medic/mechanic radii and
+  rates, what fraction field repair restores, and whether the OPFOR recovers too
+  (symmetry says eventually).
+- Design notes: DUSTWUN sites + deferred fates are the substrate; the asset pipeline
+  is the approval flow; new unit specs (medic aura, repair aura, tow class, casualty
+  seats) are pack NOUNS — the engine ships the recover/treat/repair VERBS.
+
 ## Audio
 
 ### Radio Chatter Library, Callsigns & Message Factory 🟡 *(callsigns + phrasing wrapper done; no role numbers, no per-event template table, no SALUTE/9-line/SITREP)*
@@ -1364,7 +1555,7 @@ artifact (drop the folder in, the map exists).
 Superseded by the **Maps & Terrain** M-track (theaters, culture layer) and the **Urban
 depth** design discussion — fold any remaining wishes into those entries.
 
-### Tutorial Map
+### Tutorial Map 🟡 *(a pack tutorial EXISTS — the training-day campaign teaches through the net, as sketched below. Its PROSE still references the retired FORCES rail — content fix, see Carried enablers.)*
 TOC has a lot of surface area and none of it is currently explained. One small map, launched
 from the splash, that walks a player through a single complete operation. **Keep it simple** —
 one linear mission, not a syllabus.
@@ -1396,10 +1587,14 @@ one linear mission, not a syllabus.
   a convoy completed, a drone on station, `S.won`). Reuse `radio()` for prompts. Pairs with the
   Unit Wiki (what the tutorial points at) and the Scenario Builder (same staging/serialization).
 
-### Scenario Builder 🟡 *(note 2026-08-02: the MAP-side half exists — the MAP EDITOR
-authors the ground and its SCENARIO step places FOB/enemy base into the map.json
-sidecar. What remains below is the BATTLE-layout half: both sides' order of battle,
-postures, and a victory-condition picker.)*
+### Scenario Builder ✅ *(SHIPPED as EDEN — the E/T/S tracks, 2026-08)*
+The builder exists and exceeds this sketch: scenario entity editing on the BFT,
+places/control measures, registry-driven objective/trigger forms, formations/
+attachments/assets with slot budgets, both sides, missions as tree nodes, the ghost
+layer, PROBLEMS panel, PLAY from the builder, content browser + PORT. What this
+entry still owes is only the *Skirmish Lobby* (Game Modes) — the player-facing front
+door that picks a scenario and plays it with a budget. Original sketch below for the
+record:
 A proper in-app editor to lay out a battle instead of hand-placing everything by console:
 - **Place forces for both sides** — friendly and enemy units, structures, and drones anywhere on
   the map, set their facing/posture/mount state, and drop wrecks/smoke/effects for staging.
@@ -1518,16 +1713,12 @@ A running list of small, self-contained UI corrections:
 - Design notes: roster label in `CommandPanel.jsx` (`InstallationsRoster` → `PaletteRow`'s
   `tag` prop); FOG button in `TopBar.jsx`. Both are a few lines.
 
-### Bottom Panel / Selection Tray UI 🟡 *(minimize + richer cards added; no scale-to-selection, not scrollable, still ad-hoc inline styles rather than the Mantine theme)*
-The bottom selection tray needs design work — it's grown organically and feels cramped and
-inconsistent:
-- **Rework the layout** — the per-unit cards, order buttons (HOLD/MOUNT/FIRE MISSION/DIG IN),
-  command mode, ROE, and weapons-control rows are dense and wrap awkwardly with a large
-  selection; clean up spacing, grouping, and hierarchy.
-- **Scale to selection size** — degrade gracefully from one unit to a large marquee (summarize
-  a big selection instead of showing N full cards); make it scrollable/collapsible.
-- Consistent styling with the rest of the HUD (the restyled deploy panel is the reference), and
-  make the common orders faster to reach.
+### Bottom Panel / Selection Tray UI ✅ *(SHIPPED 2026-08 as the RTS DOCK — CONSOLE step 4)*
+The tray was rebuilt as the dock: quick info/actions for the SELECTED object (think
+RTS), the roster with installation pickers on the project's own tree controls,
+click-to-centre, element actions from one shared list (`ui/forces/actions`) that the
+team stations also consume. The dock commands ELEMENTS; the station commands the
+TEAM.
 
 ### Unit Wiki (Friendly & Enemy)
 An in-game reference so the player can actually learn the order of battle instead of guessing:
@@ -1544,7 +1735,7 @@ An in-game reference so the player can actually learn the order of battle instea
   the data already exists — render it with the shared symbol drawing (`PaletteIcon`) and Mantine;
   pairs with the TS rewrite (typed models make this trivial to generate).
 
-### Save / Continue Game
+### Save / Continue Game ⬜ *(Now band #6 — CONTINUE stub exists on the splash (E4c); the serializer is the work, task #47)*
 Persist a session so a game can be resumed later:
 - **Save the full sim state** (`S` — map seed + size, units, structures, drones, resources, time,
   fog, radio log) to local storage (and/or a downloadable file), and **Continue** from the splash.
@@ -1554,22 +1745,39 @@ Persist a session so a game can be resumed later:
   placements); add a "Continue" entry to the splash when a save exists; pairs with the Scenario
   Builder's serialization and seeded maps.
 
-### Pop-Out UAV Feeds
-- **Detach a feed window into its own browser window/tab** so it can be dragged to a second
-  monitor and run full-size, independent of the main map.
-- Multiple pop-outs at once (e.g. one per combat group's supporting drone).
+### Pop-Out UAV Feeds ✅ *(SHIPPED 2026-08 — CONSOLE step 5)*
+Feeds pop to real OS windows (`ui/shell/PopOut`), full controls included, multiple at
+once. The rule it cost three failed fixes: **a popped window must not own a GPU
+context** — the GL context stays in the main document and the popped window blits a
+2D mirror of the sensor picture per frame (`ui/feeds/FeedMirror`). The docked source
+stays alive off-screen (never `display:none`) when the FEEDS rail is shut.
 
-### Units / Combat-Group Dashboard
-- A separate window that lists and **manages units and named combat groups** — status, orders,
-  missions, ammo/fuel, roster select — while the tactical map lives on another screen.
-- Lets you run sustainment/task-org from one screen and maneuver from another.
+### Team Station Follow-Ups ⬜ *(user 2026-08-06)*
+The stations shipped; what they grow next:
+- **UAV feed alongside the station map** *(discuss)* — the team's supporting feed as
+  a pane in its station, so one column IS that fight. Docked is straightforward (the
+  station lives in the main document, a real DroneView is legal there — budget
+  against feeds already rendering); a POPPED station must swap it for a mirror, per
+  the GPU-context rule.
+- **TASKING block** — lands with *Team Tasking & EXECUTE* (C2 section).
 
-### Multiple / Detachable Map Views
-- **More than one map view open at once**, each independently panned/zoomed. e.g. the main map
-  and functions on one screen; on the other, three panels — each a combat group's **drone feed +
-  a map zoomed to that group's location** — watched side by side.
+### Units / Combat-Group Dashboard ✅ *(SHIPPED 2026-08 as popped team stations)*
+A popped station is exactly this: the team's map, order of march, standing orders,
+actions and NET on its own screen while the COP lives on another. Kept only as a
+pointer — anything more (a cross-team comparison surface) is THE WATCH AND THE
+LEDGER territory, see `src/CONSOLE.md`.
+
+### Multiple / Detachable Map Views 🟡 *(station maps + popped stations shipped; a second free-roam COP is the remainder)*
+- Shipped: every team station carries its own live map (locked centre, player zoom)
+  built from the shared layer list, and pops to its own window.
+- Remaining: a second **free** map view — independently panned/zoomed COP on another
+  monitor. The layer decomposition made the rendering cheap; the open work is input
+  wiring (the interaction layer assumes one view).
 
 ### Architecture — do we need WebSockets? (No, not for this)
+*(2026-08-06: the "lighter interim option" below essentially WON — pop-outs shipped
+via `window.open`, which shares the JS context outright, so not even BroadcastChannel
+was needed. The SharedWorker remains only as the multiplayer-shaped future.)*
 WebSockets are for talking to a **server / another machine**. Everything above is the *same
 machine, same browser*, so it's all client-side:
 - **The problem:** the sim today is a module singleton (`S`) living in one tab's JS context.
@@ -1603,6 +1811,23 @@ carriageway.
   standing on the deck. Same for the buildings loop. Folds naturally into the
   "buildings layer from real polygons" item under Maps & Terrain.
 
+### Attack Ignores the Order of March ⬜ *(user 2026-08-06 — Now band #1)*
+When a team attacks, members seem to ignore their order of march: the scout runs way
+ahead even though it is **3rd in line**. Ordinary movement keeps the column; the
+attack path apparently doesn't — likely each member pathing/charging at its own best
+speed toward the objective.
+- Fix: an attacking team approaches in march order like any other move, and breaks
+  formation only at the objective (deploy, don't foot-race).
+- And beyond the bug: **attack needs work** generally — what the deploy-at-the-
+  objective moment looks like is part of the *Team Tasking & EXECUTE* design
+  discussion (support-by-fire, assault element, not a converging mob).
+
+### Downed Units Despawn Too Fast ⬜ *(user 2026-08-06 — Now band #2)*
+Wrecks and casualty sites disappear way too quickly. They should stay on the map much
+longer — long enough to read the battle on the ground, and long enough to be
+recovered once *Recovery & Repair* (Sustainment) exists. Cheap tuning fix with a
+design consequence: persistence is the recovery loop's prerequisite.
+
 Everything else tracked is fixed — records in the Shipped Archive → Fixed Bugs. One
 carried-forward nice-to-have lives with *Threat-Aware Routing*: a friendly unit whose
 route is impassable should get a fallback (re-plan / cross-country / abort) instead of
@@ -1610,29 +1835,20 @@ only reporting the failure.
 
 ## Later / Deferred
 
-### Bottom menu (selection tray) UI rework ⬜ *(user 2026-07-25 — for Opus)*
-The tray has grown organically and needs a deliberate UI pass: it now holds
-HOLD/RANGE/MOUNT/DISMOUNT/FIRE MISSION/PONTOON BRIDGE/unit-asset launches
-(⊕ RAVEN / ⊕ SWITCHBLADE — moved here 2026-07-25, they're UNIT assets so they
-live with unit actions)/RTB/GARRISON →/SUPPLY RUN/CLEAR plus the CMD/ROUTE/
-ON CONTACT/WPNS/DIG IN row. Needs grouping (actions vs assets vs garrison vs
-SOPs), consistent visual language, and room to grow (attack aviation adds
-more). Design it as a real control surface, not a button pile.
+### Bottom menu (selection tray) UI rework ✅ *(user 2026-07-25 — SHIPPED 2026-08 as the RTS DOCK, CONSOLE step 4; see Interface & Multi-Window)*
 
-### Commander-created battle groups ⬜ *(user 2026-07-25)*
-Deliberate, NAMED battle groups the commander creates (＋ NEW GROUP in the
-FORCES rail): pick elements (fielded or straight from garrison), name/number
-the group (TF SABER, TEAM A), and it persists as a task organization — not
-just the implicit group that forms from a shared move order. Groups get
-callsigns on the net, show on S3's board, and survive re-tasking.
+### Commander-created battle groups ✅ *(user 2026-07-25 — SHIPPED 2026-08 as TEAMS)*
+Teams are exactly this: named, commander-created, attach/disband/command, a
+station per team with order of march, standing orders and a team-filtered
+NET. The FORCES rail this entry imagined hosting them is dead — the stations
+ARE the surface.
 
-### Force management from the shop pages ⬜ *(user 2026-07-25)*
-The S-shop consoles should be able to MANAGE, not just display: battle groups
-(form/attach/detach from S3's task-force board), garrisons (reassign homes,
-RTB, call up from the S1/S3 views), and QRF (dedicate/release from the base
-rows). Same services the rails use (fieldSlot / orderReturnToGarrison /
-toggleQrf / group assignment) — the shop pages just get the buttons. Keeps the
-"two surfaces, one truth" pattern: rails = quick actions, shops = staff depth.
+### Force management from the shop pages 🟡 *(user 2026-07-25 — largely resolved elsewhere)*
+Management moved to where the CONSOLE model put it: teams manage from their
+STATIONS, installations/garrison/QRF from the dock's pickers and the COMMAND
+console's tabs. The shops stayed staff-depth surfaces (reports, rollups) —
+which now looks right rather than missing. Revisit only if a real gap shows
+up in play.
 
 ### VTC shows real troop avatars ✅ *(user 2026-07-25 — SHIPPED same day)*
 Every tile on the VTC is a REAL person's DA photo (Portrait factory, framed
@@ -1777,6 +1993,29 @@ Full plan of record + per-phase ship records: **`GROUNDWORK.md`**. The headline 
   (its own world's "satellite") with zero Esri traffic.
 - **Deploy** — production server proxies the tile/DEM endpoints; Railway builds
   green from push. Maps shipped: BAGHDAD, DENVER, FRONT RANGE, KABUL (1CD pack).
+
+### THE CONSOLE — the TOC became a room (2026-08-03/06)
+Plan of record with full step records and the rules each step cost:
+**`src/CONSOLE.md`**. The arc, steps 1–6 all shipped:
+- **Steps 1–3** — S-shop consoles as full left-wall columns; TEAM STATIONS on the
+  right wall (header → station map → actions incl. deployables → order of march →
+  standing orders → team NET); the FORCES rail killed; COMMAND as a tabbed console
+  (OVERVIEW / INSTALLATIONS / GARRISON / ACTIONS).
+- **Step 4** — the RTS dock: selected-object quick card + roster with installation
+  pickers on the project's own tree controls; the context menu resolves
+  `taskOrganize` ties. One action list (`ui/forces/actions`) serves dock + stations.
+- **Step 5** — pop-out to real OS windows (`ui/shell/PopOut`): shared JS context,
+  stylesheet adoption under HMR, portal-aware overlays (`usePortalTarget`). The rule:
+  **A POPPED WINDOW MUST NOT OWN A GPU CONTEXT** — three teardown-sequencing fixes
+  all crashed (STATUS_ACCESS_VIOLATION is the renderer process dying); ownership was
+  the bug. Feeds pop with full controls and a per-frame 2D MIRROR of the sensor
+  canvas (`ui/feeds/FeedMirror`, `[data-feed-view]`-addressed); the docked source is
+  kept alive OFF-SCREEN (never display:none) when the rail is shut. Popped stations
+  minimize in the BFT console rather than leaving it.
+- **Step 6** — the map monolith decomposed: `MapView.tsx` 1750 → 810 lines,
+  rendering as LAYERS over a `Frame` context (`src/map/camera|frame|layers/*`);
+  `StationMap` is the second consumer (locked centre, player zoom, no pan).
+- **Step 7 (Team tasking + EXECUTE) never started** — promoted to the Now band.
 
 ### Maps & Terrain (the 2026-07-23 overhaul) *(the prehistory — the M1 theater
 system and everything downstream of procgen was DELETED by Groundwork P6; kept as
