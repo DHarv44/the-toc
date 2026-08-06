@@ -37,9 +37,12 @@ function FeedMirror({ feedId }: { feedId: number }) {
     let raf = 0
     const draw = () => {
       raf = requestAnimationFrame(draw)
-      // found fresh each frame: the docked feed remounts when its drone
-      // changes, and a held reference would be to a canvas nobody draws on
-      const src = document.querySelector<HTMLCanvasElement>(`[data-feed="${feedId}"] canvas`)
+      // THE SENSOR CANVAS, NAMED. A feed holds several canvases — the 2525
+      // icons in its own header are canvases too — so taking the first one
+      // found blew a 28 px unit symbol up to fill the window. Found fresh each
+      // frame, because the docked feed remounts when its drone changes and a
+      // held reference would point at a canvas nobody draws on any more.
+      const src = document.querySelector<HTMLCanvasElement>(`[data-feed="${feedId}"] [data-feed-view] canvas`)
       const w = dst.clientWidth, h = dst.clientHeight
       if (w < 2 || h < 2) return
       if (dst.width !== w || dst.height !== h) { dst.width = w; dst.height = h }

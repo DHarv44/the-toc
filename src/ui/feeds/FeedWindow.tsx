@@ -650,7 +650,11 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
             cursor: !drone ? 'default' : armed ? 'crosshair' : 'move',
           }}>
           {drone && (
-            <Box style={{ position: 'absolute', inset: 0, filter: CAM_FILTERS[camMode] || CAM_FILTERS['WHOT'] }}>
+            // data-feed-view marks the SENSOR canvas. A feed contains several
+            // canvases — the 2525 icons in its own header are canvases too —
+            // and a mirror that takes the first one it finds ends up blowing a
+            // 28 px unit symbol up to fill a window. See ui/feeds/PoppedFeeds.
+            <Box data-feed-view style={{ position: 'absolute', inset: 0, filter: CAM_FILTERS[camMode] || CAM_FILTERS['WHOT'] }}>
               <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} muted={!!feed.muted} />
             </Box>
           )}
