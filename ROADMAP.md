@@ -535,29 +535,48 @@ in is what you have.
   the alert/QRF machinery is exactly what *Symmetric Fog* wants the OPFOR to do in
   the big modes too.
 
-### Skirmish Lobby — the Setup Board ⬜ *(user 2026-08-06 — DESIGN THE PAGE FIRST)*
-The skirmish front door, rebuilt as a proper RTS setup screen — think Command &
-Conquer's skirmish board or any classic RTS skirmish builder, fitted to THIS game
-and driven entirely by **PACKS**:
-- **Flow: PACK → map → scenario → force.** The player picks a pack, then one of that
-  pack's maps, then a scenario (the builder's output — every pack scenario is
-  playable from here), then builds out the skirmish: task force, assets, staging.
-- **A BUDGET as difficulty** — the player composes their force under an allocation
-  budget, so building the task force is itself strategic. Difficulty levels set the
-  budget (and the OPFOR's). Doctrine note: this is honest to the economy split
-  decided under C2 & Echelon — skirmish is the sandbox where a game-y budget
-  belongs; the campaign stays doctrinal allocation from higher.
-- **Everything on the board is pack data** — maps, org, platforms, assets, scenarios:
-  the lobby is a read of the installed packs, so a total-conversion pack (Starship
-  Troopers) gets a full skirmish experience for free.
-- Open questions for the page design: what "build out" means at setup vs. H-hour
-  (pre-placed staging vs. fielding in-game from a bigger allocation), OPFOR
-  composition control (pick their pack? their posture?), and where the existing mode
-  chooser (A&D / Base Defense / KotH) sits in the flow.
-- Design notes: the splash's CAMPAIGNS picker (E4c) is the pattern; `applyScenario`
-  already composes a world from a scenario + org; the T-track slot-budget UI in the
-  builder is the budget mechanic's dry run. This entry supersedes the "mode chooser
-  then map size" sketch in the menu-structure note above.
+### Skirmish Lobby — the Setup Board ⬜ *(user 2026-08-06 — DESIGN SETTLED 2026-08-06, ready to build)*
+A skirmish is a MATCH, not a war — no persistence, no story. The front door is a
+one-screen RTS lobby (C&C skirmish board), driven entirely by **PACKS**.
+
+**The layout (settled):** three columns. LEFT = the friendly side (pack picker,
+battalion/chair, force build from the ORBAT tree, budget meter). MIDDLE = the map
+(map dropdown + scenario dropdown + preview + LAUNCH). RIGHT = the OPFOR (pack
+picker, default force pre-filled, editable, its own budget meter).
+
+**Settled decisions:**
+- **DIFFICULTY IS AN OVERALL PRESET LIMITING THE BUDGETS.** Each preset sets both
+  sides' budget caps — the asymmetry is the difficulty. The player spends within
+  the caps on BOTH columns: build your force, edit the OPFOR's or leave its
+  default fill. Later the same preset scales AI maneuver/smarts (the Decision
+  Layer's difficulty-as-weight-tables item, already designed) and health
+  (`damageMul`, already per-difficulty). Difficulty ends up owning exactly three
+  things: budgets, AI weights, damage scale.
+- **The lobby picks WHAT, the scenario decides WHERE.** No drag-placement in the
+  lobby (that is Eden's job): the player's force arrives as H-hour allocations
+  fielded from the HQ; the OPFOR's picks feed its garrison layout + battlegroup
+  pool through the mode's existing setup.
+- **The SCENARIO dropdown lists rulesets AND authored battles**: the pre-built
+  modes (A&D / KotH / Base Defense — they already adapt to any map at runtime)
+  plus any Eden scenario bound to the selected map. One dropdown, two kinds
+  under the hood (ModeSpec vs spec file); the player never sees the seam.
+- **Built multiplayer-shaped from day one.** Each side column is a list of TEAM
+  SLOTS — one slot today (you vs CPU), later `[PLAYER | CPU | OPEN]` per slot
+  with its own pack/chair/force: multiple battalions per side IS a division
+  fight. The lobby's output is a plain serializable setup document
+  (`{map, scenario, sides: [{slots: [{controller, pack, chair, force}]}]}`), so
+  multiplayer becomes a transport problem, not a redesign. CPU teammate slots
+  are where the friendly-commander AI (task #51) cashes in.
+- **Everything on the board is pack data** — a total-conversion pack gets a full
+  skirmish lobby for free.
+- Design notes: `playableFormations` gives the chair pick; the T-track
+  slot-budget UI is the budget mechanic's dry run; the OPFOR default fill reads
+  its pack's garrison/battlegroup composition data. Map preview wants a
+  THUMBNAIL the MAP EDITOR writes at save time (a full bake is seconds; a
+  stored thumbnail is instant — backfill existing maps once). This supersedes
+  the three-step quick-battle flow and the "mode chooser then map size" sketch
+  in the menu-structure note above. Skirmish saves (Save/Continue currently
+  campaign-only) land here if wanted.
 
 ### 7. Skirmish — Player-Built Scenarios 🟡 *(the BUILDER shipped as Eden — what remains is the play-side wrapper, now designed as the Skirmish Lobby above)*
 *(Note 2026-07-23: "Skirmish" is now also the main-menu umbrella for all single-match
