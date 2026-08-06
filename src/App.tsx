@@ -27,6 +27,8 @@ import TutorialOverlay from './ui/tutorial'
 import InsigniaTest from './ui/InsigniaTest'
 import { S } from './engine/state'
 import { initGame, initDevGame, initScenarioGame } from './engine/scenario'
+import { restoreGame, saveCampaign, setSaveCampaign } from './engine/savefile'
+import { getSaveBody } from './engine/saves-db'
 import { startLoop, stopLoop } from './engine/SimLoop'
 import type { ScenarioSpec } from './scenario/types'
 import { buildGameMap } from './world/mapref'
@@ -56,6 +58,18 @@ export default function App() {
     window.addEventListener('toc-remap', bump)
     return () => window.removeEventListener('toc-remap', bump)
   }, [])
+  // CAMPAIGN AUTOSAVE — a rolling safety net under the player's manual save
+  // points (TopBar). Every three minutes of wall clock; saveCampaign itself
+  // is a no-op outside a campaign or once the match has ended, so the timer
+  // can just run. Wall clock, not sim clock: a paused game the player walks
+  // away from is exactly the game that deserves a fresh autosave.
+  useEffect(() => {
+    if (!started) return
+    const h = setInterval(() => {
+      void saveCampaign('auto').catch(e => console.error('autosave failed', e))
+    }, 180_000)
+    return () => clearInterval(h)
+  }, [started])
   const shakeRef = useRef<HTMLDivElement>(null) // base-under-fire shakes the whole TOC
 
   // TEMP: /?insignia renders the patch/rank/portrait gallery (dev eyeballing)
@@ -65,7 +79,15 @@ export default function App() {
   // stays up while buildGameMap resolves the MapRef into ground
   const begin: StartFn = (req) => {
     void (async () => {
-      if (req.kind === 'dev') {
+      if (req.kind === 'continue') {
+        // resume a save point: the serializer rebuilds the ground from the
+        // pack and replays the war onto it (engine/savefile). The session
+        // keeps saving under the same campaign key it was saved from.
+        const body = await getSaveBody(req.saveId)
+        if (!body) throw new Error('save not found — it may have been pruned')
+        await restoreGame(body)
+        setSaveCampaign(req.campaign)
+      } else if (req.kind === 'dev') {
         // the sandbox runs on real ground: BAGHDAD from the 1CD pack, else the
         // first pack map installed (the splash greys the button when none are)
         const dev = packMap('1cd', 'baghdad') ?? packMaps()[0]
@@ -75,6 +97,7 @@ export default function App() {
           // the army the splash picked; its opponent stays the bootstrap one
           req.army ? { friend: req.army } : undefined,
         )
+        setSaveCampaign(null)
       } else if (req.kind === 'scenario') {
         // an AUTHORED scenario ('packId/scenarioId') — its type IS the mode
         // (SCENARIO-MODEL.md): campaign-typed plays the campaign runner,
@@ -94,11 +117,14 @@ export default function App() {
         // The chair is the scenario's unless a skirmish player took another.
         initScenarioGame(map, entry.spec, isCampaign ? 1 : (Date.now() % 100000),
           req.difficulty, req.chair)
+        // campaigns save under their scenario key; nothing else saves (yet)
+        setSaveCampaign(isCampaign ? req.scenario : null)
       } else {
         // QUICK BATTLE — a bare pack map under the picked ruleset, default staging
         const [packId, mapId] = req.terrain.split('/') as [string, string]
         const map = await buildGameMap({ kind: 'pack', packId, mapId })
         initGame(map, Date.now() % 100000, req.difficulty, req.gameMode)
+        setSaveCampaign(null)
       }
       startLoop()
       setStarted(true)
@@ -140,6 +166,7 @@ export default function App() {
       const isCampaign = spec.type === 'campaign'
       if (isCampaign) { setActiveScenario(spec); setCampaignTutorial(false) }
       initScenarioGame(map, spec, isCampaign ? 1 : (Date.now() % 100000))
+      setSaveCampaign(null) // a playtest is the builder's document, not a war worth keeping
       startLoop()
       setPlaytest(true)
       setStarted(true)

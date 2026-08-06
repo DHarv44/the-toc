@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react'
 import { Box, Group, Text, Button, Divider, NativeSelect, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
+import { saveCampaign } from '../engine/savefile'
+import { toast } from '../domains/comms/radio'
 import { devIncomingStrike } from '../devtools/incoming'
 import { initDevGame } from '../engine/scenario'
 import { buildGameMap } from '../world/mapref'
@@ -76,6 +78,20 @@ export default function TopBar() {
             the COMMAND console's OVERVIEW tab, beside the installations and the
             garrison, which are all pages about the same formation. */}
         <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
+        {/* SAVE — a campaign save point the player can roll back to from the
+            splash (autosave runs underneath; this is the deliberate marker
+            before trying something risky). Campaign only: nothing else keeps
+            saves yet. */}
+        {S.campaign && (
+          <Tooltip label="Mark a save point — roll back to it from the campaign menu" withArrow>
+            <Button size="sm" variant="default"
+              onClick={() => {
+                void saveCampaign('manual')
+                  .then(ok => toast(ok ? 'SAVE POINT MARKED' : 'NOTHING TO SAVE'))
+                  .catch(() => toast('SAVE FAILED'))
+              }}>SAVE</Button>
+          </Tooltip>
+        )}
         <Tooltip label="Radio net" withArrow>
           <Button size="sm" variant={ui.netOpen ? 'filled' : 'default'} onClick={ui.toggleNet}>NET</Button>
         </Tooltip>

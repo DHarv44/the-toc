@@ -3,9 +3,11 @@
 // play and runs three steps — mode, map, difficulty. Every map is a pack map
 // (P6): a map sets its own size, and a checkout with none authors one in the
 // MAP EDITOR first.
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
+import { listSaves, deleteSave, type SaveMeta } from '../engine/saves-db'
+import { fmtClock } from './styles'
 import { packMap, packMaps } from '../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../packs/scenario-files'
 import { allPacks, PACKS, playerPack } from '../packs'
@@ -42,6 +44,13 @@ export type StartReq =
       gameMode: ModeId
       difficulty: DifficultyKey
     }
+  | {
+      kind: 'continue'
+      /** a save point from engine/saves-db — resume the war exactly there */
+      saveId: string
+      /** 'packId/scenarioId' — the session keeps saving under this key */
+      campaign: string
+    }
 export type StartFn = (req: StartReq) => void
 
 /** the scenario's ground, resolved — null when unauthored or not installed */
@@ -77,6 +86,18 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
   const armies = allPacks()
   const [campaignSel, setCampaignSel] = useState<PackScenarioEntry | null>(null)
   const [skirmishSel, setSkirmishSel] = useState<PackScenarioEntry | null>(null)
+  // save points for the picked campaign (newest first) — read from IndexedDB
+  // whenever a campaign is selected, and again after a delete
+  const [saves, setSaves] = useState<SaveMeta[]>([])
+  const [savesEpoch, setSavesEpoch] = useState(0)
+  useEffect(() => {
+    if (!campaignSel) { setSaves([]); return }
+    let live = true
+    void listSaves(`${campaignSel.packId}/${campaignSel.scenarioId}`)
+      .then(l => { if (live) setSaves(l) })
+      .catch(() => { if (live) setSaves([]) })
+    return () => { live = false }
+  }, [campaignSel, savesEpoch])
   // which battalion the player takes for a skirmish scenario (null = not yet
   // asked; a campaign's chair is scripted and never asked)
   const [chair, setChair] = useState<string | null>(null)
@@ -187,11 +208,42 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
           <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
         </div>
       ) : top === 'campaign' ? (
-        <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>{campaignSel!.name} · NEW CAMPAIGN</SectionLabel>
-          {/* CONTINUE lands with the battlefield serializer (Save/Continue) —
-              greyed until a save exists for this campaign */}
-          <ComingSoon label="CONTINUE" sub="No save on file · Save/Continue is in the works" />
+        <div style={{ position: 'relative', width: 340, maxHeight: '62vh', overflowY: 'auto' }}>
+          {/* CONTINUE — the latest save point; the rest of the list is the
+              roll-back: any earlier point loads, ✕ deletes. Autosaves prune
+              themselves (saves-db); manual points are the player's. */}
+          <SectionLabel>{campaignSel!.name} · CONTINUE</SectionLabel>
+          {saves.length > 0 ? (
+            <>
+              <SplashButton label="CONTINUE" accent="#3a8a5a"
+                sub={`${saves[0]!.label} · ${fmtAgo(saves[0]!.ts)}`}
+                stats={`MISSION CLOCK ${fmtClock(saves[0]!.simT)} · ${saves[0]!.kind === 'auto' ? 'AUTOSAVE' : 'MANUAL SAVE'} · ${(DIFFICULTIES[saves[0]!.difficulty as DifficultyKey]?.label ?? saves[0]!.difficulty).toUpperCase()}`}
+                onClick={() => onStart({ kind: 'continue', saveId: saves[0]!.id, campaign: saves[0]!.campaign })} />
+              {saves.length > 1 && (
+                <>
+                  <SectionLabel>ROLL BACK</SectionLabel>
+                  {saves.slice(1).map((m) => (
+                    <SaveRow key={m.id} meta={m}
+                      onLoad={() => onStart({ kind: 'continue', saveId: m.id, campaign: m.campaign })}
+                      onDelete={() => { void deleteSave(m.id).then(() => setSavesEpoch(e => e + 1)) }} />
+                  ))}
+                </>
+              )}
+              <div style={{ height: 14 }} />
+            </>
+          ) : (
+            <div style={{
+              padding: '10px 16px', borderRadius: 3, marginBottom: 8, opacity: 0.5,
+              background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
+              borderLeft: '3px solid #35414d',
+            }}>
+              <div style={{ fontSize: 12, letterSpacing: 2, color: '#9fb4c8' }}>NO SAVE ON FILE</div>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: '#7f97ab', marginTop: 2 }}>
+                The campaign autosaves as you play — SAVE in the top bar marks a point to roll back to
+              </div>
+            </div>
+          )}
+          <SectionLabel>NEW CAMPAIGN</SectionLabel>
           {DIFFICULTY_ORDER.map((k) => {
             const d = DIFFICULTIES[k]
             return (
@@ -332,6 +384,54 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
       <div style={{ position: 'relative', marginTop: 34, fontSize: 10, color: '#3d5265', letterSpacing: 1 }}>
         {hint}
       </div>
+    </div>
+  )
+}
+
+// wall-clock recency for a save point — coarse on purpose, it's a menu line
+function fmtAgo(ts: number): string {
+  const s = Math.max(0, (Date.now() - ts) / 1000)
+  if (s < 90) return 'JUST NOW'
+  if (s < 3600) return `${Math.round(s / 60)} MIN AGO`
+  if (s < 86400 * 2) return `${Math.round(s / 3600)} H AGO`
+  return `${Math.round(s / 86400)} DAYS AGO`
+}
+
+/** One earlier save point in the roll-back list: click loads it, ✕ deletes it. */
+function SaveRow({ meta, onLoad, onDelete }: {
+  meta: SaveMeta; onLoad: () => void; onDelete: () => void
+}) {
+  return (
+    <div
+      onClick={onLoad}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7ec8ff' }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3a48' }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+        padding: '6px 10px 6px 12px', borderRadius: 3, marginBottom: 6,
+        background: 'rgba(16,26,36,0.85)', border: '1px solid #2a3a48',
+        borderLeft: `3px solid ${meta.kind === 'auto' ? '#35414d' : '#8a6a2a'}`,
+        transition: 'border-color 0.12s',
+      }}>
+      <span style={{
+        flex: '0 0 auto', fontSize: 8, letterSpacing: 1, padding: '2px 5px', borderRadius: 2,
+        color: meta.kind === 'auto' ? '#7f97ab' : '#e8c87a',
+        border: `1px solid ${meta.kind === 'auto' ? '#35414d' : '#8a6a2a'}`,
+      }}>{meta.kind === 'auto' ? 'AUTO' : 'SAVE'}</span>
+      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, letterSpacing: 1, color: '#dceeff' }}>{meta.label}</span>
+        <span style={{ fontSize: 9, letterSpacing: 1, color: '#54708a', marginLeft: 8 }}>
+          {fmtClock(meta.simT)} · {fmtAgo(meta.ts)}
+        </span>
+      </span>
+      <button title="Delete this save point"
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#e08a8a' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = '#54708a' }}
+        style={{
+          flex: '0 0 auto', background: 'none', border: 'none', cursor: 'pointer',
+          color: '#54708a', fontFamily: 'inherit', fontSize: 12, padding: '0 2px',
+        }}>✕</button>
     </div>
   )
 }

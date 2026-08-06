@@ -141,11 +141,10 @@ attacking, the AI, recovery — and stand up SKIRMISH as a real front door.)*
    towing, cramming wounded into vics, medics/mechanics with treatment radii, 9-line
    MEDEVAC + CAS requests with commander/DIV-HQ approval echelons, visible evac
    birds, smoked LZs, recovery taskings. See *Recovery & Repair* under Sustainment.
-6. **Save / Continue campaigns** — the full serializer + splash CONTINUE (the stub
-   exists). Fully seeded sim, plain serializable state. CAVEAT: shared roster
-   references (org slot ↔ fielded unit ↔ DUSTWUN site) must re-link on load;
-   S.assets/convoys serialize clean. Map identity is solved: `map.ref` rebuilds the
-   ground from the pack.
+6. ~~**Save / Continue campaigns**~~ ✅ *(SHIPPED 2026-08-06)* — the serializer
+   (`engine/savefile`), IndexedDB save points (`engine/saves-db`), the SAVE
+   button, autosave, and the splash CONTINUE + ROLL BACK list. Verified exact:
+   a restored run resumes on the same rng stream. See Interface & Multi-Window.
 
 ### Next — the map grows up
 7. **Named routes** *(design discussion)* — routes convoys use CONSISTENTLY;
@@ -1735,15 +1734,24 @@ An in-game reference so the player can actually learn the order of battle instea
   the data already exists — render it with the shared symbol drawing (`PaletteIcon`) and Mantine;
   pairs with the TS rewrite (typed models make this trivial to generate).
 
-### Save / Continue Game ⬜ *(Now band #6 — CONTINUE stub exists on the splash (E4c); the serializer is the work, task #47)*
-Persist a session so a game can be resumed later:
-- **Save the full sim state** (`S` — map seed + size, units, structures, drones, resources, time,
-  fog, radio log) to local storage (and/or a downloadable file), and **Continue** from the splash.
-- Autosave periodically and on exit; a small save/load menu.
-- Design notes: `S` is a plain mutable singleton, so serialize it to JSON (rebuild the `Map`/`Set`
-  fields and the `S.map` methods on load, or regenerate the map from its seed+size and replay
-  placements); add a "Continue" entry to the splash when a save exists; pairs with the Scenario
-  Builder's serialization and seeded maps.
+### Save / Continue Game ✅ *(SHIPPED 2026-08-06 — campaigns; skirmish/sandbox deliberately not yet)*
+The battlefield serializer (`engine/savefile` + `engine/saves-db`):
+- **Save points, not one slot** — SAVE in the top bar marks a manual point; a
+  3-minute autosave rolls underneath (last 5 kept, manual points never pruned).
+  The splash's campaign screen offers **CONTINUE** (latest) and a **ROLL BACK**
+  list — any earlier point loads, ✕ deletes. IndexedDB, meta split from body so
+  the list never reads the megabytes.
+- **What a save is** — all of `S` (plain data by design) + the rng's one-word
+  stream position + the MapRef. The ground is REBUILT from the pack on load,
+  then the war's marks are replayed onto it: pontoon cells, FOB access tracks,
+  relocated base anchors. The campaign SCRIPT rides inside the save, so pack
+  edits (or an unsaved builder playtest) can't orphan it.
+- **The re-link caveat was real and is paid** — org-slot ↔ unit ↔ DUSTWUN-site
+  roster arrays are re-pointed at the slot's copy after parse (`relinkRosters`).
+- **Verified exact**: pre-save and post-restore digests identical — sim time,
+  rng stream position, unit ids/positions, soldiers, contacts, campaign
+  progress; restores PAUSED. Saves live in the browser's IndexedDB (per
+  browser, no files). Skirmish saves land with the Skirmish Lobby if wanted.
 
 ### Pop-Out UAV Feeds ✅ *(SHIPPED 2026-08 — CONSOLE step 5)*
 Feeds pop to real OS windows (`ui/shell/PopOut`), full controls included, multiple at
