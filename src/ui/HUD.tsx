@@ -11,7 +11,7 @@ import { S } from '../engine/state'
 import type { Unit, Drone, GunFireMode, Roe, WeaponsControl } from '../engine/GameState'
 import type { Vec2 } from '../world/WorldMap'
 import {
-  orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderFormation,
+  orderHold, orderMount, orderRoe, orderDefend, orderWeapons,
 } from '../domains/forces/orders'
 import { convertToHq, orderReturnToGarrison } from '../domains/installations/orders'
 import {
@@ -20,7 +20,7 @@ import {
 } from '../domains/air/orders'
 import { gunshipSelectWeapon, gunshipSetMode } from '../domains/air/gunship'
 import { revealContact } from '../domains/intel/sensing'
-import { elemWorld, elemExposed, formOf, FORMATION, FORMATIONS } from '../domains/forces/elements'
+import { elemWorld, elemExposed, FORMATION } from '../domains/forces/elements'
 import { grid } from '../lib/format'
 import { UNIT_TYPES, COVER_DEF } from '../domains/forces/catalog'
 import { STRUCTURES } from '../domains/installations/catalog'
@@ -34,15 +34,16 @@ import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
-import { formTeam, joinTeam, leaveTeam, teamById, teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
+import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
 import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../domains/movement/march'
-import { underPlayerCommand } from '../domains/forces/command'
-import { toast } from '../domains/comms/radio'
 
-// compact toggle used in the selection tray / fire-mission rows
-const optBtn = (active: boolean): CSSProperties => ({
-  ...btn(active), padding: '2px 7px', fontSize: 9.5,
-})
+// The command dock's own parts — see ui/tray/.
+import {
+  CommandCard, Pick, Seg, btnGhost, one, optBtn, trayShell,
+  type CmdSlot,
+} from './tray/controls'
+import TaskOrgSeg from './tray/TaskOrgSeg'
+import FormSelect from './tray/FormSelect'
 
 const winView = () => (window as unknown as { __view?: { cx: number; cy: number; ppm: number } }).__view
 
@@ -177,136 +178,6 @@ function FireMissionPanel() {
   )
 }
 
-// How the selected units arrange themselves on the ground. Mixed selections
-// read as MIXED and any pick puts all of them into the same formation, which is
-// what "3rd platoon, wedge" means when it goes out over the net.
-// TASK ORGANIZATION, from the map. Three buttons, and which of them exist
-// depends entirely on what is selected — a control that offers you FORM when
-// everything selected is already in a team is a control that has to be read
-// before it can be used.
-//
-// The S3 board remains where a team is EDITED (order of march, interval,
-// contact drill, the load plan). This is only where one gets made and unmade,
-// because that is the decision you make with units under the cursor.
-function TaskOrgSeg({ units }: { units: Unit[] }) {
-  const ui = useUI()
-  const mine = units.filter(underPlayerCommand)
-  if (!mine.length) return null
-  const teams = mine.map(u => teamOf(u))
-  const free = mine.filter((_, i) => !teams[i])
-  const held = mine.filter((_, i) => teams[i])
-  // every selected element already in ONE team — the selection IS a team
-  const only = teams[0] && teams.every(t => t && t.id === teams[0]!.id) ? teams[0]! : null
-  // exactly one team represented, plus loose elements: they can join it
-  const named = [...new Set(teams.filter(Boolean).map(t => t!.id))]
-  const joinTo = named.length === 1 && free.length ? teamById(named[0]!) : null
-
-  return (
-    <>
-      {free.length >= 2 && (
-        <button style={btn(false)}
-          title={`Form ${free.map(u => u.label).join(', ')} into a team, named for ${free[0]!.label}`}
-          onClick={() => {
-            const t = formTeam(free.map(u => u.id))
-            if (t) toast(`${t.name} TASK ORGANIZED`)
-          }}>FORM TEAM</button>
-      )}
-      {joinTo && (
-        <button style={btn(false)}
-          title={`Attach ${free.map(u => u.label).join(', ')} to ${joinTo.name}`}
-          onClick={() => {
-            for (const u of free) joinTeam(joinTo.id, u.id)
-            toast(`${free.length} ATTACHED TO ${joinTo.name}`)
-          }}>JOIN {joinTo.name}</button>
-      )}
-      {held.length > 0 && (
-        <button style={btn(false)}
-          title={`Detach ${held.map(u => u.label).join(', ')} from ${held.length === 1 ? 'its team' : 'their teams'}`}
-          onClick={() => { for (const u of held) leaveTeam(u.id) }}>DETACH</button>
-      )}
-      {/* A BUTTON HAS TO SAY WHAT IT DOES. This read `TEAM BRAVO ▸`, which is
-          the shape of "select the team" and is not what it does — it leaves the
-          map for a full-screen staff console. Selecting a team is the task org
-          bar's job now (ui/TaskOrgBar), so this one is free to name its own:
-          the movement order is the document it opens. */}
-      {only && (
-        <button style={{ ...optBtn(false), color: '#9fb3c6' }}
-          title={`Open ${only.name}'s movement order — order of march, interval, actions on contact, load plan`}
-          onClick={() => ui.setConsole('s3')}>MOVEMENT ORDER ▸</button>
-      )}
-      {!free.length && !held.length && (
-        <span style={{ fontSize: 9, color: '#54708a' }}>—</span>
-      )}
-    </>
-  )
-}
-
-/** The one value a selection shares, or MIXED. A standing order that reads as
- *  blank because two elements disagree is the thing you most need told. */
-function stateOf(units: Unit[], pick: (u: Unit) => string): string {
-  if (!units.length) return '—'
-  const vals = new Set(units.map(pick))
-  return vals.size === 1 ? [...vals][0]!.toUpperCase() : 'MIXED'
-}
-
-function FormSelect({ units }: { units: Unit[] }) {
-  const forms = new Set(units.map(formOf))
-  const cur = forms.size === 1 ? FORMATION[[...forms][0]!] : null
-  return (
-    <Menu shadow="md" width={280} position="top-start" withArrow={false}>
-      <Menu.Target>
-        <Button size="compact-xs" variant={cur?.key === 'wedge' ? 'default' : 'filled'}
-          styles={{ label: { fontSize: 9.5, letterSpacing: 0.5 } }}>
-          {cur ? cur.label : 'MIXED'} ▾
-        </Button>
-      </Menu.Target>
-      <Menu.Dropdown>
-        {FORMATIONS.map((f, i) => (
-          <div key={f.key}>
-            {/* the two halt postures are a different kind of order from the
-                five march formations above them — a stopped element covering
-                its ground, not a way of getting somewhere */}
-            {f.halt && !FORMATIONS[i - 1]?.halt && (
-              <Divider my={3} label={<Text fz={8} c="dark.3" fw={700}>AT THE HALT</Text>} />
-            )}
-            <Menu.Item onClick={() => units.forEach(u => orderFormation(u.id, f.key))}
-              style={{ background: f.key === cur?.key ? 'var(--mantine-color-toc-8)' : undefined }}>
-              <Text fz={10} fw={f.key === cur?.key ? 700 : 400}>{f.label}</Text>
-              <Text fz={8.5} c="dark.3">{f.hint}</Text>
-            </Menu.Item>
-          </div>
-        ))}
-      </Menu.Dropdown>
-    </Menu>
-  )
-}
-
-// A labelled cluster in the tray's control rows. The tray had grown into two
-// undifferentiated walls of same-weight buttons; grouping under a caption is
-// what makes "what does this unit do on contact" a two-second read instead of
-// a scan. `seg` is deliberately dumb — the grouping IS the tidy.
-function Seg({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-      <span style={{ color: '#54708a', fontSize: 8.5, letterSpacing: 1 }}>{label}</span>
-      {children}
-    </div>
-  )
-}
-
-const segBar: CSSProperties = {
-  display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap',
-}
-const segSep = <div style={{ width: 1, alignSelf: 'stretch', background: '#25384a' }} />
-
-// The command dock. `minHeight` is the reservation — three control rows' worth,
-// held whether or not there is a selection to put in them, so the map never
-// resizes underneath a click. See the empty case in SelectionTray.
-const trayShell: CSSProperties = {
-  flex: '0 0 auto', minHeight: 74,
-  background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
-  padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
-}
 
 
 // The selection tray is a LAYOUT ROW below the map (P5), not a map overlay —
@@ -315,6 +186,29 @@ export function SelectionTray() {
   useUI((s) => s.tick)
   const ui = useUI()
   const [min, setMin] = useState(false)
+  // THE PRINTED KEY HAS TO WORK. A face that says H and does nothing when you
+  // press H is worse than a face with nothing on it — the player tries it once,
+  // it fails, and now none of the other eleven are trusted either. The card is
+  // the source of truth for both: the same slot list draws the letters and
+  // answers them, so they cannot disagree.
+  //
+  // Held in a ref and bound once, because the slot list is built AFTER this
+  // component's early returns and a hook cannot live down there.
+  const slotsRef = useRef<CmdSlot[]>([])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      const k = e.key.toUpperCase()
+      const slot = slotsRef.current.find(s => s.show && s.hot === k)
+      if (!slot) return
+      e.preventDefault()
+      slot.on()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   // the roster starts SHUT for a team — the headline is the team, not its parts
   const [roster, setRoster] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter((u): u is Unit => !!u)
@@ -348,6 +242,82 @@ export function SelectionTray() {
   const selPlan = selTeam ? marchPlan(selTeam.id) : null
   const teamStr = selTeam && units.length
     ? Math.round(units.reduce((n, u) => n + u.strength, 0) / units.length) : 0
+
+  // THE TWELVE CELLS, IN THIS ORDER, FOREVER. Row one is what you do this
+  // bound; row two is how the element carries itself and what it can fight
+  // with; row three is what it can build, fly and where it lives. An element
+  // that cannot do one of them leaves the cell empty — see CommandCard.
+  const eng = units.find(u => buildItems(u).length > 0)
+  const carrier = units.find(u => (UNIT_TYPES[u.type].carries?.length ?? 0) > 0)
+  const uas = carrier ? UNIT_TYPES[carrier.type].carries![0] : null
+  const homed = units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id))
+  const canMount = units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted)
+  const canDig = units.some(u => UNIT_TYPES[u.type].def)
+  const build = eng ? buildItems(eng)[0] : null
+  const cardSlots: CmdSlot[] = [
+    { key: 'move', label: 'MOVE', hot: 'Q', show: true, active: ui.cmdMode === 'move',
+      title: 'Right-click orders a move', on: () => ui.setCmdMode('move') },
+    { key: 'attack', label: 'ATTACK', hot: 'E', show: true, active: ui.cmdMode === 'attack',
+      tone: '#c87868', tut: TUT.attackMode,
+      title: 'Right-click orders an attack', on: () => ui.setCmdMode('attack') },
+    { key: 'stop', label: 'STOP', hot: 'H', show: true,
+      title: 'Stop where you are', on: () => units.forEach(u => orderHold(u.id)) },
+    { key: 'dig', label: '⛨ DIG IN', hot: 'T', show: canDig, tut: TUT.digIn,
+      active: units.every(u => u.posture === 'dig'),
+      title: 'Prepare positions here — cover in exchange for staying put',
+      on: () => {
+        const allDug = units.every(u => u.posture === 'dig')
+        units.forEach(u => orderDefend(u.id, !allDug))
+      } },
+    { key: 'mount', label: 'MOUNT', hot: 'R', show: canMount,
+      title: 'Get back in the vehicles', on: () => units.forEach(u => orderMount(u.id, true)) },
+    { key: 'dismount', label: 'DISMOUNT', hot: 'F',
+      show: units.some(u => UNIT_TYPES[u.type].carrier && u.mounted),
+      title: 'Put the infantry on the ground', on: () => units.forEach(u => orderMount(u.id, false)) },
+    { key: 'fire', label: 'FIRE MSN', hot: 'C', show: anyIndirect, active: ui.mode === 'target',
+      title: 'Call for fire — click the target grid',
+      on: () => ui.setMode(ui.mode === 'target' ? 'select' : 'target') },
+    { key: 'bridge', label: 'BRIDGE', hot: 'B', show: anyBridge, active: ui.mode === 'bridge',
+      title: 'Throw a pontoon bridge — click the crossing',
+      on: () => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge') },
+    { key: 'uas', label: uas ? DRONE_TYPES[uas]!.name.toUpperCase() : 'UAS', hot: 'V',
+      show: !!carrier && !!uas, tut: uas === 'RAVEN' ? TUT.uasRaven : undefined,
+      title: carrier ? `Launch over ${carrier.label} — live feed of the ground ahead` : undefined,
+      on: () => {
+        if (!carrier || !uas) return
+        const d = fieldUnitDrone(carrier.id, uas)
+        if (d && d.id != null) ui.showDrone(d.id)
+      } },
+    // ORGANIC WORK — what this element makes with its own hands. An engineer
+    // builds, a truck hauls; never both, so they share the cell rather than
+    // each getting one that is empty for everybody else.
+    logiUnit
+      ? { key: 'work', label: logiUnit.convoy ? 'END RUN' : 'SUPPLY', hot: 'N', show: true,
+          tut: TUT.supplyRun, active: !!logiUnit.convoy,
+          title: 'Run supply from the HQ to a chosen FOB, then repeat',
+          on: () => {
+            if (logiUnit.convoy) orderHold(logiUnit.id)
+            else ui.setMode(`convoy:${logiUnit.id}` as never)
+          } }
+      : { key: 'work', label: build ? `⛏ ${build.label.toUpperCase()}` : 'BUILD', hot: 'N',
+          show: !!eng && !!build, tut: build?.mode === 'build:FOB' ? TUT.buildFob : undefined,
+          active: !!build && ui.mode === build.mode,
+          title: eng && build ? `${eng.label} builds a ${build.label} — click the map to site it` : undefined,
+          on: () => {
+            if (!build) return
+            const m = build.mode as UiMode
+            ui.setMode(ui.mode === m ? 'select' : m)
+          } },
+    { key: 'rtb', label: 'RTB', hot: 'Y', show: homed, tut: TUT.rtb,
+      title: 'Return to this element\'s assigned garrison — stand down, refit, absorb replacements',
+      on: () => units.forEach(u => orderReturnToGarrison(u.id)) },
+    { key: 'garrison', label: 'GARRISON', hot: 'U', show: homed, tut: TUT.garrison,
+      active: ui.mode === 'garrison',
+      title: 'Reassign garrison: click a friendly base — they stand down there and it becomes home',
+      on: () => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison') },
+  ]
+  // what the keyboard answers, kept in step with what the card draws
+  slotsRef.current = cardSlots
 
   // minimized: the body goes away, leaving a slim restore row under the map
   if (min) {
@@ -478,214 +448,67 @@ export function SelectionTray() {
           act, and putting both in one strip of identical buttons — which is
           what this was — makes the player sort them out every single time. */}
       {units.length > 0 && (
-        <div style={segBar}>
-          <Seg label="CMD">
-            <button style={optBtn(ui.cmdMode === 'move')} onClick={() => ui.setCmdMode('move')}>MOVE (Q)</button>
-            <button data-tut={TUT.attackMode}
-              style={{ ...optBtn(ui.cmdMode === 'attack'), color: ui.cmdMode === 'attack' ? '#fff' : '#c87868' }}
-              onClick={() => ui.setCmdMode('attack')}>ATTACK (E)</button>
-          </Seg>
-          {selTeam && (
-            <>
-              {segSep}
-              {/* TEAM orders — the ones that belong to the column rather than to
-                  any element in it. The interval is the dispersion decision and
-                  it lived only in the S3; it is a march order and it belongs
-                  where you are giving march orders. */}
-              <Seg label="TEAM">
-                <button style={btn(false)}
-                  title="Halt the whole column where it stands"
-                  onClick={() => units.forEach(u => orderHold(u.id))}>HALT COLUMN</button>
-                {([['close', 'CLOSE'], ['open', 'OPEN'], ['infiltration', 'INFIL']] as const)
-                  .map(([c, label]) => (
-                    <button key={c} style={optBtn((selPlan?.column ?? 'open') === c)}
-                      title={`${MARCH_INTERVAL[c]} m between vehicles`}
-                      onClick={() => setMarchOrder(selTeam.id, selPlan?.order ?? selTeam.members, c, {
-                        ...(selPlan?.roe ? { roe: selPlan.roe } : {}),
-                        ...(selPlan?.weapons ? { weapons: selPlan.weapons } : {}),
-                        ...(selPlan?.disabled ? { disabled: selPlan.disabled } : {}),
-                        ...(selPlan?.authored ? { authored: true } : {}),
-                      })}>{label}</button>
-                  ))}
-                <button style={{ ...optBtn(false), color: '#9fb3c6' }}
-                  title="Order of march, actions on contact, disabled-vehicle policy, load plan"
-                  onClick={() => ui.setConsole('s3')}>ORDER OF MARCH ▸</button>
-              </Seg>
-            </>
-          )}
-          {segSep}
-          <Seg label="TASK ORG"><TaskOrgSeg units={units} /></Seg>
-        </div>
-      )}
-      {/* ACTIONS — things the ELEMENT does when you press them, grouped by what
-          kind of doing it is: move/posture, fight, engineer + organic assets,
-          then the administrative ones. */}
-      <div style={segBar}>
-        <Seg label="ELEMENT">
-          <button style={btn(false)} onClick={() => units.forEach(u => orderHold(u.id))}>HOLD</button>
-          {units.length > 0 && (
-            <button style={btn(units.every(u => ui.rangeUnits[u.id]))}
-              title="Show this unit's weapon range on the map"
-              onClick={() => {
-                const on = units.every(u => ui.rangeUnits[u.id])
-                units.forEach(u => { if (!!ui.rangeUnits[u.id] === on) ui.toggleUnitRange(u.id) })
-              }}>RANGE</button>
-          )}
-          {units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted) && (
-            <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, true))}>MOUNT</button>
-          )}
-          {units.some(u => UNIT_TYPES[u.type].carrier && u.mounted) && (
-            <button style={btn(false)} onClick={() => units.forEach(u => orderMount(u.id, false))}>DISMOUNT</button>
-          )}
-        </Seg>
-        {(anyIndirect || anyBridge) && segSep}
-        {(anyIndirect || anyBridge) && (
-          <Seg label="FIGHT">
-            {anyIndirect && (
-              <button style={btn(ui.mode === 'target')}
-                onClick={() => ui.setMode(ui.mode === 'target' ? 'select' : 'target')}>
-                FIRE MISSION
-              </button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          {/* ZONE 1 — WHO YOU ARE COMMANDING AND WHAT IT IS PART OF.
+              Task organization first and at a fixed width, because this is a
+              game about it and because a zone that resizes moves everything to
+              its right. */}
+          <div style={{ flex: '0 0 168px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ color: '#6d8296', fontSize: 8.5, letterSpacing: 1.1, fontWeight: 600 }}>
+              TASK ORG
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              <TaskOrgSeg units={units} />
+            </div>
+          </div>
+
+          {/* ZONE 2 — THE COMMAND CARD. Fixed grid, printed hotkeys. */}
+          <CommandCard slots={cardSlots} />
+
+          {/* ZONE 3 — STANDING ORDERS. Not things you do, things that stay
+              true: what this element does when somebody shoots at it, whether
+              it may shoot first, how it is arranged, how far apart it drives.
+              They are stacked and right-aligned at a fixed width so the pickers
+              line up in a column instead of drifting with the card's width. */}
+          <div style={{
+            marginLeft: 'auto', flex: '0 0 auto',
+            display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-end',
+          }}>
+            <div data-tut={TUT.roeBreak}>
+              <Pick label="ON CONTACT"
+                value={one(units.map(u => (u.roe || 'halt') as Roe))}
+                options={[['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const}
+                onPick={roe => units.forEach(u => orderRoe(u.id, roe))} />
+            </div>
+            <Pick label="WEAPONS"
+              value={one(units.map(u => (u.weapons || 'free') as WeaponsControl))}
+              options={[['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const}
+              onPick={w => units.forEach(u => orderWeapons(u.id, w))} />
+            {selTeam && (
+              <Pick label="INTERVAL" value={selPlan?.column ?? 'open'}
+                options={[['close', 'CLOSE'], ['open', 'OPEN'], ['infiltration', 'INFIL']] as const}
+                title={c => `${MARCH_INTERVAL[c]} m between vehicles`}
+                onPick={c => setMarchOrder(selTeam.id, selPlan?.order ?? selTeam.members, c, {
+                  ...(selPlan?.roe ? { roe: selPlan.roe } : {}),
+                  ...(selPlan?.weapons ? { weapons: selPlan.weapons } : {}),
+                  ...(selPlan?.disabled ? { disabled: selPlan.disabled } : {}),
+                  ...(selPlan?.authored ? { authored: true } : {}),
+                })} />
             )}
-            {anyBridge && (
-              <button style={btn(ui.mode === 'bridge')}
-                onClick={() => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge')}>
-                PONTOON BRIDGE
-              </button>
-            )}
-          </Seg>
-        )}
-        {/* ENGINEER WORK and organic UAS: what this platoon can BUILD and what
-            it can put in the air. Both are things the element DOES, so they
-            live with its other actions instead of in a rail about bases.
-            Picking one arms the placement mode; the footer says where it can
-            go. The Raven goes up right over the platoon and pops its feed. */}
-        {(() => {
-          const eng = units.find(u => buildItems(u).length > 0)
-          const carrier = units.find(u => (UNIT_TYPES[u.type].carries?.length ?? 0) > 0)
-          if (!eng && !carrier) return null
-          return (
-            <>
-              {segSep}
-              <Seg label="ORGANIC">
-                {eng && buildItems(eng).map(it => {
-                  const mode = it.mode as UiMode
-                  return (
-                    <button key={it.mode}
-                      data-tut={it.mode === 'build:FOB' ? TUT.buildFob : undefined}
-                      style={btn(ui.mode === mode)}
-                      title={`${eng.label} builds a ${it.label} — click the map to site it`}
-                      onClick={() => ui.setMode(ui.mode === mode ? 'select' : mode)}>
-                      ⛏ {it.label.toUpperCase()}
-                    </button>
-                  )
-                })}
-                {carrier && UNIT_TYPES[carrier.type].carries!.map(k => {
-                  const dt = DRONE_TYPES[k]
-                  if (!dt) return null
-                  return (
-                    <button key={k} data-tut={k === 'RAVEN' ? TUT.uasRaven : undefined} style={btn(false)}
-                      title={`Launch the ${dt.name} over ${carrier.label} — live feed of the ground ahead`}
-                      onClick={() => {
-                        const d = fieldUnitDrone(carrier.id, k)
-                        if (d && d.id != null) ui.showDrone(d.id)
-                      }}>
-                      ⊕ {dt.name.toUpperCase()}
-                    </button>
-                  )
-                })}
-              </Seg>
-            </>
-          )
-        })()}
-        {/* Garrison flows: RTB = return to the element's ASSIGNED garrison
-            (every element carries one, even deployed — CP by default);
-            GARRISON → = reassign: click a friendly base, they drive there,
-            stand down, and it becomes their new home. FOBs gain garrisons
-            this way. Supply runs are the same kind of order: where the element
-            lives and what it hauls, not what it does in the next bound. */}
-        {(() => {
-          const homed = units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id))
-          if (!homed && !logiUnit) return null
-          return (
-            <>
-              {segSep}
-              <Seg label="REAR">
-                {homed && (
-                  <>
-                    <button data-tut={TUT.rtb} style={btn(false)}
-                      title="Return to this element's assigned garrison — stand down, refit, absorb replacements"
-                      onClick={() => units.forEach(u => orderReturnToGarrison(u.id))}>
-                      RTB
-                    </button>
-                    <button data-tut={TUT.garrison} style={btn(ui.mode === 'garrison')}
-                      title="Reassign garrison: click a friendly base — they stand down there and it becomes home"
-                      onClick={() => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison')}>
-                      GARRISON →
-                    </button>
-                  </>
-                )}
-                {logiUnit && (
-                  <button data-tut={TUT.supplyRun} style={btn(ui.mode === `convoy:${logiUnit.id}`)}
-                    title="Run supply from the HQ to a chosen FOB, then repeat"
-                    onClick={() => {
-                      if (logiUnit.convoy) orderHold(logiUnit.id)
-                      else ui.setMode(`convoy:${logiUnit.id}` as never)
-                    }}>
-                    {logiUnit.convoy ? 'END SUPPLY RUN' : 'SUPPLY RUN'}
-                  </button>
-                )}
-              </Seg>
-            </>
-          )
-        })()}
-      </div>
-      {/* STANDING ORDERS — not actions but state the element carries until it is
-          told otherwise: how it moves, how it is arranged, what it does when
-          somebody shoots at it. Separated from the row above because the
-          difference between "do this now" and "from now on" is the whole
-          difference between the two rows. */}
-      {units.length > 0 && (
-        <div style={segBar}>
-          <Seg label="FORM"><FormSelect units={units} /></Seg>
-          {segSep}
-          {/* STANDING STATE, not actions. These say what the element WILL do,
-              indefinitely, and the label carries the current value so it reads
-              without having to work out which of three buttons is lit. Mixed
-              selections say so rather than showing nothing highlighted. */}
-          <Seg label={`ON CONTACT · ${stateOf(units, u => u.roe || 'halt')}`}>
-            {([['push', 'PUSH'], ['halt', 'HALT'], ['break', 'BREAK']] as const).map(([roe, label]) => (
-              <button key={roe} data-tut={roe === 'break' ? TUT.roeBreak : undefined}
-                style={optBtn(units.every(u => (u.roe || 'halt') === roe))}
-                onClick={() => units.forEach(u => orderRoe(u.id, roe as Roe))}>
-                {label}
-              </button>
-            ))}
-          </Seg>
-          <Seg label={`WEAPONS · ${stateOf(units, u => u.weapons || 'free')}`}>
-            {([['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const).map(([w, label]) => (
-              <button key={w}
-                style={optBtn(units.every(u => (u.weapons || 'free') === w))}
-                onClick={() => units.forEach(u => orderWeapons(u.id, w as WeaponsControl))}>
-                {label}
-              </button>
-            ))}
-          </Seg>
-          {units.some(u => UNIT_TYPES[u.type].def) && (
-            <>
-              {segSep}
-              <Seg label="POSTURE">
-                <button data-tut={TUT.digIn}
-                  style={optBtn(units.every(u => u.posture === 'dig'))}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {/* RANGE draws a ring; it does not tell anybody to do anything,
+                  so it is not on the command card. */}
+              <Seg label="VIEW">
+                <button style={btnGhost(units.every(u => ui.rangeUnits[u.id]))}
+                  title="Show this unit's weapon range on the map"
                   onClick={() => {
-                    const allDug = units.every(u => u.posture === 'dig')
-                    units.forEach(u => orderDefend(u.id, !allDug))
-                  }}>
-                  ⛨ DIG IN
-                </button>
+                    const on = units.every(u => ui.rangeUnits[u.id])
+                    units.forEach(u => { if (!!ui.rangeUnits[u.id] === on) ui.toggleUnitRange(u.id) })
+                  }}>RANGE</button>
               </Seg>
-            </>
-          )}
+              <Seg label="FORM"><FormSelect units={units} /></Seg>
+            </div>
+          </div>
         </div>
       )}
     </div>

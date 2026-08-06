@@ -80,7 +80,7 @@ function stateOf(e: Entry): { text: string; tone: string } {
   return { text: 'HOLD', tone: '#6d7f90' }
 }
 
-function Chip({ e, active }: { e: Entry; active: boolean }) {
+function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boolean }) {
   const ui = useUI()
   const str = Math.round(e.units.reduce((n, u) => n + u.strength, 0) / e.units.length)
   const roe = shared(e.units.map(u => u.roe))
@@ -107,28 +107,52 @@ function Chip({ e, active }: { e: Entry; active: boolean }) {
       e.team ? `${e.name} — ${e.units.length} elements` : e.name,
       cdr ? `${cdr.soldier?.rank ?? ''} ${cdr.soldier?.name ?? cdr.unit.label}${cdr.acting ? ' (acting)' : ''}`.trim() : null,
       flag ? `ON CONTACT: ${e.units.map(u => `${u.label} ${u.roe.toUpperCase()}`).join(', ')}` : null,
+      `${str}% · ${st.text}${roe ? ` · ${roe.toUpperCase()}` : ' · SPLIT DRILL'}`,
       e.slot ? `Press ${e.slot} to select · double-click to go there` : 'Double-click to go there',
     ].filter(Boolean).join('\n')} style={{
-      display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto',
-      fontFamily: UI, fontSize: 10.5, letterSpacing: 0.3, padding: '2px 8px 2px 4px',
+      display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, flex: '0 0 auto',
+      fontFamily: UI, fontSize: 10.5, letterSpacing: 0.3,
+      padding: compact ? '2px 7px' : '2px 8px 2px 4px',
       borderRadius: 2, cursor: 'pointer',
       border: `1px solid ${active ? '#3d7cb8' : '#22303d'}`,
       background: active ? '#16304a' : 'rgba(18,26,34,0.9)',
       color: active ? '#dceeff' : '#9fb3c6',
     }}>
-      <span style={{
-        minWidth: 13, textAlign: 'center', fontSize: 9.5, fontWeight: 700,
-        color: e.slot ? (active ? '#ffd67e' : '#5d6f80') : 'transparent',
-      }}>{e.slot ?? '·'}</span>
-      <span style={{ color: active ? '#dceeff' : '#c8d8e8' }}>{e.name}</span>
-      {e.team && <span style={{ fontSize: 9, color: '#5d6f80' }}>×{e.units.length}</span>}
-      <span style={{
-        fontSize: 9, color: str >= 85 ? '#6d7f90' : str >= 60 ? '#c9a24a' : '#e07a6a',
-      }}>{str}%</span>
-      <span style={{ fontSize: 9, color: st.tone }}>{st.text}</span>
-      <span style={{ fontSize: 9, color: flag ? WARN : '#5d6f80' }}>
-        {roe ? roe.toUpperCase() : 'SPLIT'}
-      </span>
+      {/* WORDS FOR THE FEW, COLOUR FOR THE MANY.
+          A loose element genuinely has less to say than a team: no aggregate,
+          no order of march, no commander of its own to name. Giving it the
+          same five columns anyway is what put thirteen platoons behind a
+          horizontal scrollbar with no teams formed at all — the bar failed on
+          an ordinary force before the player had organized anything.
+          So a loose element carries its name, and its state and health ride
+          the TEXT COLOUR and a dot instead of two more words. Everything the
+          words were saying is still one hover away. */}
+      {!compact && (
+        <span style={{
+          minWidth: 13, textAlign: 'center', fontSize: 9.5, fontWeight: 700,
+          color: e.slot ? (active ? '#ffd67e' : '#5d6f80') : 'transparent',
+        }}>{e.slot ?? '·'}</span>
+      )}
+      <span style={{ color: compact ? st.tone : (active ? '#dceeff' : '#c8d8e8') }}>{e.name}</span>
+      {compact ? (
+        <>
+          {str < 85 && (
+            <span style={{ fontSize: 9, color: str >= 60 ? '#c9a24a' : '#e07a6a' }}>{str}%</span>
+          )}
+          {flag && <span style={{ fontSize: 9, color: WARN }}>•</span>}
+        </>
+      ) : (
+        <>
+          {e.team && <span style={{ fontSize: 9, color: '#5d6f80' }}>×{e.units.length}</span>}
+          <span style={{
+            fontSize: 9, color: str >= 85 ? '#6d7f90' : str >= 60 ? '#c9a24a' : '#e07a6a',
+          }}>{str}%</span>
+          <span style={{ fontSize: 9, color: st.tone }}>{st.text}</span>
+          <span style={{ fontSize: 9, color: flag ? WARN : '#5d6f80' }}>
+            {roe ? roe.toUpperCase() : 'SPLIT'}
+          </span>
+        </>
+      )}
     </button>
   )
 }
@@ -160,25 +184,47 @@ export default function TaskOrgBar() {
   }, [])
 
   const sel = new Set(ui.selectedIds)
+  const on = (e: Entry) => e.units.length === sel.size && e.units.every(u => sel.has(u.id))
+  const teams = list.filter(e => e.team)
+  const loose = list.filter(e => !e.team)
   return (
     <div style={{
-      flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 5,
-      height: 24, padding: '0 10px', overflowX: 'auto', overflowY: 'hidden',
-      background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
+      flex: '0 0 auto', display: 'flex', alignItems: 'center',
+      height: 24, background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
     }}>
-      <span style={{
-        fontFamily: UI, fontSize: 8.5, letterSpacing: 1, color: '#3d4f60', flex: '0 0 auto',
-      }}>TASK ORG</span>
-      {list.length
-        ? list.map(e => (
-            <Chip key={e.key} e={e}
-              active={e.units.length === sel.size && e.units.every(u => sel.has(u.id))} />
-          ))
-        : (
-          <span style={{ fontFamily: UI, fontSize: 9.5, color: '#3d4f60' }}>
-            NOTHING IN THE FIELD
-          </span>
-        )}
+      {/* THE TEAMS DO NOT SCROLL. They are the things the number keys address
+          and the things a commander switches between under time pressure, so
+          they are pinned and the loose elements take whatever room is left.
+          A control group you have to go looking for is not a control group. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
+        padding: '0 8px 0 10px', height: '100%',
+      }}>
+        <span style={{ fontFamily: UI, fontSize: 8.5, letterSpacing: 1, color: '#3d4f60' }}>
+          TASK ORG
+        </span>
+        {teams.map(e => <Chip key={e.key} e={e} active={on(e)} />)}
+      </div>
+      {loose.length > 0 && (
+        <>
+          <div style={{ width: 1, alignSelf: 'stretch', background: '#1e2c3a', margin: '3px 0' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0,
+            padding: '0 10px 0 8px', height: '100%',
+            overflowX: 'auto', overflowY: 'hidden',
+          }}>
+            <span style={{
+              fontFamily: UI, fontSize: 8.5, letterSpacing: 1, color: '#3d4f60', flex: '0 0 auto',
+            }}>INDEPENDENT ({loose.length})</span>
+            {loose.map(e => <Chip key={e.key} e={e} active={on(e)} compact />)}
+          </div>
+        </>
+      )}
+      {!list.length && (
+        <span style={{ fontFamily: UI, fontSize: 9.5, color: '#3d4f60' }}>
+          NOTHING IN THE FIELD
+        </span>
+      )}
     </div>
   )
 }

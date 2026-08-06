@@ -29,7 +29,13 @@ export function RailStrip({ side, title, open, onToggle, tut }: {
           // colour they read as one strip with two words on it — which is
           // exactly how you end up opening COMMAND when you meant FORCES.
           background: open ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-dark-7)',
-          border: `1px solid ${open ? 'var(--mantine-color-toc-7)' : 'var(--mantine-color-dark-5)'}`,
+          // ALL LONGHAND. `border` plus a borderXWidth override is a shorthand
+          // fighting a longhand for the same value, which React warns about and
+          // which resolves differently depending on which one it applies last.
+          borderStyle: 'solid',
+          borderColor: open ? 'var(--mantine-color-toc-7)' : 'var(--mantine-color-dark-5)',
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
           borderLeftWidth: side === 'left' ? 0 : 1,
           borderRightWidth: side === 'left' ? 1 : 0,
         }}>
