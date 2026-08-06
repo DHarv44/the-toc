@@ -149,12 +149,11 @@ share one 64 MB sheet; four tabs would bake four.
       a station is always the same kind of object, and a rail where every column
       is a different size is a rail nobody can scan.
 
-      **The station's map is an EMPTY BOX that says so.** Decided 2026-08-06:
-      not even a stand-in renderer. Do NOT parameterise MapView to serve a
-      second pane, and do NOT copy its symbol drawing into a second file —
-      either would have to be undone at step 6. (`packLayerFor` already shares
-      the one 64 MB sheet across panes, so the real thing has terrain waiting
-      for it whenever step 6 lands.)
+      **The station's map was an EMPTY BOX that said so** — for three steps,
+      deliberately. No stand-in renderer, no parameterised MapView, no copy of
+      the symbol drawing: any of those would have had to be undone at step 6.
+      **Step 6 landed and the box became a real pane** (`map/StationMap`),
+      built from the layer list and sharing the one baked sheet.
 
       **AND IT TAUGHT US THE DOCK DOES NOT SURVIVE A NARROW MAP COLUMN.** Two
       stations open take six hundred pixels off the bottom bar, and everything
@@ -302,10 +301,22 @@ share one 64 MB sheet; four tabs would bake four.
       | 5 | `layers/effects` | fire-mission impacts, the in-contact indicator | — |
       | 6 | `layers/ranges` | the fires / sensor / weapon overlays | ui toggles |
       | 7 | `layers/units` | DUSTWUN sites, the team roll-up, friendlies, hostiles, attack designation | selection, zoom |
-      | 8 | `layers/cursor` | formation-spread preview, marquee, cursor readout | live input state |
+      | ✓ | `layers/cursor` | formation-spread preview, marquee, cursor readout | live input state |
 
-      Then `map/input.ts` takes pick/click/drag/wheel/keys, and MapView is a
-      canvas, a mount effect that builds the frame, and a LIST.
+      **ALL OF IT IS OUT.** MapView went from ~1750 lines to 810 and holds two
+      `ctx.` calls. `map/StationMap` is the proof and the point: a canvas, a
+      locked camera and a seven-entry list —
+
+      ```
+      terrain · grid · measures · routes · places · teams · units
+      ```
+
+      — with no input module mounted, which is most of what read-only means.
+      The station's placeholder box is gone.
+
+      *Still to do:* `map/input.ts` takes pick/click/drag/wheel/keys out of the
+      COP's effect. Worth doing for symmetry, but the second pane no longer
+      needs it — it simply attaches no listeners.
 
       **Batch the verification.** Checking each pass against the running map one
       at a time costs more than it catches — the passes are verbatim moves and

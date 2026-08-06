@@ -20,7 +20,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useUI } from '../store'
 import { S } from '../../engine/state'
-import type { NetEntry, Roe, WeaponsControl } from '../../engine/GameState'
+import type { NetEntry, Roe, Unit, WeaponsControl } from '../../engine/GameState'
+import StationMap from '../../map/StationMap'
 import { orderRoe, orderWeapons } from '../../domains/forces/orders'
 import { underPlayerCommand } from '../../domains/forces/command'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
@@ -76,34 +77,26 @@ function Section({ label, note, children, grow }: {
   )
 }
 
-/** PLACEHOLDER. The station's map is a second view of the same ground, and the
- *  COP's renderer cannot serve one yet: map/MapView is a single mount effect
- *  with every pass, transform and input handler in closures inside it, so a
- *  second pane can use no part of it without taking all of it. Breaking it into
- *  layers is CONSOLE.md step 6, deliberately AFTER the console is functional —
- *  and a stand-in that had to be undone would be worse than an empty box that
- *  says what it is waiting for.
+/** THE TEAM'S PANE — the real one, at last.
+ *
+ *  This was a labelled empty box for three steps, because the COP's renderer
+ *  could not serve a second pane: every pass lived in one mount effect and you
+ *  could take none of it without taking all of it. It is a layer list now
+ *  (map/StationMap), locked on the team, with no input mounted.
  *
  *  IT HOLDS ITS SHAPE. A map pane is a WINDOW ONTO GROUND: widen it at a fixed
  *  height and it stops being a view of the same picture and starts being a
  *  different one — the ground you can see changes with the panel's width alone.
  *  16:9 is the COP's own proportion, so the station frames the world the way
  *  the map beside it does. */
-function MapPane() {
+function MapPane({ members }: { members: Unit[] }) {
   return (
     <div style={{
       flex: '0 0 auto', aspectRatio: '16 / 9', margin: '8px 8px 2px',
-      border: '1px dashed #2a3a48', borderRadius: 3,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 4, background: 'rgba(14,20,27,0.6)', textAlign: 'center', padding: '0 14px',
+      border: '1px solid #2a3a48', borderRadius: 3, overflow: 'hidden',
+      background: 'rgba(14,20,27,0.6)',
     }}>
-      <span style={{ fontFamily: UI, fontSize: FZ.label, letterSpacing: 1.4, color: '#3d4f60' }}>
-        MAP — PLACEHOLDER
-      </span>
-      <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#2f4152', lineHeight: 1.5 }}>
-        A locked, read-only view of this team lands here once the COP renderer
-        is split into layers.
-      </span>
+      <StationMap members={members} />
     </div>
   )
 }
@@ -322,7 +315,7 @@ export default function TeamStation({ teamId }: { teamId: number }) {
       {/* THE MAP COMES FIRST. After the name and the state of the team, the
           next thing a commander wants is WHERE — before any control, because
           every control below is answered differently depending on it. */}
-      <MapPane />
+      <MapPane members={units} />
 
       {/* THE TEAM'S ADMINISTRATION, UNDER THE MAP. Attaching, handing over
           command and breaking the team up were spread across the FORCES rail
