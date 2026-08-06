@@ -123,6 +123,17 @@ share one 64 MB sheet; four tabs would bake four.
       opening leftward, width-resizable. Header · read-only locked map · march
       order (draggable) · standing orders · net filtered to the team.
 
+      **The station's map is a PLACEHOLDER until step 6.** Decided 2026-08-06:
+      get the console functional first, then fix the renderer properly. Do NOT
+      parameterise MapView to serve a second pane, and do NOT copy its symbol
+      drawing into a second file — either would have to be undone. The
+      placeholder draws the shared terrain sheet plus plain unit dots for the
+      team, and is explicitly labelled as such in its own source.
+
+      Groundwork already done: `packLayerFor` (map/packRender) shares the one
+      64 MB sheet across every pane, so the placeholder and the real thing both
+      have terrain for free.
+
 - [ ] **3 · FORCES RAIL DIES** — MarchList, ADD UNIT, DISBAND, the commander
       line move into the station; CALL UP moves into GARRISON. Nothing is left
       over, which is why the rail goes rather than shrinking.
@@ -136,6 +147,61 @@ share one 64 MB sheet; four tabs would bake four.
       so a window can sit over a rail and later move to another document
       unchanged. Feeds land on it first. Not needed on one screen — this is
       the bonus for people with two.
+
+- [ ] **6 · BREAK UP THE MAP MONOLITH** — after the console is functional, not
+      before. `map/MapView.tsx` is ~1750 lines: one canvas, one draw loop, and
+      every pass, transform, pick and input handler living in closures inside a
+      single mount effect. A second pane cannot use any part of it without
+      taking all of it.
+
+      **COMPONENTIZING A CANVAS MEANS LAYERS, NOT COMPONENTS.** There is no
+      React tree to split. What comes out is:
+
+      *A frame context* — everything a pass needs, built once per frame and
+      handed to each:
+
+      ```ts
+      interface Frame {
+        ctx: CanvasRenderingContext2D
+        view: View                    // cx, cy, ppm
+        w: number; h: number          // css px
+        w2sX(x): number; w2sY(y): number
+        s2wX(px): number; s2wY(py): number
+        night: boolean; alpha: number
+        sel: Set<number>
+      }
+      ```
+
+      *Layers*, each `(f: Frame) => void`, one file per pass: terrain · sat +
+      follow-patch · FLOT/territory · gazetteer · control measures · routes and
+      the march table · team ties and plates · units · drones · structures ·
+      range overlays · effects (shells, impacts) · marquee and drag previews.
+
+      *A camera module* — the View type, transforms and clamping, joining the
+      existing `map/view.ts`, instead of `window.__view` plus closures.
+
+      *An input module* — pick/click/drag/wheel/keys, which a read-only pane
+      simply does not mount.
+
+      Then a surface is a LAYER LIST and nothing more:
+
+      ```
+      COP      every layer + input
+      STATION  terrain · measures · routes · teams · units      (no input)
+      ```
+
+      and the VTC deck inset and the scenario builder's sheet — which already
+      share the terrain bake — can converge on the same passes.
+
+      **Sequence it in verifiable commits**, not one landing: frame context and
+      camera first (no behaviour change), then passes out in groups, then
+      input, then the station composes. The risk is draw ORDER and missed
+      closure state, and both are only caught by looking at the map.
+
+      **THE DISCIPLINE, so this does not become forty files with one caller
+      each:** extract when there is a second consumer or when a file has no
+      seams. MapView now has both. Speculative decomposition is the other way
+      to make a codebase unreadable.
 
 ### Fix first (live bug)
 
@@ -175,6 +241,11 @@ how much of that team you have hold of, so a consolidation is never a surprise.
 - Watch panes bound to a grid or a contact (rather than to a team) — deferred;
   the team station covers the case that motivated them.
 - Whether the net rail becomes a station column or stays a rail.
-- Sharing the baked terrain sheet across panes: it is built inside MapView's
-  mount today and must move to a module cache keyed by map id before a second
-  pane exists, or pane two bakes a second 64 MB.
+- ~~Sharing the baked terrain sheet across panes~~ — done, `packLayerFor`.
+
+## WHERE THIS STANDS
+
+Done: the plan itself, the `G` tie-break, step 1 (the left wall + staff boards
+opening full width), and the shared terrain sheet.
+
+Next: step 2, the right wall and team stations, with a placeholder map.
