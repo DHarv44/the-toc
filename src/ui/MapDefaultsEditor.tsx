@@ -17,7 +17,7 @@ import { AUTHORING_OFF, canAuthor } from '../packs/io'
 import { loadGround, type Ground } from '../world/pack/loadGround'
 import { mapFromPack } from '../world/pack/mapFromPack'
 import { frameOf, worldToNorm, normToWorld } from '../world/pack/frame'
-import { renderPackLayer } from '../map/packRender'
+import { packLayerFor } from '../map/packRender'
 import type { WorldMap } from '../world/WorldMap'
 
 const MONO = 'Consolas, monospace'
@@ -56,7 +56,7 @@ export default function MapDefaultsEditor({ entry, onClose }: {
   useEffect(() => {
     const cv = cvRef.current
     if (!cv || !map || !ground) return
-    const layer = renderPackLayer(map, ground)
+    const layer = packLayerFor(map, ground)
     const ctx = cv.getContext('2d')!
     ctx.imageSmoothingQuality = 'high'
     ctx.clearRect(0, 0, cv.width, cv.height)

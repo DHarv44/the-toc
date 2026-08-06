@@ -78,6 +78,29 @@ export function renderPackLayer(map: WorldMap, ground: Ground): HTMLCanvasElemen
   return cv
 }
 
+/** ONE SHEET PER WORLD, however many panes are looking at it.
+ *
+ *  The bake is a 4096² canvas — 64 MB, and a second or so of elevation,
+ *  hillshade, areas and fifty thousand road polylines. That was fine while
+ *  exactly one MapView existed and did it in its mount effect. A team station
+ *  is a second MapView, so without this the second pane pays the whole cost
+ *  again and stalls the frame doing it, for a sheet identical to the one
+ *  already in memory.
+ *
+ *  Keyed on the WorldMap OBJECT rather than an id: the dev sandbox swaps
+ *  S.map at runtime, and object identity is exactly the question — a new world
+ *  is a new sheet, the same world is the same sheet, and the old one is
+ *  collectable the moment nothing holds the map. */
+const sheets = new WeakMap<WorldMap, HTMLCanvasElement>()
+
+export function packLayerFor(map: WorldMap, ground: Ground): HTMLCanvasElement {
+  const had = sheets.get(map)
+  if (had) return had
+  const cv = renderPackLayer(map, ground)
+  sheets.set(map, cv)
+  return cv
+}
+
 // ---- elevation art: hypsometric tint, hillshade, contours in real metres ---
 
 function paintElevation(ctx: CanvasRenderingContext2D, size: number, g: Ground, f: Frame): void {

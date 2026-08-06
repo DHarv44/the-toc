@@ -25,7 +25,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { WorldMap } from '../../world/WorldMap'
 import type { Ground } from '../../world/pack/loadGround'
-import { renderPackLayer, TERRAIN_PX } from '../../map/packRender'
+import { packLayerFor, TERRAIN_PX } from '../../map/packRender'
 import { terrainOrtho } from '../../map/terrainOrtho'
 import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
@@ -97,7 +97,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
     const canvas = cvRef.current!
     const ctx = canvas.getContext('2d')!
     const { map, ground } = propsRef.current
-    const layer = renderPackLayer(map, ground)
+    const layer = packLayerFor(map, ground)
     const mpp = map.CELL / TERRAIN_PX
 
     // open fit-to-sheet, centred

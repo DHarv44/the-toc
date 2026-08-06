@@ -18,7 +18,7 @@
 // cannot drift from what the tracker, the map and the fight actually say.
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
-import { renderPackLayer, TERRAIN_PX } from '../map/packRender'
+import { packLayerFor, TERRAIN_PX } from '../map/packRender'
 import { controlField } from '../engine/frontline'
 import { locRef } from '../world/ref'
 import {
@@ -31,14 +31,10 @@ import type { Vec2 } from '../world/WorldMap'
 import type { RecoveryRef } from '../engine/GameState'
 import { TUT } from './tutTargets'
 
-// terrain layer for the slide's map inset — one render per map, shared
-let _terrain: { mapRef: unknown; cv: HTMLCanvasElement } | null = null
-function terrainLayer(): HTMLCanvasElement {
-  if (!_terrain || _terrain.mapRef !== S.map) {
-    _terrain = { mapRef: S.map, cv: renderPackLayer(S.map!, S.map!.ground!) }
-  }
-  return _terrain.cv
-}
+// terrain layer for the slide's map inset. This kept its OWN cache keyed on
+// S.map, which meant the deck baked a second 64 MB sheet identical to the one
+// MapView was already holding. One cache, in packRender, for every consumer.
+const terrainLayer = (): HTMLCanvasElement => packLayerFor(S.map!, S.map!.ground!)
 
 // WHAT TO CALL A PIECE OF GROUND on paper: the gazetteer name if the map has
 // one there, otherwise the grid reference. Never 'THE TOWN' — a slide that

@@ -24,7 +24,7 @@ import { playerPack } from '../packs'
 import { markOf, patchOf } from '../packs/orgquery'
 import { STRUCTURES, type StructureType, type StructureTypeKey } from '../domains/installations/catalog'
 import { DRONE_TYPES, type DroneType, type DroneTypeKey } from '../domains/air/catalog'
-import { renderPackLayer, packPlaceLabels, TERRAIN_PX } from './packRender'
+import { packLayerFor, packPlaceLabels, TERRAIN_PX } from './packRender'
 import { frameOf } from '../world/pack/frame'
 import { frameImagery, rawImagery, worldRectBounds, IMAGERY_CREDIT } from '../world/pack/imagery'
 import { terrainOrtho } from './terrainOrtho'
@@ -49,7 +49,9 @@ export default function MapView() {
     // the exact renderer — the export drawn directly, roads and all baked
     // into the sheet once; the per-frame cost is a blit (GROUNDWORK.md P4)
     const ground = S.map!.ground!
-    const terrainLayer = renderPackLayer(S.map!, ground)
+    // shared across panes — see packLayerFor. A station's map is a second
+    // MapView and must not bake a second 64 MB copy of the same sheet.
+    const terrainLayer = packLayerFor(S.map!, ground)
     // SAT underlay: for a map that shipped satellite (map.json `sat`),
     // orthoimagery of the frame, fetched lazily on first toggle. For a
     // terrain-mode world, the engine's procedural ground baked top-down —
