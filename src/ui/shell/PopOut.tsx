@@ -119,8 +119,14 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     // loop, disposing the renderer, releasing the context in the proper order —
     // rather than scheduling it for a document that will not exist.
     const onUnload = () => {
+      // 1. let go of the dying document FIRST, synchronously, so the feed's
+      //    WebGL view is torn down while its canvas still exists
       flushSync(() => setHost(null))
-      closed.current()
+      // 2. and put the content back on the NEXT task, not in this handler.
+      //    Doing it here rebuilt the feed — a second WebGL context — in the
+      //    console while this window was still unloading, and that race is what
+      //    took the page down: it came back, then everything died.
+      setTimeout(() => closed.current(), 0)
     }
     // pagehide as well: beforeunload does not fire on every close path, and a
     // missed unmount here is a crash rather than a leak
