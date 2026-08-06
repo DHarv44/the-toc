@@ -215,7 +215,8 @@ share one 64 MB sheet; four tabs would bake four.
       the dock draws it in fixed cells for muscle memory, the station draws it
       with the executing element named under each verb.
 
-- [~] **5 · POP-OUT** — `ui/shell/PopOut` landed 2026-08-06, feeds first.
+- [x] **5 · POP-OUT** — done 2026-08-06. Stations and feeds both go to a second
+      screen; `ui/shell/PopOut` is the host.
 
       `window.open` plus a React portal. Not a tab: a background tab is
       `document.hidden`, its timers throttle to ~1 Hz and rAF stops, so three of
@@ -230,21 +231,47 @@ share one 64 MB sheet; four tabs would bake four.
       lifetime is tied to the component's in BOTH directions — unmount closes
       the window, and the window closing puts the content back.
 
-      A popped feed is mounted by App, not by the FEEDS rail, because it has to
-      survive the rail being shut. The rail keeps its slot with a stub that says
-      where it went and takes it back.
+      **THE ONE RULE THIS COST US: A POPPED WINDOW MUST NOT OWN A GPU CONTEXT.**
 
-      **Blocked popups fail LOUDLY** — the content returns to the rail and the
-      net says `POP-OUT BLOCKED — ALLOW POPUPS FOR THIS SITE`. A pop-out button
-      that quietly does nothing is worse than no button.
+      A station popped out and closed cleanly on the first try. A feed took the
+      whole game down every time its window was closed —
+      `STATUS_ACCESS_VIOLATION`, the renderer process dying, nothing catchable.
+      Three attempts to sequence the teardown (unmount first, defer the remount,
+      force the context loss synchronously) all still crashed, because the
+      problem was never the ORDER. It was the OWNERSHIP: a WebGL context is a
+      GPU-process resource with a compositor surface behind it, and putting one
+      in a document whose lifetime belongs to a window the user can close hands
+      the GPU process a use-after-free. A station survives because a 2D canvas
+      is memory the page owns and dies with its document harming nothing.
 
-      *Unverified:* the embedded preview browser refuses `window.open` outright,
-      so only the blocked path has been seen working. The success path needs a
-      real browser. **Test it before trusting it.**
+      So the feed does not travel — its PICTURE does. The popped window renders
+      the whole FeedWindow (header, readouts, reticles, sensor modes, every
+      control, live) with ONE part swapped: `mirror` puts a copy of the live
+      sensor canvas where the WebGL view would be, blitted each frame by
+      `ui/feeds/FeedMirror`. Same-origin `drawImage` from another document's
+      canvas is allowed and costs one blit of an image already on the GPU.
 
-      *Still to do:* generic window chrome (drag / resize / min / max / z-order /
-      edge-snap) in viewport coordinates, and the team station as the second
-      consumer.
+      Two things that bit, both recorded in the code: a feed holds several
+      canvases (its own 2525 icons are canvases), so the mirror asks for
+      `[data-feed-view] canvas` and not the first one it finds; and the SOURCE
+      has to keep rendering, so when the FEEDS rail is shut the docked feed is
+      kept alive off-screen — off-screen and NOT hidden, because `display:none`
+      stops the browser animating the canvas and gives you the same black
+      window by another route.
+
+      A popped station MINIMISES its column rather than closing it. The tab is
+      untouched, so the wall behaves as it always has: click the tab and the
+      column comes back with the window still up.
+
+      **Blocked popups fail LOUDLY** — the content returns and the net says
+      `POP-OUT BLOCKED — ALLOW POPUPS FOR THIS SITE`. A pop-out button that
+      quietly does nothing is worse than no button.
+
+      *Not built, and no longer wanted:* the generic in-page window chrome
+      (drag / resize / min / max / z-order / edge-snap) the original sketch
+      called for. These are real OS windows — the chrome is the window
+      manager's, and reimplementing it inside the page would be worse at the
+      job than the thing already doing it.
 
 - [x] **6 · BREAK UP THE MAP MONOLITH** — done 2026-08-06. It was ~1750 lines:
       one canvas, one draw loop, and every pass, transform, pick and input
@@ -417,23 +444,43 @@ how much of that team you have hold of, so a consolidation is never a surprise.
 
 ## WHERE THIS STANDS
 
-Steps 1, 2 and 3 are done, plus the `G` tie-break and the shared terrain sheet.
-The console now reads: COMMAND and the four S-shops as columns on the left, the
-COP in the middle, what you can commit along the bottom, and a station per team
-on the right.
+**Steps 1 through 6 are done.** The console reads:
 
-Steps 1 through 4 and step 6 are done. The dock commands elements, the station
-commands the team, every object has one home, the map means what it draws — and
-the map is now a layer list that a second surface can compose, which the team
-station does.
+```
+LEFT    COMMAND + S1 S2 S3 S4, columns at 720, resizable, FULL on demand
+CENTRE  the COP — a canvas, the input handlers, and a layer list
+BOTTOM  what you can commit: independent elements, installations,
+        and the card for whatever is selected
+RIGHT   a station per team, each with a live locked map
+```
 
-What is left is no longer re-organising — it is building. **5** is pop-out
-(`window.open` + a portal; the bonus for a second screen, not needed on one).
-**6** is the map monolith, which is the one piece of debt the console is now
-waiting on: the station's map is still a labelled empty box. **7** — tasks and
-an EXECUTE button — is a design conversation before it is anything else, and it
-is the one that turns this console into a command post.
+Every object has one home. The dock commands elements, the station commands the
+team, the map means what it draws, and both walls can send a panel to a second
+screen.
 
-Also outstanding, small: the pack tutorial's prose still tells the player to
-open a FORCES rail that no longer exists. Its CONDITIONS were remapped; the
-words are a content fix.
+### What is left
+
+- **STEP 7 — TASKS AND AN EXECUTE BUTTON.** The only step never started, and
+  the one that matters most: it is what turns this console into a command post.
+  **Design conversation first** — it lands on a friendly-commander AI that is
+  close to nonexistent, so expect as much engine work as console work.
+
+- **The pack tutorial's PROSE.** It still tells the player to open a FORCES rail
+  that no longer exists (`01-lodgment.json`, `01-seize-khadra.json`). The
+  CONDITIONS were remapped and the UI anchors re-pointed, so the curriculum
+  gates correctly; the words are a content fix and were deliberately deferred.
+
+- **The dev PACK viewer** is still a left-hand console that never became a real
+  page. Dev-only, harmless, unowned.
+
+### Notes for whoever picks this up
+
+- `npx tsc --noEmit` and CHECK THE EXIT CODE. It has been 0 at every commit.
+- The preview browser refuses `window.open`, so pop-out cannot be tested there
+  — it needs a real browser.
+- Editing `map/MapView.tsx` remounts it, which resets the camera to the
+  fit-to-force framing while `S` survives. Things do not "disappear"; the view
+  moved. Re-centre on a known world coordinate before believing a symbol is
+  missing.
+- Screenshots at 800×500 cannot resolve 8.5 px labels. To check whether
+  something drew, sample the canvas and compare against a control patch.
