@@ -48,6 +48,10 @@ import {
 } from './layers/routes'
 import { drawDebris, drawHill, drawPontoons, drawStructures } from './layers/places'
 import { drawDrones, drawImpacts } from './layers/air'
+import { drawRanges } from './layers/ranges'
+import { drawDustwun, drawFriendlies, drawHostiles, drawTargeted, drawTeams } from './layers/units'
+import { drawCursorReadout, drawMarquee, drawSpreadPreview } from './layers/cursor'
+import { drawFireMissionAim, drawPlacement, drawStrikeAim } from './layers/aim'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -735,145 +739,12 @@ export default function MapView() {
       const hover = pickAny(s2wX(mouse.x), s2wY(mouse.y))
       canvas.style.cursor = hover ? 'pointer' : 'crosshair'
 
-      // strike targeting: for any selected weapons drone, draw its weapon-range ring so the
-      // player can see where a lock will reach; left-click the map to place the lock reticle
-      for (const d of selectedDrones()) {
-        const spec = DRONE_TYPES[d.type]
-        if (!spec || !spec.weapons) continue
-        ctx.strokeStyle = 'rgba(220,60,40,0.45)'
-        ctx.setLineDash([8, 5])
-        ctx.beginPath()
-        ctx.arc(w2sX(d.x), w2sY(d.y), spec.weapons.range * view.ppm, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.setLineDash([])
-      }
-      // in-flight drone strike impact reticles on the map
-      for (const d of S.drones) {
-        if (!d.strikeMark || S.t > d.strikeMark.until) continue
-        const x = w2sX(d.strikeMark.x), y = w2sY(d.strikeMark.y)
-        ctx.strokeStyle = 'rgba(255,58,40,0.9)'
-        ctx.lineWidth = 1.6
-        ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(x - 12, y); ctx.lineTo(x + 12, y)
-        ctx.moveTo(x, y - 12); ctx.lineTo(x, y + 12)
-        ctx.stroke()
-      }
-      // field-drone control range rings
-      if (ui.mode.startsWith('deploy:DRONE:')) {
-        const spec = (DRONE_TYPES as Record<string, DroneType | undefined>)[ui.mode.slice(13)]
-        if (spec && spec.src === 'tether') {
-          ctx.strokeStyle = 'rgba(120,180,220,0.5)'
-          ctx.setLineDash([6, 4])
-          ctx.beginPath()
-          for (const s of S.structures) {
-            if (s.side !== 'friend' || s.buildT > 0) continue
-            if (s.kind !== 'FOB' && s.kind !== 'HQ') continue
-            if (S.drones.some(d => d.tether === s.id)) continue
-            ctx.moveTo(w2sX(s.x) + spec.tetherRange! * view.ppm, w2sY(s.y))
-            ctx.arc(w2sX(s.x), w2sY(s.y), spec.tetherRange! * view.ppm, 0, Math.PI * 2)
-          }
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-        if (spec && spec.src === 'field') {
-          ctx.strokeStyle = 'rgba(120,180,220,0.5)'
-          ctx.setLineDash([6, 4])
-          ctx.beginPath()
-          for (const u of S.units) {
-            if (u.side !== 'friend') continue
-            ctx.moveTo(w2sX(u.x) + spec.ctrlRange! * view.ppm, w2sY(u.y))
-            ctx.arc(w2sX(u.x), w2sY(u.y), spec.ctrlRange! * view.ppm, 0, Math.PI * 2)
-          }
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-      }
-
-      // deploy / build placement rings
-      if (ui.mode.startsWith('deploy:') && !ui.mode.startsWith('deploy:DRONE')) {
-        ctx.strokeStyle = 'rgba(40,120,220,0.6)'
-        ctx.setLineDash([6, 4])
-        ctx.beginPath()
-        for (const s of S.structures) {
-          if (s.side !== 'friend' || s.buildT > 0 || !s.deployZone) continue
-          ctx.moveTo(w2sX(s.x) + s.deployZone * view.ppm, w2sY(s.y))
-          ctx.arc(w2sX(s.x), w2sY(s.y), s.deployZone * view.ppm, 0, Math.PI * 2)
-        }
-        ctx.stroke()
-        ctx.setLineDash([])
-      }
-      if (ui.mode.startsWith('build:')) {
-        const spec = (STRUCTURES as Record<string, StructureType | undefined>)[ui.mode.slice(6)]
-        if (spec) {
-          ctx.strokeStyle = 'rgba(120,180,90,0.55)'
-          ctx.setLineDash([6, 4])
-          ctx.beginPath()
-          for (const s of S.structures) {
-            if (s.side !== 'friend') continue
-            if (spec.key !== 'OP' && s.buildT > 0) continue
-            ctx.moveTo(w2sX(s.x) + spec.near * view.ppm, w2sY(s.y))
-            ctx.arc(w2sX(s.x), w2sY(s.y), spec.near * view.ppm, 0, Math.PI * 2)
-          }
-          if (spec.key === 'OP') {
-            for (const u of S.units) {
-              if (u.side !== 'friend') continue
-              ctx.moveTo(w2sX(u.x) + spec.near * view.ppm, w2sY(u.y))
-              ctx.arc(w2sX(u.x), w2sY(u.y), spec.near * view.ppm, 0, Math.PI * 2)
-            }
-          }
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-      }
-      if (ui.mode === 'bridge') {
-        const eng = selectedFriendlies().find(u => UNIT_TYPES[u.type].canBridge)
-        if (eng) {
-          ctx.strokeStyle = 'rgba(200,150,50,0.6)'
-          ctx.setLineDash([6, 4])
-          ctx.beginPath()
-          ctx.arc(w2sX(eng.x), w2sY(eng.y), 700 * view.ppm, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-      }
-
-      // fire-mission range rings: every friendly tube on the map, selected = hot
-      if (ui.mode === 'target') {
-        const selIds = ui.selectedIds
-        ctx.setLineDash([8, 5])
-        for (const u of S.units) {
-          if (u.side !== 'friend') continue
-          const ind = UNIT_TYPES[u.type].indirect
-          if (!ind) continue
-          const isSel = selIds.includes(u.id)
-          const reloading = u.missionCooldown > 0
-          ctx.strokeStyle = reloading
-            ? 'rgba(120,120,120,0.4)'
-            : isSel ? 'rgba(220,50,30,0.7)' : 'rgba(200,110,40,0.45)'
-          ctx.lineWidth = isSel ? 2 : 1.2
-          ctx.beginPath()
-          ctx.arc(w2sX(u.x), w2sY(u.y), ind.range * view.ppm, 0, Math.PI * 2)
-          ctx.stroke()
-          // label the ring at the top with callsign + status
-          ctx.font = '9px Consolas, monospace'
-          ctx.fillStyle = reloading ? 'rgba(140,140,140,0.7)' : 'rgba(200,80,40,0.85)'
-          ctx.textAlign = 'center'
-          ctx.fillText(
-            `${u.label} ${reloading ? 'RELOAD ' + Math.ceil(u.missionCooldown) + 'S' : 'RDY'}`,
-            w2sX(u.x), w2sY(u.y) - ind.range * view.ppm - 4,
-          )
-          ctx.textAlign = 'left'
-        }
-        ctx.lineWidth = 1.5
-        ctx.setLineDash([])
-        ctx.strokeStyle = '#c22'
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(mouse.x - 12, mouse.y); ctx.lineTo(mouse.x + 12, mouse.y)
-        ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y + 12)
-        ctx.stroke()
-      }
+      // WHAT THE ARMED MODE IS ABOUT TO DO is a layer — map/layers/aim. Strike
+      // reach, then whatever the current mode says is allowed where, then the
+      // call-for-fire picture when a mission is being placed.
+      drawStrikeAim(frame, selectedDrones())
+      drawPlacement(frame, ui.mode, selectedFriendlies())
+      if (ui.mode === 'target') drawFireMissionAim(frame, mouse.x, mouse.y)
 
       // ROUTES are a layer — map/layers/routes. The faint traces first, so the
       // command graphics and the control measures draw over them.
@@ -901,315 +772,25 @@ export default function MapView() {
       drawImpacts(frame)
       drawDrones(frame, new Set(ui.feeds.map(fd => fd.droneId).filter((x): x is number => x != null)))
 
-      // In-contact indicator: 0 when clear, rising toward 1 on each shot fired, so the
-      // symbol's ring strobes with the unit's own gunfire and settles to a steady red
-      // while it's engaged but not shooting.
-      const contactLevel = (u: Unit): number => {
-        if (u.strength <= 0) return 0
-        const engaged = S.t - Math.max(u.lastCombatT ?? -99, u.underFireT ?? -99) < 3
-        if (!engaged) return 0
-        const since = u.lastFiredT == null ? 99 : S.t - u.lastFiredT
-        return since < 0.35 ? 1 - since / 0.35 : 0.12
-      }
+      // THE RANGE OVERLAYS are a layer — map/layers/ranges.
+      drawRanges(frame, { ...ui.overlays, per: ui.rangeUnits || {} })
 
-      // ROLE-BASED RANGE OVERLAYS (map-corner toggles), drawn under the symbols.
-      // FIRES = the call-for-fire picture: every indirect shooter's max-range
-      // ring, labeled — the commander sees at a glance what ground his guns can
-      // service. SNSR = collection coverage: recon sight, drone footprints, SIG
-      // direction-finding. WPN = direct-fire range of the SELECTED units (a
-      // focus aid, not wall-to-wall clutter); the per-unit tray toggle latches
-      // the same ring for a unit while it's selected.
-      {
-        const ov = ui.overlays
-        const per = ui.rangeUnits || {}
-        const sel = ui.selectedIds
-        ctx.save()
-        ctx.globalAlpha = ui.overlayAlpha // the commander's intensity dial
-        const ring = (px: number, py: number, rM: number, stroke: string, fill: string, dash: number[], w = 2) => {
-          const rr = rM * view.ppm
-          ctx.beginPath()
-          ctx.arc(px, py, rr, 0, Math.PI * 2)
-          if (fill) { ctx.fillStyle = fill; ctx.fill() }
-          ctx.setLineDash(dash)
-          ctx.strokeStyle = stroke
-          ctx.lineWidth = w
-          ctx.stroke()
-          ctx.setLineDash([])
-          return rr
-        }
-        for (const u of S.units) {
-          if (u.side !== 'friend' || u.strength <= 0) continue
-          const type = UNIT_TYPES[u.type]
-          const px = w2sX(u.x), py = w2sY(u.y)
-          // FIRES: indirect shooters — max range ring + gunline label
-          if (ov.fires && type.indirect) {
-            const rr = ring(px, py, type.indirect.range,
-              '#ff6e46', 'rgba(232,82,60,0.10)', [12, 7], 3)
-            if (rr > 46) {
-              ctx.font = 'bold 11px Consolas, monospace'
-              ctx.textAlign = 'center'
-              ctx.fillStyle = '#ffa078'
-              ctx.fillText(`${u.label} · ${(type.indirect.range / 1000).toFixed(1)} KM`, px, py - rr - 6)
-            }
-          }
-          // SNSR: dedicated collection — recon sight + SIG DF reach
-          if (ov.snsr) {
-            if (type.cat === 'RECON') {
-              ring(px, py, type.sight, '#6ee6c3', 'rgba(110,220,190,0.07)', [4, 5], 2.2)
-            }
-            if (type.df) {
-              ring(px, py, type.df, '#c896fa', '', [2, 6], 2.2)
-            }
-          }
-          // WPN: direct-fire engagement range, selected units only
-          if (type.range && ((ov.wpn && sel.includes(u.id)) || (per[u.id] && sel.includes(u.id)))) {
-            ring(px, py, type.range,
-              per[u.id] ? '#ffd75a' : '#6eb4ff', 'rgba(90,160,240,0.10)', [5, 4], 2.6)
-          }
-        }
-        // SNSR: airborne footprints — every friendly bird's sensor reach
-        if (ov.snsr) {
-          for (const d of S.drones) {
-            if (d.state === 'rtb') continue
-            ring(w2sX(d.x), w2sY(d.y), DRONE_TYPES[d.type].sight,
-              '#6ee6c3', 'rgba(110,220,190,0.05)', [3, 6], 1.8)
-          }
-        }
-        ctx.restore()
-      }
+      // THE SYMBOLOGY is a layer — map/layers/units. DUSTWUN sites first, then
+      // the task organization, then whatever a rolled-up team is not standing
+      // for, then the enemy picture and the attack designations.
+      drawDustwun(frame)
+      const rolled = drawTeams(frame)
+      drawFriendlies(frame, rolled)
+      drawHostiles(frame)
+      drawTargeted(frame)
 
-      // DUSTWUN sites: a downed platoon's LKP, dim like a stale contact —
-      // status unknown until somebody secures the ground (recovery.ts)
-      for (const site of S.downed) {
-        if (site.side !== 'friend') continue
-        const age = Math.floor((S.t - site.t) / 60)
-        drawUnitSymbol(ctx, w2sX(site.x), w2sY(site.y), {
-          side: 'friend', glyph: UNIT_TYPES[site.type].glyph, stale: true,
-          label: `${site.label} DUSTWUN ${age}M`, showStrength: false,
-        })
-      }
-
-      // THE TASK ORGANIZATION, ON THE SHEET, AT THE RIGHT ECHELON.
-      //
-      // Five platoons in one place drew five overlapping icons and five labels
-      // on top of each other, which is unreadable and is also the wrong answer:
-      // a battalion commander looking at a company team wants to see A COMPANY
-      // TEAM. So a team ROLLS UP into one symbol — the base element's branch
-      // with the company echelon bar over it, carrying the team's name, its
-      // aggregate strength and how many elements are in it.
-      //
-      // It EXPANDS when you select it, or when you are zoomed in far enough
-      // that the elements are legibly apart. That is the BFT convention and the
-      // RTS one: the icon you command at, and the detail you inspect at.
-      const rolled = new Set<number>()
-      for (const t of S.teams) {
-        const mem = t.members
-          .map(id => S.units.find(u => u.id === id))
-          .filter((u): u is Unit => !!u && u.strength > 0)
-        if (mem.length < 2) continue
-        const plan = marchPlan(t.id)
-        const rank = new Map((plan?.order ?? t.members).map((id, i) => [id, i]))
-        const line = mem.slice().sort((a, b) =>
-          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))
-        const head = line[0]!, tail = line[line.length - 1]!
-        const picked = mem.some(u => ui.selectedIds.includes(u.id))
-        // how far apart the column actually is on screen — a team strung over
-        // two kilometres of road at high zoom is not one icon, it is a column
-        const spreadPx = Math.hypot(
-          w2sX(head.x) - w2sX(tail.x), w2sY(head.y) - w2sY(tail.y))
-        const expand = picked || spreadPx > 110
-
-        // AN ELEMENT ON A DIFFERENT DRILL FROM ITS TEAM IS THE EXCEPTION A TOC
-        // EXISTS TO NOTICE, and the map is where the commander is looking. It
-        // rides the team plate as a mark rather than waiting in a console.
-        const split = new Set(mem.map(u => u.roe)).size > 1
-          || (!!plan?.roe && mem.some(u => u.roe !== plan.roe))
-
-        ctx.save()
-        // THE TIE THROUGH THE COLUMN, in march order, under everything.
-        //
-        // This was 1 px at 20% alpha, which is to say invisible: a team could be
-        // formed, named and given a commander and the sheet looked exactly as it
-        // had before. The task organization is the most important structure on
-        // this map and it was the faintest thing drawn on it. A grouping the
-        // player made is worth as much ink as a road.
-        ctx.strokeStyle = picked ? 'rgba(255,214,126,0.75)'
-          : expand ? 'rgba(126,200,255,0.5)' : 'rgba(126,200,255,0.34)'
-        ctx.lineWidth = picked ? 2.2 : 1.6
-        ctx.setLineDash(picked ? [] : [6, 4])
-        ctx.beginPath()
-        line.forEach((u, i) => {
-          const sx = w2sX(u.x), sy = w2sY(u.y)
-          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
-        })
-        ctx.stroke()
-        ctx.setLineDash([])
-        ctx.restore()
-
-        if (expand) {
-          // THE NAME RIDES THE HEAD OF THE COLUMN, on a plate. Bare text at 78%
-          // alpha over hillshade and roads is unreadable exactly where the map
-          // is busiest, which is where the units are — so it gets a background,
-          // like every label on a real overlay.
-          const hx = w2sX(head.x), hy = w2sY(head.y) - 30
-          ctx.save()
-          ctx.font = '600 10px Inter, system-ui, sans-serif'
-          ctx.textAlign = 'left'
-          const label = `${t.name} ×${mem.length}`
-          const tw = ctx.measureText(label).width
-          const pad = 5, dot = split ? 9 : 0
-          const bw = tw + pad * 2 + dot, bx = hx - bw / 2
-          ctx.fillStyle = picked ? 'rgba(46,38,14,0.92)' : 'rgba(10,20,30,0.82)'
-          ctx.strokeStyle = picked ? 'rgba(255,214,126,0.9)' : 'rgba(126,200,255,0.45)'
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.rect(bx, hy - 8, bw, 14)
-          ctx.fill(); ctx.stroke()
-          ctx.fillStyle = picked ? '#ffd67e' : 'rgba(160,215,255,0.95)'
-          ctx.fillText(label, bx + pad, hy + 2)
-          if (split) {
-            ctx.fillStyle = '#e0b34e'
-            ctx.beginPath()
-            ctx.arc(bx + bw - pad - 1, hy - 1, 2.6, 0, Math.PI * 2)
-            ctx.fill()
-          }
-          // the trail is the element everyone else goes firm for
-          ctx.strokeStyle = picked ? 'rgba(255,214,126,0.6)' : 'rgba(126,200,255,0.45)'
-          ctx.beginPath()
-          ctx.arc(w2sX(tail.x), w2sY(tail.y), 13, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.restore()
-          continue
-        }
-
-        // ROLLED UP. One symbol, at the head of the column where the commander
-        // is, wearing the BASE element's branch — a team is named for and built
-        // around a company, and it is drawn as that company with whatever is
-        // cross-attached to it. Strength is the aggregate.
-        for (const u of mem) rolled.add(u.id)
-        const base = mem.find(u => u.id === t.baseId) ?? head
-        const str = mem.reduce((n, u) => n + u.strength, 0) / mem.length
-        drawUnitSymbol(ctx, w2sX(head.x), w2sY(head.y), {
-          side: 'friend', glyph: UNIT_TYPES[base.type].glyph, echelon: 'co',
-          label: `${t.name} ×${mem.length}`,
-          strength: str, selected: picked,
-          contact: Math.max(...mem.map(contactLevel)),
-        })
-        if (split) {
-          ctx.save()
-          ctx.fillStyle = '#e0b34e'
-          ctx.beginPath()
-          ctx.arc(w2sX(head.x) + 15, w2sY(head.y) - 13, 2.8, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.restore()
-        }
-      }
-
-      // friendly units (always shown — it's blue force tracking), except the
-      // ones currently represented by their team's rolled-up symbol
-      for (const u of S.units) {
-        if (u.side !== 'friend' || rolled.has(u.id)) continue
-        const type = UNIT_TYPES[u.type]
-        drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
-          side: 'friend', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
-          strength: u.strength, selected: ui.selectedIds.includes(u.id),
-          dug: u.posture === 'dig' ? u.digT : 0, contact: contactLevel(u),
-        })
-      }
-
-      // hostiles: through fog = contacts; fog off = ground truth
-      if (S.fogEnabled) {
-        for (const [, c] of S.contacts) {
-          const type = UNIT_TYPES[c.type]
-          const age = S.t - c.lastSeen
-          // intel-seeded contacts of unidentified composition draw as a "?" —
-          // scouts turn them into typed tracks by actually spotting them
-          drawUnitSymbol(ctx, w2sX(c.x), w2sY(c.y), {
-            side: 'hostile', glyph: c.unknown ? 'unk' : type.glyph, stale: !c.live,
-            label: c.unknown ? 'UNK' : c.live ? type.abbr : `LKP ${Math.floor(age / 60)}M`,
-            strength: c.strength ?? 100,
-          })
-        }
-      } else {
-        for (const u of S.units) {
-          if (u.side !== 'hostile') continue
-          const type = UNIT_TYPES[u.type]
-          drawUnitSymbol(ctx, w2sX(u.x), w2sY(u.y), {
-            side: 'hostile', glyph: type.glyph, label: `${u.label} ${type.abbr}`,
-            strength: u.strength, contact: contactLevel(u),
-          })
-        }
-      }
-
-      // attack designation: pulsing red diamond on targets under deliberate attack
-      {
-        const targeted = new Set<number>()
-        for (const u of S.units) {
-          if (u.side === 'friend' && u.attackId != null) targeted.add(u.attackId)
-        }
-        for (const id of targeted) {
-          const e2 = S.units.find(x => x.id === id)
-          if (!e2) continue
-          const c = S.contacts.get(id)
-          const pos = (!S.fogEnabled || (c && c.live)) ? e2 : c
-          if (!pos) continue
-          const tx2 = w2sX(pos.x), ty2 = w2sY(pos.y)
-          const pulse = 20 + Math.sin(S.t * 4) * 3
-          ctx.strokeStyle = 'rgba(255,70,50,0.85)'
-          ctx.lineWidth = 2
-          ctx.beginPath()
-          ctx.moveTo(tx2, ty2 - pulse); ctx.lineTo(tx2 + pulse, ty2)
-          ctx.lineTo(tx2, ty2 + pulse); ctx.lineTo(tx2 - pulse, ty2)
-          ctx.closePath()
-          ctx.stroke()
-        }
-      }
-
-      // formation-spread preview while dragging
-      if (lineDrag) {
-        const n = Math.max(1, useUI.getState().selectedIds.length)
-        const red = ui.cmdMode === 'attack'
-        ctx.strokeStyle = red ? 'rgba(255,88,68,0.85)' : 'rgba(63,157,255,0.85)'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(lineDrag.x0, lineDrag.y0)
-        ctx.lineTo(lineDrag.x1, lineDrag.y1)
-        ctx.stroke()
-        ctx.fillStyle = red ? 'rgba(255,88,68,0.9)' : 'rgba(63,157,255,0.9)'
-        for (let i = 0; i < n; i++) {
-          const t = n > 1 ? i / (n - 1) : 0.5
-          const px = lineDrag.x0 + (lineDrag.x1 - lineDrag.x0) * t
-          const py = lineDrag.y0 + (lineDrag.y1 - lineDrag.y0) * t
-          ctx.beginPath()
-          ctx.arc(px, py, 4, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-
-      // marquee rectangle
-      if (marquee) {
-        const x = Math.min(marquee.x0, marquee.x1), y = Math.min(marquee.y0, marquee.y1)
-        const w = Math.abs(marquee.x1 - marquee.x0), h = Math.abs(marquee.y1 - marquee.y0)
-        ctx.fillStyle = 'rgba(80,160,255,0.12)'
-        ctx.fillRect(x, y, w, h)
-        ctx.strokeStyle = 'rgba(110,190,255,0.85)'
-        ctx.lineWidth = 1.2
-        ctx.setLineDash([5, 3])
-        ctx.strokeRect(x, y, w, h)
-        ctx.setLineDash([])
-      }
-
-      // cursor coordinates readout
-      const cwx = s2wX(mouse.x), cwy = s2wY(mouse.y)
-      if (cwx >= 0 && cwy >= 0 && cwx < S.map!.WORLD && cwy < S.map!.WORLD) {
-        ctx.font = '10px Consolas, monospace'
-        ctx.fillStyle = night ? 'rgba(160,200,235,0.85)' : 'rgba(20,30,40,0.75)'
-        ctx.fillText(
-          `${String(Math.floor(cwx / 100)).padStart(3, '0')} ${String(Math.floor(cwy / 100)).padStart(3, '0')}  ` +
-          S.map!.terrNameAt(cwx, cwy).toUpperCase(),
-          mouse.x + 14, mouse.y + 22,
-        )
-      }
+      // WHAT THE POINTER IS DOING is the last layer — map/layers/cursor. It is
+      // the only one that draws INPUT rather than the world, which is exactly
+      // why a read-only pane mounts none of it.
+      drawSpreadPreview(frame, lineDrag, useUI.getState().selectedIds.length,
+        ui.cmdMode === 'attack')
+      drawMarquee(frame, marquee)
+      drawCursorReadout(frame, mouse.x, mouse.y)
     }
     draw()
 
