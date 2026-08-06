@@ -17,16 +17,23 @@
 // AND IT IS NOT A SECOND MAP. The station's map is READ-ONLY — you look at it,
 // and the rows below it do the commanding. The COP keeps right-click-to-move,
 // because there has to be exactly one place that verb lives.
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUI } from '../store'
 import { S } from '../../engine/state'
 import type { NetEntry, Roe, WeaponsControl } from '../../engine/GameState'
 import { orderRoe, orderWeapons } from '../../domains/forces/orders'
-import { teamById, teamCdr, teamUnits } from '../../domains/forces/teams'
+import { underPlayerCommand } from '../../domains/forces/command'
+import { UNIT_TYPES } from '../../domains/forces/catalog'
+import {
+  designateCdr, disbandTeam, joinTeam, renameTeam, teamById, teamCdr, teamOf, teamUnits,
+} from '../../domains/forces/teams'
+import { seniorOf } from '../../packs/ranks'
 import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../../domains/movement/march'
 import { centerView } from '../../map/view'
 import { FZ, NET_COLORS, fmtClock } from '../styles'
 import { Pick, one } from '../tray/controls'
+import { PaletteIcon, PaletteRow, garrisonSections } from '../palette'
+import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from '../forces/callup'
 import MarchList from '../forces/MarchList'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
@@ -62,6 +69,38 @@ function Section({ label, note, children, grow }: {
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {children}
       </div>
+    </div>
+  )
+}
+
+/** PLACEHOLDER. The station's map is a second view of the same ground, and the
+ *  COP's renderer cannot serve one yet: map/MapView is a single mount effect
+ *  with every pass, transform and input handler in closures inside it, so a
+ *  second pane can use no part of it without taking all of it. Breaking it into
+ *  layers is CONSOLE.md step 6, deliberately AFTER the console is functional —
+ *  and a stand-in that had to be undone would be worse than an empty box that
+ *  says what it is waiting for.
+ *
+ *  IT HOLDS ITS SHAPE. A map pane is a WINDOW ONTO GROUND: widen it at a fixed
+ *  height and it stops being a view of the same picture and starts being a
+ *  different one — the ground you can see changes with the panel's width alone.
+ *  16:9 is the COP's own proportion, so the station frames the world the way
+ *  the map beside it does. */
+function MapPane() {
+  return (
+    <div style={{
+      flex: '0 0 auto', aspectRatio: '16 / 9', margin: '8px 8px 2px',
+      border: '1px dashed #2a3a48', borderRadius: 3,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 4, background: 'rgba(14,20,27,0.6)', textAlign: 'center', padding: '0 14px',
+    }}>
+      <span style={{ fontFamily: UI, fontSize: FZ.label, letterSpacing: 1.4, color: '#3d4f60' }}>
+        MAP — PLACEHOLDER
+      </span>
+      <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#2f4152', lineHeight: 1.5 }}>
+        A locked, read-only view of this team lands here once the COP renderer
+        is split into layers.
+      </span>
     </div>
   )
 }
@@ -143,6 +182,14 @@ function TeamNet({ log }: { log: NetEntry[] }) {
 
 export default function TeamStation({ teamId }: { teamId: number }) {
   const ui = useUI()
+  // THE TEAM'S OWN ADMINISTRATION, one drawer at a time. Attaching, handing
+  // over command, renaming and breaking the team up are all rare and all
+  // consequential, so none of them is a button that just fires: each opens
+  // something that names what it is about to do.
+  const [drawer, setDrawer] = useState<'attach' | 'cdr' | 'disband' | null>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [qrfPending, setQrfPending] = useState<string | null>(null)
   const team = teamById(teamId)
   // a team that has been destroyed or disbanded takes its column with it
   if (!team) return null
@@ -193,6 +240,19 @@ export default function TeamStation({ teamId }: { teamId: number }) {
   const calls = new Set([team.name, ...units.map(u => u.label)])
   const log = S.radio.filter(e => calls.has(e.callsign)).slice(-60)
 
+  /** everything of the player's that is not already spoken for */
+  const free = S.units.filter(u => underPlayerCommand(u) && u.strength > 0 && !teamOf(u))
+
+  const adm = (label: string, title: string, active: boolean, on: () => void, tone?: string) => (
+    <button onClick={on} title={title} style={{
+      flex: '0 0 auto', padding: '2px 8px', borderRadius: 2, cursor: 'pointer',
+      fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.4,
+      border: `1px solid ${active ? '#3d7cb8' : '#22303d'}`,
+      background: active ? '#16304a' : 'rgba(18,26,34,0.9)',
+      color: active ? '#dceeff' : (tone ?? '#8fb0c8'),
+    }}>{label}</button>
+  )
+
   const icon = (glyph: string, title: string, on: () => void) => (
     <button onClick={on} title={title} style={{
       flex: '0 0 auto', width: 22, height: 20, cursor: 'pointer', borderRadius: 2,
@@ -215,16 +275,41 @@ export default function TeamStation({ teamId }: { teamId: number }) {
         background: held ? 'rgba(22,48,74,0.55)' : 'rgba(14,20,27,0.9)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => ui.setSelected(units.map(u => u.id))}
-            onDoubleClick={() => { ui.setSelected(units.map(u => u.id)); centre() }}
-            title="Command this team — select every element in it (double-click to go there)"
-            style={{
-              flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer', padding: 0,
-              background: 'none', border: 'none', fontFamily: UI,
-              fontSize: FZ.item, fontWeight: 700, letterSpacing: 0.6,
-              color: held ? '#dceeff' : '#9fc4e0',
-              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-            }}>{team.name}</button>
+          {renaming ? (
+            // A NAME IS WHAT THE NET CALLS THEM. Renaming in place, because the
+            // name is the headline and typing over the headline is the least
+            // ambiguous thing a rename can look like.
+            <input autoFocus value={draft}
+              onChange={e => setDraft(e.currentTarget.value)}
+              onBlur={() => { renameTeam(team.id, draft); setRenaming(false) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { renameTeam(team.id, draft); setRenaming(false) }
+                if (e.key === 'Escape') setRenaming(false)
+              }}
+              style={{
+                flex: 1, minWidth: 0, fontFamily: UI, fontSize: FZ.item, fontWeight: 700,
+                letterSpacing: 0.6, padding: '1px 4px', borderRadius: 2,
+                background: '#0e141a', border: '1px solid #3d7cb8', color: '#dceeff',
+              }} />
+          ) : (
+            <button onClick={() => ui.setSelected(units.map(u => u.id))}
+              onDoubleClick={() => { ui.setSelected(units.map(u => u.id)); centre() }}
+              title="Command this team — select every element in it (double-click to go there)"
+              style={{
+                flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer', padding: 0,
+                background: 'none', border: 'none', fontFamily: UI,
+                fontSize: FZ.item, fontWeight: 700, letterSpacing: 0.6,
+                color: held ? '#dceeff' : '#9fc4e0',
+                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+              }}>{team.name}</button>
+          )}
+          {/* RENAME BELONGS TO THE NAME, not to the row of team administration
+              below — it is the only one of those verbs that changes the thing
+              it sits next to, and moving it up here is also what keeps the
+              other three on one line at the narrowest column width. */}
+          {icon('✎', 'Rename the team — what the net calls them', () => {
+            setDraft(team.name); setRenaming(true); setDrawer(null)
+          })}
           {icon('⌖', 'Centre the map on this team', centre)}
           {icon('✕', 'Close this station', () => ui.closeStation(team.id))}
         </div>
@@ -246,32 +331,127 @@ export default function TeamStation({ teamId }: { teamId: number }) {
         </div>
       </div>
 
-      {/* PLACEHOLDER. The station's map is a second view of the same ground, and
-          the COP's renderer cannot serve one yet: map/MapView is a single mount
-          effect with every pass, transform and input handler in closures inside
-          it, so a second pane can use no part of it without taking all of it.
-          Breaking it into layers is CONSOLE.md step 6, deliberately AFTER the
-          console is functional — and a stand-in that had to be undone would be
-          worse than an empty box that says what it is waiting for. */}
-      {/* AND IT HOLDS ITS SHAPE. A map pane is a WINDOW ONTO GROUND: widen it
-          at a fixed height and it stops being a view of the same picture and
-          starts being a different one — the ground you can see changes with the
-          panel's width alone. 16:9 is the COP's own proportion, so the station
-          frames the world the way the map beside it does. */}
+      {/* THE MAP COMES FIRST. After the name and the state of the team, the
+          next thing a commander wants is WHERE — before any control, because
+          every control below is answered differently depending on it. */}
+      <MapPane />
+
+      {/* THE TEAM'S ADMINISTRATION, UNDER THE MAP. Attaching, handing over
+          command and breaking the team up were spread across the FORCES rail
+          and the S3's task-org board — two places to do the same things to the
+          same object. A team's home is its station, so they live here, and they
+          sit under the picture because they are acts, not facts. */}
       <div style={{
-        flex: '0 0 auto', aspectRatio: '16 / 9', margin: '8px 8px 2px',
-        border: '1px dashed #2a3a48', borderRadius: 3,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 4, background: 'rgba(14,20,27,0.6)', textAlign: 'center', padding: '0 14px',
+        flex: '0 0 auto', display: 'flex', gap: 4, flexWrap: 'wrap',
+        padding: '6px 8px', borderBottom: drawer ? 'none' : '1px solid #16222e',
       }}>
-        <span style={{ fontFamily: UI, fontSize: FZ.label, letterSpacing: 1.4, color: '#3d4f60' }}>
-          MAP — PLACEHOLDER
-        </span>
-        <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#2f4152', lineHeight: 1.5 }}>
-          A locked, read-only view of this team lands here once the COP renderer
-          is split into layers.
-        </span>
+        {adm('＋ ATTACH', 'Attach an element — one already fielded, or called up from garrison',
+          drawer === 'attach', () => setDrawer(d => d === 'attach' ? null : 'attach'))}
+        {adm('★ COMMAND', 'Hand the team to a named element',
+          drawer === 'cdr', () => setDrawer(d => d === 'cdr' ? null : 'cdr'))}
+        {adm('✕ DISBAND', 'Break the team up', drawer === 'disband',
+          () => setDrawer(d => d === 'disband' ? null : 'disband'), '#e0968a')}
       </div>
+
+      {/* THE DRAWERS. One at a time, opening under the row that owns them, and
+          every one of them names its consequence before it acts.
+          CAPPED, because a drawer that takes the whole column takes the order
+          of march with it — and the column is what you are attaching TO. */}
+      {drawer === 'attach' && (
+        <div style={{ flex: '0 0 auto', maxHeight: 240, overflowY: 'auto', borderBottom: '1px solid #16222e' }}>
+          {qrfPending && (
+            <QrfWarning slotId={qrfPending}
+              onProceed={() => {
+                proceedFieldSlot(qrfPending, u => { joinTeam(team.id, u.id) })
+                setQrfPending(null); setDrawer(null)
+              }}
+              onCancel={() => setQrfPending(null)} />
+          )}
+          {free.length > 0 && (
+            <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#3d4f60', padding: '5px 10px 2px', letterSpacing: 1 }}>
+              ALREADY FIELDED
+            </div>
+          )}
+          {free.map(u => {
+            const t = UNIT_TYPES[u.type]
+            return (
+              <PaletteRow key={u.id} icon={<PaletteIcon unit={t} w={34} h={24} scale={0.9} />}
+                label={`${u.label} · ${t.abbr}`} tag={u.lineage ?? null} cost=""
+                onClick={() => { joinTeam(team.id, u.id); setDrawer(null) }} />
+            )
+          })}
+          <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#3d4f60', padding: '5px 10px 2px', letterSpacing: 1 }}>
+            FROM GARRISON — FIELDED AND ATTACHED IN ONE
+          </div>
+          {garrisonSections(true).flatMap(sec => sec.items).filter(it => !it.disabled).map(it => (
+            <PaletteRow key={it.key} icon={it.icon} label={it.label} tag={it.tag ?? null} cost=""
+              onClick={() => guardedFieldSlot(it.key!, setQrfPending, u => {
+                joinTeam(team.id, u.id); setDrawer(null)
+              })} />
+          ))}
+        </div>
+      )}
+      {drawer === 'cdr' && (
+        <div style={{ flex: '0 0 auto', borderBottom: '1px solid #16222e', padding: '4px 0 6px' }}>
+          <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#3d4f60', padding: '2px 10px', letterSpacing: 1 }}>
+            WHO HAS THE TEAM
+          </div>
+          {units.map(u => {
+            const lead = seniorOf(u.soldiers, true)
+            const isCdr = cdr?.unit.id === u.id
+            return (
+              <button key={u.id} onClick={() => { designateCdr(team.id, u.id); setDrawer(null) }}
+                title={`Give ${team.name} to ${u.label}`}
+                style={{
+                  display: 'flex', gap: 6, alignItems: 'baseline', width: '100%', textAlign: 'left',
+                  padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit',
+                  background: isCdr ? 'rgba(22,48,74,0.5)' : 'none', border: 'none',
+                }}>
+                <span style={{ flex: '0 0 auto', fontSize: FZ.label, color: isCdr ? '#ffd67e' : '#3d4f60' }}>★</span>
+                <span style={{ flex: '0 0 auto', fontSize: FZ.label, color: '#9fc4e0' }}>{u.label}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: FZ.hint, color: '#54708a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  {lead ? `${lead.rank} ${lead.name}` : 'NO FIT LEADER'}
+                </span>
+              </button>
+            )
+          })}
+          {/* BACK TO THE BASE ELEMENT — which is also what happens on its own
+              when a designated commander goes down, so it is worth being able
+              to ask for deliberately. */}
+          <button onClick={() => { designateCdr(team.id, null); setDrawer(null) }}
+            style={{
+              display: 'block', width: '100%', textAlign: 'left', padding: '3px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', background: 'none', border: 'none',
+              fontSize: FZ.hint, color: '#6d8296',
+            }}>RETURN IT TO THE BASE ELEMENT</button>
+        </div>
+      )}
+      {drawer === 'disband' && (
+        <div style={{
+          flex: '0 0 auto', margin: '4px 6px', padding: '6px 8px', borderRadius: 3,
+          border: '1px solid #6a4a2a', borderLeft: '3px solid #e8b34a',
+          background: 'rgba(40,28,14,0.45)',
+        }}>
+          <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#c8d8e8', lineHeight: 1.5 }}>
+            Disbanding returns {units.length} elements to independent and throws away
+            this team's order of march. The station closes with it.
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+            <button onClick={() => { ui.closeStation(team.id); disbandTeam(team.id) }}
+              style={{
+                padding: '3px 10px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: FZ.hint, letterSpacing: 1,
+                border: '1px solid #6a4a2a', background: 'rgba(16,26,36,0.85)', color: '#e8b34a',
+              }}>DISBAND {team.name}</button>
+            <button onClick={() => setDrawer(null)}
+              style={{
+                padding: '3px 10px', borderRadius: 2, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: FZ.hint, letterSpacing: 1,
+                border: '1px solid #2a3a48', background: 'rgba(16,26,36,0.85)', color: '#dceeff',
+              }}>CANCEL</button>
+          </div>
+        </div>
+      )}
 
       {/* THE COLUMN, AND THE ONLY PART OF THIS PANEL THAT GROWS. A team can be
           two elements or nine, so the list is the one thing here whose height
