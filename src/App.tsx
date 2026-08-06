@@ -7,7 +7,7 @@ import HUD, { SelectionTray } from './ui/HUD'
 import TaskOrgBar from './ui/TaskOrgBar'
 import TopBar from './ui/TopBar'
 import CommandRail from './ui/CommandRail'
-import ForcesRail from './ui/ForcesRail'
+import GarrisonRail from './ui/GarrisonRail'
 import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
 import Stations from './ui/station/Stations'
@@ -173,7 +173,7 @@ export default function App() {
             across by the panel width. */}
         <RailTabs side="left" />
         <CommandRail />
-        <ForcesRail />
+        <GarrisonRail />
         {/* THE STAFF CONSOLES ARE A LEFT WALL, not a takeover. Mounted here as
             real layout siblings so a docked one NARROWS the map instead of
             covering it — reading a LOGSTAT used to cost you the whole common

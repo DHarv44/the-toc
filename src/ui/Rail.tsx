@@ -97,7 +97,7 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
   const tabs = side === 'left'
     ? [
         { title: 'COMMAND', open: ui.leftOpen, onToggle: ui.toggleLeft },
-        { title: 'FORCES', open: ui.bgOpen, onToggle: ui.toggleBg },
+        { title: 'GARRISON', open: ui.bgOpen, onToggle: ui.toggleBg },
       ]
     : [
         { title: `FEEDS${ui.feeds.length ? ` (${ui.feeds.length})` : ''}`, open: ui.feedsOpen, onToggle: ui.toggleFeeds },

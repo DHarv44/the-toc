@@ -73,8 +73,8 @@ export interface UIState {
   cycleOverlayAlpha: () => void
   rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
   leftOpen: boolean         // side rails: collapse to their own edge, independently
-  bgOpen: boolean           // FORCES rail (left, beside Command)
-  // CALL UP picker state (FORCES rail): lives in the store so the tutorial's
+  bgOpen: boolean           // GARRISON rail (left, beside Command)
+  // GARRISON drill-down state: lives in the store so the tutorial's
   // UI conditions can see it — the curriculum has to teach the drill-down, and
   // it can only teach what it can read. The tree is an accordion, one rung open
   // at a time: base = the open GARRISON, cat = the open CAPABILITY inside it.
@@ -82,7 +82,6 @@ export interface UIState {
   // Companies are the exception — several can stand open at once, so that rung
   // is a list of `${cat}|${bn}:${co}` keys (namespaced by category because one
   // HHC owns platoons under three different capabilities).
-  callupOpen: boolean
   callupBase: number | null
   callupCat: string | null
   callupCos: string[]
@@ -176,7 +175,6 @@ export const useUI = create<UIState>()((set, get) => ({
   // they don't. (The tutorial teaches which rail answers which question.)
   leftOpen: false,
   bgOpen: false,
-  callupOpen: false,
   callupBase: null,
   callupCat: null,
   callupCos: [],
