@@ -143,7 +143,7 @@ export function joinTeam(teamId: number, unitId: number): boolean {
  *  would: loose elements become a team; loose elements alongside exactly one
  *  existing team join it; anything else is already organized and says so. */
 export function taskOrganize(unitIds: number[]):
-{ kind: 'formed' | 'joined' | 'none'; team?: Team; n: number } {
+{ kind: 'formed' | 'joined' | 'none' | 'ambiguous'; team?: Team; n: number; teams?: number[] } {
   const units = unitIds
     .map(id => S.units.find(u => u.id === id))
     .filter((u): u is Unit => !!u && u.strength > 0 && underPlayerCommand(u))
@@ -168,6 +168,16 @@ export function taskOrganize(unitIds: number[]):
   }
   let destId: number | null = null, best = 0
   for (const [id, n] of count) if (n > best) { best = n; destId = id }
+
+  // A TIE IS NOT A DESTINATION. Grab three of Bravo and three of Alpha and the
+  // "most members here" rule has no answer — it was resolving to whichever the
+  // map happened to iterate first, which is a silent coin flip that merges two
+  // companies. Merging is a large act and the fast path does not get to guess
+  // at it: this refuses, and the caller sends the commander to the menu, where
+  // the destination is named and the counts are on the labels.
+  if (destId != null && [...count.values()].filter(n => n === best).length > 1) {
+    return { kind: 'ambiguous', n: units.length, teams: [...count.keys()] }
+  }
 
   if (destId != null) {
     const dest = teamById(destId)

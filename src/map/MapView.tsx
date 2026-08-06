@@ -33,7 +33,7 @@ import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbo
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
 import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/control/measures'
 import { toast } from '../domains/comms/radio'
-import { leaveTeam, taskOrganize, teamOf } from '../domains/forces/teams'
+import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 
 interface View { cx: number; cy: number; ppm: number }
@@ -646,7 +646,10 @@ export default function MapView() {
         const r = taskOrganize(sel.map(u => u.id))
         if (r.kind === 'formed') toast(`${r.team!.name} TASK ORGANIZED`)
         else if (r.kind === 'joined') toast(`${r.n} ATTACHED TO ${r.team!.name}`)
-        else toast('ALREADY ONE TEAM — ADD WHAT IS JOINING IT, OR SHIFT+G TO DETACH')
+        else if (r.kind === 'ambiguous') {
+          const names = (r.teams ?? []).map(id => teamById(id)?.name ?? '?').join(' AND ')
+          toast(`SELECTION SPANS ${names} — RIGHT-CLICK TO CHOOSE`)
+        } else toast('ALREADY ONE TEAM — ADD WHAT IS JOINING IT, OR SHIFT+G TO DETACH')
       }
     }
     function onKeyUp(e: KeyboardEvent) { heldKeys.delete(e.key.toLowerCase()) }
