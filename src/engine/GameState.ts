@@ -989,6 +989,10 @@ export interface GameState {
   hazards: Hazard[]          // mines/IEDs on the routes
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
+  // THE SKY'S CLOCK (engine/sun): utc ms the match opened at (scenario H-hour
+  // or deterministic local noon) and how much sky a sim-second sweeps
+  sunEpoch: number
+  sunScale: number
   version: number
   counters: Counters
 }
@@ -1052,6 +1056,8 @@ export function createInitialState(): GameState {
     hazards: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
+    sunEpoch: Date.UTC(2026, 5, 15, 9, 0, 0),
+    sunScale: 6,
     version: 0,
     counters: { nextId: 1, designators: { friend: 0, hostile: 0 }, groupSeq: 1, lineage: {} },
   }

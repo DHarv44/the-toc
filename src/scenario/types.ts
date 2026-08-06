@@ -142,6 +142,12 @@ export interface ScenarioSpec {
   player?: string
   /** fog of war on (absent = on) */
   fog?: boolean
+  /** H-HOUR as a LOCAL datetime on the map's ground ('2026-06-21T04:30') —
+   *  a dawn assault is something the author declares. Absent = local noon. */
+  start?: string
+  /** how much sky a sim-second sweeps (absent = 6× — an hour of play visibly
+   *  moves the light; a realism scenario declares 1) */
+  sunScale?: number
   situation: ScenarioSituation
   /** the mainline, in order (folder form: missions/NN-*.json, sorted) */
   missions?: MissionScript[]

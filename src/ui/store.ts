@@ -67,7 +67,12 @@ export interface UIState {
   setCmdMode: (cmdMode: CmdMode) => void
   ctxMenu: CtxMenu | null   // screen coords
   feeds: Feed[]             // no feed shown until the player opens one (or deploys a drone)
+  /** effective night (what every layer reads) — driven by the SUN when
+   *  nightMode is 'auto' (HUD syncs it), pinned by the override otherwise */
   night: boolean
+  nightMode: 'auto' | 'day' | 'night'
+  cycleNight: () => void
+  setNight: (n: boolean) => void
   // map overlays (map-corner toggles): each layer draws what its name says —
   // fires = indirect max-range rings (the call-for-fire picture), snsr =
   // recon/drone/DF coverage, wpn = direct-fire range of the SELECTED units
@@ -166,7 +171,6 @@ export interface UIState {
   setMode: (mode: UiMode) => void
   openMenu: (m: CtxMenu) => void
   closeMenu: () => void
-  toggleNight: () => void
   toggleUnitRange: (id: number) => void
   toggleNet: () => void
   addFeed: (droneId?: number | null) => void
@@ -184,6 +188,7 @@ export const useUI = create<UIState>()((set, get) => ({
   ctxMenu: null,
   feeds: [],
   night: false,
+  nightMode: 'auto',
   overlays: { fires: false, snsr: false, wpn: false },
   toggleOverlay: (k) => set((s) => ({ overlays: { ...s.overlays, [k]: !s.overlays[k] } })),
   markStyle: { color: null, weight: 2.6 },
@@ -295,7 +300,13 @@ export const useUI = create<UIState>()((set, get) => ({
   setMode: (mode) => set({ mode }),
   openMenu: (m) => set({ ctxMenu: m }),
   closeMenu: () => set({ ctxMenu: null }),
-  toggleNight: () => set((s) => ({ night: !s.night })),
+  // AUTO follows the sun (HUD keeps `night` synced); the overrides pin it —
+  // a commander flipping the sheet to night vision is not editing the sky
+  cycleNight: () => set((s) => {
+    const mode = s.nightMode === 'auto' ? 'day' : s.nightMode === 'day' ? 'night' : 'auto'
+    return { nightMode: mode, ...(mode === 'auto' ? {} : { night: mode === 'night' }) }
+  }),
+  setNight: (n) => set((s) => (s.night === n ? {} : { night: n })),
   toggleUnitRange: (id) => set((s) => {
     const r = { ...s.rangeUnits }
     if (r[id]) delete r[id]; else r[id] = true

@@ -7,6 +7,7 @@
 // counter persisted across initGame calls within a session).
 import { S } from './state'
 import { makeRng } from './rng'
+import { DEFAULT_SUN_SCALE, defaultSunEpoch, mapLatLon, parseStart } from './sun'
 import { DEFAULT_MODE, MODES, type ModeId } from './modes'
 import type { WorldMap } from '../world/WorldMap'
 import { nearestLand } from '../world/place'
@@ -103,6 +104,10 @@ export function initGame(
   S.enemyGroups = []
   S.opforCmd = { posture: 'attack', effortId: null, supportId: null, effortT: 0 }
   S.rng = makeRng(seed ^ 0xBEEF)
+  // the sky: local noon on the fixed date at this ground's longitude, at the
+  // default sweep — a scenario's own H-hour/scale overrides after init
+  S.sunEpoch = defaultSunEpoch(mapLatLon(map).lon)
+  S.sunScale = DEFAULT_SUN_SCALE
   S.counters.nextId = 1
   S.counters.designators.friend = 0; S.counters.designators.hostile = 0
   S.counters.lineage = {}
@@ -170,6 +175,12 @@ export function initScenarioGame(
   chair?: string,
 ): void {
   initGame(map, seed, difficulty, spec.type, chair || spec.player, spec.sides)
+  // the scenario's sky, over the defaults initGame set
+  if (spec.start) {
+    const e = parseStart(spec.start, mapLatLon(map).lon)
+    if (e != null) S.sunEpoch = e
+  }
+  if (spec.sunScale != null) S.sunScale = spec.sunScale
   if (spec.type === 'campaign') return // startCampaign applied the situation
   S.units = []
   S.structures = []

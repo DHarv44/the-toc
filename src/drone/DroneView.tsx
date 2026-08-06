@@ -16,6 +16,7 @@ import { buildTerrain } from '@dharv44/groundwork-engine'
 import { ROAD_WIDTH_METRES } from '@dharv44/groundwork-core'
 import type { PackRoad } from '@dharv44/groundwork-core'
 import { S } from '../engine/state'
+import { sunNow } from '../engine/sun'
 import type { WorldMap } from '../world/WorldMap'
 import { elemWorld, elemExposed, elemHeading } from '../domains/forces/elements'
 import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
@@ -975,6 +976,36 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
   )
 }
 
+/** THE SUN, IN THE SCENE. Position and strength track the almanac
+ *  (engine/sun) every frame: azimuth from true north (scene -z), elevation off
+ *  the horizon; a low sun means long shadows on the hulls, a set sun leaves
+ *  the residual "moon + sky" floor the IR modes see by. EO cares most; the
+ *  thermal filters ride on top as ever. */
+function SunLight({ eo }: { eo: boolean }) {
+  const dir = useRef<THREE.DirectionalLight>(null)
+  const amb = useRef<THREE.AmbientLight>(null)
+  useFrame(() => {
+    const s = sunNow()
+    if (!dir.current || !amb.current) return
+    const R = 8000
+    // scene axes: x = world x (east), z = world y (south) → north is -z
+    dir.current.position.set(
+      Math.sin(s.azimuth) * Math.cos(s.elevation) * R,
+      Math.max(0.03, Math.sin(s.elevation)) * R,
+      -Math.cos(s.azimuth) * Math.cos(s.elevation) * R,
+    )
+    const day = Math.min(1, Math.max(0, Math.sin(s.elevation)) * 3)
+    dir.current.intensity = (eo ? 1.1 : 0.9) * (0.12 + 0.88 * day)
+    amb.current.intensity = (eo ? 0.85 : 0.55) * (0.3 + 0.7 * day)
+  })
+  return (
+    <>
+      <ambientLight ref={amb} intensity={eo ? 0.85 : 0.55} />
+      <directionalLight ref={dir} position={[3000, 4000, 2000]} intensity={eo ? 1.1 : 0.9} />
+    </>
+  )
+}
+
 export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = false }: {
   droneId: number | null
   gimbal?: Gimbal
@@ -989,8 +1020,7 @@ export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = fals
       camera={{ fov: 38, near: 5, far: 20000, position: [0, 1000, 0] }}
       style={{ background: eo ? '#8fa3ae' : '#050607' }}
     >
-      <ambientLight intensity={eo ? 0.85 : 0.55} />
-      <directionalLight position={[3000, 4000, 2000]} intensity={eo ? 1.1 : 0.9} />
+      <SunLight eo={eo} />
       <fog attach="fog" args={[eo ? '#9aacb8' : '#0a0c0d', 3500, eo ? 11000 : 9000]} />
       <TerrainMesh mode={mode} feedRef={feedRef} />
       <SceneDetail mode={mode} />

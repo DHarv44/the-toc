@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Box, Group, Text, Button, Divider, NativeSelect, Tooltip } from '@mantine/core'
 import { S } from '../engine/state'
+import { groundClock } from '../engine/sun'
 import { saveCampaign } from '../engine/savefile'
 import { toast } from '../domains/comms/radio'
 import { devIncomingStrike } from '../devtools/incoming'
@@ -143,10 +144,20 @@ export default function TopBar() {
               onClick={() => { S.speed = sp }}>{label}</Button>
           ))}
         </Button.Group>
-        <Text span fz="lg" fw={700} c="dark.1" pr={4}
+        <Text span fz="lg" fw={700} c="dark.1"
           style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
           {fmtClock(S.t)}
         </Text>
+        {/* the ground's own wall clock — the sun runs at the scenario's
+            sunScale, and this is what makes the moving light legible */}
+        {S.map && (
+          <Tooltip withArrow label="Local time on the ground — the sky runs at the scenario's sun scale (default 6× real time)">
+            <Text span fz={11} fw={600} c="dark.3" pr={4}
+              style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
+              L{groundClock()}
+            </Text>
+          </Tooltip>
+        )}
       </Group>
     </Group>
   )

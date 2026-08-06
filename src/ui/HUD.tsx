@@ -8,6 +8,7 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react'
 import { Box, Group, Popover, Text } from '@mantine/core'
 import { S } from '../engine/state'
+import { isNight } from '../engine/sun'
 import type { Structure, Unit, Drone, Roe, WeaponsControl } from '../engine/GameState'
 import { commandsStructure } from '../domains/forces/command'
 import { STRUCTURES } from '../domains/installations/catalog'
@@ -46,6 +47,14 @@ export default function HUD() {
   useUI((s) => s.tick) // re-render at 10 Hz
   const ui = useUI()
 
+  // AUTO NIGHT: the sheet follows the SUN (engine/sun) unless the commander
+  // has overridden it — riding the 10 Hz pump, set only on actual change
+  useEffect(() => {
+    if (ui.nightMode !== 'auto' || !S.map) return
+    const n = isNight()
+    if (n !== ui.night) ui.setNight(n)
+  })
+
   // overlays that belong to the map column; the top bar and the two side rails
   // are laid out by App as real siblings of the map. The corner control stack
   // is the SHARED MapControls primitives — the scenario builder composes the
@@ -63,8 +72,13 @@ export default function HUD() {
       {/* map controls: a stack at the map column's bottom-right — display
           toggles live ON the map they affect (day/night, range rings, fit) */}
       <MapControlStack>
-        <MapButton active={ui.night} title={ui.night ? 'Switch to day' : 'Switch to night'}
-          onClick={ui.toggleNight}>{ui.night ? '☾' : '☀'}</MapButton>
+        <MapButton active={ui.night}
+          title={`Sheet lighting — ${ui.nightMode === 'auto'
+            ? `AUTO, following the sun (currently ${ui.night ? 'night' : 'day'})`
+            : `overridden to ${ui.nightMode}`}. Click cycles auto → day → night.`}
+          onClick={ui.cycleNight}>
+          {(ui.night ? '☾' : '☀') + (ui.nightMode === 'auto' ? '' : '·')}
+        </MapButton>
         <MapButton small active={ui.sat}
           title={S.map?.sat
             ? 'Satellite underlay — orthoimagery of this ground (Esri World Imagery; fetched on first use)'
