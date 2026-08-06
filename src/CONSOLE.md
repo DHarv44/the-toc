@@ -202,9 +202,19 @@ share one 64 MB sheet; four tabs would bake four.
       stations you opened to watch the fight you are reading about. Docked at
       720, resizable, FULL still one button away.
 
-- [ ] **4 · DOCK RE-SCOPES TO ELEMENTS** — interval and `ORDER OF MARCH ▸`
-      leave the dock for the station. Map click selects the element. Alt-click
-      deleted. Right-click context menu carries the task-org verbs.
+- [x] **4 · DOCK RE-SCOPES TO ELEMENTS** — done 2026-08-06. A map click selects
+      the element it drew; alt-click is deleted (it existed only to undo the old
+      click); interval left the dock for the station; the dock's team door opens
+      that station rather than the S3's movement order; and the mixed-selection
+      context menu below is built, which is what `G`'s `ambiguous` verdict has
+      been pointing at since the tie-break landed.
+
+      The station also grew TEAM ACTIONS. To put a Raven up you had to know
+      which platoon carried it, find it, select it alone and press V — a
+      battalion commander does not task a carrier, he tells the team to put its
+      bird up. `ui/forces/actions` is now the one list of what a force can do;
+      the dock draws it in fixed cells for muscle memory, the station draws it
+      with the executing element named under each verb.
 
 - [ ] **5 · POP-OUT** — `window.open` + React portal. Generic window chrome
       (drag / resize / min / max / z-order / edge-snap), viewport coordinates
@@ -325,12 +335,17 @@ The console now reads: COMMAND and the four S-shops as columns on the left, the
 COP in the middle, what you can commit along the bottom, and a station per team
 on the right.
 
-Next is **step 4** — the dock re-scopes to ELEMENTS and the right-click menu
-lands. That is the last piece of the original cut: interval and order of march
-leave the dock for the station (they are already there), a map click selects the
-element rather than its team, alt-click is deleted, and the mixed-selection
-context menu named further down this file gets built. The `G` tie-break already
-returns `ambiguous` waiting for it.
+Steps 1 through 4 are done. The original cut is complete: the dock commands
+elements, the station commands the team, every object has one home, and the map
+means what it draws.
 
-Then 5 (pop-out), 6 (the map monolith), and 7 is a design conversation before
-it is anything else.
+What is left is no longer re-organising — it is building. **5** is pop-out
+(`window.open` + a portal; the bonus for a second screen, not needed on one).
+**6** is the map monolith, which is the one piece of debt the console is now
+waiting on: the station's map is still a labelled empty box. **7** — tasks and
+an EXECUTE button — is a design conversation before it is anything else, and it
+is the one that turns this console into a command post.
+
+Also outstanding, small: the pack tutorial's prose still tells the player to
+open a FORCES rail that no longer exists. Its CONDITIONS were remapped; the
+words are a content fix.
