@@ -9,8 +9,13 @@
 // (40%)") at whatever length that takes. The card in the dock is the opposite
 // case, and the two should not be made to look alike.
 import { S } from '../../engine/state'
-import type { Roe, WeaponsControl } from '../../engine/GameState'
+import type { Roe, Team, Unit, WeaponsControl } from '../../engine/GameState'
 import { orderHold, orderMount, orderRoe, orderDefend, orderWeapons } from '../../domains/forces/orders'
+import { underPlayerCommand } from '../../domains/forces/command'
+import {
+  disbandTeam, formTeam, joinTeam, leaveTeam, teamById, teamOf, teamUnits,
+} from '../../domains/forces/teams'
+import { toast } from '../../domains/comms/radio'
 import { convertToHq } from '../../domains/installations/orders'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import { STRUCTURES } from '../../domains/installations/catalog'
@@ -122,7 +127,99 @@ export default function ContextMenu() {
         {type.canBridge && item('PONTOON BRIDGE…', () => ui.setMode('bridge'), close)}
         {u.soldiers.length > 0 && item('PERSONNEL ROSTER…', () => ui.openRoster(u.id), close)}
         {item('CENTER MAP', () => { const v = winView(); if (v) { v.cx = u.x; v.cy = u.y } }, close)}
+        <TaskOrgBlock clicked={u} close={close} />
       </div>
+    </>
+  )
+}
+
+/** TASK ORGANIZING FROM THE MAP, WITH THE CONSEQUENCE ON THE LABEL.
+ *
+ *  `G` does the obvious case instantly — loose elements become a team, loose
+ *  elements beside exactly one team join it. It deliberately REFUSES the
+ *  ambiguous case: grab three of BRAVO and three of ALPHA and "most members
+ *  here" has no answer, and resolving it by whichever the loop counted first is
+ *  a silent coin flip that merges two companies.
+ *
+ *  This is where that case gets answered. A menu is READ rather than fired from
+ *  muscle memory, so it can afford to be explicit: every row names its
+ *  destination, and the counts say which way a merge runs and how much of that
+ *  team you have hold of. A consolidation is never a surprise.
+ *
+ *  It acts on the SELECTION. Right-clicking something you have not selected
+ *  falls back to that one element, because acting on a selection the player is
+ *  not looking at is the other way to be surprising. */
+function TaskOrgBlock({ clicked, close }: { clicked: Unit; close: () => void }) {
+  const ui = useUI()
+  const sel = ui.selectedIds.includes(clicked.id)
+    ? ui.selectedIds
+      .map(id => S.units.find(x => x.id === id))
+      .filter((x): x is Unit => !!x && x.strength > 0 && underPlayerCommand(x))
+    : [clicked]
+  if (!sel.length) return null
+
+  // how much of each team is in hand, and how much of it exists
+  const held = new Map<number, number>()
+  for (const u of sel) {
+    const t = teamOf(u)
+    if (t) held.set(t.id, (held.get(t.id) ?? 0) + 1)
+  }
+  const free = sel.filter(u => !teamOf(u))
+  const teams = [...held.keys()].map(id => teamById(id)).filter((t): t is Team => !!t)
+  // the selection IS one whole team — the only case where disbanding is a
+  // description of what you are holding rather than a guess at what you meant
+  const whole = teams.length === 1 && free.length === 0
+    && held.get(teams[0]!.id) === teamUnits(teams[0]!).length ? teams[0]! : null
+
+  const rows: React.ReactNode[] = []
+  if (sel.length >= 2) {
+    const detaches = sel.length - free.length
+    rows.push(item(
+      detaches
+        ? `FORM NEW TEAM — DETACHES ${detaches} FROM ${teams.length} TEAM${teams.length === 1 ? '' : 'S'}`
+        : 'FORM NEW TEAM',
+      () => {
+        const t = formTeam(sel.map(u => u.id))
+        if (t) toast(`${t.name} TASK ORGANIZED`)
+      }, close))
+  }
+  for (const t of teams) {
+    const joining = sel.filter(u => teamOf(u)?.id !== t.id)
+    if (!joining.length) continue
+    rows.push(item(
+      `ATTACH ALL TO ${t.name} (${held.get(t.id)} OF ${teamUnits(t).length} HERE)`,
+      () => {
+        for (const u of joining) joinTeam(t.id, u.id)
+        toast(`${joining.length} ATTACHED TO ${t.name}`)
+      }, close))
+  }
+  if (teams.length) {
+    const inTeams = sel.filter(u => teamOf(u))
+    rows.push(item(
+      `DETACH ${inTeams.length === 1 ? inTeams[0]!.label : `ALL ${inTeams.length}`} FROM THEIR TEAM${teams.length === 1 ? '' : 'S'}`,
+      () => {
+        for (const u of inTeams) leaveTeam(u.id)
+        toast(`${inTeams.length} DETACHED`)
+      }, close))
+  }
+  if (whole) {
+    rows.push(item(`DISBAND ${whole.name}`, () => {
+      ui.closeStation(whole.id)
+      disbandTeam(whole.id)
+      toast(`${whole.name} DISBANDED`)
+    }, close))
+  }
+  if (!rows.length) return null
+
+  return (
+    <>
+      <div style={{
+        padding: '5px 11px 3px', color: '#54708a', fontSize: FZ.hint, letterSpacing: 1,
+        background: 'rgba(10,16,22,0.9)',
+      }}>
+        TASK ORG · {sel.length} SELECTED
+      </div>
+      {rows}
     </>
   )
 }

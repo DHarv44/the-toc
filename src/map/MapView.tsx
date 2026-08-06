@@ -533,24 +533,16 @@ export default function MapView() {
           else { ui.setSelected([picked.obj.id]); ui.bindDrone(picked.obj.id) }
           return
         }
-        // CLICKING A TEAM SELECTS THE TEAM. When the column is rolled up into
-        // one symbol, that symbol stands for every element in it — picking one
-        // platoon out of an icon the player cannot even see the parts of would
-        // be picking something they did not click on. Ctrl still toggles a
-        // single element, for taking one out of the task organization.
-        // ALT ISOLATES. Commanding a team is the common case and gets the plain
-        // click; tasking ONE platoon out of it is the rare, deliberate one and
-        // gets a modifier. Ctrl was already the only way in and it is the wrong
-        // verb — it TOGGLES, so alt-clicking a member of a selected team took
-        // that platoon OUT of the selection and left the other three, which is
-        // the opposite of "just this one".
-        const team = teamOf(picked.obj as Unit)
-        if (team && !e.ctrlKey && !e.altKey) {
-          const live = team.members.filter(id =>
-            S.units.some(u => u.id === id && u.strength > 0))
-          ui.setSelected(live.length ? live : [picked.obj.id])
-          return
-        }
+        // CLICKING A SYMBOL SELECTS THAT ELEMENT. It used to select the whole
+        // team, which made sense while the dock was the only place a team
+        // existed at all — you clicked a platoon and got its company because
+        // there was nowhere else to get one. There is now: every team has a tab
+        // and a station on the right wall, and 1-9 pick one without looking.
+        //
+        // So the map went back to meaning what it draws. You clicked THAT
+        // symbol; you get THAT element. And ALT-CLICK IS DELETED with it — it
+        // existed only to isolate one platoon out of the team a plain click had
+        // swept up, which is now just what a plain click does.
         if (e.ctrlKey) ui.toggleSelect(picked.obj.id)
         else ui.setSelected([picked.obj.id])
         return

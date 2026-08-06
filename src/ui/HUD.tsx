@@ -24,7 +24,7 @@ import { FZ, clamp, panel, btn, mapColumnSize } from './styles'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
-import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../domains/movement/march'
+import { MARCH_INTERVAL, marchMoving, marchPlan } from '../domains/movement/march'
 
 // The command dock's own parts — see ui/tray/.
 import {
@@ -398,17 +398,11 @@ export function SelectionTray() {
               value={one(units.map(u => (u.weapons || 'free') as WeaponsControl))}
               options={[['free', 'FREE'], ['tight', 'TIGHT'], ['hold', 'HOLD']] as const}
               onPick={w => units.forEach(u => orderWeapons(u.id, w))} />
-            {selTeam && (
-              <Pick label="INTERVAL" value={selPlan?.column ?? 'open'}
-                options={[['close', 'CLOSE'], ['open', 'OPEN'], ['infiltration', 'INFIL']] as const}
-                title={c => `${MARCH_INTERVAL[c]} m between vehicles`}
-                onPick={c => setMarchOrder(selTeam.id, selPlan?.order ?? selTeam.members, c, {
-                  ...(selPlan?.roe ? { roe: selPlan.roe } : {}),
-                  ...(selPlan?.weapons ? { weapons: selPlan.weapons } : {}),
-                  ...(selPlan?.disabled ? { disabled: selPlan.disabled } : {}),
-                  ...(selPlan?.authored ? { authored: true } : {}),
-                })} />
-            )}
+            {/* INTERVAL IS NOT HERE ANY MORE. How far apart a column drives is
+                a property of the COLUMN, not of the elements in it, and the
+                column has a home: its station. It stayed in the dock while the
+                dock was the only place a team existed, and having it in both
+                would be two controls writing one march plan. */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {/* RANGE draws a ring; it does not tell anybody to do anything,
                   so it is not on the command card. */}

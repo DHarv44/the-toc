@@ -50,15 +50,15 @@ export default function TaskOrgSeg({ units }: { units: Unit[] }) {
           title={`Detach ${held.map(u => u.label).join(', ')} from ${held.length === 1 ? 'its team' : 'their teams'}`}
           onClick={() => { for (const u of held) leaveTeam(u.id) }}>DETACH</button>
       )}
-      {/* A BUTTON HAS TO SAY WHAT IT DOES. This read `TEAM BRAVO ▸`, which is
-          the shape of "select the team" and is not what it does — it leaves the
-          map for a full-screen staff console. Selecting a team is the task org
-          bar's job now (ui/TaskOrgBar), so this one is free to name its own:
-          the movement order is the document it opens. */}
+      {/* THE DOOR GOES TO THE STATION NOW, not to a staff console. This used to
+          open the S3's movement order because that was the only place a column
+          could be worked; the team's own station is that place, it is a column
+          beside the map rather than a board over it, and it carries the order
+          of march, the interval and the standing orders together. */}
       {only && (
-        <button style={{ ...optBtn(false), color: '#9fb3c6' }}
-          title={`Open ${only.name}'s movement order — order of march, interval, actions on contact, load plan`}
-          onClick={() => ui.setConsole('s3')}>MOVEMENT ORDER ▸</button>
+        <button style={{ ...optBtn(ui.stations.includes(only.id)), color: '#9fb3c6' }}
+          title={`Open ${only.name}'s station — order of march, standing orders, its own net`}
+          onClick={() => ui.toggleStation(only.id)}>{only.name} STATION ▸</button>
       )}
       {!free.length && !held.length && (
         <span style={{ fontSize: 9, color: '#54708a' }}>—</span>
