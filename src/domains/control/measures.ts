@@ -38,22 +38,31 @@ const PL_NAMES = [
   'COPPER', 'IRON', 'JADE', 'CORAL',
 ]
 
+/** An axis of advance gets a NAME, not a number — it is a scheme-of-maneuver
+ *  word the net says out loud ("ATTACK ALONG AXIS SABER"). Same convention as
+ *  the phase-line colours: short, distinct under noise. */
+const AXIS_NAMES = [
+  'SABER', 'LANCE', 'DAGGER', 'HAMMER', 'ANVIL', 'FALCON', 'COBRA', 'VIPER',
+  'THUNDER', 'STEEL',
+]
+
 export const measures = (): ControlMeasure[] => S.measures
 
 const nextName = (kind: MeasureKind): string => {
-  if (kind === 'phaseline') {
-    const used = new Set(S.measures.filter(m => m.kind === 'phaseline').map(m => m.name))
-    return PL_NAMES.find(n => !used.has(n)) ?? `PL${S.measures.length + 1}`
+  if (kind === 'phaseline' || kind === 'arrow') {
+    const pool = kind === 'phaseline' ? PL_NAMES : AXIS_NAMES
+    const used = new Set(S.measures.filter(m => m.kind === kind).map(m => m.name))
+    return pool.find(n => !used.has(n)) ?? `${kind === 'phaseline' ? 'PL' : 'AXIS'}${S.measures.length + 1}`
   }
   const n = S.measures.filter(m => m.kind === kind).length + 1
-  return kind === 'checkpoint' ? String(n).padStart(2, '0')
+  return kind === 'checkpoint' || kind === 'poi' ? String(n).padStart(2, '0')
     : kind === 'boundary' ? String(n)
       : `OBJ ${n}`
 }
 
 /** Lines have two points; markers have one. */
 export const isLine = (kind: MeasureKind): boolean =>
-  kind === 'phaseline' || kind === 'boundary'
+  kind === 'phaseline' || kind === 'boundary' || kind === 'arrow'
 
 /** Put a measure on the sheet. A phase line wants two points; a checkpoint and
  *  an objective want one. */
@@ -106,7 +115,9 @@ export const measureLabel = (m: ControlMeasure): string =>
   m.kind === 'phaseline' ? `PL ${m.name}`
     : m.kind === 'checkpoint' ? `CP ${m.name}`
       : m.kind === 'boundary' ? `BOUNDARY ${m.name}`
-        : m.name
+        : m.kind === 'arrow' ? `AXIS ${m.name}`
+          : m.kind === 'poi' ? `POI ${m.name}`
+            : m.name
 
 /** Which side of the line a point falls on. The sign is arbitrary and only has
  *  to be CONSISTENT — a crossing is a change of sign, not a direction. */
@@ -201,6 +212,9 @@ const CP_R = 220
 export function measureUpdate(): void {
   if (!S.measures.length) return
   for (const m of S.measures) {
+    // axes and POIs are the commander talking to the SHEET, not to the force —
+    // nothing reports against them (v1, by design)
+    if (m.kind === 'arrow' || m.kind === 'poi') continue
     for (const u of S.units) {
       if (u.side !== 'friend' || u.strength <= 0) continue
       const done = m.crossed.includes(u.id)

@@ -98,8 +98,10 @@ export interface RecoveryJob {
 
 /** CONTROL MEASURES — the graphics a staff draws on a map to control a fight.
  *  See domains/control/measures for what each one MEANS; this is only the
- *  geometry and the record of who has passed it. */
-export type MeasureKind = 'phaseline' | 'checkpoint' | 'objective' | 'boundary'
+ *  geometry and the record of who has passed it. `arrow` (axis of advance) and
+ *  `poi` are VISUAL graphics — drawn, named, never reported (v1; a tasking
+ *  that follows an axis is Team Tasking's business later). */
+export type MeasureKind = 'phaseline' | 'checkpoint' | 'objective' | 'boundary' | 'arrow' | 'poi'
 
 export interface ControlMeasure {
   id: number

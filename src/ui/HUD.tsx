@@ -80,6 +80,8 @@ export default function HUD() {
           ['checkpoint', 'CP', 'Checkpoint — click to drop one. Elements report reaching it.'],
           ['objective', 'OBJ', 'Objective — click to drop one. Elements report arriving on it.'],
           ['boundary', 'BDY', "Boundary — DRAG between two teams. Divides whose ground is whose: crossing it is reported, and fires into the far side need the owner's clearance."],
+          ['arrow', 'AXS', 'Axis of advance — DRAG along the intended direction of attack. A named arrow on the graphic (AXIS SABER); visual only.'],
+          ['poi', 'POI', 'Point of interest — click to mark a place worth eyes. Visual only.'],
         ] as const).map(([kind, label, tip]) => (
           <MapButton key={kind} small active={ui.mode === `measure:${kind}`}
             title={`${tip}  Click an existing graphic to remove it.`}

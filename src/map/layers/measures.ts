@@ -24,7 +24,49 @@ export function drawMeasures(f: Frame): void {
     ctx.font = '600 10px Inter, system-ui, sans-serif'
     ctx.textAlign = 'center'
     const label = m.kind === 'phaseline' ? `PL ${m.name}`
-      : m.kind === 'checkpoint' ? `CP ${m.name}` : m.name
+      : m.kind === 'checkpoint' ? `CP ${m.name}`
+        : m.kind === 'arrow' ? `AXIS ${m.name}`
+          : m.kind === 'poi' ? `POI ${m.name}` : m.name
+
+    if (m.kind === 'arrow' && m.pts.length > 1) {
+      // AXIS OF ADVANCE — a shaft with an open arrowhead, the label riding the
+      // shaft. The commander talking to the sheet: no crossings, no dimming.
+      const a = m.pts[0]!, b = m.pts[1]!
+      const ax = f.w2sX(a.x), ay = f.w2sY(a.y), bx = f.w2sX(b.x), by = f.w2sY(b.y)
+      const ang = Math.atan2(by - ay, bx - ax)
+      ctx.lineWidth = 2.2
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+      const head = 13
+      for (const s of [-1, 1]) {
+        ctx.beginPath()
+        ctx.moveTo(bx, by)
+        ctx.lineTo(bx - Math.cos(ang - s * 0.44) * head, by - Math.sin(ang - s * 0.44) * head)
+        ctx.stroke()
+      }
+      // label along the shaft, upright whichever way the axis points
+      const mx = (ax + bx) / 2, my = (ay + by) / 2
+      ctx.save()
+      ctx.translate(mx, my)
+      ctx.rotate(Math.abs(ang) > Math.PI / 2 ? ang + Math.PI : ang)
+      ctx.fillText(label, 0, -6)
+      ctx.restore()
+      ctx.restore()
+      continue
+    }
+
+    if (m.kind === 'poi' && m.pts.length) {
+      // POINT OF INTEREST — a small diamond with a centre dot: a place the
+      // commander wants eyes drawn to, nothing the sim acts on.
+      const p = m.pts[0]!
+      const px = f.w2sX(p.x), py = f.w2sY(p.y)
+      ctx.beginPath()
+      ctx.moveTo(px, py - 8); ctx.lineTo(px + 8, py); ctx.lineTo(px, py + 8); ctx.lineTo(px - 8, py)
+      ctx.closePath(); ctx.stroke()
+      ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill()
+      ctx.fillText(label, px, py - 13)
+      ctx.restore()
+      continue
+    }
 
     if (m.kind === 'boundary' && m.pts.length > 1) {
       // A BOUNDARY IS LABELLED BY WHOSE GROUND LIES EITHER SIDE OF IT — that IS
