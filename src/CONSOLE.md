@@ -10,21 +10,38 @@ Settled 2026-08-06.
 ## THE MODEL
 
 ```
-LEFT   COMMAND     what I have, and what the staff says
-                   GARRISON · S1 · S2 · S3 · S4       docked, expandable to full
+LEFT   COMMAND     what I am, what I hold, and what the staff says
+                   COMMAND · S1 · S2 · S3 · S4     columns at 720, resizable
 
 CENTRE COP         the battalion picture — the map, fully interactive
 
-BOTTOM CONTROL     the task org bar + the command card for the selection
+BOTTOM COMMIT      what is available to put into the fight:
+                   INDEPENDENT elements · INSTALLATIONS (a panel opens upward)
+                   and the command card for the current selection
 
 RIGHT  STATIONS    one full-height column per team, opening leftward
-                   TEAM BRAVO · TEAM ALPHA · …        + FEEDS as a launcher
+                   TEAM BRAVO · TEAM ALPHA · …        + FEEDS · NET
 ```
 
-**Left is administration. Bottom is command. Right is stations.**
+**Left is administration. Bottom is what you can commit. Right is stations.**
 
 Every object gets exactly one home. That is the test a change has to pass: if
 a thing can be done in two places, one of them is wrong.
+
+### THE WATCH AND THE LEDGER
+
+The one legitimate exception, and it needs saying because it looks like a
+violation: the same facts may appear twice if they answer two different
+questions.
+
+A WATCH is one object, now, with no navigation — the team's own net pane, the
+bottom bar's panel for one base. A LEDGER is all of them at once, compared, for
+a decision made deliberately — the battalion net rail, the COMMAND console's
+installations page. The station's net is not a duplicate of the JBC-P rail; it
+is the other half of it, and it even runs the opposite way (oldest first,
+because you are waiting for the next call rather than looking up the last one).
+
+What is NOT allowed is two watches, or two ledgers, for one object.
 
 ---
 
@@ -145,9 +162,38 @@ share one 64 MB sheet; four tabs would bake four.
       off the end of it: captions on screen, the pickers they labelled not. The
       zone row wraps now. A row of height is cheaper than a missing control.
 
-- [ ] **3 · FORCES RAIL DIES** — MarchList, ADD UNIT, DISBAND, the commander
-      line move into the station; CALL UP moves into GARRISON. Nothing is left
-      over, which is why the rail goes rather than shrinking.
+- [~] **3 · FORCES RAIL DIES** — done, and it took the bottom bar with it.
+
+      Landed 2026-08-06: the station took the team's whole administration
+      (ATTACH from the ground or straight out of garrison, COMMAND, RENAME,
+      DISBAND, and the march list); FORCES became GARRISON; the bottom bar's
+      second row stopped being the task org board and became INSTALLATIONS,
+      with a panel that opens UPWARD in columns over the map — garrison, QRF,
+      facilities, tethered ISR, division requests, for one base, in one click.
+      The team tabs grew a status dot so moving the teams off the bottom bar
+      did not cost the commander the board that said where everybody was.
+
+      A click in the bottom bar now GOES THERE. The rails split select from go
+      on purpose — reading a roster while the camera jumps to each row is
+      unusable — but nobody reads this bar; they reach into it for one thing
+      and the next thing they want is to see it.
+
+      *Still open here:* the S-shops move onto the shared column (720 default,
+      resizable) and off the top bar into the left tab column; COMMAND becomes
+      a console in the same chrome — COMMANDER (the commander, the staff) ·
+      INSTALLATIONS · ACTIONS — with GARRISON as its ledger tab. The GARRISON
+      rail is deliberately still standing until that exists, because the pack
+      tutorial's call-up steps anchor to it and a stuck tutorial is a worse bug
+      than a rail that outlives its replacement by one step. **COMMAND must
+      remember which tab it was left on**, or folding garrison in makes the
+      frequent act two clicks worse.
+
+      **720, WHICH REVISES STEP 1.** Step 1 concluded staff boards must open
+      FULL because a six-column table at wall width is unreadable — true when
+      the only alternatives were 420 and the whole screen. What changed is that
+      FULL now fights the right wall: a board over the viewport hides the
+      stations you opened to watch the fight you are reading about. Docked at
+      720, resizable, FULL still one button away.
 
 - [ ] **4 · DOCK RE-SCOPES TO ELEMENTS** — interval and `ORDER OF MARCH ▸`
       leave the dock for the station. Map click selects the element. Alt-click
@@ -214,6 +260,17 @@ share one 64 MB sheet; four tabs would bake four.
       seams. MapView now has both. Speculative decomposition is the other way
       to make a codebase unreadable.
 
+- [ ] **7 · TASKS, AND AN EXECUTE BUTTON** — raised 2026-08-06, to be designed
+      before it is built. A team is given an OBJECTIVE or a TASK; the commander
+      presses EXECUTE and the team routes itself there and does it. That is a
+      different act from ordering a move, and it is what turns the station from
+      a control panel into a command post.
+
+      It lands on whatever friendly-commander AI exists, which is close to
+      nothing today: units execute orders, the campaign scores objectives, and
+      nobody in between decides anything. Expect as much engine work as console
+      work. Discuss before writing any of it.
+
 ### Fix first (live bug)
 
 - [ ] **`G` tie-break.** `taskOrganize` picks the destination team by "most of
@@ -256,12 +313,20 @@ how much of that team you have hold of, so a consolidation is never a surprise.
 
 ## WHERE THIS STANDS
 
-Done: the plan itself, the `G` tie-break, step 1 (the left wall + staff boards
-opening full width), the shared terrain sheet, and step 2 (the right wall and
-team stations, map placeheld).
+Done: the plan, the `G` tie-break, step 1 (the left wall), the shared terrain
+sheet, step 2 (the right wall and team stations, map placeheld), and most of
+step 3 — FORCES is dead, the station owns its team's administration, the bottom
+bar owns the installations, and the team tabs carry their state.
 
-Next: step 3 — the FORCES rail dies. Its parts have homes now: MarchList, the
-commander line and DISBAND go to the station (which already draws the first of
-those), ADD UNIT follows them, CALL UP becomes GARRISON on the left. The S-shop
-openers come off the top bar into the left tab column at the same time, because
-that column is only worth reorganising once.
+Next, to finish step 3: **one shared COLUMN component** — side, default width,
+resizable, dragged from the inboard edge — because the rails, the consoles and
+the stations are three implementations of one idea and "resizable" currently
+means three different things depending on which edge you grabbed. Then the
+S-shops onto it at 720 and off the top bar into the left tab column; then
+COMMAND becomes a console in the same chrome with GARRISON as a tab inside it;
+then the GARRISON rail comes down and the pack tutorial's call-up anchors move
+with it.
+
+Then step 4 (the dock re-scopes to elements, and the right-click menu), 5
+(pop-out), 6 (the map monolith), and 7 is a design conversation before it is
+anything else.
