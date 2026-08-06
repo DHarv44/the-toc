@@ -137,15 +137,17 @@ attacking, the AI, recovery — and stand up SKIRMISH as a real front door.)*
 4. **Skirmish lobby** *(design the page FIRST)* — a C&C-style skirmish setup board
    built on PACKS: pick a pack → its maps → a scenario → build the task force +
    assets under a BUDGET (difficulty). See *Skirmish Lobby* under Game Modes.
-5. **Recovery & repair + the 9-line request flow** 🟡 *(R1+R2 SHIPPED 2026-08-06)* —
+5. ~~**Recovery & repair + the 9-line request flow**~~ ✅ *(R1–R3 SHIPPED 2026-08-06)* —
    R1: medic/mechanic AURAS as pack nouns (`UnitType.aid`/`wrench`, MNT platform,
    partial field repair with the motorpool debt). R2: the SUPPORT SPINE
    (`domains/support/requests`, one typed queue for every lane) + a REAL 9-line
    MEDEVAC — wounded hold and deteriorate unless stabilized, the DUSTOFF is an
    entity on the sheet, hot-LZ standoff/abort, smoked LZs, door gunners, DOW when
-   a request is sat on. **R3 open:** the CAS lane on existing air, vehicle-recovery
-   taskings (dispatch the MNT to stranded hulls), tow classes + casualty seats.
-   See *Recovery & Repair* under Sustainment.
+   a request is sat on. R3: the CAS lane (hard-pressed units call it, approval
+   retasks the commander's armed air, RIFLE in envelope) + vehicle-recovery
+   dispatch. Deferred deliberately: tow classes + casualty seats want the
+   stranded-hull entity model (Team Tasking's RECOVER task); OPFOR symmetry
+   waits on its own medevac. Call for fire rides this same spine when built.
 6. ~~**Save / Continue campaigns**~~ ✅ *(SHIPPED 2026-08-06)* — the serializer
    (`engine/savefile`), IndexedDB save points (`engine/saves-db`), the SAVE
    button, autosave, and the splash CONTINUE + ROLL BACK list. Verified exact:
