@@ -11,19 +11,31 @@ import { useUI } from './store'
 import { S } from '../engine/state'
 import { underPlayerCommand } from '../domains/forces/command'
 import { teamUnits } from '../domains/forces/teams'
+import { marchPlan } from '../domains/movement/march'
+import { groupState, groupStrength } from './forces/state'
 
 // The tab itself — exported so FeedsPanel (custom width/resize) can share it.
-export function RailStrip({ side, title, open, onToggle, tut }: {
+export function RailStrip({ side, title, open, onToggle, tut, tone, mark, hint }: {
   side: 'left' | 'right'
   title: string
   open: boolean
   onToggle: () => void
   tut?: string    // the strip is ALWAYS on screen, so it is the tutorial's
-}) {             // only reliable handle on a rail that is tucked away
+                  // only reliable handle on a rail that is tucked away
+  /** A STATUS DOT ON THE TAB. Teams used to sit in the bottom bar wearing
+   *  their state, strength and drill; they are tabs now, and a tab that says
+   *  only a name would have quietly cost the commander the one board that
+   *  answered "where is everybody" without opening anything. The dot carries
+   *  the state, and `mark` carries the exception — an element off its team's
+   *  ordered drill, which is the thing a TOC most needs to notice. */
+  tone?: string
+  mark?: boolean
+  hint?: string   // replaces the show/hide tooltip when a tab has more to say
+}) {
   const icon = side === 'left' ? (open ? '◀' : '▶') : (open ? '▶' : '◀')
   return (
-    <Tooltip label={`${open ? 'Hide' : 'Show'} ${title.toLowerCase()}`}
-      position={side === 'left' ? 'right' : 'left'} withArrow>
+    <Tooltip label={hint ?? `${open ? 'Hide' : 'Show'} ${title.toLowerCase()}`}
+      position={side === 'left' ? 'right' : 'left'} withArrow multiline={!!hint}>
       <UnstyledButton data-tut={tut} onClick={onToggle} w={RAIL_W.strip}
         style={{
           flex: '0 0 auto', paddingBottom: 10, borderRadius: 2,
@@ -44,6 +56,14 @@ export function RailStrip({ side, title, open, onToggle, tut }: {
         }}>
         <Stack gap="xs" align="center" pt="xs">
           <Text span fz={11} c={open ? 'toc.3' : 'dark.2'}>{icon}</Text>
+          {tone && (
+            <Box style={{
+              width: 7, height: 7, borderRadius: 4, background: tone, marginTop: -2,
+              // the exception gets a ring rather than a second dot: two marks in
+              // a 34 px strip stop being distinguishable at a glance
+              boxShadow: mark ? '0 0 0 2px #e0b34e' : undefined,
+            }} />
+          )}
           <Text span fz="lg" fw={700} c={open ? 'toc.3' : 'dark.3'}
             style={{ writingMode: 'vertical-rl', letterSpacing: 2 }}>
             {title}
@@ -85,14 +105,22 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
     ? S.teams
       .map(t => ({ t, list: teamUnits(t).filter(underPlayerCommand) }))
       .filter(x => x.list.length > 0)
-      .map(({ t }, i) => ({
-        // 'TEAM BRAVO' down a 34 px strip, nine times, is the word TEAM nine
-        // times. The stem is what distinguishes them and the digit is how they
-        // are actually reached.
-        title: `${i < 9 ? `${i + 1} ` : ''}${t.name.replace(/^TEAM\s+/, '')}`,
-        open: ui.stations.includes(t.id),
-        onToggle: () => ui.toggleStation(t.id),
-      }))
+      .map(({ t, list }, i) => {
+        const st = groupState(list, t.id)
+        const str = groupStrength(list)
+        const plan = marchPlan(t.id)
+        return {
+          // 'TEAM BRAVO' down a 34 px strip, nine times, is the word TEAM nine
+          // times. The stem is what distinguishes them and the digit is how
+          // they are actually reached.
+          title: `${i < 9 ? `${i + 1} ` : ''}${t.name.replace(/^TEAM\s+/, '')}`,
+          open: ui.stations.includes(t.id),
+          onToggle: () => ui.toggleStation(t.id),
+          tone: st.tone,
+          mark: !!plan?.roe && list.some(u => u.roe !== plan.roe),
+          hint: `${t.name} — ${list.length} elements · ${str}% · ${st.text}`,
+        }
+      })
     : []
   const tabs = side === 'left'
     ? [
@@ -114,7 +142,10 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
     }}>
       {tabs.map(t => (
         <RailStrip key={t.title} side={side} title={t.title}
-          open={t.open} onToggle={t.onToggle} />
+          open={t.open} onToggle={t.onToggle}
+          tone={'tone' in t ? t.tone : undefined}
+          mark={'mark' in t ? t.mark : undefined}
+          hint={'hint' in t ? t.hint : undefined} />
       ))}
     </Box>
   )

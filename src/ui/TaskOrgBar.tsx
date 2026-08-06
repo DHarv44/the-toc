@@ -30,7 +30,8 @@ import { STRUCTURES, type StructureTypeKey } from '../domains/installations/cata
 import { PaletteIcon, garrisonSlots } from './palette'
 import InstallPanel from './install/InstallPanel'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
-import { marchMoving, marchPlan } from '../domains/movement/march'
+import { groupState, groupStrength, strengthTone } from './forces/state'
+import { marchPlan } from '../domains/movement/march'
 import { centerView } from '../map/view'
 import { useUI } from './store'
 import { FZ } from './styles'
@@ -79,20 +80,12 @@ function roster(): Entry[] {
   return out
 }
 
-/** What this grouping is DOING, in the two words a commander scans for. */
-function stateOf(e: Entry): { text: string; tone: string } {
-  if (e.units.some(u => u.targetId || u.breaking)) return { text: 'CONTACT', tone: '#ff9e6a' }
-  const moving = e.team ? marchMoving(e.team.id) : e.units.some(u => u.path.length)
-  if (moving) return { text: 'MOVING', tone: '#8fb0c8' }
-  if (e.units.some(u => u.posture === 'dig')) return { text: 'FIRM', tone: '#7ec87e' }
-  return { text: 'HOLD', tone: '#6d7f90' }
-}
-
 function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boolean }) {
   const ui = useUI()
-  const str = Math.round(e.units.reduce((n, u) => n + u.strength, 0) / e.units.length)
+  const str = groupStrength(e.units)
   const roe = shared(e.units.map(u => u.roe))
-  const st = stateOf(e)
+  // one status ladder for the whole console — see ui/forces/state
+  const st = groupState(e.units, e.team?.id)
   const cdr = e.team ? teamCdr(e.team) : null
   const plan = e.team ? marchPlan(e.team.id) : null
   // A TEAM IS NAMED FOR AND BUILT AROUND ITS BASE ELEMENT, so the base is what
@@ -169,16 +162,14 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
             {UNIT_TYPES[e.units[0]!.type]?.abbr ?? ''}
           </span>
           {str < 85 && (
-            <span style={{ fontSize: FZ.hint, color: str >= 60 ? '#c9a24a' : '#e07a6a' }}>{str}%</span>
+            <span style={{ fontSize: FZ.hint, color: strengthTone(str) }}>{str}%</span>
           )}
           {flag && <span style={{ fontSize: FZ.hint, color: WARN }}>•</span>}
         </>
       ) : (
         <>
           {e.team && <span style={{ fontSize: FZ.hint, color: '#5d6f80' }}>×{e.units.length}</span>}
-          <span style={{
-            fontSize: FZ.hint, color: str >= 85 ? '#6d7f90' : str >= 60 ? '#c9a24a' : '#e07a6a',
-          }}>{str}%</span>
+          <span style={{ fontSize: FZ.hint, color: strengthTone(str) }}>{str}%</span>
           <span style={{ fontSize: FZ.hint, color: st.tone }}>{st.text}</span>
           <span style={{ fontSize: FZ.hint, color: flag ? WARN : '#5d6f80' }}>
             {roe ? roe.toUpperCase() : 'SPLIT'}

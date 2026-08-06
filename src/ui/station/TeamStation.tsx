@@ -28,7 +28,8 @@ import {
   designateCdr, disbandTeam, joinTeam, renameTeam, teamById, teamCdr, teamOf, teamUnits,
 } from '../../domains/forces/teams'
 import { seniorOf } from '../../packs/ranks'
-import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../../domains/movement/march'
+import { MARCH_INTERVAL, marchPlan, setMarchOrder } from '../../domains/movement/march'
+import { groupState, groupStrength, strengthTone } from '../forces/state'
 import { centerView } from '../../map/view'
 import { FZ, NET_COLORS, fmtClock } from '../styles'
 import { Pick, one } from '../tray/controls'
@@ -198,12 +199,9 @@ export default function TeamStation({ teamId }: { teamId: number }) {
 
   const cdr = teamCdr(team)
   const plan = marchPlan(team.id)
-  const str = Math.round(units.reduce((n, u) => n + u.strength, 0) / units.length)
-  const contact = units.some(u => u.targetId || u.breaking)
-  const state = contact ? { text: 'IN CONTACT', tone: '#ff9e6a' }
-    : marchMoving(team.id) ? { text: 'UNDER WAY', tone: '#8fb0c8' }
-    : units.some(u => u.posture === 'dig') ? { text: 'FIRM', tone: '#7ec87e' }
-    : { text: 'HALTED', tone: '#6d7f90' }
+  const str = groupStrength(units)
+  // one status ladder for the whole console — see ui/forces/state
+  const state = groupState(units, team.id)
   const held = units.every(u => ui.selectedIds.includes(u.id))
     && ui.selectedIds.length === units.length
 
@@ -314,9 +312,8 @@ export default function TeamStation({ teamId }: { teamId: number }) {
           {icon('✕', 'Close this station', () => ui.closeStation(team.id))}
         </div>
         <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#6d8296', marginTop: 2 }}>
-          {units.length} ELEMENTS · <span style={{
-            color: str >= 85 ? '#6d8296' : str >= 60 ? '#c9a24a' : '#e07a6a',
-          }}>{str}%</span> · <span style={{ color: state.tone }}>{state.text}</span>
+          {units.length} ELEMENTS · <span style={{ color: strengthTone(str) }}>{str}%</span>
+          {' · '}<span style={{ color: state.tone }}>{state.text}</span>
         </div>
         {/* WHO ANSWERS FOR IT, and whether they are supposed to. An acting
             commander is a fact about the fight, not a footnote. */}
