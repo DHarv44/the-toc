@@ -221,11 +221,11 @@ share one 64 MB sheet; four tabs would bake four.
       unchanged. Feeds land on it first. Not needed on one screen — this is
       the bonus for people with two.
 
-- [ ] **6 · BREAK UP THE MAP MONOLITH** — after the console is functional, not
-      before. `map/MapView.tsx` is ~1750 lines: one canvas, one draw loop, and
-      every pass, transform, pick and input handler living in closures inside a
-      single mount effect. A second pane cannot use any part of it without
-      taking all of it.
+- [x] **6 · BREAK UP THE MAP MONOLITH** — done 2026-08-06. It was ~1750 lines:
+      one canvas, one draw loop, and every pass, transform, pick and input
+      handler in closures inside a single mount effect, so a second pane could
+      use no part of it without taking all of it. It is 810 lines and holds two
+      `ctx.` calls; the station's map is the second pane, and it is a list.
 
       **COMPONENTIZING A CANVAS MEANS LAYERS, NOT COMPONENTS.** There is no
       React tree to split. What comes out is:
@@ -314,9 +314,17 @@ share one 64 MB sheet; four tabs would bake four.
       — with no input module mounted, which is most of what read-only means.
       The station's placeholder box is gone.
 
-      *Still to do:* `map/input.ts` takes pick/click/drag/wheel/keys out of the
-      COP's effect. Worth doing for symmetry, but the second pane no longer
-      needs it — it simply attaches no listeners.
+      **AND IT STOPS HERE, ON PURPOSE.** The original sketch had a ninth cut —
+      `map/input.ts` for pick/click/drag/wheel/keys — so that a read-only pane
+      could decline to mount it. The station declines by simply not attaching
+      listeners, so that consumer never materialised, and what is left of
+      MapView is mount scaffolding, the spatial picks, the input handlers and a
+      twenty-line layer list. That is a coherent file with real seams.
+
+      This file's own discipline: **extract when there is a second consumer or
+      when a file has no seams.** Neither is true of the remainder, and
+      speculative decomposition is the other way to make a codebase unreadable.
+      If a second surface ever needs picking or ordering, cut it then.
 
       **Batch the verification.** Checking each pass against the running map one
       at a time costs more than it catches — the passes are verbatim moves and
@@ -341,13 +349,14 @@ share one 64 MB sheet; four tabs would bake four.
       nobody in between decides anything. Expect as much engine work as console
       work. Discuss before writing any of it.
 
-### Fix first (live bug)
+### Fixed
 
-- [ ] **`G` tie-break.** `taskOrganize` picks the destination team by "most of
+- [x] **`G` tie-break.** `taskOrganize` picked the destination team by "most of
       its own members in the selection". Grab 3 of BRAVO and 3 of ALPHA and it
-      is a tie, resolved by whichever the loop counted first — a silent
-      coin-flip that merges two companies. It must refuse and say so:
-      `SELECTION SPANS TEAM BRAVO AND TEAM ALPHA — RIGHT-CLICK TO CHOOSE`.
+      was a tie, resolved by whichever the loop counted first — a silent
+      coin-flip that merged two companies. It refuses now and says so:
+      `SELECTION SPANS TEAM BRAVO AND TEAM ALPHA — RIGHT-CLICK TO CHOOSE`, and
+      since step 4 the menu it points at exists.
 
 ---
 
@@ -388,9 +397,10 @@ The console now reads: COMMAND and the four S-shops as columns on the left, the
 COP in the middle, what you can commit along the bottom, and a station per team
 on the right.
 
-Steps 1 through 4 are done. The original cut is complete: the dock commands
-elements, the station commands the team, every object has one home, and the map
-means what it draws.
+Steps 1 through 4 and step 6 are done. The dock commands elements, the station
+commands the team, every object has one home, the map means what it draws — and
+the map is now a layer list that a second surface can compose, which the team
+station does.
 
 What is left is no longer re-organising — it is building. **5** is pop-out
 (`window.open` + a portal; the bonus for a second screen, not needed on one).
