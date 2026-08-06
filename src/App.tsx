@@ -10,6 +10,7 @@ import CommandConsole from './ui/CommandConsole'
 import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
 import PoppedFeeds from './ui/feeds/PoppedFeeds'
+import FeedLifeSupport from './ui/feeds/FeedLifeSupport'
 import Stations from './ui/station/Stations'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
@@ -249,8 +250,10 @@ export default function App() {
         <RailTabs side="right" />
       </div>
       {/* feeds mirrored onto a second screen — the GL context stays in this
-          document; those windows hold a 2D copy. See ui/feeds/PoppedFeeds. */}
+          document; those windows hold a 2D copy. See ui/feeds/PoppedFeeds.
+          FeedLifeSupport keeps mirrored sources alive when the rail is shut. */}
       <PoppedFeeds />
+      <FeedLifeSupport />
       {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}
       <VtcOpener />
       {/* campaign guided-tutorial cues (renders null outside a tutorial campaign) */}

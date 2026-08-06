@@ -1016,7 +1016,12 @@ export default function DroneView({ droneId, gimbal, mode = 'WHOT', muted = fals
   const eo = eoLike(mode)
   return (
     <Canvas
-      gl={{ antialias: true }}
+      // preserveDrawingBuffer: a MIRROR (station pane, popped window) blits
+      // this canvas from its own rAF loop, and without the flag a WebGL
+      // buffer reads BLANK outside the exact frame it was drawn in — the
+      // pop-out mirror only ever worked by winning that race. Costs a little
+      // compositor optimization; correctness of every mirror buys it.
+      gl={{ antialias: true, preserveDrawingBuffer: true }}
       camera={{ fov: 38, near: 5, far: 20000, position: [0, 1000, 0] }}
       style={{ background: eo ? '#8fa3ae' : '#050607' }}
     >

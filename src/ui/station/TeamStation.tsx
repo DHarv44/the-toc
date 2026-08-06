@@ -39,6 +39,7 @@ import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from '../forces/callup
 import MarchList from '../forces/MarchList'
 import { buildChoices, elementActions } from '../forces/actions'
 import Column from '../shell/Column'
+import FeedPane from './FeedPane'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
 // About eight transmissions — enough to hold a contact from the first spot
@@ -342,6 +343,8 @@ export default function TeamStation({ teamId, popped }: {
           next thing a commander wants is WHERE — before any control, because
           every control below is answered differently depending on it. */}
       <MapPane members={units} />
+      {/* the team's supporting feed, mirrored under its map — see FeedPane */}
+      <FeedPane members={units} />
 
       {/* THE TEAM'S ADMINISTRATION, UNDER THE MAP. Attaching, handing over
           command and breaking the team up were spread across the FORCES rail
