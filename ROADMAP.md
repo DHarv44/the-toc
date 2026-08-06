@@ -535,7 +535,7 @@ in is what you have.
   the alert/QRF machinery is exactly what *Symmetric Fog* wants the OPFOR to do in
   the big modes too.
 
-### Skirmish Lobby — the Setup Board ⬜ *(user 2026-08-06 — DESIGN SETTLED 2026-08-06, ready to build)*
+### Skirmish Lobby — the Setup Board 🟡 *(PHASE 1 SHIPPED 2026-08-06 — the board is live and replaces the three-step splash flow: three columns, ORBAT force picks under the difficulty budgets, mode + authored-scenario dropdown, launch verified end-to-end (picks → tf marking → CALL UP). Open: phase 2 the OPFOR column becomes editable under its budget; phase 3 map thumbnails; slot states for multiplayer.)*
 A skirmish is a MATCH, not a war — no persistence, no story. The front door is a
 one-screen RTS lobby (C&C skirmish board), driven entirely by **PACKS**.
 

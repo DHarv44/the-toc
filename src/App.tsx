@@ -13,6 +13,8 @@ import PoppedFeeds from './ui/feeds/PoppedFeeds'
 import Stations from './ui/station/Stations'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
+import SkirmishLobby from './ui/skirmish/Lobby'
+import { initSkirmish } from './engine/skirmish'
 import EndScreenGate from './ui/EndScreen'
 import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
@@ -43,6 +45,7 @@ export default function App() {
   const [packs, setPacks] = useState(false) // PACK BUILDER route (menu-level tool)
   const [maps, setMaps] = useState(false)   // MAP EDITOR route (Groundwork, menu-level tool)
   const [scenarios, setScenarios] = useState(false) // SCENARIO BUILDER route (Eden, menu-level tool)
+  const [skirmish, setSkirmish] = useState(false)   // SKIRMISH LOBBY route (the setup board)
   // PLAYTEST: a sim running over a document that is still open on the bench.
   // The builder stays MOUNTED behind it — hidden, not unmounted — so coming
   // back finds the same undo history, the same selection and the same view.
@@ -120,10 +123,24 @@ export default function App() {
         // campaigns save under their scenario key; nothing else saves (yet)
         setSaveCampaign(isCampaign ? req.scenario : null)
       } else {
-        // QUICK BATTLE — a bare pack map under the picked ruleset, default staging
-        const [packId, mapId] = req.terrain.split('/') as [string, string]
-        const map = await buildGameMap({ kind: 'pack', packId, mapId })
-        initGame(map, Date.now() % 100000, req.difficulty, req.gameMode)
+        // SKIRMISH — the lobby's setup document. An authored battle runs
+        // through the scenario path (it brings its own sides and situation);
+        // a ruleset pick composes the match from the picks (engine/skirmish).
+        const setup = req.setup
+        if (setup.scenario.kind === 'authored') {
+          const [sp, sid] = setup.scenario.ref.split('/') as [string, string]
+          const entry = packScenario(sp, sid)
+          if (!entry) throw new Error(`scenario '${setup.scenario.ref}' is not installed`)
+          if (!entry.spec.map) throw new Error(`scenario '${setup.scenario.ref}' has no authored ground`)
+          const [mp, mid] = entry.spec.map.split('/') as [string, string]
+          const map = await buildGameMap({ kind: 'pack', packId: mp, mapId: mid })
+          initScenarioGame(map, entry.spec, Date.now() % 100000,
+            setup.difficulty, setup.sides.friend[0]?.chair)
+        } else {
+          const [packId, mapId] = setup.map.split('/') as [string, string]
+          const map = await buildGameMap({ kind: 'pack', packId, mapId })
+          initSkirmish(map, setup, Date.now() % 100000)
+        }
         setSaveCampaign(null)
       }
       startLoop()
@@ -261,8 +278,18 @@ export default function App() {
       </>
     )
   }
+  // the skirmish lobby is a menu-level page like the tools: no sim behind it
+  if (skirmish && !started) {
+    return (
+      <ErrorBoundary what="SKIRMISH LOBBY" onExit={() => setSkirmish(false)}>
+        <SkirmishLobby onBack={() => setSkirmish(false)}
+          onLaunch={(setup) => { setSkirmish(false); begin({ kind: 'skirmish', setup }) }} />
+      </ErrorBoundary>
+    )
+  }
   if (!started) {
-    return <Splash onStart={begin} onPacks={() => setPacks(true)} onMaps={() => setMaps(true)}
+    return <Splash onStart={begin} onSkirmish={() => setSkirmish(true)}
+      onPacks={() => setPacks(true)} onMaps={() => setMaps(true)}
       onScenarios={() => setScenarios(true)} />
   }
   return game(null)

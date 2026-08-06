@@ -1,24 +1,24 @@
 // Start screen. Top level is CAMPAIGN / SKIRMISH / DEV SANDBOX (ROADMAP →
-// Game Modes → main-menu structure): Skirmish is the umbrella for single-match
-// play and runs three steps — mode, map, difficulty. Every map is a pack map
-// (P6): a map sets its own size, and a checkout with none authors one in the
-// MAP EDITOR first.
+// Game Modes → main-menu structure): SKIRMISH routes to the lobby
+// (ui/skirmish/Lobby — the setup board owns mode, map, force and difficulty).
+// Every map is a pack map (P6): a map sets its own size, and a checkout with
+// none authors one in the MAP EDITOR first.
 import { useEffect, useState, type ReactNode } from 'react'
-import { MODES, MODE_ORDER, type ModeId } from '../engine/modes'
 import { setCampaignCommander } from '../engine/campaign'
+import type { SkirmishSetup } from '../engine/skirmish'
 import { listSaves, deleteSave, type SaveMeta } from '../engine/saves-db'
 import { fmtClock } from './styles'
 import { packMap, packMaps } from '../packs/map-files'
 import { packScenarios, type PackScenarioEntry } from '../packs/scenario-files'
-import { allPacks, PACKS, playerPack } from '../packs'
-import { playableFormations } from '../packs/orgquery'
+import { allPacks } from '../packs'
 import {
   DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, type DifficultyKey,
 } from '../domains/economy/difficulty'
 
-// The three ways a game actually starts, said out loud rather than encoded in
-// six optional positional arguments: the sandbox, an AUTHORED scenario (its
-// own type is the ruleset), or a QUICK BATTLE on a bare map under a picked mode.
+// The ways a game actually starts, said out loud rather than encoded in six
+// optional positional arguments: the sandbox, an AUTHORED scenario (its own
+// type is the ruleset), a SKIRMISH from the lobby's setup document, or a
+// CONTINUE from a save point.
 export type StartReq =
   | {
       kind: 'dev'
@@ -38,11 +38,9 @@ export type StartReq =
       chair?: string
     }
   | {
-      kind: 'quick'
-      /** 'packId/mapId' */
-      terrain: string
-      gameMode: ModeId
-      difficulty: DifficultyKey
+      kind: 'skirmish'
+      /** the lobby's setup document (ui/skirmish/Lobby) */
+      setup: SkirmishSetup
     }
   | {
       kind: 'continue'
@@ -60,14 +58,6 @@ const groundOf = (s: PackScenarioEntry) => {
   return packMap(p, m) ?? null
 }
 
-// modes on the roadmap but not yet playable — shown greyed so the selector reads
-// as a real choice with a future, not a single lonely button
-const COMING_SOON = [
-  { label: 'ZONE CAPTURE', sub: 'Contested-line control · push the front zone by zone' },
-  { label: 'SPEC OPS', sub: 'Small team, one objective, night · get in, get it done, get out' },
-  { label: 'CUSTOM SCENARIO', sub: 'Build your own battle · pick the victory condition, save and share' },
-]
-
 // difficulty accent runs cool -> hot as it gets harder
 const DIFF_ACCENT: Record<DifficultyKey, string> = {
   recruit: '#3a5a3a', regular: '#2a5a8a', veteran: '#8a6a2a', elite: '#8a3a2a',
@@ -77,15 +67,15 @@ const DIFF_ACCENT: Record<DifficultyKey, string> = {
 // or keeps it. Pure flavor pool — the name is theirs either way.
 const CO_NAMES = ['HARMON', 'VOSS', 'REYES', 'CALLAHAN', 'MERCER', 'OKAFOR', 'SLOANE', 'KINCAID']
 
-export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
-  onStart: StartFn; onPacks: () => void; onMaps: () => void; onScenarios: () => void
+export default function Splash({ onStart, onSkirmish, onPacks, onMaps, onScenarios }: {
+  onStart: StartFn; onSkirmish: () => void
+  onPacks: () => void; onMaps: () => void; onScenarios: () => void
 }) {
-  const [top, setTop] = useState<'skirmish' | 'campaign' | 'sandbox' | null>(null)
+  const [top, setTop] = useState<'campaign' | 'sandbox' | null>(null)
   // every army this build ships — the sandbox lets you play ANY of them, since
   // the ground and the army are independent
   const armies = allPacks()
   const [campaignSel, setCampaignSel] = useState<PackScenarioEntry | null>(null)
-  const [skirmishSel, setSkirmishSel] = useState<PackScenarioEntry | null>(null)
   // save points for the picked campaign (newest first) — read from IndexedDB
   // whenever a campaign is selected, and again after a delete
   const [saves, setSaves] = useState<SaveMeta[]>([])
@@ -98,34 +88,18 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
       .catch(() => { if (live) setSaves([]) })
     return () => { live = false }
   }, [campaignSel, savesEpoch])
-  // which battalion the player takes for a skirmish scenario (null = not yet
-  // asked; a campaign's chair is scripted and never asked)
-  const [chair, setChair] = useState<string | null>(null)
   const [campaignTut, setCampaignTut] = useState(true) // guided tutorial checkbox (on by default)
   const [commander, setCommander] = useState(() => CO_NAMES[Math.floor(Math.random() * CO_NAMES.length)]!)
-  const [gameMode, setGameMode] = useState<ModeId | null>(null)
-  // undefined = not chosen yet · string = 'packId/mapId'
-  const [terrain, setTerrain] = useState<string | undefined>(undefined)
 
   const maps = packMaps()
-  // one content object, split by the AUTHORED type (SCENARIO-MODEL.md):
-  // campaign-typed scenarios play from CAMPAIGNS, the rest from SKIRMISH.
-  // A scenario only starts once its ground exists; until then its card says why.
-  const scenarios = packScenarios()
-  const campaigns = scenarios.filter(s => s.spec.type === 'campaign')
-  const skirmishScns = scenarios.filter(s => s.spec.type !== 'campaign')
-  // the chairs this scenario's BLUFOR pack allows a player to take
-  const chairs = skirmishSel
-    ? playableFormations(PACKS[skirmishSel.spec.sides?.friend ?? playerPack().id] ?? playerPack())
-    : []
+  // campaign-typed scenarios play from CAMPAIGNS; everything else lives in the
+  // SKIRMISH LOBBY's scenario dropdown now (ui/skirmish/Lobby).
+  const campaigns = packScenarios().filter(s => s.spec.type === 'campaign')
 
   const hint =
     top == null ? 'ONE BATTALION. YOUR TOC.'
     : top === 'campaign' ? 'ONE LONG OPERATION — YOUR FORCE AND YOUR LOSSES CARRY MISSION TO MISSION'
-    : top === 'sandbox' ? 'THE GROUND AND THE ARMY ARE SEPARATE — ANY PACK DROPS ONTO ANY MAP'
-    : gameMode == null ? 'THE MODE SETS THE OBJECTIVE — AND WHAT DEFEAT MEANS'
-    : terrain === undefined ? 'REAL GROUND, AUTHORED IN THE MAP EDITOR — THE MAP SETS ITS OWN SIZE'
-    : 'DIFFICULTY SETS SUPPLY, STARTING FORCE AND HOW LONG FIREFIGHTS RUN'
+    : 'THE GROUND AND THE ARMY ARE SEPARATE — ANY PACK DROPS ONTO ANY MAP'
 
   return (
     <div style={{
@@ -158,8 +132,8 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
           ) : (
             <ComingSoon label="CAMPAIGNS" sub="No installed pack ships a campaign" />
           )}
-          <SplashButton label="SKIRMISH" sub="Single battle · pick the mode, the ground and the odds"
-            accent="#2a5a8a" onClick={() => setTop('skirmish')} />
+          <SplashButton label="SKIRMISH" sub="Single battle · the setup board: your force, their force, the ground"
+            accent="#2a5a8a" onClick={onSkirmish} />
 
           <div style={{ height: 18 }} />
           <SectionLabel>SANDBOX</SectionLabel>
@@ -278,108 +252,7 @@ export default function Splash({ onStart, onPacks, onMaps, onScenarios }: {
               label="TUTORIAL HINTS" sub="On-screen prompts teach each action as it comes up" />
           </div>
         </div>
-      ) : skirmishSel != null && chairs.length > 1 && chair == null ? (
-        // YOUR COMMAND — a skirmish scenario names a default chair, but the
-        // battalion you sit in is the player's to choose. Same authored
-        // battle, a different command: the task org re-derives around you.
-        <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
-          <SectionLabel>{skirmishSel.name} · YOUR COMMAND</SectionLabel>
-          {chairs.map((f) => (
-            <SplashButton key={f.desig} label={f.desig} sub={f.label}
-              accent="#4a6a8a"
-              recommended={f.desig === (skirmishSel.spec.player ?? chairs[0]!.desig)}
-              onClick={() => setChair(f.desig)} />
-          ))}
-          <BackButton onClick={() => setSkirmishSel(null)}>
-            ← {skirmishSel.name} — CHANGE
-          </BackButton>
-        </div>
-      ) : skirmishSel != null ? (
-        <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>
-            {skirmishSel.name} · DIFFICULTY{chair ? ` · ${chair}` : ''}
-          </SectionLabel>
-          {DIFFICULTY_ORDER.map((k) => {
-            const d = DIFFICULTIES[k]
-            return (
-              <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
-                stats={toughness(d.damageMul)}
-                recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart({
-                  kind: 'scenario', difficulty: k, ...(chair ? { chair } : {}),
-                  scenario: `${skirmishSel.packId}/${skirmishSel.scenarioId}`,
-                })} />
-            )
-          })}
-          <BackButton onClick={() => { setChair(null); setSkirmishSel(null) }}>
-            ← {skirmishSel.name} — CHANGE
-          </BackButton>
-        </div>
-      ) : gameMode == null ? (
-        <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
-          <SectionLabel>SKIRMISH · QUICK BATTLE</SectionLabel>
-          {MODE_ORDER.map((id) => (
-            <SplashButton key={id} label={MODES[id].label} sub={MODES[id].sub} accent="#2a5a8a"
-              onClick={() => setGameMode(id)} />
-          ))}
-          {COMING_SOON.map((m) => <ComingSoon key={m.label} label={m.label} sub={m.sub} />)}
-          {/* authored scenarios — the type badge says which rules judge them,
-              the card says which ground; one click skips mode AND map */}
-          {skirmishScns.length > 0 && (
-            <>
-              <div style={{ height: 12 }} />
-              <SectionLabel>SKIRMISH · SCENARIOS</SectionLabel>
-              {skirmishScns.map((e) => {
-                const g = groundOf(e)
-                return g ? (
-                  <SplashButton key={`${e.packId}/${e.scenarioId}`} label={e.name}
-                    sub={`${MODES[e.spec.type]?.label ?? e.spec.type} · ${g.name.toUpperCase()} · authored scenario`}
-                    accent="#8a6a2a" onClick={() => setSkirmishSel(e)} />
-                ) : (
-                  <ComingSoon key={`${e.packId}/${e.scenarioId}`} label={e.name}
-                    sub="Awaiting authored ground — bind a map in the SCENARIO BUILDER" />
-                )
-              })}
-            </>
-          )}
-          <BackButton onClick={() => setTop(null)}>← BACK</BackButton>
-        </div>
-      ) : terrain === undefined ? (
-        <div style={{ position: 'relative', width: 340, maxHeight: '58vh', overflowY: 'auto' }}>
-          <SectionLabel>SKIRMISH · STEP 2 OF 3 · MAP</SectionLabel>
-          {/* real ground, authored in the MAP EDITOR, shipped by packs. A map
-              sets its own size — and the force caps that come with it. */}
-          {maps.map((m) => (
-            <SplashButton key={`${m.packId}/${m.mapId}`} label={m.name}
-              sub={`${m.packId.toUpperCase()} pack map · real terrain, real roads, real names`}
-              accent="#4a6a8a" onClick={() => setTerrain(`${m.packId}/${m.mapId}`)} />
-          ))}
-          {!maps.length && (
-            <ComingSoon label="NO MAPS INSTALLED" sub="Author one in the MAP EDITOR — it saves into a pack" />
-          )}
-          <BackButton onClick={() => setGameMode(null)}>
-            ← {MODES[gameMode].label} — CHANGE
-          </BackButton>
-        </div>
-      ) : (
-        <div style={{ position: 'relative', width: 340 }}>
-          <SectionLabel>SKIRMISH · STEP 3 OF 3 · DIFFICULTY</SectionLabel>
-          {DIFFICULTY_ORDER.map((k) => {
-            const d = DIFFICULTIES[k]
-            return (
-              <SplashButton key={k} label={d.label} sub={d.sub} accent={DIFF_ACCENT[k]}
-                stats={`${d.supplies.toLocaleString()} SUPPLY · ${d.startForce} UNIT${d.startForce > 1 ? 'S' : ''} · ${toughness(d.damageMul)}`}
-                recommended={k === DEFAULT_DIFFICULTY}
-                onClick={() => onStart({
-                  kind: 'quick', difficulty: k, gameMode, terrain,
-                })} />
-            )
-          })}
-          <BackButton onClick={() => setTerrain(undefined)}>
-            ← {maps.find((m) => `${m.packId}/${m.mapId}` === terrain)?.name ?? terrain} — CHANGE
-          </BackButton>
-        </div>
-      )}
+      ) : null}
 
       <div style={{ position: 'relative', marginTop: 34, fontSize: 10, color: '#3d5265', letterSpacing: 1 }}>
         {hint}
