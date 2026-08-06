@@ -146,18 +146,20 @@ attacking, the AI, recovery — and stand up SKIRMISH as a real front door.)*
    button, autosave, and the splash CONTINUE + ROLL BACK list. Verified exact:
    a restored run resumes on the same rng stream. See Interface & Multi-Window.
 
-### Next — the map grows up
-7. **Named routes** *(design discussion)* — routes convoys use CONSISTENTLY;
-   GREEN/AMBER/RED status (RED = IED threat / not EOD-cleared); how the player builds
-   them is the open question. See *Named Routes* under Command & Control.
-8. **Commander's map graphics** *(design discussion)* — draw on the COP: arrows,
-   POIs, boundaries, phase lines. See *Commander's Map Graphics* under Command &
-   Control.
-9. **Sun & time-of-day** — the sun renders correctly and MOVES with time; the ground
-   has a real lat/lon, so the light can be astronomically honest. See Assets &
-   Systems.
-10. **UAV feed in the team station** *(discuss)* — a feed pane alongside the station
-    map. Docked is easy; a POPPED station must take a mirror (the GPU-context rule).
+### Next — the map grows up ✅ *(ALL FOUR SHIPPED 2026-08-06, plus wreck lingering ×4)*
+7. ~~**Named routes**~~ ✅ — commissioned via the router (RTE), RED until an
+   engineer element (`UnitType.eod`) proofs it (CLR), convoys follow the
+   polyline and hold on red; IED strike flips it back. Full lifecycle verified
+   live on the net. `domains/control/routes`.
+8. ~~**Commander's map graphics**~~ ✅ — AXIS + POI joined PL/CP/OBJ/BDY, plus
+   THE PEN (per-measure colour/weight) and cased bolder strokes throughout.
+9. ~~**Sun & time-of-day**~~ ✅ — solar almanac over the map's real lat/lon;
+   scenario nouns `start` (H-hour) + `sunScale` (default 6×); feed light tracks
+   it, the sheet flips day/night itself (AUTO with override), top bar shows the
+   ground's local clock.
+10. ~~**UAV feed in the team station**~~ ✅ — mirror pane under the station map,
+    picture-only, controls stay on the rail; `FeedLifeSupport` keeps mirrored
+    sources alive; `preserveDrawingBuffer` made every mirror race-proof.
 
 ### Carried enablers *(the former Now — all still real, none blocking the fight)*
 - **Iron Triangle ground** *(user-gated — content, not code)* — author the campaign's
