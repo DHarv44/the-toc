@@ -249,13 +249,19 @@ export type VehicleStatus = 'OK' | 'DAMAGED' | 'DESTROYED' // DAMAGED = repairab
 export type WoundSev = 'LIGHT' | 'SERIOUS' | 'CRITICAL'
 
 // An actual injury report (P2.5): severity decides the soldier's path — LIGHT
-// wounds return to duty after aid-station care, SERIOUS/CRITICAL are evacuated
-// out of the fight (replacements fill the billet, P3).
+// wounds return to duty after aid-station care; SERIOUS/CRITICAL must be
+// EVACUATED, and since the 9-line went real (domains/support/requests) that
+// means waiting for an actual airframe: they hold on the roster, deteriorating
+// on the golden-hour clock unless a medic STABILIZES them, until a bird lifts
+// them (s.evac then flips and the replacement pipeline takes over as ever).
 export interface Wound {
   sev: WoundSev
   kind: string               // 'GSW', 'SHRAPNEL', 'BLAST CONCUSSION'…
   t: number                  // sim time wounded
   care: number               // seconds of medical care received (LIGHT → RTD at threshold)
+  /** STABILIZED — a medic got to them; the deterioration clock stops. What a
+   *  forward medical aura is FOR once evacuation takes real time. */
+  stab?: boolean
 }
 
 export interface Soldier {
@@ -445,6 +451,41 @@ export interface AssetsState {
   unlocks: string[]          // capability unlocks in effect ('CAS')
   favor: number              // standing with division — earned by helping with
                              // division problems in your AO; speeds staff decisions
+}
+
+// --- support requests (the spine) -------------------------------------------
+// Units request support UP; the commander approves or denies; approved
+// requests EXECUTE as real things on the map. One typed queue for every lane
+// there will ever be — medevac today, CAS and vehicle recovery next, call for
+// fire when it lands. See domains/support/requests.
+export interface SupportRequest {
+  id: number
+  kind: 'medevac' | 'cas' | 'recovery'
+  from: number               // requesting unit id
+  x: number                  // where the need is (LKP if the unit dies)
+  y: number
+  t: number                  // raised at
+  state: 'raised' | 'approved' | 'denied' | 'executing' | 'complete' | 'aborted'
+  litter?: number            // medevac: patients by precedence
+  ambulatory?: number
+  lz?: Vec2                  // established landing zone
+  birdId?: number
+}
+
+/** A MEDEVAC airframe in the air — a real thing on the map, not a timer. Kept
+ *  deliberately smaller than a Drone: it has no sensor, no orbit, no feed —
+ *  it flies out, holds off a hot LZ, loads, and comes home. */
+export interface EvacBird {
+  id: number
+  reqId: number
+  x: number
+  y: number
+  wp: Vec2                   // current waypoint (the LZ, then home)
+  home: Vec2
+  state: 'out' | 'hold' | 'loading' | 'back'
+  loadT: number
+  holdT: number              // time spent standing off a hot LZ
+  label: string              // 'DUSTOFF 2-1'
 }
 
 export interface ConvoyTask {
@@ -991,6 +1032,8 @@ export interface GameState {
   measures: ControlMeasure[] // phase lines, checkpoints, objectives
   recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
+  requests: SupportRequest[] // the support spine (9-lines, CAS, recovery)
+  evacBirds: EvacBird[]      // MEDEVAC airframes in the air right now
   opforCmd: OpforCmd         // OPFOR operational commander (main effort + posture)
   rng: Rng | null
   // THE SKY'S CLOCK (engine/sun): utc ms the match opened at (scenario H-hour
@@ -1058,6 +1101,8 @@ export function createInitialState(): GameState {
     measures: [],
     recoveries: [],
     hazards: [],
+    requests: [],
+    evacBirds: [],
     opforCmd: { posture: 'attack', effortId: null, supportId: null, effortT: 0 },
     rng: null,
     sunEpoch: Date.UTC(2026, 5, 15, 9, 0, 0),

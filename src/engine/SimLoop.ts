@@ -16,6 +16,7 @@ import {
 import { hazardUpdate } from '../domains/hazards/update'
 import { routeClearUpdate } from '../domains/control/routes'
 import { recoveryUpdate } from '../domains/forces/recovery'
+import { supportUpdate } from '../domains/support/requests'
 import { teamSweep } from '../domains/forces/teams'
 import { measureUpdate } from '../domains/control/measures'
 import { recoveryUpdate as vehRecoveryUpdate } from '../domains/movement/recovery'
@@ -62,6 +63,8 @@ export function tick(dt: number): void {
   structReports()
   attritionSync()         // elements/strength derive from the roster (P2.5)
   recoveryUpdate(dt)      // DUSTWUN sites: capture, secure-dwell, resolution
+  supportUpdate(dt)       // 9-lines: raise, deteriorate, fly the birds — before
+                          // the pipeline reads who is actually evacuated
   pipelineUpdate(dt)      // P3: combat XP, battlefield promotions, replacements
   assetsUpdate(dt)        // division asset requests: decisions, convoys, setup
   unitDeaths()

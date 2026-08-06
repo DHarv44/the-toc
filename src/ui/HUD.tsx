@@ -24,7 +24,8 @@ import { UNIT_TYPES } from '../domains/forces/catalog'
 import { DRONE_TYPES } from '../domains/air/catalog'
 import { useUI, type UiMode } from './store'
 import { buildItems } from './palette'
-import { FZ, clamp, panel, btn, mapColumnSize } from './styles'
+import { FZ, clamp, panel, btn, fmtClock, mapColumnSize } from './styles'
+import { approveRequest, denyRequest } from '../domains/support/requests'
 import { MapButton, MapControlStack } from './MapControls'
 import { TUT, fieldTarget } from './tutTargets'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
@@ -169,8 +170,50 @@ export default function HUD() {
         ))}
       </div>
 
+      {/* THE COMMANDER'S DECISION QUEUE — support requests awaiting a call
+          (domains/support/requests). Bottom-left, where a battle captain's
+          pending actions live; each row is one radio call to answer. */}
+      <RequestsBlock />
+
       {/* drone feeds live in the FEEDS rail now (P5) — see ui/FeedsPanel */}
     </>
+  )
+}
+
+function RequestsBlock() {
+  const open = S.requests.filter(r => r.state === 'raised')
+  if (!open.length) return null
+  return (
+    <div style={{
+      position: 'absolute', bottom: 12, left: 12, zIndex: 30,
+      display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 380,
+    }}>
+      {open.map(r => {
+        const who = S.units.find(u => u.id === r.from)
+        return (
+          <div key={r.id} style={{
+            ...panel, display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 10px', border: '1px solid #6a3030',
+            borderLeft: '3px solid #c04040',
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: '#f0c8c8', fontSize: 11, letterSpacing: 1 }}>
+                9-LINE MEDEVAC — {who?.label ?? 'STATION'}
+              </div>
+              <div style={{ color: '#9a7f7f', fontSize: 10 }}>
+                {r.litter ?? 0} LITTER · {r.ambulatory ?? 0} AMBULATORY · {fmtClock(S.t - r.t)} AGO
+              </div>
+            </div>
+            <button onClick={() => approveRequest(r.id)} style={{
+              ...optBtn(false), color: '#a8e0bd', borderColor: '#2f6b4a', padding: '4px 10px',
+            }}>APPROVE</button>
+            <button onClick={() => denyRequest(r.id)} style={{
+              ...optBtn(false), color: '#e0a898', borderColor: '#6a3030', padding: '4px 10px',
+            }}>DENY</button>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

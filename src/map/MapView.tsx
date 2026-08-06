@@ -50,7 +50,7 @@ import {
   drawSelectedDroneRoutes, drawSelectedRoutes,
 } from './layers/routes'
 import { drawDebris, drawHill, drawPontoons, drawStructures } from './layers/places'
-import { drawDrones, drawImpacts } from './layers/air'
+import { drawDrones, drawEvacBirds, drawImpacts } from './layers/air'
 import { drawRanges } from './layers/ranges'
 import { drawDustwun, drawFriendlies, drawHostiles, drawTargeted, drawTeams } from './layers/units'
 import { drawCursorReadout, drawMarquee, drawSpreadPreview } from './layers/cursor'
@@ -821,6 +821,7 @@ export default function MapView() {
       // with their orbits, locks and overwatch tethers.
       drawImpacts(frame)
       drawDrones(frame, new Set(ui.feeds.map(fd => fd.droneId).filter((x): x is number => x != null)))
+      drawEvacBirds(frame)
 
       // THE RANGE OVERLAYS are a layer — map/layers/ranges.
       drawRanges(frame, { ...ui.overlays, per: ui.rangeUnits || {} })

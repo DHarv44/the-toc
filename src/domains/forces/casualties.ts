@@ -42,7 +42,12 @@ function woundSoldier(u: Unit, s: Soldier, kindHint?: string): void {
     sev, t: S.t, care: 0,
     kind: kindHint ?? WOUND_KINDS[Math.abs(hashStr(`${u.id}:${s.id}:wk:${S.t.toFixed(1)}`)) % WOUND_KINDS.length]!,
   }
-  if (sev !== 'LIGHT') s.evac = true
+  // Evac-category wounded are NOT whisked away any more — the 9-line is real
+  // (domains/support/requests): they hold on the roster awaiting a bird,
+  // deteriorating unless a medic stabilizes them. The OPFOR keeps the old
+  // abstraction until its own medevac exists — its people are not the
+  // player's problem to fly out.
+  if (sev !== 'LIGHT' && u.side !== 'friend') s.evac = true
   casualtyAward(u.side, s)
 }
 
@@ -254,7 +259,20 @@ export function medicalUpdate(u: Unit, dt: number, rate: number): void {
   const d = dials()
   let recovered = false
   for (const s of u.soldiers) {
-    if (s.status !== 'WIA' || s.evac || !s.wound || s.wound.sev !== 'LIGHT') continue
+    if (s.status !== 'WIA' || s.evac || !s.wound) continue
+    // an evac case under a medic's hands is STABILIZED — the golden-hour
+    // deterioration clock (domains/support/requests) stops for them. They
+    // still need the bird; they stop dying while they wait for it.
+    if (s.wound.sev !== 'LIGHT') {
+      if (!s.wound.stab) {
+        s.wound.stab = true
+        if (u.side === 'friend') {
+          radio(u.label, 'damage',
+            `${s.rank ?? ''} ${s.name ?? 'CASUALTY'} STABILIZED — STILL NEEDS EVAC`, u.x, u.y)
+        }
+      }
+      continue
+    }
     s.wound.care += dt * rate
     // per-soldier jitter (±25%) so a treated platoon trickles back, not steps
     const need = d.rtdMin * 60 * (0.75 + (Math.abs(hashStr(`${s.pid ?? s.id}:rtd`)) % 100) / 200)

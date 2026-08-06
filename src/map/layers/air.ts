@@ -29,6 +29,39 @@ export function drawImpacts(f: Frame): void {
   }
 }
 
+/** MEDEVAC BIRDS (domains/support/requests): a rotary mark with its callsign,
+ *  drawn in the medical white-on-red family so a DUSTOFF inbound reads as what
+ *  it is from across the sheet. */
+export function drawEvacBirds(f: Frame): void {
+  const { ctx } = f
+  for (const b of S.evacBirds) {
+    const x = f.w2sX(b.x), y = f.w2sY(b.y)
+    ctx.save()
+    // rotor disc + cross — the field-expedient medevac mark
+    ctx.strokeStyle = 'rgba(240,240,245,0.95)'
+    ctx.fillStyle = 'rgba(180,40,40,0.9)'
+    ctx.lineWidth = 1.6
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y)
+    ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4)
+    ctx.stroke()
+    // heading tick toward the waypoint
+    const d = Math.hypot(b.wp.x - b.x, b.wp.y - b.y)
+    if (d > 8) {
+      const hx = (b.wp.x - b.x) / d, hy = (b.wp.y - b.y) / d
+      ctx.beginPath()
+      ctx.moveTo(x + hx * 9, y + hy * 9); ctx.lineTo(x + hx * 15, y + hy * 15)
+      ctx.stroke()
+    }
+    ctx.font = '600 9px Inter, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(245,220,220,0.95)'
+    ctx.fillText(`${b.label}${b.state === 'hold' ? ' · HOLDING' : b.state === 'loading' ? ' · ON THE GROUND' : ''}`, x, y - 11)
+    ctx.restore()
+  }
+}
+
 /** THE AIR PICTURE: orbit ring, sensor footprint, the lock diamond, the
  *  overwatch tether to whoever the bird is covering, and the aircraft itself
  *  pointed the way it is actually flying. */

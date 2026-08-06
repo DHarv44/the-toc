@@ -73,6 +73,8 @@ export function initGame(
   S.measures = []
   S.hazards = []
   S.recoveries = []
+  S.requests = []
+  S.evacBirds = []
   S.replT = 0
   S.radio = []
   S.difficulty = diff.key as DifficultyKey // diff came from the table; key is a real preset key
