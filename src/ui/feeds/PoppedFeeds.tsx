@@ -35,6 +35,22 @@ export default function PoppedFeeds() {
   if (!out.length) return null
   return (
     <>
+      {/* THE SOURCE HAS TO KEEP RENDERING. A mirror copies the live sensor
+          canvas out of the docked feed — and the docked feed lives in the FEEDS
+          rail, so shutting that rail unmounted it and the popped window went
+          black.
+          When the rail is shut, the source is kept alive here instead, parked
+          off-screen. OFF-SCREEN, not hidden: display:none or visibility:hidden
+          stops the browser animating the canvas at all, and a source that is
+          not drawing is the same black window by another route. */}
+      {!ui.feedsOpen && (
+        <div aria-hidden style={{
+          position: 'fixed', left: -10000, top: 0, width: 720, height: 405,
+          pointerEvents: 'none',
+        }}>
+          {out.map((f, i) => <FeedWindow key={f.id} feed={{ ...f, winMode: 'max' }} index={i} docked />)}
+        </div>
+      )}
       {out.map((f, i) => (
         <PopOut key={f.id} title={`TOC · FEED ${i + 1}`} w={860} h={520}
           onClose={() => ui.setFeed(f.id, { popped: false })}>
