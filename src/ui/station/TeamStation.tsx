@@ -36,6 +36,7 @@ import { Pick, one } from '../tray/controls'
 import { PaletteIcon, PaletteRow, garrisonSections } from '../palette'
 import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from '../forces/callup'
 import MarchList from '../forces/MarchList'
+import { buildChoices, elementActions } from '../forces/actions'
 import Column from '../shell/Column'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
@@ -226,6 +227,11 @@ export default function TeamStation({ teamId }: { teamId: number }) {
 
   /** everything of the player's that is not already spoken for */
   const free = S.units.filter(u => underPlayerCommand(u) && u.strength > 0 && !teamOf(u))
+  // MOVE and ATTACK are not here: they are what a RIGHT-CLICK means, and the
+  // right-click happens on the map. A button that only changes what the next
+  // map click does belongs beside the map, which is where the dock is.
+  const acts = elementActions(units, ui).filter(a => a.show && a.key !== 'move' && a.key !== 'attack')
+  const builds = buildChoices(units)
 
   const adm = (label: string, title: string, active: boolean, on: () => void, tone?: string) => (
     <button onClick={on} title={title} style={{
@@ -434,6 +440,62 @@ export default function TeamStation({ teamId }: { teamId: number }) {
           </div>
         </div>
       )}
+
+      {/* WHAT THIS TEAM CAN DO, AND WHO IN IT WOULD DO IT.
+          The dock offers these to whatever is selected, which meant that to put
+          a Raven up you had to know which platoon carried it, find it, select
+          it alone and press V. A battalion commander does not task a carrier —
+          he tells the team to put its bird up. So the same verbs (ui/forces/
+          actions, one list for both surfaces) are offered to the whole team,
+          each naming the element that would execute it. */}
+      <Section label="TEAM ACTIONS" note={acts.length ? undefined : 'NOTHING ORGANIC'}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+          gap: 3, padding: '2px 8px 8px',
+        }}>
+          {acts.map(a => (
+            <button key={a.key} onClick={a.on} title={a.title}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                padding: '3px 7px', borderRadius: 2, cursor: 'pointer', fontFamily: UI,
+                border: `1px solid ${a.active ? '#4d90c8' : '#2f4356'}`,
+                background: a.active ? '#255a8c' : 'rgba(22,30,40,0.95)',
+                color: a.active ? '#eaf4ff' : (a.tone ?? '#b3c6d8'),
+              }}>
+              <span style={{ fontSize: FZ.label, fontWeight: 700, letterSpacing: 0.3 }}>
+                {a.label}
+              </span>
+              {/* WHOSE JOB IT IS. Blank when it is the whole team's — halting
+                  and digging in are not delegated to anybody. */}
+              <span style={{ fontSize: FZ.hint, color: a.active ? '#cfe6ff' : '#54708a' }}>
+                {a.who ? a.who.label : 'THE TEAM'}
+              </span>
+            </button>
+          ))}
+          {/* THE CARD HAS ONE CELL FOR WORK, so an engineer's second and third
+              structures are unreachable from the dock. Siting a FOB is exactly
+              the deliberate act a station is for, so they are all here. */}
+          {builds.slice(1).map(b => (
+            <button key={b.mode} onClick={() => ui.setMode(
+              ui.mode === b.mode ? 'select' : b.mode as typeof ui.mode)}
+              title={`${b.who.label} builds a ${b.label} — click the map to site it`}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                padding: '3px 7px', borderRadius: 2, cursor: 'pointer', fontFamily: UI,
+                border: `1px solid ${ui.mode === b.mode ? '#4d90c8' : '#2f4356'}`,
+                background: ui.mode === b.mode ? '#255a8c' : 'rgba(22,30,40,0.95)',
+                color: ui.mode === b.mode ? '#eaf4ff' : '#b3c6d8',
+              }}>
+              <span style={{ fontSize: FZ.label, fontWeight: 700, letterSpacing: 0.3 }}>
+                ⛏ {b.label.toUpperCase()}
+              </span>
+              <span style={{ fontSize: FZ.hint, color: ui.mode === b.mode ? '#cfe6ff' : '#54708a' }}>
+                {b.who.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </Section>
 
       {/* THE COLUMN, AND THE ONLY PART OF THIS PANEL THAT GROWS. A team can be
           two elements or nine, so the list is the one thing here whose height

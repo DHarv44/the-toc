@@ -34,6 +34,7 @@ import {
 import TaskOrgSeg from './tray/TaskOrgSeg'
 import FormSelect from './tray/FormSelect'
 import ContextMenu from './menus/ContextMenu'
+import { elementActions } from './forces/actions'
 import { protectionInfo, winView } from './mapUtil'
 
 
@@ -205,10 +206,6 @@ export function SelectionTray() {
       </div>
     )
   }
-  const anyIndirect = units.some(u => UNIT_TYPES[u.type].indirect)
-  const anyBridge = units.some(u => UNIT_TYPES[u.type].canBridge)
-  // supply run is inherently one truck → one FOB, so it shows for a single logi unit
-  const logiUnit = units.length === 1 && UNIT_TYPES[units[0]!.type].logi ? units[0]! : null
   const count = units.length + selDrones.length
   // THE SELECTION IS A TEAM when every element of it belongs to the same one
   // and the whole team is picked — which is what clicking a rolled-up symbol
@@ -221,79 +218,12 @@ export function SelectionTray() {
   const teamStr = selTeam && units.length
     ? Math.round(units.reduce((n, u) => n + u.strength, 0) / units.length) : 0
 
-  // THE TWELVE CELLS, IN THIS ORDER, FOREVER. Row one is what you do this
-  // bound; row two is how the element carries itself and what it can fight
-  // with; row three is what it can build, fly and where it lives. An element
-  // that cannot do one of them leaves the cell empty — see CommandCard.
-  const eng = units.find(u => buildItems(u).length > 0)
-  const carrier = units.find(u => (UNIT_TYPES[u.type].carries?.length ?? 0) > 0)
-  const uas = carrier ? UNIT_TYPES[carrier.type].carries![0] : null
-  const homed = units.length > 0 && units.every(u => S.org?.slots.some(sl => sl.unitId === u.id))
-  const canMount = units.some(u => UNIT_TYPES[u.type].carrier && !u.mounted)
-  const canDig = units.some(u => UNIT_TYPES[u.type].def)
-  const build = eng ? buildItems(eng)[0] : null
-  const cardSlots: CmdSlot[] = [
-    { key: 'move', label: 'MOVE', hot: 'Q', show: true, active: ui.cmdMode === 'move',
-      title: 'Right-click orders a move', on: () => ui.setCmdMode('move') },
-    { key: 'attack', label: 'ATTACK', hot: 'E', show: true, active: ui.cmdMode === 'attack',
-      tone: '#c87868', tut: TUT.attackMode,
-      title: 'Right-click orders an attack', on: () => ui.setCmdMode('attack') },
-    { key: 'stop', label: 'STOP', hot: 'H', show: true,
-      title: 'Stop where you are', on: () => units.forEach(u => orderHold(u.id)) },
-    { key: 'dig', label: '⛨ DIG IN', hot: 'T', show: canDig, tut: TUT.digIn,
-      active: units.every(u => u.posture === 'dig'),
-      title: 'Prepare positions here — cover in exchange for staying put',
-      on: () => {
-        const allDug = units.every(u => u.posture === 'dig')
-        units.forEach(u => orderDefend(u.id, !allDug))
-      } },
-    { key: 'mount', label: 'MOUNT', hot: 'R', show: canMount,
-      title: 'Get back in the vehicles', on: () => units.forEach(u => orderMount(u.id, true)) },
-    { key: 'dismount', label: 'DISMOUNT', hot: 'F',
-      show: units.some(u => UNIT_TYPES[u.type].carrier && u.mounted),
-      title: 'Put the infantry on the ground', on: () => units.forEach(u => orderMount(u.id, false)) },
-    { key: 'fire', label: 'FIRE MSN', hot: 'C', show: anyIndirect, active: ui.mode === 'target',
-      title: 'Call for fire — click the target grid',
-      on: () => ui.setMode(ui.mode === 'target' ? 'select' : 'target') },
-    { key: 'bridge', label: 'BRIDGE', hot: 'B', show: anyBridge, active: ui.mode === 'bridge',
-      title: 'Throw a pontoon bridge — click the crossing',
-      on: () => ui.setMode(ui.mode === 'bridge' ? 'select' : 'bridge') },
-    { key: 'uas', label: uas ? DRONE_TYPES[uas]!.name.toUpperCase() : 'UAS', hot: 'V',
-      show: !!carrier && !!uas, tut: uas === 'RAVEN' ? TUT.uasRaven : undefined,
-      title: carrier ? `Launch over ${carrier.label} — live feed of the ground ahead` : undefined,
-      on: () => {
-        if (!carrier || !uas) return
-        const d = fieldUnitDrone(carrier.id, uas)
-        if (d && d.id != null) ui.showDrone(d.id)
-      } },
-    // ORGANIC WORK — what this element makes with its own hands. An engineer
-    // builds, a truck hauls; never both, so they share the cell rather than
-    // each getting one that is empty for everybody else.
-    logiUnit
-      ? { key: 'work', label: logiUnit.convoy ? 'END RUN' : 'SUPPLY', hot: 'N', show: true,
-          tut: TUT.supplyRun, active: !!logiUnit.convoy,
-          title: 'Run supply from the HQ to a chosen FOB, then repeat',
-          on: () => {
-            if (logiUnit.convoy) orderHold(logiUnit.id)
-            else ui.setMode(`convoy:${logiUnit.id}` as never)
-          } }
-      : { key: 'work', label: build ? `⛏ ${build.label.toUpperCase()}` : 'BUILD', hot: 'N',
-          show: !!eng && !!build, tut: build?.mode === 'build:FOB' ? TUT.buildFob : undefined,
-          active: !!build && ui.mode === build.mode,
-          title: eng && build ? `${eng.label} builds a ${build.label} — click the map to site it` : undefined,
-          on: () => {
-            if (!build) return
-            const m = build.mode as UiMode
-            ui.setMode(ui.mode === m ? 'select' : m)
-          } },
-    { key: 'rtb', label: 'RTB', hot: 'Y', show: homed, tut: TUT.rtb,
-      title: 'Return to this element\'s assigned garrison — stand down, refit, absorb replacements',
-      on: () => units.forEach(u => orderReturnToGarrison(u.id)) },
-    { key: 'garrison', label: 'GARRISON', hot: 'U', show: homed, tut: TUT.garrison,
-      active: ui.mode === 'garrison',
-      title: 'Reassign garrison: click a friendly base — they stand down there and it becomes home',
-      on: () => ui.setMode(ui.mode === 'garrison' ? 'select' : 'garrison') },
-  ]
+  // THE TWELVE CELLS, IN THIS ORDER, FOREVER — see ui/tray CommandCard for why
+  // the order and the holes matter, and ui/forces/actions for the definitions.
+  // They moved out because the TEAM STATION offers the same verbs to a whole
+  // team, and two lists of what a force can do would drift the first time one
+  // of them gained a row.
+  const cardSlots: CmdSlot[] = elementActions(units, ui)
   // what the keyboard answers, kept in step with what the card draws
   slotsRef.current = cardSlots
 
