@@ -25,6 +25,8 @@ import { useEffect } from 'react'
 import { S } from '../engine/state'
 import type { Team, Unit } from '../engine/GameState'
 import { underPlayerCommand } from '../domains/forces/command'
+import { UNIT_TYPES } from '../domains/forces/catalog'
+import { PaletteIcon } from './palette'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
 import { marchMoving, marchPlan } from '../domains/movement/march'
 import { centerView } from '../map/view'
@@ -87,6 +89,11 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
   const st = stateOf(e)
   const cdr = e.team ? teamCdr(e.team) : null
   const plan = e.team ? marchPlan(e.team.id) : null
+  // A TEAM IS NAMED FOR AND BUILT AROUND ITS BASE ELEMENT, so the base is what
+  // its symbol wears — the same rule the map's roll-up uses, so the icon in the
+  // bar and the icon on the sheet are the same icon.
+  const baseUnit = e.team ? e.units.find(u => u.id === e.team!.baseId) ?? e.units[0] : null
+  const base = baseUnit ? UNIT_TYPES[baseUnit.type] : null
   // THE EXCEPTION, SURFACED. An element on a different drill from the rest of
   // its team is the thing a TOC most needs to notice and the thing a bar like
   // this most easily hides — so it gets its own mark, on the chip, always.
@@ -133,9 +140,23 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
           color: e.slot ? (active ? '#ffd67e' : '#5d6f80') : 'transparent',
         }}>{e.slot ?? '·'}</span>
       )}
+      {/* THE SAME SYMBOL THE SHEET DRAWS. A team's rolled-up icon carries what
+          its name cannot — the base element's branch, and the company echelon
+          bar that says this is a company team and not the platoon it is named
+          for. One visual language across the bar and the map.
+          The loose elements get their TYPE instead: thirteen platoon symbols in
+          a row stop resolving at this size and cost three hundred pixels, and
+          what the player actually wants from that list is which one is the
+          engineer, which is two characters. */}
+      {!compact && base && (
+        <PaletteIcon unit={base} w={20} h={15} scale={0.52} echelon="co" />
+      )}
       <span style={{ color: compact ? st.tone : (active ? '#dceeff' : '#c8d8e8') }}>{e.name}</span>
       {compact ? (
         <>
+          <span style={{ fontSize: 8.5, color: '#5d6f80' }}>
+            {UNIT_TYPES[e.units[0]!.type]?.abbr ?? ''}
+          </span>
           {str < 85 && (
             <span style={{ fontSize: 9, color: str >= 60 ? '#c9a24a' : '#e07a6a' }}>{str}%</span>
           )}

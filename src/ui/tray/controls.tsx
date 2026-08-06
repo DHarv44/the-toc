@@ -123,6 +123,13 @@ export function CommandCard({ slots }: { slots: CmdSlot[] }) {
             border: `1px solid ${s.active ? '#4d90c8' : '#2f4356'}`,
             background: s.active ? '#255a8c' : 'rgba(22,30,40,0.95)',
             color: s.active ? '#eaf4ff' : (s.tone ?? '#b3c6d8'),
+            // A CELL IS A FIXED SIZE OR IT IS NOT A GRID. Pack labels are pack
+            // data — an engineer that builds an OBSERVATION POST wrapped its
+            // cell onto a second line and pushed the whole row out of
+            // alignment, which is the exact failure the grid exists to prevent.
+            // The label clips; the tooltip carries the whole of it.
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+            padding: '0 12px 0 4px', textAlign: 'left',
           }}>
           {s.label}
           {s.hot && (

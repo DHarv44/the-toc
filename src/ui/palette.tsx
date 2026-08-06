@@ -33,13 +33,20 @@ export function unitCats(): string[] {
 
 // One symbol drawn on a canvas, sized to the row it sits in. Same art as the map,
 // so the palette doubles as the symbol key.
-export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale = 1 }: {
+export function PaletteIcon({
+  unit, struct, drone, w: W = 40, h: H = 26, scale = 1, echelon = 'plt',
+}: {
   unit?: UnitType
   struct?: StructureType
   drone?: DroneType
   w?: number
   h?: number
   scale?: number
+  /** The echelon bar over the frame. A TEAM is drawn at company echelon —
+   *  it is a company built around a base element with pieces cross-attached to
+   *  it, and that is a different thing on a map from the platoon it is named
+   *  for. Everywhere else this stays a platoon. */
+  echelon?: 'plt' | 'co'
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -55,7 +62,7 @@ export function PaletteIcon({ unit, struct, drone, w: W = 40, h: H = 26, scale =
     ctx.translate(W / 2, H / 2)
     ctx.scale(scale, scale)
     if (unit) {
-      drawUnitSymbol(ctx, 0, 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon: 'plt', showStrength: false, label: '' })
+      drawUnitSymbol(ctx, 0, 1, { side: 'friend', glyph: unit.glyph, scale: 0.58, echelon, showStrength: false, label: '' })
     } else if (struct) {
       ctx.scale(0.72, 0.72)
       drawStructure(ctx, 0, 3, { side: 'friend', kind: struct.key as StructureTypeKey, label: '' })
