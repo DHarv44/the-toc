@@ -28,7 +28,7 @@ import { DRONE_TYPES } from '../domains/air/catalog'
 import { setFeedAmbient, clearFeedAmbient } from '../audio/audio'
 import { useUI, type Feed, type UiMode } from './store'
 import { PaletteIcon, buildItems } from './palette'
-import { clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
+import { FZ, clamp, panel, btn, fmtClock, mapColumnSize, TOPBAR_H } from './styles'
 import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../drone/DroneView'
 import { groundAt } from '../drone/ground'
 import { IMAGERY_CREDIT } from '../world/pack/imagery'
@@ -221,7 +221,7 @@ export function SelectionTray() {
   if (!units.length && !selDrones.length) {
     return (
       <div style={{ ...trayShell, alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: '#2f4152', fontSize: 9.5, letterSpacing: 1.5 }}>
+        <span style={{ color: '#2f4152', fontSize: FZ.label, letterSpacing: 1.2 }}>
           SELECT AN ELEMENT OR A TEAM — 1-9 PICKS A TEAM
         </span>
       </div>
@@ -343,20 +343,20 @@ export function SelectionTray() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {selTeam ? (
           <>
-            <span style={{ color: '#7ec8ff', fontSize: 11.5, letterSpacing: 1 }}>{selTeam.name}</span>
-            <span style={{ color: '#8ba3b8', fontSize: 9.5 }}>
+            <span style={{ color: '#7ec8ff', fontSize: FZ.item, letterSpacing: 0.8 }}>{selTeam.name}</span>
+            <span style={{ color: '#8ba3b8', fontSize: FZ.hint }}>
               {teamUnits(selTeam).length} ELEMENTS · {teamStr}%
               {selCdr ? ` · ${selCdr.soldier?.rank ?? ''} ${selCdr.soldier?.name ?? ''}` : ''}
               {selCdr?.acting ? ' (ACTING)' : ''}
             </span>
             {selPlan && (
-              <span style={{ color: '#54708a', fontSize: 9 }}>
+              <span style={{ color: '#54708a', fontSize: FZ.hint }}>
                 {MARCH_INTERVAL[selPlan.column]} M · {marchMoving(selTeam.id) ? 'UNDER WAY' : 'AT THE SP'}
               </span>
             )}
           </>
         ) : (
-          <span style={{ color: '#54708a', fontSize: 9, letterSpacing: 1 }}>{count} SELECTED</span>
+          <span style={{ color: '#54708a', fontSize: FZ.label, letterSpacing: 1 }}>{count} SELECTED</span>
         )}
         <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
         <button style={{ ...optBtn(roster), color: '#7c92a6' }}
@@ -385,15 +385,15 @@ export function SelectionTray() {
                 background: '#12202e', border: '1px solid #35506a', borderRadius: 2,
                 padding: '3px 7px', cursor: 'pointer', minWidth: 78,
               }}>
-              <div style={{ color: '#7ec8ff', fontSize: 10 }}>
-                {u.label}{u.attFrom ? <span style={{ color: '#c8a25f', fontSize: 8 }}> ATT</span> : null}
+              <div style={{ color: '#7ec8ff', fontSize: FZ.label }}>
+                {u.label}{u.attFrom ? <span style={{ color: '#c8a25f', fontSize: FZ.hint }}> ATT</span> : null}
               </div>
               {u.lineage && (
-                <div style={{ fontSize: 7.5, color: '#54708a', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: FZ.hint, color: '#54708a', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
                   {u.lineage}{u.attFrom ? ` · ${u.attFrom}` : ''}
                 </div>
               )}
-              <div style={{ fontSize: 9, color: '#9ab8d0' }}>
+              <div style={{ fontSize: FZ.hint, color: '#9ab8d0' }}>
                 {type.carrier ? (u.mounted ? 'MTD · ' : 'DSM · ') : ''}
                 {u.posture === 'dig' ? `DUG ${Math.round(u.digT * 100)}% · ` : ''}
                 {u.weapons === 'hold' ? 'W-HOLD · ' : u.weapons === 'tight' ? 'W-TIGHT · ' : ''}
@@ -405,7 +405,7 @@ export function SelectionTray() {
                 const p = protectionInfo(u)
                 if (!p.total && !p.cover) return null
                 return (
-                  <div style={{ fontSize: 8.5, color: '#7ea87e' }}>
+                  <div style={{ fontSize: FZ.hint, color: '#7ea87e' }}>
                     {p.cover ? p.terr.toUpperCase() + ' COVER' : 'PREPARED'}
                     {p.total > 0 ? ` · −${p.total}% DMG` : ''}
                     {p.concealed ? ' · LOW-VIS' : ''}
@@ -431,8 +431,8 @@ export function SelectionTray() {
                 background: '#0e2420', border: '1px solid #2f5a4a', borderRadius: 2,
                 padding: '3px 7px', cursor: 'pointer', minWidth: 78,
               }}>
-              <div style={{ color: '#5ac8aa', fontSize: 10 }}>{d.label} <span style={{ color: '#3a6a5a' }}>{DRONE_TYPES[d.type].abbr}</span></div>
-              <div style={{ fontSize: 9, color: '#8ab8a8' }}>
+              <div style={{ color: '#5ac8aa', fontSize: FZ.label }}>{d.label} <span style={{ color: '#3a6a5a' }}>{DRONE_TYPES[d.type].abbr}</span></div>
+              <div style={{ fontSize: FZ.hint, color: '#8ab8a8' }}>
                 {d.state === 'rtb' ? 'RTB' : d.state.toUpperCase()}
                 {d.state !== 'rtb' ? ` · ${Math.max(0, Math.ceil(d.endurance))}S` : ''}
                 {d.lock ? ' ◆' : ''}
@@ -454,7 +454,7 @@ export function SelectionTray() {
               game about it and because a zone that resizes moves everything to
               its right. */}
           <div style={{ flex: '0 0 168px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ color: '#6d8296', fontSize: 8.5, letterSpacing: 1.1, fontWeight: 600 }}>
+            <span style={{ color: '#6d8296', fontSize: FZ.hint, letterSpacing: 0.8, fontWeight: 600 }}>
               TASK ORG
             </span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>

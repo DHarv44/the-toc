@@ -10,7 +10,7 @@
 // labelled cluster, a one-of-N picker, a fixed grid of ability cells. The tray
 // decides what goes in them.
 import type { CSSProperties, ReactNode } from 'react'
-import { btn } from '../styles'
+import { FZ, btn } from '../styles'
 
 /** A labelled cluster. The tray had grown into two undifferentiated walls of
  *  same-weight buttons; grouping under a caption is what makes "what does this
@@ -19,9 +19,9 @@ export function Seg({ label, children, warn }: {
   label: string; children: ReactNode; warn?: boolean
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{
-        color: warn ? '#e0b34e' : '#6d8296', fontSize: 8.5, letterSpacing: 1.1, fontWeight: 600,
+        color: warn ? '#e0b34e' : '#6d8296', fontSize: FZ.hint, letterSpacing: 0.8, fontWeight: 600,
       }}>{label}</span>
       {children}
     </div>
@@ -60,7 +60,7 @@ export function Pick<T extends string>({ label, value, options, onPick, title }:
         {options.map(([id, text], i) => (
           <button key={id} onClick={() => onPick(id)} title={title?.(id)}
             style={{
-              padding: '2px 8px', fontSize: 9.5, letterSpacing: 0.4, cursor: 'pointer',
+              padding: '3px 11px', fontSize: FZ.label, letterSpacing: 0.4, cursor: 'pointer',
               fontFamily: 'inherit', border: 'none',
               borderLeft: i ? '1px solid #2f4356' : undefined,
               background: value === id ? '#255a8c' : 'rgba(20,28,36,0.9)',
@@ -87,9 +87,14 @@ export interface CmdSlot {
   on: () => void
 }
 
+// READABLE TYPE COSTS SPACE, AND THE SPACE IS THE CHEAPER OF THE TWO. These
+// were 88×21 carrying a 9.5 px label and a 7.5 px hotkey — under the floor in
+// ui/styles, which exists precisely because picking a size per element ratchets
+// downward until nothing on the screen can be read. The cells grew to fit the
+// scale rather than the scale shrinking to fit the cells.
 const CARD_COLS = 4
-const CELL_W = 88
-const CELL_H = 21
+const CELL_W = 124
+const CELL_H = 26
 
 /** THE COMMAND CARD — a fixed grid, and the reason it is fixed is the only
  *  reason it exists.
@@ -118,26 +123,33 @@ export function CommandCard({ slots }: { slots: CmdSlot[] }) {
       {slots.map(s => (s.show ? (
         <button key={s.key} data-tut={s.tut} onClick={s.on} title={s.title}
           style={{
-            height: CELL_H, position: 'relative', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, borderRadius: 2,
+            height: CELL_H, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: FZ.label, fontWeight: 700, letterSpacing: 0.3, borderRadius: 2,
             border: `1px solid ${s.active ? '#4d90c8' : '#2f4356'}`,
             background: s.active ? '#255a8c' : 'rgba(22,30,40,0.95)',
             color: s.active ? '#eaf4ff' : (s.tone ?? '#b3c6d8'),
-            // A CELL IS A FIXED SIZE OR IT IS NOT A GRID. Pack labels are pack
-            // data — an engineer that builds an OBSERVATION POST wrapped its
-            // cell onto a second line and pushed the whole row out of
-            // alignment, which is the exact failure the grid exists to prevent.
-            // The label clips; the tooltip carries the whole of it.
-            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-            padding: '0 12px 0 4px', textAlign: 'left',
+            padding: '0 8px', textAlign: 'left',
           }}>
-          {s.label}
+          {/* THE KEY SITS IN THE ROW, NOT IN A CORNER. As a floating badge it
+              had to be tiny to stay out of the label's way, and tiny is what
+              the type scale forbids — so it takes its own column at the same
+              size and earns its place by being dimmer instead of smaller. */}
           {s.hot && (
             <span style={{
-              position: 'absolute', top: 1, right: 3, fontSize: 7.5, fontWeight: 700,
-              color: s.active ? '#cfe6ff' : '#5d7f92', opacity: 0.85,
+              flex: '0 0 auto', width: 9, textAlign: 'center', fontWeight: 700,
+              color: s.active ? '#cfe6ff' : '#5d7f92',
             }}>{s.hot}</span>
           )}
+          {/* A CELL IS A FIXED SIZE OR IT IS NOT A GRID. Pack labels are pack
+              data — an engineer that builds an OBSERVATION POST wrapped its
+              cell onto a second line and pushed the whole row out of alignment,
+              which is the exact failure the grid exists to prevent. The label
+              clips; the tooltip carries the whole of it. */}
+          <span style={{
+            flex: 1, minWidth: 0,
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          }}>{s.label}</span>
         </button>
       ) : (
         // THE HOLE IS THE FEATURE. An ability this element does not have leaves
@@ -154,23 +166,24 @@ export function CommandCard({ slots }: { slots: CmdSlot[] }) {
 // pressed every few seconds; GARRISON is pressed once a session, and they were
 // the same size, colour and border. Weight now says which is which.
 export const btnPrimary = (active: boolean, tone?: string): CSSProperties => ({
-  ...btn(active), padding: '3px 12px', fontSize: 11, fontWeight: 700, letterSpacing: 0.6,
+  ...btn(active), padding: '4px 14px', fontSize: FZ.body, fontWeight: 700, letterSpacing: 0.5,
   ...(tone && !active ? { color: tone } : {}),
 })
 export const btnGhost = (active: boolean): CSSProperties => ({
-  ...btn(active), padding: '2px 7px', fontSize: 9,
+  ...btn(active), padding: '3px 10px', fontSize: FZ.label,
   ...(active ? {} : { background: 'transparent', color: '#7c92a6', borderColor: '#243444' }),
 })
 /** compact toggle used in the tray and the fire-mission rows */
 export const optBtn = (active: boolean): CSSProperties => ({
-  ...btn(active), padding: '2px 7px', fontSize: 9.5,
+  ...btn(active), padding: '3px 10px', fontSize: FZ.label,
 })
 
 // The command dock. `minHeight` is the reservation — the control zones' worth,
 // held whether or not there is a selection to put in them, so the map never
-// resizes underneath a click.
+// resizes underneath a click. It grew with the type: three 26 px rows of card
+// plus the headline is what legible controls actually take.
 export const trayShell: CSSProperties = {
-  flex: '0 0 auto', minHeight: 74,
+  flex: '0 0 auto', minHeight: 118,
   background: 'rgba(10,14,18,0.94)', borderTop: '1px solid #2a3a48', color: '#c8d8e8',
-  padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 5,
+  padding: '5px 12px 9px', display: 'flex', flexDirection: 'column', gap: 6,
 }

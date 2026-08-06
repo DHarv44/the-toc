@@ -31,6 +31,7 @@ import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
 import { marchMoving, marchPlan } from '../domains/movement/march'
 import { centerView } from '../map/view'
 import { useUI } from './store'
+import { FZ } from './styles'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
 const WARN = '#e0b34e'
@@ -118,7 +119,7 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
       e.slot ? `Press ${e.slot} to select · double-click to go there` : 'Double-click to go there',
     ].filter(Boolean).join('\n')} style={{
       display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, flex: '0 0 auto',
-      fontFamily: UI, fontSize: 10.5, letterSpacing: 0.3,
+      fontFamily: UI, fontSize: FZ.label, letterSpacing: 0.3,
       padding: compact ? '2px 7px' : '2px 8px 2px 4px',
       borderRadius: 2, cursor: 'pointer',
       border: `1px solid ${active ? '#3d7cb8' : '#22303d'}`,
@@ -136,7 +137,7 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
           words were saying is still one hover away. */}
       {!compact && (
         <span style={{
-          minWidth: 13, textAlign: 'center', fontSize: 9.5, fontWeight: 700,
+          minWidth: 15, textAlign: 'center', fontSize: FZ.label, fontWeight: 700,
           color: e.slot ? (active ? '#ffd67e' : '#5d6f80') : 'transparent',
         }}>{e.slot ?? '·'}</span>
       )}
@@ -154,22 +155,22 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
       <span style={{ color: compact ? st.tone : (active ? '#dceeff' : '#c8d8e8') }}>{e.name}</span>
       {compact ? (
         <>
-          <span style={{ fontSize: 8.5, color: '#5d6f80' }}>
+          <span style={{ fontSize: FZ.hint, color: '#5d6f80' }}>
             {UNIT_TYPES[e.units[0]!.type]?.abbr ?? ''}
           </span>
           {str < 85 && (
-            <span style={{ fontSize: 9, color: str >= 60 ? '#c9a24a' : '#e07a6a' }}>{str}%</span>
+            <span style={{ fontSize: FZ.hint, color: str >= 60 ? '#c9a24a' : '#e07a6a' }}>{str}%</span>
           )}
-          {flag && <span style={{ fontSize: 9, color: WARN }}>•</span>}
+          {flag && <span style={{ fontSize: FZ.hint, color: WARN }}>•</span>}
         </>
       ) : (
         <>
-          {e.team && <span style={{ fontSize: 9, color: '#5d6f80' }}>×{e.units.length}</span>}
+          {e.team && <span style={{ fontSize: FZ.hint, color: '#5d6f80' }}>×{e.units.length}</span>}
           <span style={{
-            fontSize: 9, color: str >= 85 ? '#6d7f90' : str >= 60 ? '#c9a24a' : '#e07a6a',
+            fontSize: FZ.hint, color: str >= 85 ? '#6d7f90' : str >= 60 ? '#c9a24a' : '#e07a6a',
           }}>{str}%</span>
-          <span style={{ fontSize: 9, color: st.tone }}>{st.text}</span>
-          <span style={{ fontSize: 9, color: flag ? WARN : '#5d6f80' }}>
+          <span style={{ fontSize: FZ.hint, color: st.tone }}>{st.text}</span>
+          <span style={{ fontSize: FZ.hint, color: flag ? WARN : '#5d6f80' }}>
             {roe ? roe.toUpperCase() : 'SPLIT'}
           </span>
         </>
@@ -211,7 +212,7 @@ export default function TaskOrgBar() {
   return (
     <div style={{
       flex: '0 0 auto', display: 'flex', alignItems: 'center',
-      height: 24, background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
+      height: 30, background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
     }}>
       {/* THE TEAMS DO NOT SCROLL. They are the things the number keys address
           and the things a commander switches between under time pressure, so
@@ -221,7 +222,7 @@ export default function TaskOrgBar() {
         display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
         padding: '0 8px 0 10px', height: '100%',
       }}>
-        <span style={{ fontFamily: UI, fontSize: 8.5, letterSpacing: 1, color: '#3d4f60' }}>
+        <span style={{ fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.8, color: '#3d4f60' }}>
           TASK ORG
         </span>
         {teams.map(e => <Chip key={e.key} e={e} active={on(e)} />)}
@@ -235,14 +236,14 @@ export default function TaskOrgBar() {
             overflowX: 'auto', overflowY: 'hidden',
           }}>
             <span style={{
-              fontFamily: UI, fontSize: 8.5, letterSpacing: 1, color: '#3d4f60', flex: '0 0 auto',
+              fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.8, color: '#3d4f60', flex: '0 0 auto',
             }}>INDEPENDENT ({loose.length})</span>
             {loose.map(e => <Chip key={e.key} e={e} active={on(e)} compact />)}
           </div>
         </>
       )}
       {!list.length && (
-        <span style={{ fontFamily: UI, fontSize: 9.5, color: '#3d4f60' }}>
+        <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#3d4f60' }}>
           NOTHING IN THE FIELD
         </span>
       )}
