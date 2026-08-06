@@ -10,6 +10,7 @@ import { forceCount, forceCap } from '../domains/economy/economy'
 import { pipelineBacklog } from '../domains/forces/pipeline'
 import { playerPack } from '../packs'
 import { BnDui } from './insignia'
+import ConsolePanel from './console/ConsolePanel'
 import { fmtClock } from './styles'
 
 function Tile({ label, children, accent = '#3d5a75' }: {
@@ -66,11 +67,7 @@ export default function CommandDashboard() {
     .reduce((n, u) => n + u.vehicles.filter(v => v.status === 'DAMAGED').length, 0)
 
   return (
-    <Box pos="absolute" inset={0} p="lg"
-      style={{
-        zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)',
-        fontFamily: 'Consolas, monospace', userSelect: 'none',
-      }}>
+    <ConsolePanel title="COMMAND DASHBOARD">
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
         {playerBn && <BnDui bn={playerBn} h={54} />}
         <Box>
@@ -111,6 +108,6 @@ export default function CommandDashboard() {
           <Sub v={unreadReports(S) ? 'UNREAD REPORTS — S1 HOLDS THE TRAFFIC' : 'NO UNREAD TRAFFIC'} />
         </Tile>
       </Group>
-    </Box>
+    </ConsolePanel>
   )
 }

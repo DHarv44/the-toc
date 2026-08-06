@@ -99,10 +99,15 @@ share one 64 MB sheet; four tabs would bake four.
 
 ## THE STEPS
 
-- [ ] **1 · LEFT WALL** — S1–S4 become dockable panels at rail width, with the
-      current full-viewport view as their MAXIMISED state. GARRISON above a
-      divider, the staff block below it. The map stops being traded away to
-      read a LOGSTAT.
+- [x] **1 · LEFT WALL** — done 2026-08-06. `ui/console/ConsolePanel` is the one
+      shell: WALL (a real left column at a dragged width, the map narrows) and
+      FULL (fixed over the whole viewport). Docked is the default. S1, the
+      S2/S3/S4 board, the command dashboard and the pack viewer all render
+      through it — they each had their own `position:absolute; inset:0` before,
+      four copies of one idea, and the idea was that reading a LOGSTAT costs
+      you the COP.
+      *Still to do here:* move the S-shop openers from the top bar into the
+      left tab column, once GARRISON exists to sit above them (step 3).
 
 - [ ] **2 · RIGHT WALL + TEAM STATIONS** — tabs per team, full-height columns
       opening leftward, width-resizable. Header · read-only locked map · march

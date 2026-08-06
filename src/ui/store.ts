@@ -110,8 +110,15 @@ export interface UIState {
   rosterId: number | null   // unit whose personnel roster panel is open (null = closed)
   openRoster: (id: number) => void
   closeRoster: () => void
-  console: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null // console replacing the map column (null = map)
+  console: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null // open staff console (null = none)
   setConsole: (c: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null) => void
+  // A CONSOLE IS A WALL, NOT A TAKEOVER. It docks as a left column at this
+  // width and the map narrows; FULL gives it the whole viewport for when the
+  // document is the work. See ui/console/ConsolePanel.
+  consoleW: number
+  setConsoleW: (w: number) => void
+  consoleFull: boolean
+  setConsoleFull: (b: boolean) => void
   s1Nav: string | null      // one-shot tab request for the S1 console ('perstats'…)
   openS1: (tab: string) => void
   clearS1Nav: () => void
@@ -184,6 +191,13 @@ export const useUI = create<UIState>()((set, get) => ({
   closeRoster: () => set({ rosterId: null }),
   console: null,
   setConsole: (c) => set({ console: c }),
+  consoleW: 520,
+  setConsoleW: (w) => set({ consoleW: Math.max(360, Math.min(980, w)) }),
+  // DOCKED BY DEFAULT. The old behaviour — a console covering the map — is
+  // still one button away, but it is no longer what happens when you glance at
+  // a report.
+  consoleFull: false,
+  setConsoleFull: (b) => set({ consoleFull: b }),
   s1Nav: null,
   openS1: (tab) => set({ console: 's1', s1Nav: tab }),
   clearS1Nav: () => set({ s1Nav: null }),

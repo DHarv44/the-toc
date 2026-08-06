@@ -9,6 +9,7 @@ import { allPacks, type Pack } from '../packs'
 import { walkFormation } from '../packs/types'
 import { PaletteIcon } from './palette'
 import { PatchIcon } from './insignia'
+import ConsolePanel from './console/ConsolePanel'
 
 const MONO: React.CSSProperties = { fontFamily: 'Consolas, monospace' }
 
@@ -211,8 +212,7 @@ export default function PackViewer() {
   if (!p) return null
 
   return (
-    <Box pos="absolute" inset={0} p="lg"
-      style={{ zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)', userSelect: 'none', ...MONO }}>
+    <ConsolePanel title="PACK VIEWER">
       <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
         {p.patch && <PatchIcon id={p.patch} h={44} />}
         <Box style={{ flex: 1 }}>
@@ -251,6 +251,6 @@ export default function PackViewer() {
       <Section title={`${p.name.toUpperCase()} — ${tab}`}>
         <PackContent p={p} tab={tab} />
       </Section>
-    </Box>
+    </ConsolePanel>
   )
 }

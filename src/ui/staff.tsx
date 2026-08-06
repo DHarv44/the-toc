@@ -14,6 +14,7 @@ import { openReport, queueReport } from '../engine/campaign'
 import { playerPack } from '../packs'
 import { awardDef, type AwardKey } from '../packs/awards'
 import { deskOf } from '../packs/orgquery'
+import ConsolePanel from './console/ConsolePanel'
 import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import { rankW } from '../packs/ranks'
@@ -288,11 +289,7 @@ export function StaffView({ shop, tabs, active, onTab, section, children }: {
   const pack = playerPack()
   const info = pack.staff?.[shop]
   return (
-    <Box pos="absolute" inset={0} p="lg"
-      style={{
-        zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)',
-        fontFamily: MONO, userSelect: 'none',
-      }}>
+    <ConsolePanel title={`${info?.label ?? shop.toUpperCase()} — ${(info?.name ?? '').toUpperCase()}`}>
       <BnHeader plate={info?.label ?? shop.toUpperCase()}
         sub={`${(info?.name ?? '').toUpperCase()} · ${pack.name.toUpperCase()}`}
         about={info} />
@@ -300,6 +297,6 @@ export function StaffView({ shop, tabs, active, onTab, section, children }: {
       <ShopSection shop={shop}>{section}</ShopSection>
       {tabs && active != null && onTab && <StaffTabs tabs={tabs} active={active} onTab={onTab} />}
       {children}
-    </Box>
+    </ConsolePanel>
   )
 }

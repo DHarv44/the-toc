@@ -173,6 +173,16 @@ export default function App() {
         <RailTabs side="left" />
         <CommandRail />
         <ForcesRail />
+        {/* THE STAFF CONSOLES ARE A LEFT WALL, not a takeover. Mounted here as
+            real layout siblings so a docked one NARROWS the map instead of
+            covering it — reading a LOGSTAT used to cost you the whole common
+            operational picture. Each still has a FULL state (ui/console/
+            ConsolePanel) which goes fixed over the viewport, so the old
+            behaviour is one button away when the document is the work. */}
+        <S1Console />
+        <StaffConsole />
+        <CommandDashboard />
+        <PackViewer />
         {/* map column: map area above, selection tray below */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
@@ -181,11 +191,6 @@ export default function App() {
             {/* campaign objectives tracker + FRAGO VTC — null outside campaign mode */}
             <CampaignObjectives />
             <VtcFrago />
-            {/* consoles replace the map column while open */}
-            <S1Console />
-            <StaffConsole />
-            <CommandDashboard />
-            <PackViewer />
             {/* base-under-fire INCOMING banner: top of the map/console pane */}
             <IncomingBanner />
           </div>

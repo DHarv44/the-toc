@@ -23,6 +23,7 @@ import { Portrait } from './portrait'
 import { RankIcon, RibbonIcon } from './insignia'
 import BnHeader from './BnHeader'
 import { SectionDivider, ShopSection, StaffTabs, UnreadDot, rankW, type StaffTab } from './staff'
+import ConsolePanel from './console/ConsolePanel'
 
 export { UnreadDot }   // S1 set the format; the dot now lives in the staff kit
 
@@ -546,11 +547,7 @@ export default function S1Console() {
   }
 
   return (
-    <Box pos="absolute" inset={0} p="lg"
-      style={{
-        zIndex: 40, overflow: 'auto', background: 'rgba(8,11,15,0.985)',
-        fontFamily: 'Consolas, monospace', userSelect: 'none',
-      }}>
+    <ConsolePanel title="S1 — PERSONNEL">
       {/* DUSTWUN attention pulse (company + platoon labels) */}
       <style>{'@keyframes s1pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
       {/* the proud battalion header — shared component (S1 set the format) */}
@@ -717,6 +714,6 @@ export default function S1Console() {
           ? `${pipelineBacklog()} BILLET${pipelineBacklog() === 1 ? '' : 'S'} REQUESTED · NEXT PACKET ${Math.max(0, Math.ceil((S.replT - S.t) / 60))} MIN · UNITS ABSORB AT A FRIENDLY BASE`
           : 'NO BACKLOG — REAR DETACHMENT STANDING BY'}
       </Text>
-    </Box>
+    </ConsolePanel>
   )
 }
