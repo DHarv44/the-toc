@@ -121,6 +121,11 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
         const st = groupState(list, t.id)
         const str = groupStrength(list)
         const plan = marchPlan(t.id)
+        // WHICH TEAM YOU HAVE HOLD OF. The dock stopped naming it — it commands
+        // elements — so the tab is where "the thing I am commanding is TEAM
+        // BRAVO" has to be visible, whether or not its station is open.
+        const held = list.every(u => ui.selectedIds.includes(u.id))
+          && ui.selectedIds.length === list.length
         return {
           // 'TEAM BRAVO' down a 34 px strip, nine times, is the word TEAM nine
           // times. The stem is what distinguishes them and the digit is how

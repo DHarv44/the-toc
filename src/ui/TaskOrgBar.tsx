@@ -28,7 +28,6 @@ import { commandsStructure, underPlayerCommand } from '../domains/forces/command
 import { UNIT_TYPES } from '../domains/forces/catalog'
 import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
 import { PaletteIcon, garrisonSlots } from './palette'
-import InstallPanel from './install/InstallPanel'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
 import { groupState, groupStrength, strengthTone } from './forces/state'
 import { marchPlan } from '../domains/movement/march'
@@ -231,18 +230,16 @@ export default function TaskOrgBar() {
 }
 
 /** THE INSTALLATIONS ROW. Every base you command, and one click into what it
- *  can do — see ui/install/InstallPanel, which opens upward over the map.
+ *  can do — see ui/install/InstallMenu, which drops out of the chip.
  *
  *  A base is not a unit and its chip does not pretend to be one: what a
  *  commander wants off it at a glance is whether anybody is still in it, and
  *  whether it has a reaction force standing. */
 function InstallRow() {
   const ui = useUI()
-  const [open, setOpen] = useState<number | null>(null)
   const sites = S.structures
     .filter(s => s.side === 'friend' && commandsStructure(s))
     .sort((a, b) => BASE_ORDER.indexOf(a.kind) - BASE_ORDER.indexOf(b.kind))
-  const st = open != null ? sites.find(s => s.id === open) : null
 
   const hqId = sites.find(s => s.kind === 'HQ')?.id
   const homedHere = (sl: { garrisonAt?: number | null }, id: number) =>
@@ -250,25 +247,21 @@ function InstallRow() {
       ? sl.garrisonAt : hqId) === id
 
   return (
-    <>
-      {st && <InstallPanel st={st} onClose={() => setOpen(null)} />}
-      <Scroller label={`INSTALLATIONS (${sites.length})`} empty={!sites.length}
-        hint="NONE ESTABLISHED">
-        {sites.map(s => {
-          const slots = garrisonSlots(true).filter(sl => homedHere(sl, s.id))
-          const qrf = slots.filter(sl => sl.qrf).length
-          const building = s.buildT > 0
-          const active = open === s.id
-          return (
+    <Scroller label={`INSTALLATIONS (${sites.length})`} empty={!sites.length}
+      hint="NONE ESTABLISHED">
+      {sites.map(s => {
+        const slots = garrisonSlots(true).filter(sl => homedHere(sl, s.id))
+        const qrf = slots.filter(sl => sl.qrf).length
+        const building = s.buildT > 0
+        const active = ui.selectedIds.length === 1 && ui.selectedIds[0] === s.id
+        return (
+          // A CHIP SELECTS AND GOES THERE. Nothing else — what the base can DO
+          // is the selection tray's job, the same way it is for an element.
+          // This bar is the roster; the tray is the card for whatever is
+          // selected. That is the whole shape of an RTS bottom panel and it was
+          // being fought by a chip that opened its own panel over the map.
             <button key={s.id}
-              // CLICK GOES THERE AND OPENS IT. Same rule as the row above: you
-              // reach into this bar for one base, and looking at it and working
-              // it are the same intent.
-              onClick={() => {
-                ui.select(s.id)
-                centerView(s)
-                setOpen(o => (o === s.id ? null : s.id))
-              }}
+              onClick={() => { ui.select(s.id); centerView(s) }}
               title={[
                 `${s.label} · ${STRUCTURES[s.kind].name.toUpperCase()}`,
                 building ? `UNDER CONSTRUCTION — ${Math.ceil(s.buildT)}s` : null,
@@ -305,10 +298,9 @@ function InstallRow() {
                   </>
                 )}
             </button>
-          )
-        })}
-      </Scroller>
-    </>
+        )
+      })}
+    </Scroller>
   )
 }
 

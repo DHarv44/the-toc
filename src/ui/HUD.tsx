@@ -6,9 +6,12 @@
 // over: ui/tray (the dock's parts), ui/menus (the right-click menus), ui/feeds
 // (the whole UAS window), ui/mapUtil (the two helpers both halves needed).
 import { useRef, useEffect, useState, type CSSProperties } from 'react'
-import { Box, Group, Text } from '@mantine/core'
+import { Box, Group, Popover, Text } from '@mantine/core'
 import { S } from '../engine/state'
-import type { Unit, Drone, Roe, WeaponsControl } from '../engine/GameState'
+import type { Structure, Unit, Drone, Roe, WeaponsControl } from '../engine/GameState'
+import { commandsStructure } from '../domains/forces/command'
+import { STRUCTURES } from '../domains/installations/catalog'
+import ComponentDrop, { garrisonAt, installComponents } from './install/InstallComponents'
 import {
   orderHold, orderMount, orderRoe, orderDefend, orderWeapons,
 } from '../domains/forces/orders'
@@ -192,6 +195,15 @@ export function SelectionTray() {
   const [roster, setRoster] = useState(false)
   const units = ui.selectedIds.map(id => S.units.find(u => u.id === id)).filter((u): u is Unit => !!u)
   const selDrones = ui.selectedIds.map(id => S.drones.find(d => d.id === id)).filter((d): d is Drone => !!d)
+  // A BASE IS A SELECTED OBJECT TOO, and this row is the card for whatever is
+  // selected — which is what a bottom panel is in every real-time strategy game
+  // ever made. Picking an installation used to leave the dock saying "SELECT AN
+  // ELEMENT OR A TEAM" while a separate panel opened over the map.
+  const st = ui.selectedIds.length === 1
+    ? S.structures.find(s => s.id === ui.selectedIds[0] && commandsStructure(s))
+    : undefined
+  if (st) return <StructureTray st={st} />
+
   // THE GROUND MUST NOT MOVE WHEN YOU CLICK ON IT. The tray is a layout row, so
   // appearing on the first selection used to shrink the map and shift every
   // symbol up sixty pixels — under a cursor that was mid-click, on a battlefield
@@ -207,17 +219,6 @@ export function SelectionTray() {
     )
   }
   const count = units.length + selDrones.length
-  // THE SELECTION IS A TEAM when every element of it belongs to the same one
-  // and the whole team is picked — which is what clicking a rolled-up symbol
-  // gives you, and what the tray should then be about.
-  const t0 = units.length ? teamOf(units[0]!) : undefined
-  const selTeam = t0 && units.length === teamUnits(t0).length
-    && units.every(u => t0.members.includes(u.id)) ? t0 : null
-  const selCdr = selTeam ? teamCdr(selTeam) : null
-  const selPlan = selTeam ? marchPlan(selTeam.id) : null
-  const teamStr = selTeam && units.length
-    ? Math.round(units.reduce((n, u) => n + u.strength, 0) / units.length) : 0
-
   // THE TWELVE CELLS, IN THIS ORDER, FOREVER — see ui/tray CommandCard for why
   // the order and the holes matter, and ui/forces/actions for the definitions.
   // They moved out because the TEAM STATION offers the same verbs to a whole
@@ -242,30 +243,14 @@ export function SelectionTray() {
 
   return (
     <div style={trayShell}>
-      {/* WHO YOU ARE COMMANDING — one line, and for a team it is the team.
-          This used to say "5 SELECTED" over five near-identical cards that
-          repeated the FORCES rail verbatim and never once named the thing the
-          player had actually picked. A commander looking at a company team
-          wants its name, who answers for it, what it is worth and whether it
-          is moving; the roster is a detail you open, not the headline. */}
+      {/* WHAT YOU HAVE HOLD OF, AND NOTHING ABOUT WHOSE TEAM IT IS.
+          This used to become a team headline whenever the selection happened to
+          be a whole one — name, commander, interval, whether the column was
+          under way. Every word of that is the station's now, and a dock that
+          re-labels itself depending on what you picked is a dock the player has
+          to read before they can use it. It commands ELEMENTS. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {selTeam ? (
-          <>
-            <span style={{ color: '#7ec8ff', fontSize: FZ.item, letterSpacing: 0.8 }}>{selTeam.name}</span>
-            <span style={{ color: '#8ba3b8', fontSize: FZ.hint }}>
-              {teamUnits(selTeam).length} ELEMENTS · {teamStr}%
-              {selCdr ? ` · ${selCdr.soldier?.rank ?? ''} ${selCdr.soldier?.name ?? ''}` : ''}
-              {selCdr?.acting ? ' (ACTING)' : ''}
-            </span>
-            {selPlan && (
-              <span style={{ color: '#54708a', fontSize: FZ.hint }}>
-                {MARCH_INTERVAL[selPlan.column]} M · {marchMoving(selTeam.id) ? 'UNDER WAY' : 'AT THE SP'}
-              </span>
-            )}
-          </>
-        ) : (
-          <span style={{ color: '#54708a', fontSize: FZ.label, letterSpacing: 1 }}>{count} SELECTED</span>
-        )}
+        <span style={{ color: '#54708a', fontSize: FZ.label, letterSpacing: 1 }}>{count} SELECTED</span>
         <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
         <button style={{ ...optBtn(roster), color: '#7c92a6' }}
           title={roster ? 'Hide the roster' : 'Show the elements'}
@@ -363,20 +348,15 @@ export function SelectionTray() {
           labelled not. A row of height is the cheaper of the two. */}
       {units.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-          {/* ZONE 1 — WHO YOU ARE COMMANDING AND WHAT IT IS PART OF.
-              Task organization first and at a fixed width, because this is a
-              game about it and because a zone that resizes moves everything to
-              its right. */}
-          <div style={{ flex: '0 0 168px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ color: '#6d8296', fontSize: FZ.hint, letterSpacing: 0.8, fontWeight: 600 }}>
-              TASK ORG
-            </span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-              <TaskOrgSeg units={units} />
-            </div>
-          </div>
+          {/* THE TASK ORG ZONE IS GONE. FORM / JOIN / DETACH and the door to a
+              team lived here because the dock was once the only surface that
+              knew about teams. Forming is `G` or the right-click menu, which is
+              where the elements you mean are; everything else about a team is
+              its station. A dock that grows a column of buttons whenever the
+              selection happens to be organised is the dock re-labelling itself,
+              which is the thing the fixed card exists to prevent. */}
 
-          {/* ZONE 2 — THE COMMAND CARD. Fixed grid, printed hotkeys. */}
+          {/* ZONE 1 — THE COMMAND CARD. Fixed grid, printed hotkeys. */}
           <CommandCard slots={cardSlots} />
 
           {/* ZONE 3 — STANDING ORDERS. Not things you do, things that stay
@@ -424,6 +404,74 @@ export function SelectionTray() {
 }
 
 
+
+/** THE BASE'S CARD. Same row, same job: what is selected, and what it can do.
+ *
+ *  An installation's verbs are LISTS rather than buttons — nineteen elements in
+ *  barracks, eight things division might send — so each one is a picker that
+ *  drops its list against its own chip and closes when you have chosen. A
+ *  button that opens a panel over the map is not a picker; it is a mode. */
+function StructureTray({ st }: { st: Structure }) {
+  const ui = useUI()
+  const [open, setOpen] = useState<string | null>(null)
+  const comps = installComponents(st)
+  const gar = garrisonAt(st)
+  const building = st.buildT > 0
+
+  return (
+    <div style={trayShell}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#7ec8ff', fontSize: FZ.item, letterSpacing: 0.8 }}>{st.label}</span>
+        <span style={{ color: '#8ba3b8', fontSize: FZ.hint }}>
+          {STRUCTURES[st.kind].name.toUpperCase()}
+          {building ? ` · BUILDING ${Math.ceil(st.buildT)}S` : ''}
+          {` · ${gar.length} IN GARRISON`}
+          {st.kind === 'FOB' ? ` · ${Math.floor(st.stock || 0).toLocaleString()} STOCK` : ''}
+        </span>
+        <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
+        <button style={{ ...optBtn(false), color: '#7c92a6' }} title="Clear selection"
+          onClick={() => ui.setSelected([])}>CLEAR</button>
+      </div>
+      {building ? (
+        <span style={{ color: '#54708a', fontSize: FZ.label }}>
+          UNDER CONSTRUCTION — NOTHING CAN BE WORKED FROM HERE YET
+        </span>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          {comps.map(c => (
+            <Popover key={c.key} opened={open === c.key} position="top-start" withinPortal
+              offset={4} shadow="md" radius={3} onDismiss={() => setOpen(null)}
+              styles={{ dropdown: {
+                background: 'rgba(9,13,18,0.985)', border: '1px solid #2a3a48', padding: 4,
+              } }}>
+              <Popover.Target>
+                <button onClick={() => setOpen(o => (o === c.key ? null : c.key))}
+                  title={`${c.label} — ${c.note ?? c.n}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: FZ.label, letterSpacing: 0.3,
+                    padding: '4px 10px', borderRadius: 2,
+                    border: `1px solid ${open === c.key ? '#4d90c8' : '#2f4356'}`,
+                    background: open === c.key ? '#255a8c' : 'rgba(22,30,40,0.95)',
+                    color: open === c.key ? '#eaf4ff' : '#b3c6d8',
+                  }}>
+                  <span style={{ fontWeight: 700 }}>{c.label}</span>
+                  <span style={{ fontSize: FZ.hint, color: c.tone ?? '#6d8296' }}>
+                    {c.note ?? c.n}
+                  </span>
+                  <span style={{ fontSize: FZ.hint, color: '#54708a' }}>▾</span>
+                </button>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <ComponentDrop st={st} kind={c.key} onClose={() => setOpen(null)} />
+              </Popover.Dropdown>
+            </Popover>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // The UAS feed window lives in ui/feeds. Re-exported because FeedsPanel and the
 // tray both import it from here today; the name is what they know it by.
