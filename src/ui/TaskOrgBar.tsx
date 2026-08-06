@@ -24,9 +24,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import type { Team, Unit } from '../engine/GameState'
-import { underPlayerCommand } from '../domains/forces/command'
+import { commandsStructure, underPlayerCommand } from '../domains/forces/command'
 import { UNIT_TYPES } from '../domains/forces/catalog'
-import { PaletteIcon } from './palette'
+import { STRUCTURES, type StructureTypeKey } from '../domains/installations/catalog'
+import { PaletteIcon, garrisonSlots } from './palette'
+import InstallPanel from './install/InstallPanel'
 import { teamCdr, teamOf, teamUnits } from '../domains/forces/teams'
 import { marchMoving, marchPlan } from '../domains/movement/march'
 import { centerView } from '../map/view'
@@ -35,6 +37,9 @@ import { FZ } from './styles'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
 const WARN = '#e0b34e'
+// the order a staff lists its installations: the command post, then what it
+// has pushed forward, then the strip, then the observation posts
+const BASE_ORDER: readonly StructureTypeKey[] = ['HQ', 'FOB', 'AFLD', 'OP']
 
 /** The one value the whole team shares, or null — MIXED. */
 function shared<T>(vals: T[]): T | null {
@@ -102,21 +107,26 @@ function Chip({ e, active, compact }: { e: Entry; active: boolean; compact?: boo
   const drifted = !!plan?.roe && e.units.some(u => u.roe !== plan.roe)
   const flag = split || drifted
 
-  const pick = () => ui.setSelected(e.units.map(u => u.id))
-  const go = () => {
-    pick()
-    const cx = e.units.reduce((n, u) => n + u.x, 0) / e.units.length
-    const cy = e.units.reduce((n, u) => n + u.y, 0) / e.units.length
-    centerView({ x: cx, y: cy })
+  // A CLICK TAKES YOU THERE. This bar is a LOCATOR, not a list you read down —
+  // the rails deliberately separate select from go, because reading a roster
+  // top to bottom while the camera jumps to each row is unusable. Nobody reads
+  // this bar; they reach into it for one element and the next thing they want
+  // is to see it.
+  const pick = () => {
+    ui.setSelected(e.units.map(u => u.id))
+    centerView({
+      x: e.units.reduce((n, u) => n + u.x, 0) / e.units.length,
+      y: e.units.reduce((n, u) => n + u.y, 0) / e.units.length,
+    })
   }
 
   return (
-    <button onClick={pick} onDoubleClick={go} title={[
+    <button onClick={pick} title={[
       e.team ? `${e.name} — ${e.units.length} elements` : e.name,
       cdr ? `${cdr.soldier?.rank ?? ''} ${cdr.soldier?.name ?? cdr.unit.label}${cdr.acting ? ' (acting)' : ''}`.trim() : null,
       flag ? `ON CONTACT: ${e.units.map(u => `${u.label} ${u.roe.toUpperCase()}`).join(', ')}` : null,
       `${str}% · ${st.text}${roe ? ` · ${roe.toUpperCase()}` : ' · SPLIT DRILL'}`,
-      e.slot ? `Press ${e.slot} to select · double-click to go there` : 'Double-click to go there',
+      e.slot ? `Press ${e.slot} to select · click to go there` : 'Click to go there',
     ].filter(Boolean).join('\n')} style={{
       display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, flex: '0 0 auto',
       fontFamily: UI, fontSize: FZ.label, letterSpacing: 0.3,
@@ -207,26 +217,107 @@ export default function TaskOrgBar() {
 
   const sel = new Set(ui.selectedIds)
   const on = (e: Entry) => e.units.length === sel.size && e.units.every(u => sel.has(u.id))
-  const teams = list.filter(e => e.team)
   const loose = list.filter(e => !e.team)
   return (
     <div style={{
-      flex: '0 0 auto', display: 'flex', flexDirection: 'column',
+      flex: '0 0 auto', display: 'flex', flexDirection: 'column', position: 'relative',
       background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
     }}>
-      {/* INDEPENDENT ON TOP, TEAMS UNDER THEM — the shape of the act. Loose
-          elements are raw material and teams are what you make of them, so the
-          eye travels from the pieces to the thing they were built into, and a
-          team formed out of that top row appears directly beneath it. */}
-      <Scroller label={`INDEPENDENT (${loose.length})`} empty={!loose.length && !!teams.length}>
+      {/* WHAT YOU HAVE LOOSE, AND WHERE THE REST OF IT IS STANDING.
+          The teams used to be the second row. They are tabs on the right wall
+          now, each with a station behind it, so this bar stopped being a task
+          org board and became what it should have been: everything that is
+          available to COMMIT. Loose elements on the ground, and the bases the
+          rest of the battalion is still sitting in. */}
+      <Scroller label={`INDEPENDENT (${loose.length})`} empty={!loose.length}
+        hint="EVERY ELEMENT IS TASK ORGANIZED">
         {loose.map(e => <Chip key={e.key} e={e} active={on(e)} compact />)}
       </Scroller>
       <div style={{ height: 1, background: '#16222e' }} />
-      <Scroller label="TASK ORG" empty={!teams.length}
-        hint={teams.length ? undefined : 'MARQUEE TWO OR MORE AND PRESS G'}>
-        {teams.map(e => <Chip key={e.key} e={e} active={on(e)} />)}
-      </Scroller>
+      <InstallRow />
     </div>
+  )
+}
+
+/** THE INSTALLATIONS ROW. Every base you command, and one click into what it
+ *  can do — see ui/install/InstallPanel, which opens upward over the map.
+ *
+ *  A base is not a unit and its chip does not pretend to be one: what a
+ *  commander wants off it at a glance is whether anybody is still in it, and
+ *  whether it has a reaction force standing. */
+function InstallRow() {
+  const ui = useUI()
+  const [open, setOpen] = useState<number | null>(null)
+  const sites = S.structures
+    .filter(s => s.side === 'friend' && commandsStructure(s))
+    .sort((a, b) => BASE_ORDER.indexOf(a.kind) - BASE_ORDER.indexOf(b.kind))
+  const st = open != null ? sites.find(s => s.id === open) : null
+
+  const hqId = sites.find(s => s.kind === 'HQ')?.id
+  const homedHere = (sl: { garrisonAt?: number | null }, id: number) =>
+    (S.structures.some(s => s.id === sl.garrisonAt && s.side === 'friend')
+      ? sl.garrisonAt : hqId) === id
+
+  return (
+    <>
+      {st && <InstallPanel st={st} onClose={() => setOpen(null)} />}
+      <Scroller label={`INSTALLATIONS (${sites.length})`} empty={!sites.length}
+        hint="NONE ESTABLISHED">
+        {sites.map(s => {
+          const slots = garrisonSlots(true).filter(sl => homedHere(sl, s.id))
+          const qrf = slots.filter(sl => sl.qrf).length
+          const building = s.buildT > 0
+          const active = open === s.id
+          return (
+            <button key={s.id}
+              // CLICK GOES THERE AND OPENS IT. Same rule as the row above: you
+              // reach into this bar for one base, and looking at it and working
+              // it are the same intent.
+              onClick={() => {
+                ui.select(s.id)
+                centerView(s)
+                setOpen(o => (o === s.id ? null : s.id))
+              }}
+              title={[
+                `${s.label} · ${STRUCTURES[s.kind].name.toUpperCase()}`,
+                building ? `UNDER CONSTRUCTION — ${Math.ceil(s.buildT)}s` : null,
+                `${slots.length} IN GARRISON · ${qrf ? `${qrf} ON QRF` : 'NO QRF STANDING'}`,
+                'Click to go there and open what it can do',
+              ].filter(Boolean).join('\n')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
+                fontFamily: UI, fontSize: FZ.label, letterSpacing: 0.3,
+                padding: '2px 8px', borderRadius: 2, cursor: 'pointer',
+                border: `1px solid ${active ? '#3d7cb8' : '#22303d'}`,
+                background: active ? '#16304a' : 'rgba(18,26,34,0.9)',
+                color: active ? '#dceeff' : '#9fb3c6',
+              }}>
+              {/* the kind, unless the label already says it — a pack names its
+                  command post 'HQ COBALT', and 'HQ HQ COBALT' is what happens
+                  when a chip decorates a label it did not read */}
+              {!s.label.toUpperCase().startsWith(s.kind) && (
+                <span style={{ color: '#5d6f80', fontSize: FZ.hint }}>{s.kind}</span>
+              )}
+              <span>{s.label}</span>
+              {building
+                ? <span style={{ fontSize: FZ.hint, color: WARN }}>⛏{Math.ceil(s.buildT)}s</span>
+                : (
+                  <>
+                    <span style={{ fontSize: FZ.hint, color: slots.length ? '#6d8296' : '#3d4f60' }}>
+                      ⌂{slots.length}
+                    </span>
+                    {/* NO QRF IS THE FACT WORTH SEEING. A base with a reaction
+                        force says so quietly; one without says so in amber. */}
+                    <span style={{ fontSize: FZ.hint, color: qrf ? '#7ec87e' : WARN }}>
+                      {qrf ? `⚡${qrf}` : '⚡0'}
+                    </span>
+                  </>
+                )}
+            </button>
+          )
+        })}
+      </Scroller>
+    </>
   )
 }
 
