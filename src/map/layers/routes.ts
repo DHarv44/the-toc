@@ -13,6 +13,41 @@ import type { Drone, Unit } from '../../engine/GameState'
 import { MARCH_INTERVAL, marchPlan } from '../../domains/movement/march'
 import type { Frame } from '../frame'
 
+/** COMMISSIONED MSRs — infrastructure, not intent, so they draw wider and
+ *  dashier than any unit's route and carry their status in their colour. The
+ *  status IS the readout: a TOC talks about its routes in exactly these two
+ *  colours (domains/control/routes). */
+export function drawMsrs(f: Frame): void {
+  const { ctx } = f
+  for (const r of S.msrs) {
+    if (r.pts.length < 2) continue
+    const col = r.status === 'green' ? 'rgba(74,196,116,0.9)' : 'rgba(230,84,68,0.92)'
+    ctx.save()
+    ctx.lineJoin = 'round'
+    ctx.setLineDash([16, 9])
+    for (const pass of [{ c: 'rgba(10,14,10,0.7)', w: 6 }, { c: col, w: 3 }]) {
+      ctx.strokeStyle = pass.c
+      ctx.lineWidth = pass.w
+      ctx.beginPath()
+      ctx.moveTo(f.w2sX(r.pts[0]!.x), f.w2sY(r.pts[0]!.y))
+      for (let i = 1; i < r.pts.length; i++) ctx.lineTo(f.w2sX(r.pts[i]!.x), f.w2sY(r.pts[i]!.y))
+      ctx.stroke()
+    }
+    ctx.setLineDash([])
+    const mid = r.pts[Math.floor(r.pts.length / 2)]!
+    const x = f.w2sX(mid.x), y = f.w2sY(mid.y)
+    const label = `MSR ${r.name} · ${r.status.toUpperCase()}`
+    ctx.font = '600 10px Inter, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    const w = ctx.measureText(label).width
+    ctx.fillStyle = 'rgba(10,20,30,0.8)'
+    ctx.fillRect(x - w / 2 - 5, y - 21, w + 10, 15)
+    ctx.fillStyle = col
+    ctx.fillText(label, x, y - 10)
+    ctx.restore()
+  }
+}
+
 /** Every friendly mover that is NOT selected: a thin line and a small arrow. */
 export function drawAmbientRoutes(f: Frame): void {
   const { ctx } = f

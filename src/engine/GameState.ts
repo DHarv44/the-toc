@@ -108,6 +108,12 @@ export interface ControlMeasure {
   kind: MeasureKind
   name: string               // 'BLUE', '01', 'OBJ 1' — decorated by measureLabel
   pts: Vec2[]                // two for a line, one for a point
+  /** THE COMMANDER'S PEN — stroke colour and weight chosen when it was drawn.
+   *  Absent = the kind's own defaults. Style is the author's, not the kind's:
+   *  a red axis and a green axis on one sheet MEAN something to whoever drew
+   *  them, and the sheet's job is to keep saying it. */
+  color?: string
+  weight?: number
   /** unit ids that have crossed/reached it, so a line is called once */
   crossed: number[]
   /** BOUNDARY ONLY — whose ground is on each side. The key is the sign the
@@ -116,6 +122,21 @@ export interface ControlMeasure {
    *  Fixed at the moment the line is drawn: a boundary that follows a team
    *  around as it manoeuvres is not a boundary, it is a leash. */
   owners?: { neg: number | null; pos: number | null }
+}
+
+/** A NAMED ROUTE — an MSR the battalion OWNS, not a per-order pathfinding
+ *  product. Commissioned by the commander (the router solves it along real
+ *  roads, the player approves and it gets a name), swept by engineers, used
+ *  CONSISTENTLY by convoys. See domains/control/routes.
+ *
+ *  Status is the whole point: a route is RED until it has been proofed —
+ *  commissioning one off the map does not make it safe — and goes RED again
+ *  when something goes off on it. Convoys do not run a red route. */
+export interface NamedRoute {
+  id: number
+  name: string               // 'TAMPA' — the net says 'MSR TAMPA'
+  pts: Vec2[]                // the solved road polyline, start to end
+  status: 'green' | 'red'
 }
 
 /** THE ROUTE A COLUMN SHARES.
@@ -427,6 +448,9 @@ export interface ConvoyTask {
   phase: 'toSource' | 'load' | 'toFob' | 'unload'
   carrying: number
   timer: number
+  /** holding because the assigned MSR is RED — radioed once, cleared when it
+   *  goes green (domains/control/routes) */
+  heldRed?: boolean
 }
 
 export interface Unit {
@@ -548,6 +572,9 @@ export interface Unit {
   // QRF (task #30): assigned as the Quick Reaction Force of this base
   qrfHome?: number           // structure id the unit stands QRF for
   qrfOutT?: number           // responding since (unset = standing by in garrison)
+  /** ROUTE CLEARANCE in progress: the NamedRoute id this element is sweeping
+   *  (eod-capable types only — domains/control/routes) */
+  clearing?: number
 }
 
 // --- installations --------------------------------------------------------
@@ -956,6 +983,7 @@ export interface GameState {
   march: MarchPlan[]         // authored orders of march, by move-group id
   teams: Team[]              // the task organization — named, durable groupings
   routes: ColumnRoute[]      // the shared polyline each column is marching on
+  msrs: NamedRoute[]         // commissioned supply routes (MSR GREEN/RED status)
   measures: ControlMeasure[] // phase lines, checkpoints, objectives
   recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
@@ -1018,6 +1046,7 @@ export function createInitialState(): GameState {
     march: [],
     teams: [],
     routes: [],
+    msrs: [],
     measures: [],
     recoveries: [],
     hazards: [],

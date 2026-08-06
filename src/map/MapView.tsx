@@ -32,6 +32,9 @@ import { controlField } from '../engine/frontline'
 import { drawUnitSymbol, drawDroneIcon, drawStructure, drawPlace } from './symbols'
 import { MARCH_INTERVAL, marchPlan } from '../domains/movement/march'
 import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/control/measures'
+import {
+  commissionRoute, distToMsr, msrLabel, orderClearRoute, removeMsr,
+} from '../domains/control/routes'
 import { toast } from '../domains/comms/radio'
 import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
@@ -43,7 +46,7 @@ import { drawCredit, drawFeatures } from './layers/features'
 import { drawMeasures } from './layers/measures'
 import { drawBackdrop, drawControlField, drawTerrain } from './layers/terrain'
 import {
-  drawAmbientDroneRoutes, drawAmbientRoutes, drawMarchTable,
+  drawAmbientDroneRoutes, drawAmbientRoutes, drawMarchTable, drawMsrs,
   drawSelectedDroneRoutes, drawSelectedRoutes,
 } from './layers/routes'
 import { drawDebris, drawHill, drawPontoons, drawStructures } from './layers/places'
@@ -205,6 +208,16 @@ export default function MapView() {
     /** The measure under the cursor: nearest point for a marker, nearest point
      *  ON the segment for a line — you grab a phase line by the line, not by
      *  its ends. */
+    function pickMsr(wx: number, wy: number) {
+      const r = 26 / view.ppm
+      let best = null as (typeof S.msrs)[number] | null, bd = Infinity
+      for (const m of S.msrs) {
+        const d = distToMsr(m, wx, wy)
+        if (d < r && d < bd) { bd = d; best = m }
+      }
+      return best
+    }
+
     function pickMeasure(wx: number, wy: number): ControlMeasure | null {
       const r = 22 / view.ppm
       let best: ControlMeasure | null = null, bd = Infinity
@@ -441,17 +454,53 @@ export default function MapView() {
           toast(`${measureLabel(hit)} OFF THE GRAPHIC`)
           return
         }
+        // the graphic takes the PEN as armed — colour and weight are the
+        // author's choice, remembered until changed (HUD's style row)
+        const pen = (m: ReturnType<typeof addMeasure>) => {
+          if (!m) return
+          if (ui.markStyle.color) m.color = ui.markStyle.color
+          m.weight = ui.markStyle.weight
+          toast(`${measureLabel(m)} ON THE GRAPHIC`)
+        }
         if (isLine(kind)) {
           if (!wasDown) return
           const ax = s2wX(wasDown.x), ay = s2wY(wasDown.y)
           if (Math.hypot(wx - ax, wy - ay) > 60) {
-            const m = addMeasure(kind, [{ x: ax, y: ay }, { x: wx, y: wy }])
-            if (m) toast(`${measureLabel(m)} ON THE GRAPHIC`)
+            pen(addMeasure(kind, [{ x: ax, y: ay }, { x: wx, y: wy }]))
           }
         } else {
-          const m = addMeasure(kind, [{ x: wx, y: wy }])
-          if (m) toast(`${measureLabel(m)} ON THE GRAPHIC`)
+          pen(addMeasure(kind, [{ x: wx, y: wy }]))
         }
+        return
+      }
+
+      // COMMISSIONING AN MSR: drag start → end and the ROUTER solves it along
+      // the real roads — you approve a solved route, you never freehand one.
+      // Click an existing route to decommission it. (domains/control/routes)
+      if (ui.mode === 'msr') {
+        lineDrag = null
+        const hit = pickMsr(wx, wy)
+        if (hit) {
+          removeMsr(hit.id)
+          toast(`${msrLabel(hit)} DECOMMISSIONED`)
+          return
+        }
+        if (!wasDown) return
+        const ax = s2wX(wasDown.x), ay = s2wY(wasDown.y)
+        if (Math.hypot(wx - ax, wy - ay) > 200) {
+          const r = commissionRoute({ x: ax, y: ay }, { x: wx, y: wy })
+          if (!r) toast('NO ROAD ROUTE BETWEEN THOSE POINTS')
+        }
+        return
+      }
+      // ROUTE CLEARANCE: click the route the selected engineer element sweeps
+      if (ui.mode === 'clearroute') {
+        const hit = pickMsr(wx, wy)
+        if (!hit) return
+        const eng = selectedFriendlies().find(u => UNIT_TYPES[u.type]?.eod)
+        if (!eng) { toast('SELECT AN ENGINEER ELEMENT FIRST'); return }
+        orderClearRoute(eng.id, hit.id)
+        useUI.setState({ mode: 'select' })
         return
       }
 
@@ -748,6 +797,7 @@ export default function MapView() {
 
       // ROUTES are a layer — map/layers/routes. The faint traces first, so the
       // command graphics and the control measures draw over them.
+      drawMsrs(frame)
       drawAmbientRoutes(frame)
       // CONTROL MEASURES are a layer — map/layers/measures. Still drawn here,
       // under the units and over the terrain, which is the whole convention.

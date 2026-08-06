@@ -88,6 +88,36 @@ export default function HUD() {
             onClick={() => ui.setMode(
               ui.mode === `measure:${kind}` ? 'select' : `measure:${kind}`)}>{label}</MapButton>
         ))}
+        {/* NAMED ROUTES: commission an MSR (the router solves the drag along
+            real roads; RED until an engineer proofs it) and send the sweep */}
+        <MapButton small active={ui.mode === 'msr'}
+          title="Route — DRAG start to end and the router solves it along real roads. Commissioned RED until an engineer proofs it; convoys between its ends follow it, and hold when it is red. Click an existing route to decommission."
+          onClick={() => ui.setMode(ui.mode === 'msr' ? 'select' : 'msr')}>RTE</MapButton>
+        <MapButton small active={ui.mode === 'clearroute'}
+          title="Route clearance — select an engineer element, then click the route. They sweep it end to end and it goes GREEN."
+          onClick={() => ui.setMode(ui.mode === 'clearroute' ? 'select' : 'clearroute')}>CLR</MapButton>
+        {/* THE PEN — colour and weight for the next graphics, shown while a
+            draw tool is armed (the commander's own markup style) */}
+        {ui.mode.startsWith('measure:') && (
+          <>
+            {([['', 'default'], ['#e8c547', 'amber'], ['#4a9de0', 'blue'], ['#e0524a', 'red']] as const)
+              .map(([c, name]) => (
+                <MapButton key={name} small active={(ui.markStyle.color ?? '') === c}
+                  title={`Pen colour — ${name}`}
+                  onClick={() => ui.setMarkStyle({ color: c || null })}>
+                  <span style={{
+                    display: 'inline-block', width: 10, height: 10, borderRadius: 2,
+                    background: c || '#40c480', border: '1px solid rgba(255,255,255,0.35)',
+                  }} />
+                </MapButton>
+              ))}
+            <MapButton small active={false}
+              title={`Pen weight — cycles thin / medium / bold (now ${ui.markStyle.weight <= 2 ? 'thin' : ui.markStyle.weight <= 3 ? 'medium' : 'bold'})`}
+              onClick={() => ui.setMarkStyle({
+                weight: ui.markStyle.weight <= 2 ? 2.6 : ui.markStyle.weight <= 3 ? 4.2 : 1.8,
+              })}>{ui.markStyle.weight <= 2 ? '─' : ui.markStyle.weight <= 3 ? '━' : '▬'}</MapButton>
+          </>
+        )}
         <MapButton small active={ui.overlays.fires}
           title="Fires overlay — indirect max-range rings (the call-for-fire picture)"
           onClick={() => ui.toggleOverlay('fires')}>FIRES</MapButton>

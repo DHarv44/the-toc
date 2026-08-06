@@ -8,6 +8,7 @@
 // re-baselined after the cutover.)
 import { S } from '../../engine/state'
 import { findPath } from '../../world/pathfinding'
+import type { Vec2 } from '../../world/WorldMap'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
 import { UNIT_TYPES } from './catalog'
@@ -20,6 +21,7 @@ import {
   processCapture, processWipe, remnantCheck,
 } from './casualties'
 import { solveColumns } from '../movement/column'
+import { msrBetween, msrPathTo, msrLabel } from '../control/routes'
 import { teamOf } from './teams'
 import { stationUpdate, stationSweep } from '../movement/station'
 import { trailUpdate } from '../fires/expendables'
@@ -102,14 +104,36 @@ export function movementUpdate(dt: number): void {
       } else if (!hq) {
         // no command post: convoys pause where they are
       } else if (!u.breaking && !u.targetId) {
-        if (c.phase === 'toSource') {
+        // A COMMISSIONED MSR between the two bases owns this traffic: the run
+        // follows its exact polyline every time (predictable friendly traffic
+        // is what makes route security a game) — and a RED route is not run at
+        // all. The convoy holds and says so once; the engineer is the answer.
+        const msr = msrBetween(hq, fob)
+        const legPath = (dest: { x: number; y: number }): Vec2[] | null => {
+          if (!msr) return findPath(S.map!, u.x, u.y, dest.x, dest.y, effStats(u).mob, 'convoy')
+          return msrPathTo(u, msr, dest)
+        }
+        const redHold = msr?.status === 'red'
+        if (redHold && (c.phase === 'toSource' || c.phase === 'toFob')) {
+          if (!c.heldRed) {
+            c.heldRed = true
+            u.path = []; u.legs = []
+            radio(u.label, 'move', `${msrLabel(msr!)} IS RED — HOLDING FOR ROUTE CLEARANCE`, u.x, u.y)
+          }
+        } else if (c.heldRed) {
+          c.heldRed = false
+          radio(u.label, 'move', `${msrLabel(msr!)} IS GREEN — RESUMING SUPPLY RUNS`, u.x, u.y)
+        }
+        if (redHold && (c.phase === 'toSource' || c.phase === 'toFob')) {
+          // held: no pathing this tick
+        } else if (c.phase === 'toSource') {
           if (Math.hypot(u.x - hq.x, u.y - hq.y) < 300) {
             u.path = []; u.legs = []
             c.phase = 'load'; c.timer = logi.loadTime
           } else if (!u.path.length) {
             // trucks route like everything else, with the convoy doctrine
             // profile: arterials over-preferred beyond raw time
-            const p = findPath(S.map!, u.x, u.y, hq.x, hq.y, effStats(u).mob, 'convoy')
+            const p = legPath(hq)
             if (p) { u.path = p; u.legs = [{ x: hq.x, y: hq.y, n: p.length }] }
           }
         } else if (c.phase === 'load') {
@@ -126,7 +150,7 @@ export function movementUpdate(dt: number): void {
             u.path = []; u.legs = []
             c.phase = 'unload'; c.timer = logi.loadTime
           } else if (!u.path.length) {
-            const p = findPath(S.map!, u.x, u.y, fob.x, fob.y, effStats(u).mob, 'convoy')
+            const p = legPath(fob)
             if (p) { u.path = p; u.legs = [{ x: fob.x, y: fob.y, n: p.length }] }
           }
         } else if (c.phase === 'unload') {

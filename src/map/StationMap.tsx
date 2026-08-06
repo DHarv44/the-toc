@@ -34,7 +34,7 @@ import { makeFrame } from './frame'
 import { drawBackdrop, drawTerrain } from './layers/terrain'
 import { drawGrid } from './layers/grid'
 import { drawMeasures } from './layers/measures'
-import { drawAmbientRoutes, drawSelectedRoutes } from './layers/routes'
+import { drawAmbientRoutes, drawMsrs, drawSelectedRoutes } from './layers/routes'
 import { drawStructures } from './layers/places'
 import { drawFriendlies, drawHostiles, drawTeams } from './layers/units'
 import { useUI } from '../ui/store'
@@ -102,6 +102,7 @@ export default function StationMap({ members }: { members: Unit[] }) {
       drawBackdrop(frame)
       drawTerrain(frame, { sheet, sat: null, patch: null, satOn: false, kickPatch: () => {} })
       drawGrid(frame)
+      drawMsrs(frame)
       drawMeasures(frame)
       drawAmbientRoutes(frame)
       drawSelectedRoutes(frame, mem)

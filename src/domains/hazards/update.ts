@@ -19,6 +19,7 @@ import type { Hazard, Unit, UnitElement } from '../../engine/GameState'
 import { elemWorld } from '../forces/elements'
 import { applyElementLoss } from '../forces/casualties'
 import { radio } from '../comms/radio'
+import { routeStruck } from '../control/routes'
 
 /** metres of overpressure around the strike that can reach a NEIGHBOURING vic.
  *  Well inside `close` interval (30 m) and well outside `open` (100 m), which
@@ -97,6 +98,8 @@ function strike(u: Unit, el: UnitElement, h: Hazard, lead: boolean): void {
   const catastrophic = !el.hard
   applyElementLoss(u, el, catastrophic, h.kind)
   const w = elemWorld(u, el)
+  // a strike ON a commissioned route flips it red (domains/control/routes)
+  if (lead) routeStruck(w.x, w.y, h.kind)
   radio(u.label, 'damage',
     lead
       ? `${h.kind.toUpperCase()} STRIKE — LEAD VIC ${catastrophic ? 'DESTROYED' : 'DISABLED'}, COLUMN HALTED`

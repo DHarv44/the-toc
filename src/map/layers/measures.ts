@@ -11,16 +11,36 @@
 import { S } from '../../engine/state'
 import type { Frame } from '../frame'
 
+// dark under-stroke that keeps a graphic legible over the tan sheet — the
+// command-route casing convention, applied to the commander's own pen
+const CASING = 'rgba(12,18,14,0.7)'
+
+/** Stroke the current path CASED: dark wide pass under the colour pass. The
+ *  callers build a path and call this instead of ctx.stroke(). */
+function cased(ctx: CanvasRenderingContext2D, w: number): void {
+  const col = ctx.strokeStyle
+  ctx.strokeStyle = CASING
+  ctx.lineWidth = w + 2.4
+  ctx.stroke()
+  ctx.strokeStyle = col
+  ctx.lineWidth = w
+  ctx.stroke()
+}
+
 export function drawMeasures(f: Frame): void {
   const { ctx } = f
   for (const m of S.measures) {
     // a boundary never "completes" — it divides ground, it is not progress
     const done = m.kind !== 'boundary' && m.crossed.length > 0
     ctx.save()
-    ctx.strokeStyle = m.kind === 'boundary' ? 'rgba(215,170,70,0.9)'
-      : done ? 'rgba(120,170,140,0.55)' : 'rgba(60,180,120,0.85)'
+    ctx.lineJoin = 'round'
+    // THE PEN THE COMMANDER DREW IT WITH wins over the kind's default; a
+    // completed (crossed) graphic still dims, whatever colour it was.
+    const base = m.color ?? (m.kind === 'boundary' ? 'rgba(215,170,70,0.95)' : 'rgba(64,196,128,0.95)')
+    ctx.strokeStyle = done && !m.color ? 'rgba(120,170,140,0.55)' : base
     ctx.fillStyle = ctx.strokeStyle
-    ctx.lineWidth = 1.6
+    const wgt = m.weight ?? 2.6
+    ctx.lineWidth = wgt
     ctx.font = '600 10px Inter, system-ui, sans-serif'
     ctx.textAlign = 'center'
     const label = m.kind === 'phaseline' ? `PL ${m.name}`
@@ -34,14 +54,14 @@ export function drawMeasures(f: Frame): void {
       const a = m.pts[0]!, b = m.pts[1]!
       const ax = f.w2sX(a.x), ay = f.w2sY(a.y), bx = f.w2sX(b.x), by = f.w2sY(b.y)
       const ang = Math.atan2(by - ay, bx - ax)
-      ctx.lineWidth = 2.2
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
-      const head = 13
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by)
+      cased(ctx, wgt + 0.6)
+      const head = 12 + wgt * 2
       for (const s of [-1, 1]) {
         ctx.beginPath()
         ctx.moveTo(bx, by)
         ctx.lineTo(bx - Math.cos(ang - s * 0.44) * head, by - Math.sin(ang - s * 0.44) * head)
-        ctx.stroke()
+        cased(ctx, wgt + 0.6)
       }
       // label along the shaft, upright whichever way the axis points
       const mx = (ax + bx) / 2, my = (ay + by) / 2
@@ -61,7 +81,8 @@ export function drawMeasures(f: Frame): void {
       const px = f.w2sX(p.x), py = f.w2sY(p.y)
       ctx.beginPath()
       ctx.moveTo(px, py - 8); ctx.lineTo(px + 8, py); ctx.lineTo(px, py + 8); ctx.lineTo(px - 8, py)
-      ctx.closePath(); ctx.stroke()
+      ctx.closePath()
+      cased(ctx, wgt)
       ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill()
       ctx.fillText(label, px, py - 13)
       ctx.restore()
@@ -75,9 +96,9 @@ export function drawMeasures(f: Frame): void {
       // go out to their own side of the line.
       const a = m.pts[0]!, b = m.pts[1]!
       const ax = f.w2sX(a.x), ay = f.w2sY(a.y), bx = f.w2sX(b.x), by = f.w2sY(b.y)
-      ctx.lineWidth = 2.4
       ctx.setLineDash([14, 7])
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by)
+      cased(ctx, Math.max(wgt, 2.6))
       ctx.setLineDash([])
       // Offsets are worked out in WORLD space and converted, not measured on the
       // screen: the sign that names a sector comes from the world geometry, and
@@ -102,14 +123,15 @@ export function drawMeasures(f: Frame): void {
     if (m.kind === 'phaseline' && m.pts.length > 1) {
       const a = m.pts[0]!, b = m.pts[1]!
       const ax = f.w2sX(a.x), ay = f.w2sY(a.y), bx = f.w2sX(b.x), by = f.w2sY(b.y)
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by)
+      cased(ctx, wgt)
       // tick the ends so a phase line is not mistaken for a route
       const ang = Math.atan2(by - ay, bx - ax) + Math.PI / 2
       for (const [ex, ey] of [[ax, ay], [bx, by]] as const) {
         ctx.beginPath()
         ctx.moveTo(ex - Math.cos(ang) * 7, ey - Math.sin(ang) * 7)
         ctx.lineTo(ex + Math.cos(ang) * 7, ey + Math.sin(ang) * 7)
-        ctx.stroke()
+        cased(ctx, wgt)
       }
       ctx.fillText(label, ax, ay - 11)
       ctx.fillText(label, bx, by - 11)
@@ -119,9 +141,11 @@ export function drawMeasures(f: Frame): void {
       if (m.kind === 'checkpoint') {
         ctx.beginPath()
         ctx.moveTo(px, py - 9); ctx.lineTo(px + 8, py + 6); ctx.lineTo(px - 8, py + 6)
-        ctx.closePath(); ctx.stroke()
+        ctx.closePath()
+        cased(ctx, wgt)
       } else {
-        ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2); ctx.stroke()
+        ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2)
+        cased(ctx, wgt)
       }
       ctx.fillText(label, px, py - 14)
     }

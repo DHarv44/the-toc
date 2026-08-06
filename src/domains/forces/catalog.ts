@@ -85,6 +85,11 @@ export interface UnitType {
   canBridge?: boolean
   df?: number
   logi?: LogiSpec
+  /** ROUTE CLEARANCE capability: this element can sweep a NamedRoute, and
+   *  neutralizes hazards within `radius` metres as it walks it. A pack noun —
+   *  combat engineers today, a dedicated EOD platform whenever a pack ships
+   *  one (domains/control/routes reads it, nothing else). */
+  eod?: { radius: number }
 }
 
 // The registry: EMPTY until packs/install.ts populates it (which happens at

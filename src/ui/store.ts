@@ -11,6 +11,9 @@ import type { Sheaf } from '../domains/fires/orders'
 // are how a commander writes coordination down.
 export type UiMode = 'select' | 'target' | 'bridge' | 'garrison'
   | `measure:${string}` | `deploy:${string}` | `build:${string}`
+  // named routes: `msr` drags a commission (the router solves it along roads),
+  // `clearroute` sends the selected engineer element to sweep a clicked route
+  | 'msr' | 'clearroute'
 export type CmdMode = 'move' | 'attack'
 /** The left wall's pages: the commander's own console, the staff's four, and
  *  the dev pack viewer. */
@@ -70,6 +73,10 @@ export interface UIState {
   // recon/drone/DF coverage, wpn = direct-fire range of the SELECTED units
   overlays: { fires: boolean; snsr: boolean; wpn: boolean }
   toggleOverlay: (k: 'fires' | 'snsr' | 'wpn') => void
+  // MARKUP STYLE — the pen the commander is drawing graphics with. Applied to
+  // every measure laid while set; null color = the kind's own default.
+  markStyle: { color: string | null; weight: number }
+  setMarkStyle: (s: Partial<{ color: string | null; weight: number }>) => void
   // camera lock: keep the selected unit/group centered as it moves (zoom is
   // yours; the center is theirs). A manual map pan breaks the lock.
   track: boolean
@@ -179,6 +186,8 @@ export const useUI = create<UIState>()((set, get) => ({
   night: false,
   overlays: { fires: false, snsr: false, wpn: false },
   toggleOverlay: (k) => set((s) => ({ overlays: { ...s.overlays, [k]: !s.overlays[k] } })),
+  markStyle: { color: null, weight: 2.6 },
+  setMarkStyle: (p) => set((s) => ({ markStyle: { ...s.markStyle, ...p } })),
   track: false,
   toggleTrack: () => set((s) => ({ track: !s.track })),
   sat: false,
