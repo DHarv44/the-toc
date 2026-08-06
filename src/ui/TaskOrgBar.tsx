@@ -21,7 +21,7 @@
 // WHAT IT REFUSES TO DO. It does not become a second place to give orders. A
 // chip selects; every order still goes through the selection tray and the map,
 // because two ways to say the same thing is how a UI starts lying about state.
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { S } from '../engine/state'
 import type { Team, Unit } from '../engine/GameState'
 import { underPlayerCommand } from '../domains/forces/command'
@@ -211,42 +211,91 @@ export default function TaskOrgBar() {
   const loose = list.filter(e => !e.team)
   return (
     <div style={{
-      flex: '0 0 auto', display: 'flex', alignItems: 'center',
-      height: 30, background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
+      flex: '0 0 auto', display: 'flex', flexDirection: 'column',
+      background: 'rgba(8,12,16,0.96)', borderTop: '1px solid #1e2c3a',
     }}>
-      {/* THE TEAMS DO NOT SCROLL. They are the things the number keys address
-          and the things a commander switches between under time pressure, so
-          they are pinned and the loose elements take whatever room is left.
-          A control group you have to go looking for is not a control group. */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
-        padding: '0 8px 0 10px', height: '100%',
-      }}>
-        <span style={{ fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.8, color: '#3d4f60' }}>
-          TASK ORG
-        </span>
+      {/* INDEPENDENT ON TOP, TEAMS UNDER THEM — the shape of the act. Loose
+          elements are raw material and teams are what you make of them, so the
+          eye travels from the pieces to the thing they were built into, and a
+          team formed out of that top row appears directly beneath it. */}
+      <Scroller label={`INDEPENDENT (${loose.length})`} empty={!loose.length && !!teams.length}>
+        {loose.map(e => <Chip key={e.key} e={e} active={on(e)} compact />)}
+      </Scroller>
+      <div style={{ height: 1, background: '#16222e' }} />
+      <Scroller label="TASK ORG" empty={!teams.length}
+        hint={teams.length ? undefined : 'MARQUEE TWO OR MORE AND PRESS G'}>
         {teams.map(e => <Chip key={e.key} e={e} active={on(e)} />)}
+      </Scroller>
+    </div>
+  )
+}
+
+/** ONE ROW OF THE BAR, WITH ARROWS INSTEAD OF A SCROLLBAR.
+ *
+ *  A horizontal scrollbar in a 26-pixel strip is a 6-pixel drag target sitting
+ *  under the row it scrolls, and it steals height from the row to draw itself.
+ *  Arrows are a real target, they only appear when there is somewhere to go,
+ *  and they leave the strip its full height.
+ *
+ *  Shift and the wheel does the same thing for anyone who already has the
+ *  habit — the browser's own shift-scroll needs a visible overflow to act on,
+ *  and this row deliberately has none, so it is done by hand. */
+function Scroller({ label, hint, empty, children }: {
+  label: string
+  hint?: string
+  empty?: boolean
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [ends, setEnds] = useState({ left: false, right: false })
+
+  // Measured every render rather than on an event: the roster changes as
+  // elements are formed, lost and renamed, and a stale reading leaves an arrow
+  // pointing at nothing or hides one that is needed.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const l = el.scrollLeft > 2
+    const r = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
+    setEnds(p => (p.left === l && p.right === r ? p : { left: l, right: r }))
+  })
+
+  const by = (d: number) => ref.current?.scrollBy({ left: d, behavior: 'smooth' })
+  const arrow = (dir: -1 | 1, live: boolean) => (
+    <button onClick={() => by(dir * 180)} disabled={!live}
+      title={dir < 0 ? 'Scroll left (shift + wheel)' : 'Scroll right (shift + wheel)'}
+      style={{
+        flex: '0 0 auto', width: 15, alignSelf: 'stretch', border: 'none', padding: 0,
+        background: live ? 'rgba(22,34,46,0.9)' : 'transparent',
+        color: live ? '#8fb0c8' : '#22303d',
+        cursor: live ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: FZ.hint,
+      }}>{dir < 0 ? '‹' : '›'}</button>
+  )
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', height: 26 }}>
+      <span style={{
+        fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.8, color: '#3d4f60',
+        flex: '0 0 auto', padding: '0 8px 0 10px', alignSelf: 'center', whiteSpace: 'nowrap',
+      }}>{label}</span>
+      {arrow(-1, ends.left)}
+      <div ref={ref}
+        onWheel={e => { if (e.shiftKey) ref.current?.scrollBy({ left: e.deltaY }) }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0,
+          padding: '0 6px',
+          // HIDDEN, NOT AUTO. An overflow the browser draws a bar for is a bar
+          // in a 26 px strip; hidden still scrolls under scrollBy and scrollLeft,
+          // so the arrows and shift-wheel drive it and nothing draws itself.
+          overflowX: 'hidden', overflowY: 'hidden',
+        }}>
+        {empty
+          ? <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#2f4152' }}>
+              {hint ?? 'NONE'}
+            </span>
+          : children}
       </div>
-      {loose.length > 0 && (
-        <>
-          <div style={{ width: 1, alignSelf: 'stretch', background: '#1e2c3a', margin: '3px 0' }} />
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0,
-            padding: '0 10px 0 8px', height: '100%',
-            overflowX: 'auto', overflowY: 'hidden',
-          }}>
-            <span style={{
-              fontFamily: UI, fontSize: FZ.hint, letterSpacing: 0.8, color: '#3d4f60', flex: '0 0 auto',
-            }}>INDEPENDENT ({loose.length})</span>
-            {loose.map(e => <Chip key={e.key} e={e} active={on(e)} compact />)}
-          </div>
-        </>
-      )}
-      {!list.length && (
-        <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#3d4f60' }}>
-          NOTHING IN THE FIELD
-        </span>
-      )}
+      {arrow(1, ends.right)}
     </div>
   )
 }

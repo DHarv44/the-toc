@@ -21,6 +21,7 @@ import { MARCH_INTERVAL, marchMoving, marchPlan } from '../domains/movement/marc
 import { disbandTeam, formTeam, joinTeam, teamById, teamCdr, teamOf } from '../domains/forces/teams'
 import { toast } from '../domains/comms/radio'
 import { centerView } from '../map/view'
+import MarchList from './forces/MarchList'
 
 // Manual deployment of a DEDICATED QRF element: warn first (unless the
 // commander checked "don't warn again"), and deploying releases the duty.
@@ -127,20 +128,16 @@ function BattleGroups() {
   }
   const selectedFree = solo.filter(u => ui.selectedIds.includes(u.id))
 
-  // A row in a team says WHERE IN THE COLUMN it is, because that is the thing
-  // about a team member that is not true of a loose element. LEAD is called out
-  // by name; the rest carry their serial.
-  const row = (u: (typeof units)[number], serial?: number, lastOf?: number) => {
+  // A LOOSE ELEMENT has no place in any column — that is what independent
+  // means — so its row is just what it is and how it is doing. Team members
+  // are drawn by ui/forces/MarchList, which has an order to show.
+  const row = (u: (typeof units)[number]) => {
     const type = UNIT_TYPES[u.type]
     const active = ui.selectedIds.includes(u.id)
-    const place = serial == null ? null
-      : serial === 0 ? 'LEAD'
-      : serial === lastOf ? `${String(serial + 1).padStart(2, '0')} · TRAIL`
-      : String(serial + 1).padStart(2, '0')
     return (
       <PaletteRow key={u.id} active={active}
         icon={<PaletteIcon unit={type} w={56} h={38} scale={1.55} />}
-        label={`${place ? `${place}  ` : ''}${u.label} · ${type.abbr}`}
+        label={`${u.label} · ${type.abbr}`}
         tag={`${u.lineage ?? ''}${u.attFrom ? ` · ATT ${u.attFrom}` : ''}`}
         note={`${Math.max(0, Math.round(u.strength))}%`}
         cost=""
@@ -191,14 +188,7 @@ function BattleGroups() {
       </RailSection>
       {[...groups.entries()].map(([gid, list]) => {
         const team = teamById(gid)
-        // THE RAIL SHOWS THE COLUMN AS A COLUMN. Members in march order, with
-        // the lead and the trail named — a team section used to be a bag of
-        // rows in whatever order the unit list happened to be in, which told
-        // you nothing about the one thing a team has that loose elements do not.
         const plan = marchPlan(gid)
-        const rank = new Map((plan?.order ?? team?.members ?? []).map((id, i) => [id, i]))
-        const inOrder = list.slice().sort((a, b) =>
-          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))
         const cdr = team ? teamCdr(team) : null
         const str = Math.round(list.reduce((n, u) => n + u.strength, 0) / list.length)
         return (
@@ -234,7 +224,11 @@ function BattleGroups() {
                 })
               }} />
           )}
-          {inOrder.map((u, i) => row(u, i, inOrder.length - 1))}
+          {/* THE COLUMN IS THE POINT OF A TEAM, so its members are drawn as a
+              march order rather than as a bag of palette rows — serial, symbol,
+              branch, strength, what each is doing, and the exceptions. Drag a
+              grip to reorder it. See ui/forces/MarchList. */}
+          <MarchList gid={gid} members={list} />
           {/* THE RAIL ANSWERS "WHAT DO I HAVE"; the S3 answers "how is it
               organised". A movement order is an Operations product, so this is
               a door to it rather than the thing itself — but it carries the

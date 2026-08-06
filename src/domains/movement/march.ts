@@ -48,7 +48,12 @@ export const marchPlan = (gid: number): MarchPlan | undefined =>
  *  first — the lead vehicle is the first vic of the first member. */
 export function setMarchOrder(
   gid: number, order: number[], column: MarchColumnType = 'open',
-  extra: Partial<Pick<MarchPlan, 'roe' | 'weapons' | 'name'>> = {},
+  // Everything else a plan carries. `disabled` and `authored` were missing and
+  // every caller that set them got away with it only because they built the
+  // object elsewhere and spread it — TypeScript does not excess-property-check
+  // a spread. A caller writing the field inline, which is the obvious way, was
+  // the one that got rejected.
+  extra: Partial<Pick<MarchPlan, 'roe' | 'weapons' | 'name' | 'disabled' | 'authored'>> = {},
 ): MarchPlan {
   const existing = marchPlan(gid)
   const plan: MarchPlan = { gid, order: [...order], column, ...extra }
