@@ -38,6 +38,7 @@ import { useUI } from '../ui/store'
 import { clampView as clamp2d, xform, type View } from './camera'
 import { makeFrame } from './frame'
 import { drawGrid, drawSubGrid } from './layers/grid'
+import { drawGazetteer, drawTowns } from './layers/gazetteer'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -791,42 +792,10 @@ export default function MapView() {
       drawSubGrid(frame)
       drawGrid(frame)
 
-      // town names
-      ctx.font = 'bold 10px Consolas, monospace'
-      ctx.fillStyle = night ? 'rgba(160,195,225,0.8)' : 'rgba(40,40,45,0.85)'
-      ctx.textAlign = 'center'
-      for (const t of S.map!.towns) ctx.fillText(t.name, w2sX(t.x), w2sY(t.y) - 6)
-
-      // the rest of the gazetteer (pack maps): every named place the ground
-      // knows, gated by zoom rank so the chart declutters itself — cities
-      // always, hamlets only up close. Screen-space like all symbology.
-      if (packLabels) {
-        const ppm = view.ppm
-        for (const p of packLabels) {
-          if (ppm < p.minPpm) continue
-          const x = w2sX(p.x), y = w2sY(p.y)
-          if (x < -80 || y < -20 || x > canvas.clientWidth + 80 || y > canvas.clientHeight + 20) continue
-          if (p.kind === 'peak') {
-            ctx.fillStyle = night ? 'rgba(170,150,120,0.5)' : 'rgba(96,72,44,0.7)'
-            ctx.font = '9px Consolas, monospace'
-            ctx.fillText('▲', x, y + 3)
-            ctx.font = '8.5px Consolas, monospace'
-            ctx.fillText(p.name, x, y - 5)
-          } else if (p.kind === 'water') {
-            ctx.fillStyle = night ? 'rgba(120,170,215,0.55)' : 'rgba(36,88,138,0.7)'
-            ctx.font = 'italic 9px Consolas, monospace'
-            ctx.fillText(p.name, x, y - 4)
-          } else {
-            const major = p.kind === 'city' || p.kind === 'town'
-            ctx.fillStyle = night
-              ? `rgba(160,195,225,${major ? 0.75 : 0.55})`
-              : `rgba(40,40,45,${major ? 0.8 : 0.6})`
-            ctx.font = `${major ? 'bold 10px' : '8.5px'} Consolas, monospace`
-            ctx.fillText(p.name, x, y - 5)
-          }
-        }
-        ctx.font = 'bold 10px Consolas, monospace'
-      }
+      // THE NAMES ARE A LAYER — map/layers/gazetteer. The sim's towns first,
+      // then everything else the ground knows, in the same order as before.
+      drawTowns(frame)
+      drawGazetteer(frame, packLabels)
 
       // the data credit, printed on the sheet like a real map carries it —
       // ODbL requires the attribution be SHOWN, and the map is where it's true
