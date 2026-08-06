@@ -39,6 +39,7 @@ import { clampView as clamp2d, xform, type View } from './camera'
 import { makeFrame } from './frame'
 import { drawGrid, drawSubGrid } from './layers/grid'
 import { drawGazetteer, drawTowns } from './layers/gazetteer'
+import { drawCredit, drawFeatures } from './layers/features'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -797,49 +798,10 @@ export default function MapView() {
       drawTowns(frame)
       drawGazetteer(frame, packLabels)
 
-      // the data credit, printed on the sheet like a real map carries it —
-      // ODbL requires the attribution be SHOWN, and the map is where it's true
-      if (attribution) {
-        ctx.save()
-        ctx.font = '8px Consolas, monospace'
-        ctx.textAlign = 'right'
-        ctx.fillStyle = night ? 'rgba(150,170,190,0.45)' : showSat ? 'rgba(210,220,230,0.6)' : 'rgba(40,50,60,0.5)'
-        // Esri's credit joins the line only when its pixels are on the sheet
-        const esri = showSat && S.map!.sat
-        ctx.fillText(esri ? `${attribution}  ·  ${IMAGERY_CREDIT}` : attribution,
-          canvas.clientWidth - 8, canvas.clientHeight - 6)
-        ctx.restore()
-      }
-
-      // named terrain: hills (spot-elevation style), rivers (blue italic), and
-      // authored INFRASTRUCTURE (glyph + name — places, not assets). Fainter
-      // than town names — reference marks, not objectives.
-      if (view.ppm > 0.03) {
-        // infra glyphs: distinctive single characters until real icon art
-        const INFRA_GLYPH: Record<string, string> = {
-          dam: '▓', power: '⚡', rail: '▤', depot: '◫', comm: '📡', ford: '≈', camp: '⛺',
-        }
-        for (const f of S.map!.features) {
-          const fx = w2sX(f.x), fy = w2sY(f.y)
-          if (f.kind === 'hill') {
-            ctx.fillStyle = night ? 'rgba(170,150,120,0.55)' : 'rgba(96,72,44,0.75)'
-            ctx.font = '9px Consolas, monospace'
-            ctx.fillText('▲', fx, fy + 3)
-            ctx.font = '8.5px Consolas, monospace'
-            ctx.fillText(f.name, fx, fy - 6)
-          } else if (f.kind === 'river') {
-            ctx.fillStyle = night ? 'rgba(120,170,215,0.6)' : 'rgba(36,88,138,0.8)'
-            ctx.font = 'italic 9px Consolas, monospace'
-            ctx.fillText(f.name, fx, fy - 5)
-          } else {
-            ctx.fillStyle = night ? 'rgba(190,180,150,0.7)' : 'rgba(70,60,40,0.85)'
-            ctx.font = '10px Consolas, monospace'
-            ctx.fillText(INFRA_GLYPH[f.kind] ?? '■', fx, fy + 3)
-            ctx.font = '8.5px Consolas, monospace'
-            ctx.fillText(f.name, fx, fy - 7)
-          }
-        }
-      }
+      // THE SHEET'S OWN MARKINGS are a layer — map/layers/features. The credit
+      // line, then the named terrain and infrastructure, in the same order.
+      drawCredit(frame, attribution, showSat, IMAGERY_CREDIT)
+      drawFeatures(frame)
       ctx.textAlign = 'left'
 
       const ui = useUI.getState()
