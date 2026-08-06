@@ -17,9 +17,10 @@
 // AND IT IS NOT A SECOND MAP. The station's map is READ-ONLY — you look at it,
 // and the rows below it do the commanding. The COP keeps right-click-to-move,
 // because there has to be exactly one place that verb lives.
+import { useEffect, useRef } from 'react'
 import { useUI } from '../store'
 import { S } from '../../engine/state'
-import type { Roe, WeaponsControl } from '../../engine/GameState'
+import type { NetEntry, Roe, WeaponsControl } from '../../engine/GameState'
 import { orderRoe, orderWeapons } from '../../domains/forces/orders'
 import { teamById, teamCdr, teamUnits } from '../../domains/forces/teams'
 import { MARCH_INTERVAL, marchMoving, marchPlan, setMarchOrder } from '../../domains/movement/march'
@@ -29,6 +30,9 @@ import { Pick, one } from '../tray/controls'
 import MarchList from '../forces/MarchList'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
+// About eight transmissions — enough to hold a contact from the first spot
+// report to the consolidation, and not so much that it crowds the column out.
+const NET_H = 190
 
 /** A captioned block. The station is four of these stacked, and the captions
  *  are what let the eye jump to the one it wants without reading the rest. */
@@ -57,6 +61,81 @@ function Section({ label, note, children, grow }: {
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {children}
+      </div>
+    </div>
+  )
+}
+
+/** THE TEAM'S NET — A FIXED PANE AT THE FOOT OF THE COLUMN.
+ *
+ *  Fixed, because a log that grows takes its height from how much has been said,
+ *  which is the one input a layout must never take: the standing orders above it
+ *  would sit at a different place on the screen in a quiet minute than in a
+ *  loud one, and those are exactly the controls a commander reaches for without
+ *  looking.
+ *
+ *  BOTTOM ALIGNED, like every radio log and every chat window: oldest at the
+ *  top, the newest transmission on the last line, and a short log hugging the
+ *  bottom rather than floating at the top of an empty box. The eye lives on
+ *  that last line, so it does not move.
+ *
+ *  Its own component so it can own the hook that keeps it there — the station
+ *  returns early for a dead team, and a hook cannot live after that. */
+function TeamNet({ log }: { log: NetEntry[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const seen = useRef(0)
+  // FOLLOW ONLY WHEN THE COMMANDER IS ALREADY AT THE BOTTOM. Yanking the pane
+  // back down while somebody is reading back through a contact report is the
+  // one thing an auto-scroller must not do — and this re-renders ten times a
+  // second, so it would do it constantly.
+  useEffect(() => {
+    const el = ref.current
+    if (!el || log.length === seen.current) return
+    const wasAtEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+    seen.current = log.length
+    if (wasAtEnd || !seen.current) el.scrollTop = el.scrollHeight
+  })
+  return (
+    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 6, padding: '6px 10px 3px',
+        borderTop: '1px solid #16222e',
+      }}>
+        <span style={{ fontFamily: UI, fontSize: FZ.hint, letterSpacing: 1.2, color: '#3d4f60' }}>
+          NET
+        </span>
+        {!log.length && (
+          <span style={{ fontFamily: UI, fontSize: FZ.hint, color: '#2f4152' }}>QUIET</span>
+        )}
+        <div style={{ flex: 1, height: 1, background: '#16222e' }} />
+      </div>
+      <div ref={ref} style={{
+        height: NET_H, overflowY: 'auto',
+        // the short-log case: the traffic sits on the floor of the pane, not
+        // at the top of an empty one
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+      }}>
+        <div style={{ flex: '0 0 auto' }}>
+          {log.map((e, i) => (
+            <button key={`${e.t}-${i}`}
+              onClick={() => { if (e.x != null) centerView({ x: e.x, y: e.y! }) }}
+              title={e.x != null ? 'Centre the map on this transmission' : undefined}
+              style={{
+                display: 'flex', gap: 6, width: '100%', textAlign: 'left', padding: '2px 10px',
+                background: 'none', border: 'none', borderBottom: '1px solid #131e28',
+                cursor: e.x != null ? 'pointer' : 'default', fontFamily: 'inherit',
+              }}>
+              <span style={{
+                flex: '0 0 auto', fontSize: FZ.hint, color: '#3d4f60',
+                fontVariantNumeric: 'tabular-nums',
+              }}>{fmtClock(e.t).slice(3, 8)}</span>
+              <span style={{
+                flex: 1, minWidth: 0, fontSize: FZ.hint, lineHeight: 1.45,
+                color: NET_COLORS[e.kind] ?? '#9ab8d0',
+              }}>{e.msg}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -101,11 +180,18 @@ export default function TeamStation({ teamId }: { teamId: number }) {
     window.addEventListener('pointerup', up)
   }
 
-  // THE TEAM'S OWN TRAFFIC. Everything it has said, and everything its elements
-  // have said, and nothing anybody else has — which is the whole reason to have
-  // it here rather than sending the commander to the battalion net to find it.
+  // THE TEAM'S OWN TRAFFIC. Everything the team has said and everything its
+  // elements have said, and nothing anybody else has — which is the whole
+  // reason to have it here rather than sending the commander to the battalion
+  // net to pick this team's calls out of everyone's.
+  //
+  // OLDEST FIRST, NEWEST AT THE BOTTOM, like a radio log and like every chat
+  // window ever built. The battalion net is a REVIEW — you open it to find the
+  // report you half heard, so newest-first is right there. This is a WATCH:
+  // it is open because you are following this team right now, and the next
+  // thing they say is the thing you are waiting for.
   const calls = new Set([team.name, ...units.map(u => u.label)])
-  const log = S.radio.filter(e => calls.has(e.callsign)).slice(-60).reverse()
+  const log = S.radio.filter(e => calls.has(e.callsign)).slice(-60)
 
   const icon = (glyph: string, title: string, on: () => void) => (
     <button onClick={on} title={title} style={{
@@ -187,12 +273,16 @@ export default function TeamStation({ teamId }: { teamId: number }) {
         </span>
       </div>
 
-      {/* THE COLUMN. Drag a grip to change the order of march — see
-          ui/forces/MarchList, which is the same list the FORCES rail draws and
-          moves here whole in step 3. */}
-      <Section label="ORDER OF MARCH"
+      {/* THE COLUMN, AND THE ONLY PART OF THIS PANEL THAT GROWS. A team can be
+          two elements or nine, so the list is the one thing here whose height
+          is not the designer's to choose — it takes the slack and scrolls when
+          it runs out. Everything under it stays where the eye left it. Drag a
+          grip to change the order of march; see ui/forces/MarchList. */}
+      <Section label="ORDER OF MARCH" grow
         note={plan ? `${MARCH_INTERVAL[plan.column]} M` : 'NO ORDER'}>
-        <MarchList gid={team.id} members={units} />
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <MarchList gid={team.id} members={units} />
+        </div>
       </Section>
 
       {/* NOT THINGS YOU DO — THINGS THAT STAY TRUE. What the team does when
@@ -227,29 +317,7 @@ export default function TeamStation({ teamId }: { teamId: number }) {
       {/* THIS TEAM'S NET, and only this team's. The battalion net is a rail of
           its own and is the right place to hear everything at once; a station
           exists to be the one place where everything is about one grouping. */}
-      <Section label="NET" note={log.length ? undefined : 'QUIET'} grow>
-        <div style={{ flex: 1, minHeight: 60, overflowY: 'auto' }}>
-          {log.map((e, i) => (
-            <button key={`${e.t}-${i}`}
-              onClick={() => { if (e.x != null) centerView({ x: e.x, y: e.y! }) }}
-              title={e.x != null ? 'Centre the map on this transmission' : undefined}
-              style={{
-                display: 'flex', gap: 6, width: '100%', textAlign: 'left', padding: '2px 10px',
-                background: 'none', border: 'none', borderBottom: '1px solid #131e28',
-                cursor: e.x != null ? 'pointer' : 'default', fontFamily: 'inherit',
-              }}>
-              <span style={{
-                flex: '0 0 auto', fontSize: FZ.hint, color: '#3d4f60',
-                fontVariantNumeric: 'tabular-nums',
-              }}>{fmtClock(e.t).slice(3, 8)}</span>
-              <span style={{
-                flex: 1, minWidth: 0, fontSize: FZ.hint, lineHeight: 1.45,
-                color: NET_COLORS[e.kind] ?? '#9ab8d0',
-              }}>{e.msg}</span>
-            </button>
-          ))}
-        </div>
-      </Section>
+      <TeamNet log={log} />
 
       <div onPointerDown={startResize} title="Drag to resize"
         style={{
