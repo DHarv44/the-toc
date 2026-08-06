@@ -198,10 +198,14 @@ function RequestsBlock() {
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: '#f0c8c8', fontSize: 11, letterSpacing: 1 }}>
-                9-LINE MEDEVAC — {who?.label ?? 'STATION'}
+                {r.kind === 'medevac' ? '9-LINE MEDEVAC' : r.kind === 'cas' ? 'IMMEDIATE CAS' : 'VEHICLE RECOVERY'}
+                {' — '}{who?.label ?? 'STATION'}
               </div>
               <div style={{ color: '#9a7f7f', fontSize: 10 }}>
-                {r.litter ?? 0} LITTER · {r.ambulatory ?? 0} AMBULATORY · {fmtClock(S.t - r.t)} AGO
+                {r.kind === 'medevac'
+                  ? `${r.litter ?? 0} LITTER · ${r.ambulatory ?? 0} AMBULATORY`
+                  : r.kind === 'cas' ? 'TROOPS IN CONTACT' : 'VIC DOWN, NO REPAIR IN REACH'}
+                {' · '}{fmtClock(S.t - r.t)} AGO
               </div>
             </div>
             <button onClick={() => approveRequest(r.id)} style={{
