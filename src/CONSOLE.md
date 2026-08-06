@@ -101,11 +101,21 @@ share one 64 MB sheet; four tabs would bake four.
 
 - [x] **1 · LEFT WALL** — done 2026-08-06. `ui/console/ConsolePanel` is the one
       shell: WALL (a real left column at a dragged width, the map narrows) and
-      FULL (fixed over the whole viewport). Docked is the default. S1, the
-      S2/S3/S4 board, the command dashboard and the pack viewer all render
-      through it — they each had their own `position:absolute; inset:0` before,
-      four copies of one idea, and the idea was that reading a LOGSTAT costs
-      you the COP.
+      FULL (fixed over the whole viewport). S1, the S2/S3/S4 board, the command
+      dashboard and the pack viewer all render through it — they each had their
+      own `position:absolute; inset:0` before, four copies of one idea.
+
+      **AND THE FIRST THING IT TAUGHT US: a staff board is a DOCUMENT.** The
+      S3's task force table is six columns, the S1 PERSTAT and S4 LOGSTAT are
+      worse, and at wall width they are crushed to unreadable. A table you
+      cannot read is not a cheaper way to read it — it is a wasted click on the
+      way to maximising anyway. So the S-shops open FULL.
+
+      The wall was the right idea applied to the wrong content. It stays for
+      the panels that are genuinely narrow — a tree, a roster, GARRISON —
+      where beside-the-map is the right answer. **Width follows shape: trees
+      dock, documents fill.**
+
       *Still to do here:* move the S-shop openers from the top bar into the
       left tab column, once GARRISON exists to sit above them (step 3).
 

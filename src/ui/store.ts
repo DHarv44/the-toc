@@ -191,12 +191,18 @@ export const useUI = create<UIState>()((set, get) => ({
   closeRoster: () => set({ rosterId: null }),
   console: null,
   setConsole: (c) => set({ console: c }),
-  consoleW: 520,
-  setConsoleW: (w) => set({ consoleW: Math.max(360, Math.min(980, w)) }),
-  // DOCKED BY DEFAULT. The old behaviour — a console covering the map — is
-  // still one button away, but it is no longer what happens when you glance at
-  // a report.
-  consoleFull: false,
+  consoleW: 760,
+  setConsoleW: (w) => set({ consoleW: Math.max(420, Math.min(1100, w)) }),
+  // FULL BY DEFAULT, because a staff board is a DOCUMENT. The S3's task force
+  // table is six columns; the S1's PERSTAT and the S4's LOGSTAT are worse. At
+  // wall width they are crushed to unreadable, and a table you cannot read is
+  // not a cheaper way to read it — it is a wasted click on the way to
+  // maximising anyway.
+  //
+  // The wall stays for the panels that are genuinely narrow — a tree, a
+  // roster, the GARRISON list — where beside-the-map is the right answer. It
+  // was the right idea applied to the wrong content.
+  consoleFull: true,
   setConsoleFull: (b) => set({ consoleFull: b }),
   s1Nav: null,
   openS1: (tab) => set({ console: 's1', s1Nav: tab }),
