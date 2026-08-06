@@ -215,11 +215,36 @@ share one 64 MB sheet; four tabs would bake four.
       the dock draws it in fixed cells for muscle memory, the station draws it
       with the executing element named under each verb.
 
-- [ ] **5 · POP-OUT** — `window.open` + React portal. Generic window chrome
-      (drag / resize / min / max / z-order / edge-snap), viewport coordinates
-      so a window can sit over a rail and later move to another document
-      unchanged. Feeds land on it first. Not needed on one screen — this is
-      the bonus for people with two.
+- [~] **5 · POP-OUT** — `ui/shell/PopOut` landed 2026-08-06, feeds first.
+
+      `window.open` plus a React portal. Not a tab: a background tab is
+      `document.hidden`, its timers throttle to ~1 Hz and rAF stops, so three of
+      four feed tabs would be frozen pictures. A separate WINDOW is visible, so
+      it is not throttled, and it shares the JS context — same `S`, same store,
+      no serialisation and no second copy of the world to keep honest.
+
+      The plumbing is all in the host: the opener's stylesheets are cloned in
+      and kept cloned (Vite adds a `<style>` per hot update, so a window opened
+      before an edit would slowly lose its styling), the root element's
+      attributes go across so Mantine's colour scheme applies, and the window's
+      lifetime is tied to the component's in BOTH directions — unmount closes
+      the window, and the window closing puts the content back.
+
+      A popped feed is mounted by App, not by the FEEDS rail, because it has to
+      survive the rail being shut. The rail keeps its slot with a stub that says
+      where it went and takes it back.
+
+      **Blocked popups fail LOUDLY** — the content returns to the rail and the
+      net says `POP-OUT BLOCKED — ALLOW POPUPS FOR THIS SITE`. A pop-out button
+      that quietly does nothing is worse than no button.
+
+      *Unverified:* the embedded preview browser refuses `window.open` outright,
+      so only the blocked path has been seen working. The success path needs a
+      real browser. **Test it before trusting it.**
+
+      *Still to do:* generic window chrome (drag / resize / min / max / z-order /
+      edge-snap) in viewport coordinates, and the team station as the second
+      consumer.
 
 - [x] **6 · BREAK UP THE MAP MONOLITH** — done 2026-08-06. It was ~1750 lines:
       one canvas, one draw loop, and every pass, transform, pick and input

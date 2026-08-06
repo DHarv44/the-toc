@@ -609,6 +609,14 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
               <ActionIcon size="md" variant="default" title="Restore to window" style={winIcon}
                 onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.setFeed(feed.id, { winMode: 'win' })}>❐</ActionIcon>
             )}
+            {/* OUT ONTO ITS OWN SCREEN. A sensor picture is a 16:9 object and
+                the rail is a 340 px column — on one monitor that is a trade the
+                commander makes knowingly, on two it is not a trade at all. */}
+            {!feed.popped && (
+              <ActionIcon size="md" variant="default" title="Pop out to its own window" style={winIcon}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => ui.setFeed(feed.id, { popped: true, winMode: 'win' })}>⧉</ActionIcon>
+            )}
             <ActionIcon size="md" variant="default" title="Close" style={winIcon}
               onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.closeFeed(feed.id)}>×</ActionIcon>
           </Group>

@@ -9,6 +9,7 @@ import TopBar from './ui/TopBar'
 import CommandConsole from './ui/CommandConsole'
 import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
+import PoppedFeeds from './ui/feeds/PoppedFeeds'
 import Stations from './ui/station/Stations'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
@@ -203,6 +204,10 @@ export default function App() {
         <NetPanel />
         <RailTabs side="right" />
       </div>
+      {/* feeds that have been sent to their own screen — mounted HERE, not in
+          the FEEDS rail, because a popped-out feed has to survive the rail
+          being shut. See ui/shell/PopOut. */}
+      <PoppedFeeds />
       {/* campaign opening OPORD — the first VTC; holds the sim until acknowledged */}
       <VtcOpener />
       {/* campaign guided-tutorial cues (renders null outside a tutorial campaign) */}

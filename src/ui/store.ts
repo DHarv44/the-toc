@@ -29,6 +29,11 @@ export interface Feed {
   fov: number  // zoom
   muted: boolean // per-feed audio, layered under the global mute
   winMode?: 'win' | 'max' | 'min' // draggable window / fill screen / title only
+  /** OUT ON ITS OWN SCREEN. A sensor picture is a 16:9 object and a rail is a
+   *  340 px column; on one monitor that is a trade, on two it is not a trade at
+   *  all. The feed keeps its place in the rail's list either way — popping out
+   *  moves where it DRAWS, not what it is. See ui/shell/PopOut. */
+  popped?: boolean
 }
 
 // unit right-click carries unitId; empty-handed structure right-click carries structId

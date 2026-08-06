@@ -66,7 +66,25 @@ export default function FeedsPanel() {
               NO FEEDS OPEN — DEPLOY A UAS OR CLICK + FEED
             </Text>
           )}
-          {ui.feeds.map((f, i) => <FeedWindow key={f.id} feed={f} index={i} docked />)}
+          {ui.feeds.map((f, i) => (f.popped ? (
+            // OUT ON ITS OWN SCREEN. The feed keeps its place in this list —
+            // popping out changed where it draws, not what it is — so the rail
+            // holds its slot with a stub that says where it went and takes it
+            // back. See ui/shell/PopOut.
+            <Box key={f.id} px={8} py={6} style={{
+              border: '1px dashed var(--mantine-color-dark-4)', borderRadius: 3,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <Text span fz={11} c="dark.2" style={{ flex: 1, letterSpacing: 1 }}>
+                FEED {i + 1} — ON ITS OWN SCREEN
+              </Text>
+              <UnstyledButton onClick={() => ui.setFeed(f.id, { popped: false })}>
+                <Text span fz={11} c="toc.3">BRING BACK</Text>
+              </UnstyledButton>
+            </Box>
+          ) : (
+            <FeedWindow key={f.id} feed={f} index={i} docked />
+          )))}
         </Box>
       </Box>
     </Box>
