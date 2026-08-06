@@ -6,8 +6,7 @@ import MapView from './map/MapView'
 import HUD, { SelectionTray } from './ui/HUD'
 import TaskOrgBar from './ui/TaskOrgBar'
 import TopBar from './ui/TopBar'
-import CommandRail from './ui/CommandRail'
-import GarrisonRail from './ui/GarrisonRail'
+import CommandConsole from './ui/CommandConsole'
 import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
 import Stations from './ui/station/Stations'
@@ -18,7 +17,6 @@ import { CampaignObjectives } from './ui/CampaignHUD'
 import { VtcOpener, VtcFrago } from './ui/Vtc'
 import S1Console from './ui/S1Console'
 import StaffConsole from './ui/StaffConsole'
-import CommandDashboard from './ui/CommandDashboard'
 import PackViewer from './ui/PackViewer'
 import PackBuilder from './ui/PackBuilder'
 import MapEditor from './ui/MapEditor'
@@ -172,17 +170,15 @@ export default function App() {
             ui/Rail RailTabs. Opening a rail used to slide its neighbour's tab
             across by the panel width. */}
         <RailTabs side="left" />
-        <CommandRail />
-        <GarrisonRail />
         {/* THE STAFF CONSOLES ARE A LEFT WALL, not a takeover. Mounted here as
             real layout siblings so a docked one NARROWS the map instead of
             covering it — reading a LOGSTAT used to cost you the whole common
             operational picture. Each still has a FULL state (ui/console/
             ConsolePanel) which goes fixed over the viewport, so the old
             behaviour is one button away when the document is the work. */}
+        <CommandConsole />
         <S1Console />
         <StaffConsole />
-        <CommandDashboard />
         <PackViewer />
         {/* map column: map area above, selection tray below */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>

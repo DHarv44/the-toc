@@ -34,10 +34,13 @@ const Sub = ({ v, c = '#9ab8d0' }: { v: React.ReactNode; c?: string }) => (
   <Text fz="sm" c={c} style={{ fontVariantNumeric: 'tabular-nums' }}>{v}</Text>
 )
 
-export default function CommandDashboard() {
+/** THE TILES. Split out of the old standalone console so the COMMAND console's
+ *  OVERVIEW tab can be this and nothing else — the commander's one-glance page
+ *  was a separate destination reached from a separate top-bar button, which is
+ *  one destination too many for a page about the same formation as the tabs
+ *  beside it. */
+export function CommandOverview() {
   useUI((st) => st.tick)
-  const ui = useUI()
-  if (ui.console !== 'dash') return null
 
   const pack = playerPack()
   const playerBn = pack.formation?.chair
@@ -67,17 +70,7 @@ export default function CommandDashboard() {
     .reduce((n, u) => n + u.vehicles.filter(v => v.status === 'DAMAGED').length, 0)
 
   return (
-    <ConsolePanel title="COMMAND DASHBOARD">
-      <Group gap="md" align="center" pb={12} style={{ borderBottom: '2px solid #2a3a48' }}>
-        {playerBn && <BnDui bn={playerBn} h={54} />}
-        <Box>
-          <Text fz={26} fw={700} c="#dceeff" lh={1.1} style={{ letterSpacing: 3 }}>COMMAND DASHBOARD</Text>
-          <Text fz="xs" c="dark.3" style={{ letterSpacing: 1.5 }}>
-            {playerBn ?? pack.abbr} · {pack.name.toUpperCase()} · MISSION {fmtClock(S.t)}
-          </Text>
-        </Box>
-      </Group>
-
+    <>
       <Group gap="md" mt="md" align="stretch" wrap="wrap">
         {c && (
           <Tile label="OPERATION" accent="#7ec8ff">
@@ -108,6 +101,6 @@ export default function CommandDashboard() {
           <Sub v={unreadReports(S) ? 'UNREAD REPORTS — S1 HOLDS THE TRAFFIC' : 'NO UNREAD TRAFFIC'} />
         </Tile>
       </Group>
-    </ConsolePanel>
+    </>
   )
 }

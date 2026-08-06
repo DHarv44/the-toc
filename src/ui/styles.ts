@@ -46,8 +46,8 @@ export const TOPBAR_H = 50 // big TOC plate over small controls
 
 // width of the map column for a given rail state — overlays inside it (context
 // menus, feed windows) clamp against this rather than the viewport
-export const mapColumnSize = (leftOpen: boolean, netOpen: boolean): { w: number; h: number } => ({
-  w: window.innerWidth - (leftOpen ? RAIL_W.left : RAIL_W.strip) - (netOpen ? RAIL_W.net : RAIL_W.strip),
+export const mapColumnSize = (leftWide: boolean, netOpen: boolean): { w: number; h: number } => ({
+  w: window.innerWidth - (leftWide ? RAIL_W.left : RAIL_W.strip) - (netOpen ? RAIL_W.net : RAIL_W.strip),
   h: window.innerHeight - TOPBAR_H,
 })
 

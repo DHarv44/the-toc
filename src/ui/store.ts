@@ -12,6 +12,10 @@ import type { Sheaf } from '../domains/fires/orders'
 export type UiMode = 'select' | 'target' | 'bridge' | 'garrison'
   | `measure:${string}` | `deploy:${string}` | `build:${string}`
 export type CmdMode = 'move' | 'attack'
+/** The left wall's pages: the commander's own console, the staff's four, and
+ *  the dev pack viewer. */
+export type ConsoleId = 'cmd' | 's1' | 's2' | 's3' | 's4' | 'packs' | null
+export type CmdTab = 'overview' | 'installations' | 'garrison' | 'actions'
 
 export interface Feed {
   id: number
@@ -72,8 +76,6 @@ export interface UIState {
   overlayAlpha: number      // commander's overlay intensity (1 → 0.7 → 0.45, cycles)
   cycleOverlayAlpha: () => void
   rangeUnits: Record<number, true> // per-unit range ring, independent of the layers
-  leftOpen: boolean         // side rails: collapse to their own edge, independently
-  bgOpen: boolean           // GARRISON rail (left, beside Command)
   // GARRISON drill-down state: lives in the store so the tutorial's
   // UI conditions can see it — the curriculum has to teach the drill-down, and
   // it can only teach what it can read. The tree is an accordion, one rung open
@@ -98,7 +100,6 @@ export interface UIState {
   netOpen: boolean
   feedsOpen: boolean        // FEEDS rail (right, inboard of the net) — feeds stack here
   feedsW: number            // feeds rail width (drag-resizable)
-  toggleBg: () => void
   toggleFeeds: () => void
   setFeedsW: (w: number) => void
   muted: boolean
@@ -109,8 +110,13 @@ export interface UIState {
   rosterId: number | null   // unit whose personnel roster panel is open (null = closed)
   openRoster: (id: number) => void
   closeRoster: () => void
-  console: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null // open staff console (null = none)
-  setConsole: (c: 's1' | 's2' | 's3' | 's4' | 'dash' | 'packs' | null) => void
+  console: ConsoleId
+  setConsole: (c: ConsoleId) => void
+  // WHICH PAGE OF THE COMMAND CONSOLE. Remembered, because folding GARRISON
+  // into a console only works if reaching it stays one click — a page that
+  // reset to OVERVIEW every time would make the deliberate act two.
+  cmdTab: CmdTab
+  setCmdTab: (t: CmdTab) => void
   // A CONSOLE IS A WALL, NOT A TAKEOVER. It docks as a left column at this
   // width and the map narrows; FULL gives it the whole viewport for when the
   // document is the work. See ui/console/ConsolePanel.
@@ -145,7 +151,6 @@ export interface UIState {
   toggleNight: () => void
   toggleUnitRange: (id: number) => void
   toggleNet: () => void
-  toggleLeft: () => void
   addFeed: (droneId?: number | null) => void
   closeFeed: (id: number) => void
   setFeed: (id: number, patch: Partial<Feed>) => void
@@ -170,11 +175,8 @@ export const useUI = create<UIState>()((set, get) => ({
   overlayAlpha: 1,
   cycleOverlayAlpha: () => set((s) => ({ overlayAlpha: s.overlayAlpha > 0.85 ? 0.7 : s.overlayAlpha > 0.6 ? 0.45 : 1 })),
   rangeUnits: {},
-  // default rail state: EVERYTHING tucked away. A TOC comes up with a clean
-  // map — the commander opens the rail they need, they don't clear the ones
-  // they don't. (The tutorial teaches which rail answers which question.)
-  leftOpen: false,
-  bgOpen: false,
+  // A TOC COMES UP WITH A CLEAN MAP. Every panel starts shut — the commander
+  // opens the one they need rather than clearing the ones they don't.
   callupBase: null,
   callupCat: null,
   callupCos: [],
@@ -187,7 +189,6 @@ export const useUI = create<UIState>()((set, get) => ({
   netOpen: false,
   feedsOpen: false,
   feedsW: 400,
-  toggleBg: () => set((s) => ({ bgOpen: !s.bgOpen })),
   toggleFeeds: () => set((s) => ({ feedsOpen: !s.feedsOpen })),
   setFeedsW: (w) => set({ feedsW: Math.max(300, Math.min(680, w)) }),
   muted: false,
@@ -202,6 +203,8 @@ export const useUI = create<UIState>()((set, get) => ({
   closeRoster: () => set({ rosterId: null }),
   console: null,
   setConsole: (c) => set({ console: c }),
+  cmdTab: 'overview',
+  setCmdTab: (cmdTab) => set({ cmdTab }),
   // TWICE A TEAM STATION. A staff board is a document and needs room — the
   // S3's task force table is six columns and the PERSTAT and LOGSTAT are worse
   // — but 720 is enough for all of them, and it is a width the commander can
@@ -256,7 +259,6 @@ export const useUI = create<UIState>()((set, get) => ({
     return { rangeUnits: r }
   }),
   toggleNet: () => set((s) => ({ netOpen: !s.netOpen })),
-  toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   addFeed: (droneId = null) => {
     const { feeds } = get()
     if (feeds.length >= 4) return

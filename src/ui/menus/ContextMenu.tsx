@@ -65,7 +65,8 @@ export default function ContextMenu() {
   if (!u) { ui.closeMenu(); return null }
   const type = UNIT_TYPES[u.type]
   const close = () => ui.closeMenu()
-  const col = mapColumnSize(ui.leftOpen, ui.netOpen)
+  // the left wall is a console at its own width now, not a fixed rail
+  const col = mapColumnSize(ui.console != null && !ui.consoleFull, ui.netOpen)
   const x = clamp(m.x, 0, col.w - 190)
   const y = clamp(m.y, 0, col.h - 180)
   return (
@@ -133,7 +134,8 @@ function StructMenu() {
   if (!s) { ui.closeMenu(); return null }
   const hqExists = S.structures.some(o => o.side === 'friend' && o.kind === 'HQ')
   const close = () => ui.closeMenu()
-  const col = mapColumnSize(ui.leftOpen, ui.netOpen)
+  // the left wall is a console at its own width now, not a fixed rail
+  const col = mapColumnSize(ui.console != null && !ui.consoleFull, ui.netOpen)
   const x = clamp(m.x, 0, col.w - 210)
   const y = clamp(m.y, 0, col.h - 160)
   return (

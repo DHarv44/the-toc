@@ -72,11 +72,9 @@ export default function TopBar() {
             PERSTAT" in the same row as "turn the sound off". They are left-hand
             panels, so they are opened from the left-hand tab column with the
             other left-hand panels — see ui/Rail RailTabs. */}
-        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
-        <Tooltip label="Command dashboard" withArrow>
-          <Button size="sm" variant={ui.console === 'dash' ? 'filled' : 'default'}
-            onClick={() => ui.setConsole(ui.console === 'dash' ? null : 'dash')}>▤</Button>
-        </Tooltip>
+        {/* and the dashboard glyph is gone with them: the commander's tiles are
+            the COMMAND console's OVERVIEW tab, beside the installations and the
+            garrison, which are all pages about the same formation. */}
         <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Radio net" withArrow>
           <Button size="sm" variant={ui.netOpen ? 'filled' : 'default'} onClick={ui.toggleNet}>NET</Button>

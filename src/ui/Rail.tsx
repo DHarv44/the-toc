@@ -161,8 +161,16 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
     : []
   const tabs: TabDef[] = side === 'left'
     ? [
-        { title: 'COMMAND', open: ui.leftOpen, onToggle: ui.toggleLeft },
-        { title: 'GARRISON', open: ui.bgOpen, onToggle: ui.toggleBg },
+        // COMMAND is a console like the staff's now — the commander's own page,
+        // with the bases and the garrison as tabs inside it. It used to be a
+        // rail of drill-downs, a separate dashboard behind a top-bar glyph, and
+        // a garrison rail beside it: three destinations about one formation.
+        {
+          title: 'COMMAND',
+          open: ui.console === 'cmd',
+          onToggle: () => ui.setConsole(ui.console === 'cmd' ? null : 'cmd'),
+          hint: 'COMMAND — the command group, the installations, the garrison, and what division can be asked for',
+        },
         ...shops,
       ]
     : [

@@ -220,16 +220,17 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
     case 'vtc-paged':
       return ui.vtcPaged
     case 'rail-open':
-      // 'forces' is the GARRISON rail now — the old FORCES rail's contents went
-      // to the task org bar and the team stations, and what was left (CALL UP)
-      // became the rail itself. Pack tutorials still say 'forces'; the word in
-      // their PROSE is stale and is a content fix, not a code one.
-      return cond.rail === 'forces' ? ui.bgOpen
-        : cond.rail === 'command' ? ui.leftOpen
-          : cond.rail === 'net' ? ui.netOpen : ui.feedsOpen
+      // THE LEFT-HAND RAILS ARE CONSOLES NOW. 'forces' and 'command' were two
+      // separate rails; the force lives in the task org bar and the team
+      // stations, and everything that was left — the bases, the garrison, the
+      // division requests — is the COMMAND console. Both old names answer to
+      // it. Pack tutorials still SAY the word FORCES in their prose; that is a
+      // content fix, not a code one.
+      return cond.rail === 'forces' || cond.rail === 'command' ? ui.console === 'cmd'
+        : cond.rail === 'net' ? ui.netOpen : ui.feedsOpen
     case 'callup-open':
-      // there is no separate picker to open any more: the rail IS the picker
-      return ui.bgOpen
+      // there is no separate picker any more: it is a tab of that console
+      return ui.console === 'cmd' && ui.cmdTab === 'garrison'
     case 'callup-base':
       return ui.callupBase != null
     case 'callup-cat':

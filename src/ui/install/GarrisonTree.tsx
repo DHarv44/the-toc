@@ -1,36 +1,29 @@
-// GARRISON — what you have that is not out there yet.
+// THE WHOLE BATTALION'S GARRISON — every base, everything still in barracks.
 //
-// THIS RAIL USED TO BE 'FORCES', AND FORCES IS NOW EVERYWHERE ELSE. The task
-// org bar under the map lists every independent element and every team. The
-// station on the right owns a team's column, its commander, its attachments and
-// its disbandment. What was left of the old rail was a duplicate of both, with
-// a CALL UP button at the bottom that opened a flyout — the only thing in it
-// that had nowhere else to live.
+// The bottom bar answers "what can THIS base give me, now". This answers "what
+// is left anywhere", which is the question you ask when building a force rather
+// than reacting to a contact. Same verb, reached from a different question, and
+// deliberately through the SAME call (ui/forces/callup's guardedFieldSlot) —
+// one home means one implementation, not one button.
 //
-// So the flyout becomes the rail. A garrison is a PLACE, and the question it
-// answers is different in kind from anything the map can answer: not "where is
-// my force" but "what else can I put on the ground, and from where".
-//
-// It drills the way the question is actually asked — WHERE (which garrison
-// holds troops), then WHAT (the capability under contact), then WHO (the
-// company that owns the platoon). Everything starts shut; the rail stays open
-// for as many call-ups as the commander wants to make.
+// It drills the way the question is asked: WHERE (which garrison holds troops),
+// then WHAT (the capability), then WHO (the company that owns the platoon).
+// Everything starts shut.
 import { useState } from 'react'
-import { Box, Text } from '@mantine/core'
-import { S } from '../engine/state'
-import type { OrgSlot } from '../engine/GameState'
-import { commandsStructure } from '../domains/forces/command'
-import { UNIT_TYPES, type UnitTypeKey } from '../domains/forces/catalog'
-import { slotStrength } from '../packs/org'
-import { ownerOf } from '../packs/orgquery'
-import { useUI } from './store'
-import Rail from './Rail'
-import { unitCats, garrisonSlots, slotItem } from './palette'
-import { DrillRow, TreeLeaf } from './tree'
-import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from './forces/callup'
-import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from './tutTargets'
+import { Text } from '@mantine/core'
+import { S } from '../../engine/state'
+import type { OrgSlot } from '../../engine/GameState'
+import { commandsStructure } from '../../domains/forces/command'
+import { UNIT_TYPES, type UnitTypeKey } from '../../domains/forces/catalog'
+import { slotStrength } from '../../packs/org'
+import { ownerOf } from '../../packs/orgquery'
+import { useUI } from '../store'
+import { unitCats, garrisonSlots, slotItem } from '../palette'
+import { DrillRow, TreeLeaf } from '../tree'
+import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from '../forces/callup'
+import { TUT, callupBaseTarget, callupCatTarget, callupCoTarget } from '../tutTargets'
 
-export default function GarrisonRail() {
+export default function GarrisonTree() {
   const ui = useUI()
   const [qrfPending, setQrfPending] = useState<string | null>(null)
   const slots = garrisonSlots(true)
@@ -47,8 +40,8 @@ export default function GarrisonRail() {
   const catOf = (sl: OrgSlot) => UNIT_TYPES[sl.type as UnitTypeKey].cat
   const cat = ui.callupCat
 
-  // group a category's elements the way the force is actually organized: by the
-  // COMPANY that owns the platoons (order follows the org, not the alphabet)
+  // group a category's elements the way the force is organized: by the COMPANY
+  // that owns the platoons (order follows the org, not the alphabet)
   const cosOf = (list: OrgSlot[]) => {
     const cos: { key: string; co: string; bn: string; list: OrgSlot[] }[] = []
     for (const sl of list) {
@@ -61,17 +54,15 @@ export default function GarrisonRail() {
   }
 
   return (
-    <Rail side="left" title="GARRISON" width={340} open={ui.bgOpen} onToggle={ui.toggleBg}
-      tut={TUT.railForces}>
+    <>
       {qrfPending && (
         <QrfWarning slotId={qrfPending}
           onProceed={() => { proceedFieldSlot(qrfPending); setQrfPending(null) }}
           onCancel={() => setQrfPending(null)} />
       )}
       {/* the tutorial rings the WHOLE list — the pick is the commander's, not
-          one prescribed row. The anchor sits on an inner div that hugs the rows
-          so the ring stops at the last unit rather than swallowing the rail. */}
-      <div data-tut={TUT.garrisonList}>
+          one prescribed row */}
+      <div data-tut={TUT.garrisonList} style={{ maxWidth: 620 }}>
         {bases.map(({ b, list: inBase }) => {
           const baseOpen = ui.callupBase === b.id
           return (
@@ -81,7 +72,6 @@ export default function GarrisonRail() {
                 onClick={() => useUI.setState({
                   callupBase: baseOpen ? null : b.id, callupCat: null,
                 })} />
-              {/* CAPABILITY — the question under contact, one open at a time */}
               {baseOpen && unitCats().map(c => {
                 const list = inBase.filter(sl => catOf(sl) === c)
                 if (!list.length) return null
@@ -91,7 +81,6 @@ export default function GarrisonRail() {
                     <DrillRow depth={1} tut={callupCatTarget(c)} label={c}
                       n={list.length} str={slotStrength(list)} open={open}
                       onClick={() => useUI.setState({ callupCat: open ? null : c })} />
-                    {/* COMPANY — how the force is actually organized */}
                     {open && cosOf(list).map(co => {
                       // keyed by CATEGORY too: one HHC owns scouts, mortars and
                       // medics, and opening one must not open the rest
@@ -131,7 +120,6 @@ export default function GarrisonRail() {
           <Text fz={11} c="dark.3" px="xs" py={6}>NOTHING IN GARRISON</Text>
         )}
       </div>
-      <Box h={8} />
-    </Rail>
+    </>
   )
 }
