@@ -36,6 +36,8 @@ import { toast } from '../domains/comms/radio'
 import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
 import { clampView as clamp2d, xform, type View } from './camera'
+import { makeFrame } from './frame'
+import { drawGrid, drawSubGrid } from './layers/grid'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -676,9 +678,17 @@ export default function MapView() {
         }
       }
       clampView()
-      const { night, sat } = useUI.getState()
+      const { night, sat, overlayAlpha, selectedIds } = useUI.getState()
       if (sat) kickSat()
       const W = canvas.width, H = canvas.height
+      // EVERYTHING A PASS NEEDS, BUILT ONCE (CONSOLE.md step 6). The layers
+      // that have moved out of this effect take this instead of closing over
+      // the effect's locals; the ones still in here go on using the locals
+      // until their turn comes.
+      const frame = makeFrame({
+        ctx, view, xf: { w2sX, w2sY, s2wX, s2wY }, canvas,
+        world: S.map!.WORLD, night, alpha: overlayAlpha, sel: new Set(selectedIds),
+      })
       // off-map backdrop: shows wherever the square map doesn't fill the viewport.
       // Mirrors the splash screen (radial wash + faint grid) so fit-to-screen reads
       // as a framed view rather than a clipped one.
@@ -775,42 +785,11 @@ export default function MapView() {
         }
       }
 
-      // 100 m sub-grid: only once zoomed in enough that ≤ 5 of the 1 km cells span
-      // the viewport, so it never clutters the wider views. Drawn under the 1 km grid.
-      if (canvas.width / view.ppm <= 5000) {
-        const x0 = Math.max(0, s2wX(0)), x1 = Math.min(S.map!.WORLD, s2wX(canvas.width))
-        const y0 = Math.max(0, s2wY(0)), y1 = Math.min(S.map!.WORLD, s2wY(canvas.height))
-        ctx.strokeStyle = night ? 'rgba(140,180,220,0.06)' : 'rgba(30,40,60,0.09)'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        for (let m = Math.ceil(x0 / 100) * 100; m <= x1; m += 100) {
-          if (m % 1000 === 0) continue // km lines are drawn bolder below
-          ctx.moveTo(w2sX(m), w2sY(y0)); ctx.lineTo(w2sX(m), w2sY(y1))
-        }
-        for (let m = Math.ceil(y0 / 100) * 100; m <= y1; m += 100) {
-          if (m % 1000 === 0) continue
-          ctx.moveTo(w2sX(x0), w2sY(m)); ctx.lineTo(w2sX(x1), w2sY(m))
-        }
-        ctx.stroke()
-      }
-
-      // 1 km grid + labels
-      ctx.strokeStyle = night ? 'rgba(140,180,220,0.14)' : 'rgba(30,40,60,0.18)'
-      ctx.lineWidth = 1
-      ctx.font = '9px Consolas, monospace'
-      ctx.fillStyle = night ? 'rgba(150,190,230,0.5)' : 'rgba(30,40,60,0.5)'
-      ctx.beginPath()
-      for (let m = 0; m <= S.map!.WORLD; m += 1000) {
-        ctx.moveTo(w2sX(m), w2sY(0)); ctx.lineTo(w2sX(m), w2sY(S.map!.WORLD))
-        ctx.moveTo(w2sX(0), w2sY(m)); ctx.lineTo(w2sX(S.map!.WORLD), w2sY(m))
-      }
-      ctx.stroke()
-      if (view.ppm > 0.03) {
-        for (let m = 0; m < S.map!.WORLD; m += 1000) {
-          ctx.fillText(String(m / 1000).padStart(2, '0'), w2sX(m) + 3, 12)
-          ctx.fillText(String(m / 1000).padStart(2, '0'), 4, w2sY(m) + 10)
-        }
-      }
+      // THE GRATICULE is a layer now — map/layers/grid, drawn from the frame
+      // built above. Same two passes in the same order: the 100 m mesh under
+      // the kilometre lines.
+      drawSubGrid(frame)
+      drawGrid(frame)
 
       // town names
       ctx.font = 'bold 10px Consolas, monospace'
