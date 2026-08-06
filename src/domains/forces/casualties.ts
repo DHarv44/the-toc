@@ -98,7 +98,9 @@ export function applyElementLoss(u: Unit, el: UnitElement, catastrophic = false,
     if (!repairable) {
       const w = elemWorld(u, el)
       S.wrecks.push({ x: w.x, y: w.y, side: u.side, type: u.type, t: S.t })
-      while (S.wrecks.length > 140) S.wrecks.shift()
+      // cap sized so the CLOCK is what removes a wreck, not a busy fight
+      // shifting it out early (lifetimes quadrupled with the draw windows)
+      while (S.wrecks.length > 560) S.wrecks.shift()
     }
     for (const s of soldiers) {
       if (s.status !== 'FIT') continue

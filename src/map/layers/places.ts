@@ -107,18 +107,21 @@ export function drawStructures(f: Frame): void {
   }
 }
 
-/** What the fight leaves on the ground: wrecks for ninety seconds, and smoke
+/** What the fight leaves on the ground: wrecks for six minutes, and smoke
  *  that grows, holds and fades. Both are time-based, which is why they live
- *  here and not with the symbology — they are the sheet remembering. */
+ *  here and not with the symbology — they are the sheet remembering.
+ *  (Wreck life was 90 s and read as the battlefield tidying itself up —
+ *  quadrupled 2026-08-06, and it is the recovery loop's prerequisite: a site
+ *  that vanishes can't be recovered.) */
 export function drawDebris(f: Frame): void {
   const { ctx } = f
   ctx.strokeStyle = f.night ? 'rgba(180,170,160,0.5)' : 'rgba(60,55,50,0.55)'
   ctx.lineWidth = 1.5
   for (const wk of S.wrecks) {
     const age = S.t - wk.t
-    if (age > 90) continue
+    if (age > 360) continue
     const x = f.w2sX(wk.x), y = f.w2sY(wk.y)
-    ctx.globalAlpha = Math.max(0.15, 1 - age / 90)
+    ctx.globalAlpha = Math.max(0.15, 1 - age / 360)
     ctx.beginPath()
     ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5)
     ctx.moveTo(x - 5, y + 5); ctx.lineTo(x + 5, y - 5)

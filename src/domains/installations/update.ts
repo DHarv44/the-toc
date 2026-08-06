@@ -119,5 +119,5 @@ export function structureDeaths(): void {
       }
     }
   }
-  while (S.wrecks.length > 60) S.wrecks.shift()
+  while (S.wrecks.length > 240) S.wrecks.shift()
 }

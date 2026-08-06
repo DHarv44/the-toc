@@ -743,13 +743,13 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
     for (const wk of S.wrecks) {
       if (Math.hypot(wk.x - cx, wk.y - cy) > 2800) continue
       const age = S.t - wk.t
-      if (age > 240) continue
+      if (age > 960) continue
       const spec = (UNIT_TYPES as Record<string, typeof UNIT_TYPES[UnitTypeKey] | undefined>)[wk.type]
       if (spec && !(spec.carrier ? spec.carrier.veh : spec.veh)) continue
       let color: THREE.Color
       if (eo) color = cTmp.setRGB(0.07, 0.06, 0.05)
       else {
-        const heat = Math.max(0.3, 1 - age / 240)
+        const heat = Math.max(0.3, 1 - age / 960)
         color = cTmp.setRGB(heat, heat * 0.95, heat * 0.9)
       }
       putVehicle(spec ? bucketOf(wk.type) : 'tank', wk.x, wk.y, (wk.x % 3), 0.22, color)
@@ -868,13 +868,13 @@ function UnitsLayer({ feedRef, mode, muted = false }: {
       let fi2 = 0, pi = 0
       for (const wk of S.wrecks) {
         const age = S.t - wk.t
-        if (age > 75) continue
+        if (age > 300) continue
         if (Math.hypot(wk.x - cx, wk.y - cy) > 2800) continue
         const spec = (UNIT_TYPES as Record<string, typeof UNIT_TYPES[UnitTypeKey] | undefined>)[wk.type]
         if (spec && !(spec.carrier ? spec.carrier.veh : spec.veh)) continue
         const big = !spec ? 2 : 1
         const gy0 = groundY(wk.x, wk.y)
-        const dieOff = Math.max(0.25, 1 - age / 75)
+        const dieOff = Math.max(0.25, 1 - age / 300)
         if (fi2 < 32) {
           const flick = (0.75 + 0.45 * Math.sin(S.t * 13 + wk.x * 0.7) * Math.sin(S.t * 7.3 + wk.y)) * dieOff
           dummy.position.set(wk.x, gy0 + 2.2 * big, wk.y)
