@@ -10,6 +10,7 @@ import CommandRail from './ui/CommandRail'
 import ForcesRail from './ui/ForcesRail'
 import { RailTabs } from './ui/Rail'
 import FeedsPanel from './ui/FeedsPanel'
+import Stations from './ui/station/Stations'
 import NetPanel from './ui/NetPanel'
 import Splash, { type StartFn } from './ui/Splash'
 import EndScreenGate from './ui/EndScreen'
@@ -199,6 +200,9 @@ export default function App() {
           <TaskOrgBar />
           <SelectionTray />
         </div>
+        {/* THE RIGHT WALL: one full-height column per open team, stacked left
+            to right in the order they were opened. See ui/station. */}
+        <Stations />
         <FeedsPanel />
         <NetPanel />
         <RailTabs side="right" />

@@ -8,6 +8,9 @@ import type { ReactNode } from 'react'
 import { Box, Group, Stack, Text, ScrollArea, UnstyledButton, Tooltip } from '@mantine/core'
 import { RAIL_W } from './styles'
 import { useUI } from './store'
+import { S } from '../engine/state'
+import { underPlayerCommand } from '../domains/forces/command'
+import { teamUnits } from '../domains/forces/teams'
 
 // The tab itself — exported so FeedsPanel (custom width/resize) can share it.
 export function RailStrip({ side, title, open, onToggle, tut }: {
@@ -68,6 +71,29 @@ export function RailStrip({ side, title, open, onToggle, tut }: {
  *  otherwise re-render at the UI pump's 10 Hz just to keep two chevrons right. */
 export function RailTabs({ side }: { side: 'left' | 'right' }) {
   const ui = useUI()
+  // THE TEAMS ARE TABS. The right wall is the SITUATION side, and a team is the
+  // situation the commander spends the most time inside — so every formed team
+  // gets a handle here, permanently, in the order it was formed. Formation
+  // order rather than alphabetical for the same reason the task org bar uses
+  // it: the control-group number is muscle memory and must not move because
+  // another team was renamed. The digit is on the tab so the two agree.
+  //
+  // FEEDS and NET stay ABOVE them. They always exist, so pinning them at the
+  // top means the two tabs the player has had since the first minute never
+  // shift when a team is formed underneath.
+  const teams = side === 'right'
+    ? S.teams
+      .map(t => ({ t, list: teamUnits(t).filter(underPlayerCommand) }))
+      .filter(x => x.list.length > 0)
+      .map(({ t }, i) => ({
+        // 'TEAM BRAVO' down a 34 px strip, nine times, is the word TEAM nine
+        // times. The stem is what distinguishes them and the digit is how they
+        // are actually reached.
+        title: `${i < 9 ? `${i + 1} ` : ''}${t.name.replace(/^TEAM\s+/, '')}`,
+        open: ui.stations.includes(t.id),
+        onToggle: () => ui.toggleStation(t.id),
+      }))
+    : []
   const tabs = side === 'left'
     ? [
         { title: 'COMMAND', open: ui.leftOpen, onToggle: ui.toggleLeft },
@@ -76,11 +102,15 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
     : [
         { title: `FEEDS${ui.feeds.length ? ` (${ui.feeds.length})` : ''}`, open: ui.feedsOpen, onToggle: ui.toggleFeeds },
         { title: 'JBC-P NET', open: ui.netOpen, onToggle: ui.toggleNet },
+        ...teams,
       ]
   return (
     <Box style={{
       flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 6,
-      minHeight: 0, background: 'var(--mantine-color-dark-9)',
+      // a battalion can hold more teams than a screen has room for tabs; the
+      // column scrolls rather than crushing them
+      minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
+      background: 'var(--mantine-color-dark-9)',
     }}>
       {tabs.map(t => (
         <RailStrip key={t.title} side={side} title={t.title}

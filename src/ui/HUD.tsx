@@ -424,9 +424,15 @@ export function SelectionTray() {
           is in it. It exists separately because a battalion commander moving a
           company team and a platoon leader picking a wedge are not the same
           act, and putting both in one strip of identical buttons — which is
-          what this was — makes the player sort them out every single time. */}
+          what this was — makes the player sort them out every single time.
+
+          AND IT WRAPS. A DOCK THAT LOSES ITS CONTROLS IS NOT A DOCK: two team
+          stations open take six hundred pixels off this row's width, and
+          everything past the command card — the whole of the standing orders —
+          was clipped off the end of it, captions on screen and the pickers they
+          labelled not. A row of height is the cheaper of the two. */}
       {units.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
           {/* ZONE 1 — WHO YOU ARE COMMANDING AND WHAT IT IS PART OF.
               Task organization first and at a fixed width, because this is a
               game about it and because a zone that resizes moves everything to

@@ -119,20 +119,31 @@ share one 64 MB sheet; four tabs would bake four.
       *Still to do here:* move the S-shop openers from the top bar into the
       left tab column, once GARRISON exists to sit above them (step 3).
 
-- [ ] **2 · RIGHT WALL + TEAM STATIONS** — tabs per team, full-height columns
-      opening leftward, width-resizable. Header · read-only locked map · march
-      order (draggable) · standing orders · net filtered to the team.
+- [x] **2 · RIGHT WALL + TEAM STATIONS** — done 2026-08-06. `ui/station/` — a
+      tab per formed team in the right edge column (below FEEDS and NET, which
+      always exist and therefore never move), and a full-height column per open
+      station: header that SELECTS the team · placeholder map · the draggable
+      order of march · standing orders · the team's own net.
 
-      **The station's map is a PLACEHOLDER until step 6.** Decided 2026-08-06:
-      get the console functional first, then fix the renderer properly. Do NOT
-      parameterise MapView to serve a second pane, and do NOT copy its symbol
-      drawing into a second file — either would have to be undone. The
-      placeholder draws the shared terrain sheet plus plain unit dots for the
-      team, and is explicitly labelled as such in its own source.
+      Stations stack left to right in the order they were opened, so a new one
+      appears against the tab that opened it and the older ones are pushed
+      inboard — the alternative makes every column you already had jump sideways
+      when you open another. One shared width, dragged from the inboard edge:
+      a station is always the same kind of object, and a rail where every column
+      is a different size is a rail nobody can scan.
 
-      Groundwork already done: `packLayerFor` (map/packRender) shares the one
-      64 MB sheet across every pane, so the placeholder and the real thing both
-      have terrain for free.
+      **The station's map is an EMPTY BOX that says so.** Decided 2026-08-06:
+      not even a stand-in renderer. Do NOT parameterise MapView to serve a
+      second pane, and do NOT copy its symbol drawing into a second file —
+      either would have to be undone at step 6. (`packLayerFor` already shares
+      the one 64 MB sheet across panes, so the real thing has terrain waiting
+      for it whenever step 6 lands.)
+
+      **AND IT TAUGHT US THE DOCK DOES NOT SURVIVE A NARROW MAP COLUMN.** Two
+      stations open take six hundred pixels off the bottom bar, and everything
+      past the command card — the whole of the standing orders — was clipped
+      off the end of it: captions on screen, the pickers they labelled not. The
+      zone row wraps now. A row of height is cheaper than a missing control.
 
 - [ ] **3 · FORCES RAIL DIES** — MarchList, ADD UNIT, DISBAND, the commander
       line move into the station; CALL UP moves into GARRISON. Nothing is left
@@ -246,6 +257,11 @@ how much of that team you have hold of, so a consolidation is never a surprise.
 ## WHERE THIS STANDS
 
 Done: the plan itself, the `G` tie-break, step 1 (the left wall + staff boards
-opening full width), and the shared terrain sheet.
+opening full width), the shared terrain sheet, and step 2 (the right wall and
+team stations, map placeheld).
 
-Next: step 2, the right wall and team stations, with a placeholder map.
+Next: step 3 — the FORCES rail dies. Its parts have homes now: MarchList, the
+commander line and DISBAND go to the station (which already draws the first of
+those), ADD UNIT follows them, CALL UP becomes GARRISON on the left. The S-shop
+openers come off the top bar into the left tab column at the same time, because
+that column is only worth reorganising once.

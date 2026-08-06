@@ -122,6 +122,19 @@ export interface UIState {
   s1Nav: string | null      // one-shot tab request for the S1 console ('perstats'…)
   openS1: (tab: string) => void
   clearS1Nav: () => void
+  // TEAM STATIONS — the right wall. One full-height column per open team, in
+  // the order they were opened: the newest sits against the tab column it was
+  // opened from, and older ones are pushed inboard. Ids, not objects, because a
+  // team that is destroyed simply stops matching and its column goes with it.
+  stations: number[]
+  toggleStation: (teamId: number) => void
+  closeStation: (teamId: number) => void
+  // ONE WIDTH FOR ALL OF THEM. A station is always the same kind of object —
+  // a column you read top to bottom — so the width that makes one comfortable
+  // is the width that makes all of them comfortable, and a rail where every
+  // column is a different size is a rail nobody can scan.
+  stationW: number
+  setStationW: (w: number) => void
   setDroneMode: (droneId: number, mode: string) => void
   setFireOpts: (patch: Partial<FireOpts>) => void
   select: (id: number | null) => void
@@ -207,6 +220,19 @@ export const useUI = create<UIState>()((set, get) => ({
   s1Nav: null,
   openS1: (tab) => set({ console: 's1', s1Nav: tab }),
   clearS1Nav: () => set({ s1Nav: null }),
+  stations: [],
+  toggleStation: (teamId) => set((s) => ({
+    stations: s.stations.includes(teamId)
+      ? s.stations.filter(id => id !== teamId)
+      // appended, so the column opens against the tab that opened it
+      : [...s.stations, teamId],
+  })),
+  closeStation: (teamId) => set((s) => ({ stations: s.stations.filter(id => id !== teamId) })),
+  // 360 shows the march list without eliding a callsign; two of these still
+  // leave most of a 1600 px screen to the COP, which is the trade the commander
+  // is making and should be able to feel.
+  stationW: 360,
+  setStationW: (w) => set({ stationW: Math.max(300, Math.min(620, w)) }),
   setDroneMode: (droneId, mode) => set((s) => ({ droneModes: { ...s.droneModes, [droneId]: mode } })),
   setFireOpts: (patch) => set((s) => ({ fireOpts: { ...s.fireOpts, ...patch } })),
   select: (id) => set({ selectedIds: id == null ? [] : [id], mode: 'select' }),
