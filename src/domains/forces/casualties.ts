@@ -270,17 +270,48 @@ export function medicalUpdate(u: Unit, dt: number, rate: number): void {
 // Motorpool repairs: one DAMAGED vic at a time, ~90 s each, only while at a
 // base with a MOTORPOOL. DESTROYED stays destroyed.
 // secsPerVic comes from the serving facility's SPEC (pack data) — the old
-// hard-coded 90 s survives only as the fallback for spec-less callers
+// hard-coded 90 s survives only as the fallback for spec-less callers.
+// The motorpool is also where a FIELD FIX becomes a real repair: the flags a
+// mechanic left on hulls out in the dirt clear here, restoring full speed.
 export function repairUpdate(u: Unit, dt: number, secsPerVic = 90): void {
-  if (!u.vehicles.some(v => v.status === 'DAMAGED')) { u.repT = 0; return }
+  const damaged = u.vehicles.some(v => v.status === 'DAMAGED')
+  const patched = u.vehicles.some(v => v.fieldFix)
+  if (!damaged && !patched) { u.repT = 0; return }
+  u.repT = (u.repT ?? 0) + dt
+  if (u.repT < secsPerVic) return
+  u.repT -= secsPerVic
+  const v = u.vehicles.find(x => x.status === 'DAMAGED')
+  if (v) {
+    v.status = 'OK'
+    if (u.side === 'friend') radio(u.label, 'arrive', `MOTORPOOL — ${u.label} VIC RETURNED TO ACTION`, u.x, u.y)
+    autoLoad(u)   // a hull back on the road is seats back on the manifest
+    deriveElements(u); deriveStrength(u)
+    return
+  }
+  // no wrecks left on the rack: one cycle finishes every field fix properly
+  for (const x of u.vehicles) x.fieldFix = undefined
+  if (u.side === 'friend') radio(u.label, 'arrive', 'MOTORPOOL — FIELD REPAIRS MADE PERMANENT, FULL SPEED RESTORED', u.x, u.y)
+}
+
+/** FIELD REPAIR — a maintenance team's aura (UnitType.wrench). Same verb as
+ *  the motorpool with the honest difference: a vic patched in the dirt comes
+ *  back MISSION-CAPABLE, NOT WHOLE — it carries `fieldFix` and holds its
+ *  platoon under road speed until it gets real motorpool time. The pull
+ *  toward the rear stays real. */
+export function fieldRepairUpdate(u: Unit, dt: number, secsPerVic: number): void {
+  if (!u.vehicles.some(v => v.status === 'DAMAGED')) return
   u.repT = (u.repT ?? 0) + dt
   if (u.repT < secsPerVic) return
   u.repT -= secsPerVic
   const v = u.vehicles.find(x => x.status === 'DAMAGED')
   if (!v) return
   v.status = 'OK'
-  if (u.side === 'friend') radio(u.label, 'arrive', `MOTORPOOL — ${u.label} VIC RETURNED TO ACTION`, u.x, u.y)
-  autoLoad(u)   // a hull back on the road is seats back on the manifest
+  v.fieldFix = true
+  if (u.side === 'friend') {
+    radio(u.label, 'arrive',
+      `FIELD REPAIR — VIC MISSION-CAPABLE, REDUCED SPEED UNTIL MOTORPOOL`, u.x, u.y)
+  }
+  autoLoad(u)
   deriveElements(u); deriveStrength(u)
 }
 

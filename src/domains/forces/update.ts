@@ -17,7 +17,7 @@ import { effStats, goFirm, unfirm } from './elements'
 import { liftFactor } from './loadplan'
 import { inRecovery } from '../movement/recovery'
 import {
-  deriveElements, deriveStrength, downUnit, medicalUpdate,
+  deriveElements, deriveStrength, downUnit, fieldRepairUpdate, medicalUpdate,
   processCapture, processWipe, remnantCheck,
 } from './casualties'
 import { solveColumns } from '../movement/column'
@@ -49,17 +49,30 @@ export function movementUpdate(dt: number): void {
         radio(u.label, 'arrive', `DEFENSE SET — ${type.def.name}`, u.x, u.y)
       }
     }
-    // forward medical care, best source wins (P2.5): a MED detachment alongside
-    // treats faster than the platoon's own medic doing buddy-aid in a hole.
-    // Calm only — nobody works casualties under fire.
+    // FORWARD CARE AND FIELD MAINTENANCE, spec-driven (the platform declares
+    // its aura — UnitType.aid / UnitType.wrench, pack nouns; the old check
+    // named MED in the engine, which was a noun where no noun belongs). Best
+    // medical source wins: an aid detachment alongside treats faster than the
+    // platoon's own medic doing buddy-aid in a hole. Calm only — nobody works
+    // casualties or wrenches on hulls under fire.
     if (u.strength > 0 && !u.targetId && S.t - u.lastCombatT > 20) {
-      const medNear = u.type !== 'MED' && S.units.some(m => m.side === u.side
-        && m.type === 'MED' && m.strength > 0 && Math.hypot(m.x - u.x, m.y - u.y) < 300)
-      if (medNear) medicalUpdate(u, dt, 0.7)
+      let aidRate = 0
+      let wrenchSecs = 0
+      for (const m of S.units) {
+        if (m.side !== u.side || m.id === u.id || m.strength <= 0) continue
+        const spec = UNIT_TYPES[m.type]
+        const d = (spec.aid || spec.wrench) ? Math.hypot(m.x - u.x, m.y - u.y) : Infinity
+        if (spec.aid && d <= spec.aid.radius) aidRate = Math.max(aidRate, spec.aid.rate)
+        if (spec.wrench && d <= spec.wrench.radius) {
+          wrenchSecs = wrenchSecs ? Math.min(wrenchSecs, spec.wrench.secsPerVic) : spec.wrench.secsPerVic
+        }
+      }
+      if (aidRate > 0) medicalUpdate(u, dt, aidRate)
       else if (u.posture === 'dig' && u.digT >= 1
         && u.soldiers.some(s => s.kind === 'MEDIC' && s.status === 'FIT')) {
         medicalUpdate(u, dt, 0.35)
       }
+      if (wrenchSecs > 0) fieldRepairUpdate(u, dt, wrenchSecs)
     }
     // munitions resupply (both sides): trickle near an own-side base, faster
     // with an own-side LOG truck alongside. Calm only — nobody cross-loads
@@ -254,6 +267,9 @@ export function movementUpdate(dt: number): void {
       // stands. Computed last tick, because the formation solves against where
       // the unit ended up (see movement/station.ts).
       if (u.formCap !== undefined) spd *= u.formCap
+      // a field-repaired vic holds the platoon under road speed until it gets
+      // real motorpool time (casualties.ts fieldRepairUpdate)
+      if (u.vehicles.some(v => v.fieldFix)) spd *= 0.9
       u._spd = spd
       if (d < Math.max(4, spd * dt)) {
         u.odo += d

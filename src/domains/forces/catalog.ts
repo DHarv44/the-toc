@@ -90,6 +90,15 @@ export interface UnitType {
    *  combat engineers today, a dedicated EOD platform whenever a pack ships
    *  one (domains/control/routes reads it, nothing else). */
   eod?: { radius: number }
+  /** FORWARD MEDICAL AURA: same-side units inside `radius` receive wound care
+   *  at `rate` (the aid-station verb, mobile). Pack noun on the medical
+   *  platform; the engine only knows the effect. */
+  aid?: { radius: number; rate: number }
+  /** FIELD MAINTENANCE AURA: same-side units inside `radius` get DAMAGED vics
+   *  field-repaired, one per `secsPerVic`. A field fix is PARTIAL — the vic
+   *  returns mission-capable but flagged, and only real motorpool time clears
+   *  it (domains/forces/casualties fieldRepairUpdate). */
+  wrench?: { radius: number; secsPerVic: number }
 }
 
 // The registry: EMPTY until packs/install.ts populates it (which happens at

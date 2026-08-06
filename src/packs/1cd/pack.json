@@ -226,6 +226,7 @@
       "SCOUT": { "pos": "Scout", "rank": ["SPC", "SPC", "CPL", "SGT"] },
       "SAPPER": { "pos": "Sapper", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
       "SIGNALLER": { "pos": "Signaller", "rank": ["SPC", "SPC", "SGT"] },
+      "MECHANIC": { "pos": "Wheeled Vehicle Mechanic", "rank": ["PFC", "SPC", "SPC", "SPC", "SGT", "SGT"] },
       "RIFLEMAN_AT": { "pos": "Rifleman (AT4)", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] },
       "RIFLEMAN": { "pos": "Rifleman", "rank": ["PVT", "PFC", "PFC", "SPC", "SPC", "SPC"] }
     },
@@ -272,6 +273,7 @@
           { "name": "MORT PLT", "type": "MOR" },
           { "name": "SNIPER SQD", "roster": "SNIPER_SQD" },
           { "name": "MED PLT", "type": "MED" },
+          { "name": "MAINT PLT", "type": "MNT" },
           { "name": "RETRANS TM", "roster": "RETRANS_TM" }
         ] },
         { "co": "A CO", "plts": { "type": "ARM" } },
@@ -289,6 +291,7 @@
           { "name": "MORT PLT", "type": "MOR" },
           { "name": "SNIPER SQD", "roster": "SNIPER_SQD" },
           { "name": "MED PLT", "type": "MED" },
+          { "name": "MAINT PLT", "type": "MNT" },
           { "name": "RETRANS TM", "roster": "RETRANS_TM" }
         ] },
         { "co": "A CO", "plts": { "type": "ARM" } },

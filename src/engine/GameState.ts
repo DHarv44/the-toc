@@ -394,6 +394,10 @@ export interface UnitVehicle {
    *  was no recovery vehicle, which is a question waiting for the commander.
    *  See domains/movement/recovery. */
   recov?: 'towed' | 'pushed' | 'stranded'
+  /** FIELD-REPAIRED: a mechanic put it back mission-capable in the dirt, and
+   *  the dirt shows — the platoon runs under road speed until this vic gets
+   *  real motorpool time. Cleared by the facility repair pass. */
+  fieldFix?: boolean
 }
 
 // --- division asset requests (ASSET-REQUESTS.md) ----------------------------

@@ -158,7 +158,15 @@
       "key": "MED", "name": "Medical Detachment", "abbr": "MD", "cat": "SUSTAINMENT", "mob": "wheeled", "speed": 13,
       "sight": 600, "range": 200, "dpsSoft": 0.3, "dpsHard": 0, "soft": 1.0,
       "cost": 150, "veh": 2, "troops": 6, "glyph": "med",
+      "aid": { "radius": 300, "rate": 0.7 },
       "def": { "time": 45, "factor": 0.75, "name": "CCP ESTABLISHED" }
+    },
+    "MNT": {
+      "key": "MNT", "name": "Maintenance Team", "abbr": "MT", "cat": "SUSTAINMENT", "mob": "wheeled", "speed": 12,
+      "sight": 600, "range": 250, "dpsSoft": 0.6, "dpsHard": 0.2, "soft": 1.0,
+      "cost": 150, "veh": 2, "troops": 7, "glyph": "log",
+      "wrench": { "radius": 300, "secsPerVic": 130 },
+      "def": { "time": 45, "factor": 0.75, "name": "MAINTENANCE POINT SET" }
     }
   },
   "comps": {
@@ -208,7 +216,8 @@
     },
     "SIG": { "unit": "SIG", "vehicles": [{ "type": "RETRANS", "n": 2 }], "dismounts": [{ "kind": "SIGNALLER", "n": 7 }, { "kind": "LEADER", "n": 1 }] },
     "LOG": { "unit": "LOG", "vehicles": [{ "type": "FMTV", "n": 4 }, { "type": "M984", "n": 1 }], "dismounts": [] },
-    "MED": { "unit": "MED", "vehicles": [{ "type": "HMMWV", "n": 2 }], "dismounts": [{ "kind": "MEDIC", "n": 5 }, { "kind": "LEADER", "n": 1 }] }
+    "MED": { "unit": "MED", "vehicles": [{ "type": "HMMWV", "n": 2 }], "dismounts": [{ "kind": "MEDIC", "n": 5 }, { "kind": "LEADER", "n": 1 }] },
+    "MNT": { "unit": "MNT", "vehicles": [{ "type": "M984", "n": 2 }], "dismounts": [{ "kind": "MECHANIC", "n": 6 }, { "kind": "LEADER", "n": 1 }] }
   },
   "drones": {
     "SHADOW": {
