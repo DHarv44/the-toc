@@ -13,9 +13,10 @@
 // from the HQ at H-hour through CALL UP.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { MODES, MODE_ORDER, type ModeId } from '../../engine/modes'
+import { DrillRow, TreeLeaf } from '../tree'
 import {
   LOBBY_BUDGETS, defaultForce, lobbyGroups,
-  type SkirmishScenarioSel, type SkirmishSetup,
+  type LobbyGroup, type SkirmishScenarioSel, type SkirmishSetup,
 } from '../../engine/skirmish'
 import { allPacks, PACKS, playerPack } from '../../packs'
 import { playableFormations, defaultPlayerFormation } from '../../packs/orgquery'
@@ -79,6 +80,44 @@ export default function SkirmishLobby({ onLaunch, onBack }: {
     return n
   })
 
+  // THE ORG ECHELON, on the game's own tree grammar (ui/tree): brigade and
+  // battalion are DrillRows, a pickable group is a TreeLeaf with a checkbox in
+  // the icon cell. Levels come from the groups' slot paths, so however deep a
+  // pack's formation nests, the drill matches it.
+  const tree = useMemo(() => {
+    const mid = (g: LobbyGroup) => g.key.split('/').slice(1, -1).join(' · ')
+    const l1s: Array<{ key: string; label: string; l2s: Array<{ key: string; label: string; groups: LobbyGroup[] }> }> = []
+    for (const g of groups) {
+      let l1 = l1s.find(x => x.key === g.branch)
+      if (!l1) { l1 = { key: g.branch, label: g.branch === 'ATT' ? 'ATTACHMENTS' : g.branch, l2s: [] }; l1s.push(l1) }
+      const m = mid(g)
+      const l2Key = `${g.branch}//${m}`
+      let l2 = l1.l2s.find(x => x.key === l2Key)
+      if (!l2) { l2 = { key: l2Key, label: m, groups: [] }; l1.l2s.push(l2) }
+      l2.groups.push(g)
+    }
+    return l1s
+  }, [groups])
+
+  // everything starts SHUT (the tree's grammar) — except the rungs holding the
+  // default task org, so the board never opens onto a blank column
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const o = new Set<string>()
+    for (const g of groups) {
+      if (!g.defaultOn || !g.organic) continue
+      o.add(g.branch)
+      o.add(`${g.branch}//${g.key.split('/').slice(1, -1).join(' · ')}`)
+    }
+    setOpen(o)
+  }, [groups])
+  const flip = (k: string) => setOpen(s => {
+    const n = new Set(s)
+    if (n.has(k)) n.delete(k); else n.add(k)
+    return n
+  })
+  const costIn = (gs: LobbyGroup[]) => gs.reduce((n, g) => n + (picks.has(g.key) ? g.cost : 0), 0)
+
   const launch = () => onLaunch({
     map: mapSel, scenario: scn, difficulty: diff,
     sides: {
@@ -86,14 +125,6 @@ export default function SkirmishLobby({ onLaunch, onBack }: {
       hostile: [{ controller: 'cpu', pack: hostilePack, force: [] }],
     },
   })
-
-  // force rows grouped by top rung (brigade / ATT), in ORBAT order
-  const branches: Array<[string, typeof groups]> = []
-  for (const g of groups) {
-    const last = branches[branches.length - 1]
-    if (last && last[0] === g.branch) last[1].push(g)
-    else branches.push([g.branch, [g]])
-  }
 
   return (
     <div style={{
@@ -133,36 +164,34 @@ export default function SkirmishLobby({ onLaunch, onBack }: {
             TASK ORGANIZATION {authoredSel ? '· SET BY THE SCENARIO' : '· PICK UNDER BUDGET'}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, opacity: authoredSel ? 0.35 : 1, pointerEvents: authoredSel ? 'none' : 'auto' }}>
-            {branches.map(([branch, list]) => (
-              <div key={branch}>
-                <div style={{ fontSize: 9, letterSpacing: 2, color: DIM, padding: '6px 2px 3px' }}>{branch === 'ATT' ? 'ATTACHMENTS' : branch}</div>
-                {list.map(g => {
-                  const on = picks.has(g.key)
-                  return (
-                    <div key={g.key} onClick={() => toggle(g.key)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-                        padding: '5px 8px', borderRadius: 3, marginBottom: 4,
-                        background: CARD, border: `1px solid ${on ? '#3a6a9a' : LINE}`,
-                        borderLeft: `3px solid ${on ? '#7ec8ff' : '#35414d'}`,
-                      }}>
-                      <span style={{
-                        flex: '0 0 auto', width: 13, height: 13, borderRadius: 2, fontSize: 10, lineHeight: '12px',
-                        textAlign: 'center', color: on ? '#0a0e12' : 'transparent',
-                        background: on ? '#7ec8ff' : 'transparent', border: `1px solid ${on ? '#7ec8ff' : '#4a6478'}`,
-                      }}>✓</span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 11, letterSpacing: 1, color: '#dceeff' }}>
-                          {g.name}
-                          <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>{g.parent}</span>
-                          {g.from && g.from !== g.parent && <span style={{ color: '#e8c87a', marginLeft: 6, fontSize: 8, letterSpacing: 1 }}>ATT {g.from}</span>}
-                        </span>
-                        <span style={{ display: 'block', fontSize: 8.5, letterSpacing: 0.5, color: MUTED }}>{g.units}</span>
-                      </span>
-                      <span style={{ flex: '0 0 auto', fontSize: 10, color: on ? '#9fd0f5' : DIM, fontVariantNumeric: 'tabular-nums' }}>{g.cost}</span>
-                    </div>
-                  )
-                })}
+            {tree.map(l1 => (
+              <div key={l1.key}>
+                <DrillRow label={l1.label} depth={0} open={open.has(l1.key)}
+                  onClick={() => flip(l1.key)}
+                  n={l1.l2s.reduce((n, x) => n + x.groups.length, 0)}
+                  note={costIn(l1.l2s.flatMap(x => x.groups)) > 0
+                    ? `${costIn(l1.l2s.flatMap(x => x.groups))} PTS` : undefined} />
+                {open.has(l1.key) && l1.l2s.map(l2 => (
+                  <div key={l2.key}>
+                    {l2.label !== '' && (
+                      <DrillRow label={l2.label} depth={1} open={open.has(l2.key)}
+                        onClick={() => flip(l2.key)} n={l2.groups.length}
+                        note={costIn(l2.groups) > 0 ? `${costIn(l2.groups)} PTS` : undefined} />
+                    )}
+                    {(l2.label === '' || open.has(l2.key)) && l2.groups.map(g => {
+                      const on = picks.has(g.key)
+                      return (
+                        <TreeLeaf key={g.key} depth={l2.label !== '' ? 2 : 1}
+                          icon={<CheckBox on={on} />}
+                          label={g.name}
+                          note={<span style={{ color: on ? '#9fd0f5' : undefined, fontVariantNumeric: 'tabular-nums' }}>{g.cost}</span>}
+                          tag={[g.from && g.from !== g.parent ? `ATT ${g.from}` : null, g.units].filter(Boolean).join(' · ')}
+                          active={on}
+                          onClick={() => toggle(g.key)} />
+                      )
+                    })}
+                  </div>
+                ))}
               </div>
             ))}
             {!groups.length && (
@@ -285,6 +314,18 @@ export default function SkirmishLobby({ onLaunch, onBack }: {
 }
 
 // --- pieces ------------------------------------------------------------------
+
+/** The pick mark, riding TreeLeaf's icon cell — the row is the button, this
+ *  only says whether the group is in the task organization. */
+function CheckBox({ on }: { on: boolean }) {
+  return (
+    <span style={{
+      flex: '0 0 auto', width: 13, height: 13, borderRadius: 2, fontSize: 10, lineHeight: '12px',
+      textAlign: 'center', color: on ? '#0a0e12' : 'transparent',
+      background: on ? '#7ec8ff' : 'transparent', border: `1px solid ${on ? '#7ec8ff' : '#4a6478'}`,
+    }}>✓</span>
+  )
+}
 
 function Column({ title, accent, children }: { title: string; accent: string; children: ReactNode }) {
   return (
