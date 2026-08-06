@@ -251,8 +251,19 @@ share one 64 MB sheet; four tabs would bake four.
       the march table · team ties and plates · units · drones · structures ·
       range overlays · effects (shells, impacts) · marquee and drag previews.
 
-      *A camera module* — the View type, transforms and clamping, joining the
-      existing `map/view.ts`, instead of `window.__view` plus closures.
+      *A camera module* — **done 2026-08-06, `map/camera.ts`.** The View type,
+      the four transforms and the clamp, with `canvas` passed instead of
+      captured, which is the whole difference between "the map's transform" and
+      "a transform any surface can have". No behaviour change: the clamp is
+      algebraically identical (x0/y0 were literal zeros, x1/y1 both WORLD, so
+      every span term collapses). Verified by driving the view to (-50000,
+      -50000) at ppm 0.0001 and watching it recover to the map centre at the
+      zoom floor, with the whole sheet letterboxed as before.
+
+      The transforms read `canvas.width` per call rather than closing over it:
+      the canvas is resized every frame to whatever the rails have left it, and
+      a stale width draws the whole picture wrong for one frame after every
+      panel opens.
 
       *An input module* — pick/click/drag/wheel/keys, which a read-only pane
       simply does not mount.
