@@ -125,8 +125,27 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     // loop, disposing the renderer, releasing the context in the proper order —
     // rather than scheduling it for a document that will not exist.
     const onUnload = () => {
-      // 1. let go of the dying document FIRST, synchronously, so the feed's
-      //    WebGL view is torn down while its canvas still exists
+      // 0. KILL THE GPU CONTEXTS BEFORE ANYTHING ELSE.
+      //
+      //    This is the whole crash. A 2D canvas is memory the page owns and
+      //    dies harmlessly with its document; a WebGL context is a GPU-process
+      //    resource with a compositor surface behind it, and letting the
+      //    document take it down uninvited is a use-after-free over there —
+      //    STATUS_ACCESS_VIOLATION, the renderer dying, nothing catchable.
+      //
+      //    Unmounting React first was not enough, because the release still
+      //    went through three.js and the scheduler and landed after the
+      //    document was gone. WEBGL_lose_context is the one call that takes
+      //    the context away NOW, synchronously, while its document is still
+      //    standing. Everything downstream then finds a lost context, which is
+      //    a case three.js already knows how to survive.
+      for (const cv of Array.from(win.document.querySelectorAll('canvas'))) {
+        // getContext returns the EXISTING context — this does not create one,
+        // and a 2D canvas simply answers null to both
+        const gl = (cv.getContext('webgl2') ?? cv.getContext('webgl')) as WebGLRenderingContext | null
+        gl?.getExtension('WEBGL_lose_context')?.loseContext()
+      }
+      // 1. then let go of the dying document, synchronously
       flushSync(() => setHost(null))
       // 2. and put the content back on the NEXT task, not in this handler.
       //    Doing it here rebuilt the feed — a second WebGL context — in the
