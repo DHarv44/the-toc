@@ -35,6 +35,7 @@ import { groundAt } from '../../drone/ground'
 import { IMAGERY_CREDIT } from '../../world/pack/imagery'
 import { winView } from '../mapUtil'
 import { usePortalTarget } from '../shell/PopOut'
+import FeedMirror from './FeedMirror'
 
 const CAM_MODES = ['WHOT', 'BHOT', 'EO', 'NVG', 'SAT'] as const
 const CAM_FILTERS: Record<string, string> = {
@@ -314,7 +315,14 @@ function HeaderMenu({ feed, drone, camMode, lookPoint }: {
   )
 }
 
-export default function FeedWindow({ feed, index, docked }: { feed: Feed; index: number; docked?: boolean }) {
+export default function FeedWindow({ feed, index, docked, mirror }: {
+  feed: Feed
+  index: number
+  docked?: boolean
+  /** drawn on a second screen: identical in every respect except that the
+   *  sensor picture is a copy of the live one rather than a second GL context */
+  mirror?: boolean
+}) {
   const ui = useUI()
   const boxRef = useRef<HTMLDivElement>(null)
   const drag = useRef<
@@ -655,7 +663,13 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
             // and a mirror that takes the first one it finds ends up blowing a
             // 28 px unit symbol up to fill a window. See ui/feeds/PoppedFeeds.
             <Box data-feed-view style={{ position: 'absolute', inset: 0, filter: CAM_FILTERS[camMode] || CAM_FILTERS['WHOT'] }}>
-              <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} muted={!!feed.muted} />
+              {/* ON A SECOND SCREEN THIS IS A COPY, and everything else on this
+                  window is the real thing. The picture is the only part that
+                  cannot travel: a WebGL context in a document the user can
+                  close takes the game down with it. */}
+              {mirror
+                ? <FeedMirror feedId={feed.id} />
+                : <DroneView droneId={drone.id} gimbal={{ gx: feed.gx, gy: feed.gy, fov: feed.fov }} mode={camMode} muted={!!feed.muted} />}
             </Box>
           )}
           {drone ? (
