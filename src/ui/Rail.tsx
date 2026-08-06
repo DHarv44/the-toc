@@ -14,6 +14,7 @@ import { teamUnits } from '../domains/forces/teams'
 import { marchPlan } from '../domains/movement/march'
 import { playerPack } from '../packs'
 import { unreadReports } from '../engine/campaign'
+import { TUT } from './tutTargets'
 import { groupState, groupStrength } from './forces/state'
 import Column from './shell/Column'
 
@@ -99,6 +100,7 @@ interface TabDef {
   tone?: string
   mark?: boolean
   hint?: string
+  tut?: string
 }
 
 export function RailTabs({ side }: { side: 'left' | 'right' }) {
@@ -175,6 +177,9 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
           open: ui.console === 'cmd',
           onToggle: () => ui.setConsole(ui.console === 'cmd' ? null : 'cmd'),
           hint: 'COMMAND — the command group, the installations, the garrison, and what division can be asked for',
+          // the tutorial's old FORCES anchor: that rail's contents are this
+          // console's, so the ring follows them here
+          tut: TUT.railForces,
         },
         ...shops,
       ]
@@ -194,7 +199,7 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
       {tabs.map(t => (
         <RailStrip key={t.title} side={side} title={t.title}
           open={t.open} onToggle={t.onToggle}
-          tone={t.tone} mark={t.mark} hint={t.hint} />
+          tone={t.tone} mark={t.mark} hint={t.hint} tut={t.tut} />
       ))}
     </Box>
   )

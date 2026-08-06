@@ -34,6 +34,7 @@ import GarrisonTree from './install/GarrisonTree'
 import { Portrait } from './portrait'
 import { BnDui } from './insignia'
 import { useUI } from './store'
+import { TUT } from './tutTargets'
 import { fmtClock } from './styles'
 import { centerView } from '../map/view'
 
@@ -61,13 +62,17 @@ export default function CommandConsole() {
       {/* THE TAB IT WAS LEFT ON IS THE TAB IT OPENS ON. Folding garrison into a
           console only works if reaching it stays one click; a page that always
           resets to OVERVIEW would have made the deliberate act two. */}
-      <StaffTabs active={ui.cmdTab} onTab={k => ui.setCmdTab(k as typeof ui.cmdTab)}
-        tabs={[
-          { key: 'overview', label: 'OVERVIEW' },
-          { key: 'installations', label: 'INSTALLATIONS' },
-          { key: 'garrison', label: 'GARRISON' },
-          { key: 'actions', label: 'ACTIONS' },
-        ]} />
+      {/* the tutorial's old CALL UP anchor: that button opened a picker, and
+          the picker is this tab */}
+      <div data-tut={TUT.callUp}>
+        <StaffTabs active={ui.cmdTab} onTab={k => ui.setCmdTab(k as typeof ui.cmdTab)}
+          tabs={[
+            { key: 'overview', label: 'OVERVIEW' },
+            { key: 'installations', label: 'INSTALLATIONS' },
+            { key: 'garrison', label: 'GARRISON' },
+            { key: 'actions', label: 'ACTIONS' },
+          ]} />
+      </div>
 
       {ui.cmdTab === 'overview' && <><CommandGroup /><CommandOverview /></>}
       {ui.cmdTab === 'installations' && <Installations />}
