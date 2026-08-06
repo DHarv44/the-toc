@@ -41,6 +41,11 @@ import { drawGrid, drawSubGrid } from './layers/grid'
 import { drawGazetteer, drawTowns } from './layers/gazetteer'
 import { drawCredit, drawFeatures } from './layers/features'
 import { drawMeasures } from './layers/measures'
+import { drawBackdrop, drawControlField, drawTerrain } from './layers/terrain'
+import {
+  drawAmbientDroneRoutes, drawAmbientRoutes, drawMarchTable,
+  drawSelectedDroneRoutes, drawSelectedRoutes,
+} from './layers/routes'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -697,96 +702,13 @@ export default function MapView() {
       // as a framed view rather than a clipped one.
       const bg = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.3, Math.max(W, H) * 0.8)
       bg.addColorStop(0, night ? '#232427' : '#2f3033')
-      bg.addColorStop(1, night ? '#1a1b1d' : '#242528')
-      ctx.fillStyle = bg
-      ctx.fillRect(0, 0, W, H)
-      ctx.save()
-      ctx.globalAlpha = night ? 0.12 : 0.09
-      ctx.strokeStyle = '#4a4d52'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let gx = 0; gx <= W; gx += 48) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H) }
-      for (let gy = 0; gy <= H; gy += 48) { ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5) }
-      ctx.stroke()
-      ctx.restore()
-
-      // terrain (dimmed + desaturated at night) — the exact sheet, or the
-      // orthoimagery of the same frame when SAT is on (symbology stays on top)
-      const mpp = S.map!.CELL / TERRAIN_PX
-      const showSat = sat && satLayer != null
-      ctx.imageSmoothingEnabled = showSat || view.ppm * mpp < 1
-      if (night) ctx.filter = 'brightness(0.42) saturate(0.5) contrast(1.05)'
-      if (showSat) {
-        // the sat canvas covers exactly the frame window, whatever its px size
-        ctx.drawImage(satLayer!, w2sX(0), w2sY(0),
-          S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
-        // past the base mosaic's own resolution, sharpen where the view is
-        // (real imagery only — the terrain bake has nothing sharper to fetch)
-        const basePpm = satLayer!.width / S.map!.WORLD
-        if (S.map!.sat && view.ppm > basePpm * 1.3) {
-          const pad = 1.35
-          const hw = (canvas.width / 2 / view.ppm) * pad, hh = (canvas.height / 2 / view.ppm) * pad
-          kickPatch(
-            Math.max(0, view.cx - hw), Math.max(0, view.cy - hh),
-            Math.min(S.map!.WORLD, view.cx + hw), Math.min(S.map!.WORLD, view.cy + hh),
-          )
-        }
-        if (satPatch && view.ppm > basePpm * 1.15) {
-          const p = satPatch
-          ctx.drawImage(p.cv, w2sX(p.x0), w2sY(p.y0),
-            (p.x1 - p.x0) * view.ppm, (p.y1 - p.y0) * view.ppm)
-        }
-      } else {
-        ctx.drawImage(
-          terrainLayer,
-          w2sX(0), w2sY(0),
-          terrainLayer.width * mpp * view.ppm,
-          terrainLayer.height * mpp * view.ppm,
-        )
-      }
-      ctx.filter = 'none'
-
-      // frame the map edge so the off-map backdrop reads as "outside the AO"
-      ctx.strokeStyle = night ? 'rgba(120,150,180,0.35)' : 'rgba(40,55,70,0.55)'
-      ctx.lineWidth = 2
-      ctx.strokeRect(w2sX(0), w2sY(0), S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
-
-      // (Roads are baked into the sheet — real geography carries 50k+
-      // polylines and a per-frame walk of them is exactly why the map
-      // crawled before the exact renderer landed.)
-
-      // campaign COP: enemy-controlled territory wash + the FLOT trace. The
-      // control field recomputes on its own slow cadence; drawing it is just a
-      // scaled image blit (soft edges via smoothing) and a dashed contour.
-      {
-        const cf = controlField(S)
-        if (cf) {
-          ctx.save()
-          ctx.imageSmoothingEnabled = true
-          ctx.globalAlpha = night ? 0.85 : 0.7
-          ctx.drawImage(cf.tint, w2sX(0), w2sY(0), S.map!.WORLD * view.ppm, S.map!.WORLD * view.ppm)
-          ctx.restore()
-          // TWO traces like a real battle map: the friendly forward line (blue)
-          // and the enemy line (red) — the gap between them is uncontested
-          ctx.save()
-          ctx.lineJoin = 'round'
-          const trace = (paths: typeof cf.blue, color: string) => {
-            ctx.strokeStyle = color
-            ctx.lineWidth = Math.max(1.6, 2.6 * Math.min(1, view.ppm * 12))
-            ctx.setLineDash([9, 6])
-            ctx.beginPath()
-            for (const p of paths) {
-              ctx.moveTo(w2sX(p[0]!.x), w2sY(p[0]!.y))
-              for (let i = 1; i < p.length; i++) ctx.lineTo(w2sX(p[i]!.x), w2sY(p[i]!.y))
-            }
-            ctx.stroke()
-            ctx.setLineDash([])
-          }
-          trace(cf.red, night ? 'rgba(255,96,96,0.85)' : 'rgba(190,34,34,0.8)')
-          trace(cf.blue, night ? 'rgba(96,160,255,0.85)' : 'rgba(30,90,190,0.8)')
-          ctx.restore()
-        }
-      }
+      // THE GROUND is a layer — map/layers/terrain. Backdrop, then the sheet or
+      // the imagery over it and the AO's edge, then the campaign control field.
+      drawBackdrop(frame)
+      const showSat = drawTerrain(frame, {
+        sheet: terrainLayer, sat: satLayer, patch: satPatch, satOn: sat, kickPatch,
+      })
+      drawControlField(frame)
 
       // THE GRATICULE is a layer now — map/layers/grid, drawn from the frame
       // built above. Same two passes in the same order: the 100 m mesh under
@@ -951,197 +873,18 @@ export default function MapView() {
         ctx.stroke()
       }
 
-      // faint operational graphics: every moving unit's route, even unselected
-      ctx.lineWidth = 1.2
-      for (const u of S.units) {
-        if (u.side !== 'friend' || !u.path.length || ui.selectedIds.includes(u.id)) continue
-        const hostile = u.attackId != null || u.attackMove
-        ctx.strokeStyle = hostile
-          ? (night ? 'rgba(255,110,90,0.35)' : 'rgba(200,50,30,0.32)')
-          : (night ? 'rgba(110,170,255,0.3)' : 'rgba(30,90,190,0.28)')
-        ctx.beginPath()
-        ctx.moveTo(w2sX(u.x), w2sY(u.y))
-        for (const p of u.path) ctx.lineTo(w2sX(p.x), w2sY(p.y))
-        ctx.stroke()
-        const a = u.path.length > 1 ? u.path[u.path.length - 2]! : { x: u.x, y: u.y }
-        const b = u.path[u.path.length - 1]!
-        const ang = Math.atan2(w2sY(b.y) - w2sY(a.y), w2sX(b.x) - w2sX(a.x))
-        const bx = w2sX(b.x), by = w2sY(b.y)
-        ctx.fillStyle = hostile
-          ? (night ? 'rgba(255,110,90,0.45)' : 'rgba(200,50,30,0.42)')
-          : (night ? 'rgba(110,170,255,0.4)' : 'rgba(30,90,190,0.38)')
-        ctx.beginPath()
-        ctx.moveTo(bx + Math.cos(ang) * 8, by + Math.sin(ang) * 8)
-        ctx.lineTo(bx + Math.cos(ang + 2.6) * 6, by + Math.sin(ang + 2.6) * 6)
-        ctx.lineTo(bx + Math.cos(ang - 2.6) * 6, by + Math.sin(ang - 2.6) * 6)
-        ctx.closePath()
-        ctx.fill()
-      }
+      // ROUTES are a layer — map/layers/routes. The faint traces first, so the
+      // command graphics and the control measures draw over them.
+      drawAmbientRoutes(frame)
       // CONTROL MEASURES are a layer — map/layers/measures. Still drawn here,
       // under the units and over the terrain, which is the whole convention.
       drawMeasures(frame)
 
-      // THE MARCH TABLE, ON THE ROUTE. A column's route was a blue line and
-      // nothing else: no distance, no time, no depth. Those three numbers are
-      // what a march order IS, and reading them meant opening a console — so
-      // the sheet could show you a route without telling you anything about it.
-      //
-      // Drawn for the SELECTED team only. This is detail you inspect, not
-      // clutter every column carries around; the whole point of the roll-up is
-      // that the map stays readable until you ask it a question.
-      for (const t of S.teams) {
-        if (!t.members.some(id => ui.selectedIds.includes(id))) continue
-        const plan = marchPlan(t.id)
-        const mem = t.members
-          .map(id => S.units.find(u => u.id === id))
-          .filter((u): u is Unit => !!u && u.strength > 0 && u.path.length > 0)
-        if (mem.length < 2) continue
-        const rank = new Map((plan?.order ?? t.members).map((id, i) => [id, i]))
-        const head = mem.slice().sort((a, b) =>
-          (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99))[0]!
-        // distance still to run, and the pace the COLUMN can actually hold —
-        // the slowest element's, because that is what a column moves at
-        let togo = 0, px = head.x, py = head.y
-        for (const p of head.path) { togo += Math.hypot(p.x - px, p.y - py); px = p.x; py = p.y }
-        const pace = Math.min(...mem.map(u => u._spd || 0).filter(v => v > 0.2))
-        const eta = isFinite(pace) && pace > 0 ? togo / pace : Infinity
-        const gap = MARCH_INTERVAL[plan?.column ?? 'open']
-        const depth = gap * Math.max(0, mem.length - 1)
-        const rp = head.path[head.path.length - 1]!
-        const hx = w2sX(head.x), hy = w2sY(head.y)
-        const rx = w2sX(rp.x), ry = w2sY(rp.y)
+      drawMarchTable(frame)
+      drawAmbientDroneRoutes(frame)
 
-        ctx.save()
-        // SP where the head is now, RP at the objective — the two ends every
-        // march table names
-        ctx.strokeStyle = 'rgba(126,200,255,0.8)'
-        ctx.lineWidth = 2
-        for (const [mx, my] of [[hx, hy], [rx, ry]] as const) {
-          ctx.beginPath(); ctx.arc(mx, my, 7, 0, Math.PI * 2); ctx.stroke()
-        }
-        ctx.font = '600 9px Inter, system-ui, sans-serif'
-        ctx.fillStyle = 'rgba(126,200,255,0.9)'
-        ctx.textAlign = 'center'
-        ctx.fillText('SP', hx, hy - 11)
-        ctx.fillText('RP', rx, ry - 11)
-
-        // the readout, on the route near the objective
-        const km = togo >= 1000 ? `${(togo / 1000).toFixed(1)} KM` : `${Math.round(togo)} M`
-        const mins = isFinite(eta) ? Math.round(eta / 60) : null
-        const line = `${t.name} · ${km} TO RP · ${
-          mins == null ? 'HALTED' : mins >= 60
-            ? `ETA ${Math.floor(mins / 60)}H ${String(mins % 60).padStart(2, '0')}M`
-            : `ETA ${mins} MIN`} · ${Math.round(depth)} M DEEP`
-        ctx.font = '600 10px Inter, system-ui, sans-serif'
-        const w = ctx.measureText(line).width
-        ctx.fillStyle = 'rgba(10,20,30,0.78)'
-        ctx.fillRect(rx - w / 2 - 6, ry + 12, w + 12, 15)
-        ctx.strokeStyle = 'rgba(126,200,255,0.35)'
-        ctx.lineWidth = 1
-        ctx.strokeRect(rx - w / 2 - 6, ry + 12, w + 12, 15)
-        ctx.fillStyle = 'rgba(190,225,255,0.95)'
-        ctx.fillText(line, rx, ry + 23)
-        ctx.restore()
-      }
-
-      for (const d of S.drones) {
-        if (!d.route || !d.route.length || ui.selectedIds.includes(d.id)) continue
-        ctx.strokeStyle = 'rgba(74,208,192,0.25)'
-        ctx.setLineDash([5, 5])
-        ctx.beginPath()
-        ctx.moveTo(w2sX(d.x), w2sY(d.y))
-        for (const p of d.route) ctx.lineTo(w2sX(p.x), w2sY(p.y))
-        ctx.stroke()
-        ctx.setLineDash([])
-      }
-
-      // routes for selected units: BFT-style high-vis command graphics
-      for (const u of selectedFriendlies()) {
-        if (!u.path.length) continue
-        const hostile = u.attackId != null || u.attackMove
-        const pts = [{ x: u.x, y: u.y }, ...u.path]
-        // casing + bright route line (red for attack tasks)
-        for (const pass of [
-          { color: night ? 'rgba(44,10,10,0.95)' : 'rgba(40,8,8,0.85)', w: 5, skip: !hostile },
-          { color: night ? 'rgba(10,24,44,0.95)' : 'rgba(8,20,40,0.85)', w: 5, skip: hostile },
-          { color: hostile ? '#ff5844' : '#3f9dff', w: 2.2, skip: false },
-        ].filter(p => !p.skip)) {
-          ctx.strokeStyle = pass.color
-          ctx.lineWidth = pass.w
-          ctx.lineJoin = 'round'
-          ctx.beginPath()
-          ctx.moveTo(w2sX(pts[0]!.x), w2sY(pts[0]!.y))
-          for (let i = 1; i < pts.length; i++) ctx.lineTo(w2sX(pts[i]!.x), w2sY(pts[i]!.y))
-          ctx.stroke()
-        }
-        // arrowhead on the final segment
-        const a = pts[pts.length - 2]!, b = pts[pts.length - 1]!
-        const ang = Math.atan2(w2sY(b.y) - w2sY(a.y), w2sX(b.x) - w2sX(a.x))
-        const bx = w2sX(b.x), by = w2sY(b.y)
-        ctx.fillStyle = hostile ? '#ff5844' : '#3f9dff'
-        ctx.strokeStyle = hostile ? 'rgba(40,8,8,0.9)' : 'rgba(8,20,40,0.9)'
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(bx + Math.cos(ang) * 13, by + Math.sin(ang) * 13)
-        ctx.lineTo(bx + Math.cos(ang + 2.5) * 10, by + Math.sin(ang + 2.5) * 10)
-        ctx.lineTo(bx + Math.cos(ang - 2.5) * 10, by + Math.sin(ang - 2.5) * 10)
-        ctx.closePath()
-        ctx.fill(); ctx.stroke()
-        // numbered waypoint pips
-        u.legs.forEach((leg, i) => {
-          const x = w2sX(leg.x), y = w2sY(leg.y)
-          ctx.beginPath()
-          ctx.arc(x, y, 8, 0, Math.PI * 2)
-          ctx.fillStyle = '#0d2a4d'
-          ctx.fill()
-          ctx.strokeStyle = '#6cb8ff'
-          ctx.lineWidth = 1.6
-          ctx.stroke()
-          ctx.fillStyle = '#dceeff'
-          ctx.font = 'bold 9px Consolas, monospace'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText(String(i + 1), x, y + 0.5)
-          ctx.textBaseline = 'alphabetic'
-          ctx.textAlign = 'left'
-        })
-      }
-
-      // routes for selected drones: straight flight legs + numbered pips
-      for (const d of selectedDrones()) {
-        if (!d.route || !d.route.length) continue
-        const pts = [{ x: d.x, y: d.y }, ...d.route]
-        for (const pass of [
-          { color: night ? 'rgba(10,34,34,0.95)' : 'rgba(8,30,30,0.8)', w: 4 },
-          { color: '#4ad0c0', w: 1.8 },
-        ]) {
-          ctx.strokeStyle = pass.color
-          ctx.lineWidth = pass.w
-          ctx.setLineDash([7, 5])
-          ctx.beginPath()
-          ctx.moveTo(w2sX(pts[0]!.x), w2sY(pts[0]!.y))
-          for (let i = 1; i < pts.length; i++) ctx.lineTo(w2sX(pts[i]!.x), w2sY(pts[i]!.y))
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-        d.route.forEach((wp, i) => {
-          const x = w2sX(wp.x), y = w2sY(wp.y)
-          ctx.beginPath()
-          ctx.arc(x, y, 7.5, 0, Math.PI * 2)
-          ctx.fillStyle = '#0d3a36'
-          ctx.fill()
-          ctx.strokeStyle = '#5ae0d0'
-          ctx.lineWidth = 1.4
-          ctx.stroke()
-          ctx.fillStyle = '#d8fff8'
-          ctx.font = 'bold 9px Consolas, monospace'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText(String(i + 1), x, y + 0.5)
-          ctx.textBaseline = 'alphabetic'
-          ctx.textAlign = 'left'
-        })
-      }
+      drawSelectedRoutes(frame, selectedFriendlies())
+      drawSelectedDroneRoutes(frame, selectedDrones())
 
       // King of the Hill objective: control zone tinted by holder, clocks above
       if (S.hill) {

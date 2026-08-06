@@ -283,6 +283,37 @@ share one 64 MB sheet; four tabs would bake four.
       input, then the station composes. The risk is draw ORDER and missed
       closure state, and both are only caught by looking at the map.
 
+      **THE FULL CUT LIST**, in draw order, so the remaining work is a checklist
+      rather than a judgement call each time. Every pass keeps its position in
+      the loop; only its home changes.
+
+      | # | module | passes | needs beyond the Frame |
+      |---|---|---|---|
+      | ✓ | `camera` | view, transforms, clamp | — |
+      | ✓ | `frame` | the per-frame context | — |
+      | ✓ | `layers/grid` | 100 m mesh, 1 km grid + labels | — |
+      | ✓ | `layers/gazetteer` | sim towns, pack place names | the baked label list |
+      | ✓ | `layers/features` | hills, rivers, infrastructure, credit | attribution, sat flag |
+      | ✓ | `layers/measures` | phase lines, checkpoints, objectives, boundaries | — |
+      | 1 | `layers/terrain` | the sheet, the sat patch, the AO border, the FLOT wash and contour | baked layers, sat state |
+      | 2 | `layers/aim` | strike targeting, impact reticles, drone control rings, deploy/build placement rings, fire-mission rings | ui mode, cursor world pos |
+      | 3 | `layers/routes` | faint routes for every mover, the march table, unit routes, drone routes | selection |
+      | 4 | `layers/objectives` | king-of-the-hill zone, division main, scenario-authored graphics | — |
+      | 5 | `layers/effects` | fire-mission impacts, the in-contact indicator | — |
+      | 6 | `layers/ranges` | the fires / sensor / weapon overlays | ui toggles |
+      | 7 | `layers/units` | DUSTWUN sites, the team roll-up, friendlies, hostiles, attack designation | selection, zoom |
+      | 8 | `layers/cursor` | formation-spread preview, marquee, cursor readout | live input state |
+
+      Then `map/input.ts` takes pick/click/drag/wheel/keys, and MapView is a
+      canvas, a mount effect that builds the frame, and a LIST.
+
+      **Batch the verification.** Checking each pass against the running map one
+      at a time costs more than it catches — the passes are verbatim moves and
+      the compiler catches the only mistake that is likely (a missed local).
+      Cut the whole list, then look at the map hard: every overlay toggled, a
+      route drawn, a team rolled up and expanded, night, satellite, and the
+      whole-map fit.
+
       **THE DISCIPLINE, so this does not become forty files with one caller
       each:** extract when there is a second consumer or when a file has no
       seams. MapView now has both. Speculative decomposition is the other way
