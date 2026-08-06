@@ -257,12 +257,17 @@ export const useUI = create<UIState>()((set, get) => ({
     poppedStations: s.poppedStations.filter(id => id !== teamId),
   })),
   poppedStations: [],
+  // SENDING IT OUT MINIMISES THE COLUMN. The station's tab is untouched, so the
+  // wall behaves exactly as it always has: click the tab and the column comes
+  // back, and the window on the other screen stays up while it does. Bringing
+  // the window home re-opens the column it left.
   popStation: (teamId, out) => set((s) => ({
     poppedStations: out
       ? (s.poppedStations.includes(teamId) ? s.poppedStations : [...s.poppedStations, teamId])
       : s.poppedStations.filter(id => id !== teamId),
-    // a station coming BACK has to have a column to come back to
-    stations: !out && !s.stations.includes(teamId) ? [...s.stations, teamId] : s.stations,
+    stations: out
+      ? s.stations.filter(id => id !== teamId)
+      : (s.stations.includes(teamId) ? s.stations : [...s.stations, teamId]),
   })),
   // 360 shows the march list without eliding a callsign; two of these still
   // leave most of a 1600 px screen to the COP, which is the trade the commander

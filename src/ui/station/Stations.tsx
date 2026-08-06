@@ -20,14 +20,11 @@ import TeamStation from './TeamStation'
 export default function Stations() {
   useUI((s) => s.tick)
   const ui = useUI()
-  const out = new Set(ui.poppedStations)
   // a disbanded team's id simply stops matching — TeamStation renders null and
   // the column goes with it, without anybody having to sweep the list
   return (
     <>
-      {ui.stations.filter(id => !out.has(id)).map(id => (
-        <TeamStation key={id} teamId={id} />
-      ))}
+      {ui.stations.map(id => <TeamStation key={id} teamId={id} />)}
       {/* ON THE OTHER SCREEN. Rendered from here rather than from the right
           wall, so a popped station survives its tab being closed — the point of
           sending it out is that it stays up while you work the map. */}

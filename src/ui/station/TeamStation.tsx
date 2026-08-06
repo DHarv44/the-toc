@@ -312,12 +312,14 @@ export default function TeamStation({ teamId, popped }: {
           {icon('⌖', 'Centre the map on this team', centre)}
           {/* ONTO THE SECOND MONITOR. The whole fight on one screen, the team
               you are worried about on the other — which is what a real
-              operations centre looks like and what a single viewport cannot
-              be. See ui/shell/PopOut. */}
+              operations centre looks like and what a single viewport cannot be.
+              Sending it out MINIMISES this column; the tab is untouched, so the
+              wall behaves as it always has and clicking the tab brings the
+              column back with the window still up. See ui/shell/PopOut. */}
           {!popped && icon('⧉', 'Pop this station out to its own window',
             () => ui.popStation(team.id, true))}
           {icon('✕', popped ? 'Close this window' : 'Close this station',
-            () => ui.closeStation(team.id))}
+            () => popped ? ui.popStation(team.id, false) : ui.closeStation(team.id))}
         </div>
         <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#6d8296', marginTop: 2 }}>
           {units.length} ELEMENTS · <span style={{ color: strengthTone(str) }}>{str}%</span>
