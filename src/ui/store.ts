@@ -139,6 +139,12 @@ export interface UIState {
   stations: number[]
   toggleStation: (teamId: number) => void
   closeStation: (teamId: number) => void
+  // OUT ON ANOTHER SCREEN. A station is the surface a commander watches one
+  // grouping from, and on two monitors it belongs on the second one — the
+  // whole fight on the left, the team you are worried about on the right.
+  // Popping out moves where it DRAWS; it is still the same station.
+  poppedStations: number[]
+  popStation: (teamId: number, out: boolean) => void
   // ONE WIDTH FOR ALL OF THEM. A station is always the same kind of object —
   // a column you read top to bottom — so the width that makes one comfortable
   // is the width that makes all of them comfortable, and a rail where every
@@ -233,13 +239,31 @@ export const useUI = create<UIState>()((set, get) => ({
   openS1: (tab) => set({ console: 's1', s1Nav: tab }),
   clearS1Nav: () => set({ s1Nav: null }),
   stations: [],
-  toggleStation: (teamId) => set((s) => ({
-    stations: s.stations.includes(teamId)
-      ? s.stations.filter(id => id !== teamId)
-      // appended, so the column opens against the tab that opened it
-      : [...s.stations, teamId],
+  toggleStation: (teamId) => set((s) => {
+    const shut = s.stations.includes(teamId)
+    return {
+      stations: shut
+        ? s.stations.filter(id => id !== teamId)
+        // appended, so the column opens against the tab that opened it
+        : [...s.stations, teamId],
+      // SHUTTING THE TAB SHUTS THE WINDOW. Otherwise the tab reads closed while
+      // the station is still up on the other monitor, and the only way back to
+      // it is to find it in the task bar.
+      poppedStations: shut ? s.poppedStations.filter(id => id !== teamId) : s.poppedStations,
+    }
+  }),
+  closeStation: (teamId) => set((s) => ({
+    stations: s.stations.filter(id => id !== teamId),
+    poppedStations: s.poppedStations.filter(id => id !== teamId),
   })),
-  closeStation: (teamId) => set((s) => ({ stations: s.stations.filter(id => id !== teamId) })),
+  poppedStations: [],
+  popStation: (teamId, out) => set((s) => ({
+    poppedStations: out
+      ? (s.poppedStations.includes(teamId) ? s.poppedStations : [...s.poppedStations, teamId])
+      : s.poppedStations.filter(id => id !== teamId),
+    // a station coming BACK has to have a column to come back to
+    stations: !out && !s.stations.includes(teamId) ? [...s.stations, teamId] : s.stations,
+  })),
   // 360 shows the march list without eliding a callsign; two of these still
   // leave most of a 1600 px screen to the COP, which is the trade the commander
   // is making and should be able to feel.

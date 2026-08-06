@@ -18,9 +18,29 @@
 // lifetime has to be tied to the component's in BOTH directions — the component
 // closes the window when it unmounts, and the window tells the component when
 // the user closes it.
-import { useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from '../../domains/comms/radio'
+
+/** WHICH DOCUMENT AM I IN?
+ *
+ *  A portalled overlay — a menu, a tooltip, a modal — mounts itself into
+ *  `document.body`, and inside a popped-out window `document` is still the
+ *  OPENER'S: the React tree renders through a portal but the code is running in
+ *  the original context. So a dropdown opened on the second screen appeared on
+ *  the first one, next to nothing, while the button that opened it sat there
+ *  looking broken.
+ *
+ *  Every popped-out subtree gets the document it is actually drawn in, and
+ *  anything that portals asks for it. */
+const PopoutDoc = createContext<Document | null>(null)
+
+/** Spread into a Mantine overlay's `portalProps`. Undefined in the main window,
+ *  which is exactly right — the default target is already correct there. */
+export function usePortalTarget(): { target: HTMLElement } | undefined {
+  const doc = useContext(PopoutDoc)
+  return doc ? { target: doc.body } : undefined
+}
 
 /** Copy the opener's stylesheets into the popup, and keep copying: Vite adds a
  *  <style> for every hot update, so a window opened before an edit would slowly
@@ -107,5 +127,9 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     if (winRef.current) winRef.current.document.title = title
   }, [title])
 
-  return host ? createPortal(children, host) : null
+  return host
+    ? createPortal(
+      <PopoutDoc.Provider value={host.ownerDocument}>{children}</PopoutDoc.Provider>,
+      host)
+    : null
 }

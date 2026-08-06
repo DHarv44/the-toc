@@ -176,7 +176,12 @@ function TeamNet({ log }: { log: NetEntry[] }) {
   )
 }
 
-export default function TeamStation({ teamId }: { teamId: number }) {
+export default function TeamStation({ teamId, popped }: {
+  teamId: number
+  /** drawn in its own window: it fills that window instead of being a column
+   *  of the right wall, and there is nothing to resize against */
+  popped?: boolean
+}) {
   const ui = useUI()
   // THE TEAM'S OWN ADMINISTRATION, one drawer at a time. Attaching, handing
   // over command, renaming and breaking the team up are all rare and all
@@ -244,12 +249,24 @@ export default function TeamStation({ teamId }: { teamId: number }) {
     }}>{glyph}</button>
   )
 
-  return (
+  const shell = (kids: React.ReactNode) => popped ? (
+    // ITS OWN WINDOW: fill it. A column with a drag handle would be measuring
+    // itself against a right wall that is not there.
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+      minHeight: 0, background: 'rgba(10,14,18,0.97)',
+      fontFamily: 'Consolas, "Courier New", monospace', color: '#c8d8e8',
+    }}>{kids}</div>
+  ) : (
     <Column side="right" width={ui.stationW} setWidth={ui.setStationW}
       style={{
         background: 'rgba(10,14,18,0.97)', borderLeftColor: '#22303d',
         fontFamily: 'Consolas, "Courier New", monospace', color: '#c8d8e8',
-      }}>
+      }}>{kids}</Column>
+  )
+
+  return shell(<>
+
       {/* WHO THIS IS — and the way to take hold of them. A panel about a team
           that cannot select the team is the dead end the FORCES rail had. */}
       <div style={{
@@ -293,7 +310,14 @@ export default function TeamStation({ teamId }: { teamId: number }) {
             setDraft(team.name); setRenaming(true); setDrawer(null)
           })}
           {icon('⌖', 'Centre the map on this team', centre)}
-          {icon('✕', 'Close this station', () => ui.closeStation(team.id))}
+          {/* ONTO THE SECOND MONITOR. The whole fight on one screen, the team
+              you are worried about on the other — which is what a real
+              operations centre looks like and what a single viewport cannot
+              be. See ui/shell/PopOut. */}
+          {!popped && icon('⧉', 'Pop this station out to its own window',
+            () => ui.popStation(team.id, true))}
+          {icon('✕', popped ? 'Close this window' : 'Close this station',
+            () => ui.closeStation(team.id))}
         </div>
         <div style={{ fontFamily: UI, fontSize: FZ.hint, color: '#6d8296', marginTop: 2 }}>
           {units.length} ELEMENTS · <span style={{ color: strengthTone(str) }}>{str}%</span>
@@ -535,6 +559,5 @@ export default function TeamStation({ teamId }: { teamId: number }) {
           its own and is the right place to hear everything at once; a station
           exists to be the one place where everything is about one grouping. */}
       <TeamNet log={log} />
-    </Column>
-  )
+    </>)
 }

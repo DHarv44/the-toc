@@ -34,6 +34,7 @@ import DroneView, { AEROSTAT_MIN_TILT, AEROSTAT_MAX_TILT } from '../../drone/Dro
 import { groundAt } from '../../drone/ground'
 import { IMAGERY_CREDIT } from '../../world/pack/imagery'
 import { winView } from '../mapUtil'
+import { usePortalTarget } from '../shell/PopOut'
 
 const CAM_MODES = ['WHOT', 'BHOT', 'EO', 'NVG', 'SAT'] as const
 const CAM_FILTERS: Record<string, string> = {
@@ -216,9 +217,13 @@ function FeedSelect<V extends string | number | null>({ value, options, onSelect
   const cur = options.find((o) => o.val === value)
   const withIcons = options.some((o) => o.icon)
   const nowrap: CSSProperties = { whiteSpace: 'nowrap' }
+  const portal = usePortalTarget()
   return (
+    // portalProps: on a popped-out feed the dropdown has to mount into THAT
+    // window's body, not the opener's — see ui/shell/PopOut
     <Menu shadow="md" width={withIcons ? 'auto' : Math.max(minWidth, 80)}
-      position="bottom-start" withArrow={false} trapFocus={false}>
+      position="bottom-start" withArrow={false} trapFocus={false}
+      portalProps={portal}>
       <Menu.Target>
         <Button size="compact-xs" variant="default" c={color} title={title}
           leftSection={cur?.icon}
@@ -262,8 +267,10 @@ function HeaderMenu({ feed, drone, camMode, lookPoint }: {
   const hasTargets = !!(drone.targets && drone.targets.length > 0)
   const onStation = drone.state === 'onstation'
   const flying = onStation || drone.state === 'transit'
+  const portal = usePortalTarget()
   return (
-    <Menu shadow="md" width={210} position="bottom-end" withArrow={false} trapFocus={false}>
+    <Menu shadow="md" width={210} position="bottom-end" withArrow={false} trapFocus={false}
+      portalProps={portal}>
       <Menu.Target>
         <ActionIcon size="md" variant="default" title="Drone controls" style={{ fontSize: 14 }}
           onPointerDown={(e) => e.stopPropagation()}>☰</ActionIcon>
