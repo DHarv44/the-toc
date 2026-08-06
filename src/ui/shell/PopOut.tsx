@@ -97,6 +97,12 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     }
     // the popup's own document arrives with the agent's default margin and a
     // white background, which is a bright rectangle in a dark console
+    // every new document gets asked for an icon by the browser, and this app
+    // ships none — an empty data URI answers it instead of a 404 per window
+    const icon = win.document.createElement('link')
+    icon.rel = 'icon'
+    icon.href = 'data:,'
+    win.document.head.appendChild(icon)
     win.document.body.style.margin = '0'
     win.document.body.style.background = '#0a0e12'
     win.document.body.style.overflow = 'hidden'

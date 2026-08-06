@@ -618,7 +618,13 @@ export default function FeedWindow({ feed, index, docked }: { feed: Feed; index:
             )}
             {/* OUT ONTO ITS OWN SCREEN. A sensor picture is a 16:9 object and
                 the rail is a 340 px column — on one monitor that is a trade the
-                commander makes knowingly, on two it is not a trade at all. */}
+                commander makes knowingly, on two it is not a trade at all.
+                KNOWN FAULT: closing the popped window with the OS titlebar X
+                crashes the renderer. A station survives that because it is a 2D
+                canvas; this is WebGL, and its GPU context has to be released
+                BEFORE its document dies, which that button gives nobody the
+                chance to do. Closing it with the ✕ in the window itself is the
+                safe path. Unresolved — see CONSOLE.md step 5. */}
             {!feed.popped && (
               <ActionIcon size="md" variant="default" title="Pop out to its own window" style={winIcon}
                 onPointerDown={(e) => e.stopPropagation()}

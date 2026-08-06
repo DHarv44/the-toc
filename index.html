@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TOC // C2</title>
+    <!-- the app ships no icon, so without this the browser falls back to asking
+         for /favicon.ico and logs a 404 against it. An empty data URI answers
+         the question once. -->
+    <link rel="icon" href="data:," />
     <style>
       html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0e12; }
       #root { width: 100vw; height: 100vh; }
