@@ -6,11 +6,8 @@ import { S } from '../engine/state'
 import { devIncomingStrike } from '../devtools/incoming'
 import { initDevGame } from '../engine/scenario'
 import { buildGameMap } from '../world/mapref'
-import { playerPack } from '../packs'
 import { packMaps } from '../packs/map-files'
 import { setMuted as audioSetMuted } from '../audio/audio'
-import { unreadReports } from '../engine/campaign'
-import { UnreadDot } from './S1Console'
 import { useUI } from './store'
 import { fmtClock, TOPBAR_H } from './styles'
 
@@ -70,31 +67,11 @@ export default function TopBar() {
             </svg>
           </Button>
         </Tooltip>
-        <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
-        {/* staff shops: each opens its section's console over the map column.
-            S2-S4 stand up as their data gets moving parts. */}
-        <Button.Group>
-          {/* the shop tabs are built from the PACK's staff section data —
-              a different army's staff, different tabs. Only shops with a
-              console today render (s1-s4; s6 stands up with EW). */}
-          {(['s1', 's2', 's3', 's4'] as const).map((k) => {
-            const info = playerPack().staff?.[k]
-            return (
-              <Tooltip key={k} label={`${info?.full ?? k.toUpperCase()} — ${info?.desc ?? ''}`} withArrow>
-                <Button size="sm" variant={ui.console === k ? 'filled' : 'default'}
-                  style={{ position: 'relative', overflow: 'visible' }}
-                  onClick={() => {
-                    // unread S1 traffic routes straight to what the alert is for
-                    if (k === 's1' && unreadReports(S, 's1') > 0) ui.openS1('perstats')
-                    else ui.setConsole(ui.console === k ? null : k)
-                  }}>
-                  {info?.label ?? k.toUpperCase()}
-                  <UnreadDot n={unreadReports(S, k)} />
-                </Button>
-              </Tooltip>
-            )
-          })}
-        </Button.Group>
+        {/* THE STAFF SHOPS ARE NOT UP HERE ANY MORE. They were four buttons
+            between the map toggle and the mute control, which put "read the
+            PERSTAT" in the same row as "turn the sound off". They are left-hand
+            panels, so they are opened from the left-hand tab column with the
+            other left-hand panels — see ui/Rail RailTabs. */}
         <Divider orientation="vertical" color="dark.4" style={{ height: 18, alignSelf: 'center' }} />
         <Tooltip label="Command dashboard" withArrow>
           <Button size="sm" variant={ui.console === 'dash' ? 'filled' : 'default'}

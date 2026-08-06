@@ -36,6 +36,7 @@ import { Pick, one } from '../tray/controls'
 import { PaletteIcon, PaletteRow, garrisonSections } from '../palette'
 import { QrfWarning, guardedFieldSlot, proceedFieldSlot } from '../forces/callup'
 import MarchList from '../forces/MarchList'
+import Column from '../shell/Column'
 
 const UI = 'Inter, "Segoe UI", system-ui, sans-serif'
 // About eight transmissions — enough to hold a contact from the first spot
@@ -210,21 +211,6 @@ export default function TeamStation({ teamId }: { teamId: number }) {
     y: units.reduce((n, u) => n + u.y, 0) / units.length,
   })
 
-  // THE INBOARD EDGE IS THE ONE YOU DRAG, because it is the edge whose position
-  // the commander is actually trading against the map.
-  const startResize = (e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    const startX = e.clientX, startW = ui.stationW
-    const move = (ev: PointerEvent) => ui.setStationW(startW - (ev.clientX - startX))
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
-
   // THE TEAM'S OWN TRAFFIC. Everything the team has said and everything its
   // elements have said, and nothing anybody else has — which is the whole
   // reason to have it here rather than sending the commander to the battalion
@@ -260,12 +246,11 @@ export default function TeamStation({ teamId }: { teamId: number }) {
   )
 
   return (
-    <div style={{
-      flex: '0 0 auto', width: ui.stationW, position: 'relative',
-      display: 'flex', flexDirection: 'column', minHeight: 0,
-      background: 'rgba(10,14,18,0.97)', borderLeft: '1px solid #22303d',
-      fontFamily: 'Consolas, "Courier New", monospace', color: '#c8d8e8',
-    }}>
+    <Column side="right" width={ui.stationW} setWidth={ui.setStationW}
+      style={{
+        background: 'rgba(10,14,18,0.97)', borderLeftColor: '#22303d',
+        fontFamily: 'Consolas, "Courier New", monospace', color: '#c8d8e8',
+      }}>
       {/* WHO THIS IS — and the way to take hold of them. A panel about a team
           that cannot select the team is the dead end the FORCES rail had. */}
       <div style={{
@@ -495,12 +480,6 @@ export default function TeamStation({ teamId }: { teamId: number }) {
           its own and is the right place to hear everything at once; a station
           exists to be the one place where everything is about one grouping. */}
       <TeamNet log={log} />
-
-      <div onPointerDown={startResize} title="Drag to resize"
-        style={{
-          position: 'absolute', left: 0, top: 0, bottom: 0, width: 5,
-          cursor: 'ew-resize', zIndex: 5,
-        }} />
-    </div>
+    </Column>
   )
 }

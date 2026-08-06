@@ -202,18 +202,24 @@ export const useUI = create<UIState>()((set, get) => ({
   closeRoster: () => set({ rosterId: null }),
   console: null,
   setConsole: (c) => set({ console: c }),
-  consoleW: 760,
-  setConsoleW: (w) => set({ consoleW: Math.max(420, Math.min(1100, w)) }),
-  // FULL BY DEFAULT, because a staff board is a DOCUMENT. The S3's task force
-  // table is six columns; the S1's PERSTAT and the S4's LOGSTAT are worse. At
-  // wall width they are crushed to unreadable, and a table you cannot read is
-  // not a cheaper way to read it — it is a wasted click on the way to
-  // maximising anyway.
+  // TWICE A TEAM STATION. A staff board is a document and needs room — the
+  // S3's task force table is six columns and the PERSTAT and LOGSTAT are worse
+  // — but 720 is enough for all of them, and it is a width the commander can
+  // trade against the map rather than a takeover.
+  consoleW: 720,
+  setConsoleW: (w) => set({ consoleW: Math.max(420, Math.min(1400, w)) }),
+  // DOCKED BY DEFAULT, which revises the earlier call.
   //
-  // The wall stays for the panels that are genuinely narrow — a tree, a
-  // roster, the GARRISON list — where beside-the-map is the right answer. It
-  // was the right idea applied to the wrong content.
-  consoleFull: true,
+  // These opened FULL because at 420-760 the tables were crushed and a table
+  // you cannot read is a wasted click on the way to maximising anyway. That was
+  // true when the choice was a narrow wall or the whole screen. It stopped
+  // being true when the right wall grew team stations: a board over the whole
+  // viewport hides the stations you opened to watch the fight you are reading
+  // about, which is the single most un-TOC thing an interface can do.
+  //
+  // So: a real column at a real width, and FULL still one button away for when
+  // the document IS the work.
+  consoleFull: false,
   setConsoleFull: (b) => set({ consoleFull: b }),
   s1Nav: null,
   openS1: (tab) => set({ console: 's1', s1Nav: tab }),

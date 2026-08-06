@@ -12,7 +12,10 @@ import { S } from '../engine/state'
 import { underPlayerCommand } from '../domains/forces/command'
 import { teamUnits } from '../domains/forces/teams'
 import { marchPlan } from '../domains/movement/march'
+import { playerPack } from '../packs'
+import { unreadReports } from '../engine/campaign'
 import { groupState, groupStrength } from './forces/state'
+import Column from './shell/Column'
 
 // The tab itself — exported so FeedsPanel (custom width/resize) can share it.
 export function RailStrip({ side, title, open, onToggle, tut, tone, mark, hint }: {
@@ -89,6 +92,15 @@ export function RailStrip({ side, title, open, onToggle, tut, tone, mark, hint }
  *
  *  It reads the store itself rather than taking props: the app shell would
  *  otherwise re-render at the UI pump's 10 Hz just to keep two chevrons right. */
+interface TabDef {
+  title: string
+  open: boolean
+  onToggle: () => void
+  tone?: string
+  mark?: boolean
+  hint?: string
+}
+
 export function RailTabs({ side }: { side: 'left' | 'right' }) {
   const ui = useUI()
   // THE TEAMS ARE TABS. The right wall is the SITUATION side, and a team is the
@@ -101,7 +113,7 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
   // FEEDS and NET stay ABOVE them. They always exist, so pinning them at the
   // top means the two tabs the player has had since the first minute never
   // shift when a team is formed underneath.
-  const teams = side === 'right'
+  const teams: TabDef[] = side === 'right'
     ? S.teams
       .map(t => ({ t, list: teamUnits(t).filter(underPlayerCommand) }))
       .filter(x => x.list.length > 0)
@@ -122,10 +134,36 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
         }
       })
     : []
-  const tabs = side === 'left'
+  // THE STAFF ARE TABS TOO. The S-shops were four buttons in the top bar —
+  // beside the mute control and the clock — which put "read the personnel
+  // status report" in the same row as "turn the sound off". They are panels,
+  // they open on the left, and this is where the left's panels are opened
+  // from. The tab lights while its board is up, so the column also says which
+  // one is covering the map.
+  //
+  // Built from the PACK's staff data: a different army's staff, different tabs.
+  const shops: TabDef[] = side === 'left'
+    ? (['s1', 's2', 's3', 's4'] as const).map(k => {
+        const info = playerPack().staff?.[k]
+        const n = unreadReports(S, k)
+        return {
+          title: `${info?.label ?? k.toUpperCase()}${n ? ` (${n})` : ''}`,
+          open: ui.console === k,
+          onToggle: () => {
+            // unread S1 traffic routes straight to what the alert is for
+            if (k === 's1' && unreadReports(S, 's1') > 0) ui.openS1('perstats')
+            else ui.setConsole(ui.console === k ? null : k)
+          },
+          hint: `${info?.full ?? k.toUpperCase()}${info?.desc ? ` — ${info.desc}` : ''}`,
+          ...(n ? { tone: '#e0b34e' } : {}),
+        }
+      })
+    : []
+  const tabs: TabDef[] = side === 'left'
     ? [
         { title: 'COMMAND', open: ui.leftOpen, onToggle: ui.toggleLeft },
         { title: 'GARRISON', open: ui.bgOpen, onToggle: ui.toggleBg },
+        ...shops,
       ]
     : [
         { title: `FEEDS${ui.feeds.length ? ` (${ui.feeds.length})` : ''}`, open: ui.feedsOpen, onToggle: ui.toggleFeeds },
@@ -143,9 +181,7 @@ export function RailTabs({ side }: { side: 'left' | 'right' }) {
       {tabs.map(t => (
         <RailStrip key={t.title} side={side} title={t.title}
           open={t.open} onToggle={t.onToggle}
-          tone={'tone' in t ? t.tone : undefined}
-          mark={'mark' in t ? t.mark : undefined}
-          hint={'hint' in t ? t.hint : undefined} />
+          tone={t.tone} mark={t.mark} hint={t.hint} />
       ))}
     </Box>
   )
@@ -166,26 +202,22 @@ export default function Rail({ side, title, width, open, onToggle, footer, tut, 
   void title; void onToggle; void tut
   if (!open) return null
 
-  const panel = (
-    <Box w={width} style={{
-      flex: '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      background: 'var(--mantine-color-dark-7)',
-      [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--mantine-color-dark-4)',
-    }}>
+  // geometry is ui/shell/Column's — this adds what a RAIL is: a scrolling body
+  // and an optional pinned footer. Fixed width for now; it joins the resizable
+  // ones when the consoles do.
+  return (
+    <Column side={side} width={width} style={{ background: 'var(--mantine-color-dark-7)' }}>
       <ScrollArea style={{ flex: 1, minHeight: 0 }} scrollbarSize={6} type="hover">
         {children}
       </ScrollArea>
-
       {footer && (
         <Box px="xs" py={6} style={{
           flex: '0 0 auto', borderTop: '1px solid var(--mantine-color-dark-5)',
           background: 'var(--mantine-color-dark-8)',
         }}>{footer}</Box>
       )}
-    </Box>
+    </Column>
   )
-
-  return panel
 }
 
 // Section label used inside a rail: caption plus a fading rule.
