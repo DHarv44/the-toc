@@ -19,7 +19,7 @@
 // closes the window when it unmounts, and the window tells the component when
 // the user closes it.
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { toast } from '../../domains/comms/radio'
 
 /** WHICH DOCUMENT AM I IN?
@@ -105,10 +105,27 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     win.document.body.appendChild(mount)
     setHost(mount)
 
-    // BOTH DIRECTIONS. The window closing must tell the component, or the panel
-    // that popped the content out keeps believing it is still out there.
-    const onUnload = () => closed.current()
+    // BOTH DIRECTIONS, AND THE ORDER IS THE WHOLE BUG.
+    //
+    // A popped-out feed is a WebGL view: an @react-three/fiber canvas with a
+    // live GPU context and a render loop. When the user closes that window the
+    // browser destroys its document — and if React is still holding the canvas
+    // at that moment, the renderer and its context are torn down underneath it
+    // and the whole PAGE goes with it (STATUS_ACCESS_VIOLATION, which is the
+    // renderer process dying, not an exception you can catch).
+    //
+    // So the subtree is unmounted SYNCHRONOUSLY while the document is still
+    // alive. flushSync forces React to run the cleanup now — cancelling the
+    // loop, disposing the renderer, releasing the context in the proper order —
+    // rather than scheduling it for a document that will not exist.
+    const onUnload = () => {
+      flushSync(() => setHost(null))
+      closed.current()
+    }
+    // pagehide as well: beforeunload does not fire on every close path, and a
+    // missed unmount here is a crash rather than a leak
     win.addEventListener('beforeunload', onUnload)
+    win.addEventListener('pagehide', onUnload)
     // and if the OPENER goes away, its children should not outlive it as
     // orphaned windows pointed at a dead context
     const onOpenerGone = () => win.close()
@@ -117,8 +134,13 @@ export default function PopOut({ title, w = 720, h = 460, onClose, children }: {
     return () => {
       stop()
       win.removeEventListener('beforeunload', onUnload)
+      win.removeEventListener('pagehide', onUnload)
       window.removeEventListener('beforeunload', onOpenerGone)
-      win.close()
+      // SAME ORDERING FROM THE OTHER SIDE. When the component unmounts, React
+      // is mid-commit and the portal's children may not have released their GPU
+      // context yet; closing the window inside that commit destroys the document
+      // out from under them. A task boundary lets the unmount finish first.
+      setTimeout(() => win.close(), 0)
       winRef.current = null
     }
   }, [])
