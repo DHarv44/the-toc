@@ -3,8 +3,8 @@
 // this instead of poking window.__view themselves. The live view object is
 // shared with MapView via window.__view; mutations take effect next frame.
 import type { Vec2 } from '../world/WorldMap'
+import type { View } from './camera'
 
-interface View { cx: number; cy: number; ppm: number }
 const view = (): View | null => (window as unknown as { __view?: View }).__view ?? null
 
 // pixels-per-meter that fits `spanMeters` across the viewport's short side

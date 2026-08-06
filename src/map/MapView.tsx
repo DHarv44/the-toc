@@ -35,8 +35,8 @@ import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/cont
 import { toast } from '../domains/comms/radio'
 import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
+import { clampView as clamp2d, xform, type View } from './camera'
 
-interface View { cx: number; cy: number; ppm: number }
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
 export default function MapView() {
@@ -144,31 +144,12 @@ export default function MapView() {
     resize()
     window.addEventListener('resize', resize)
 
-    // zoom floor lets the whole (square) map fit the viewport — it's letterboxed on
-    // the longer axis, where the off-map backdrop shows. The view centers on any axis
-    // the map no longer fills; otherwise it's clamped so no gap appears on that axis.
-    function clampView() {
-      if (canvas.width < 2 || canvas.height < 2) return
-      if (!isFinite(view.cx) || !isFinite(view.cy) || !isFinite(view.ppm) || view.ppm <= 0) {
-        view.cx = S.map!.fob.x; view.cy = S.map!.fob.y - 2000
-        view.ppm = Math.max(0.02, Math.min(canvas.width, canvas.height) / 9000)
-      }
-      const x0 = 0, y0 = 0
-      const x1 = S.map!.WORLD, y1 = S.map!.WORLD
-      const spanX = x1 - x0, spanY = y1 - y0
-      // floor = zoomed out just enough to fit the AO (can't scroll past its edge)
-      const minPpm = Math.min(canvas.width / spanX, canvas.height / spanY)
-      view.ppm = Math.max(minPpm, Math.min(1.2, view.ppm))
-      const hw = canvas.width / 2 / view.ppm
-      const hh = canvas.height / 2 / view.ppm
-      view.cx = hw * 2 >= spanX ? (x0 + x1) / 2 : Math.max(x0 + hw, Math.min(x1 - hw, view.cx))
-      view.cy = hh * 2 >= spanY ? (y0 + y1) / 2 : Math.max(y0 + hh, Math.min(y1 - hh, view.cy))
-    }
-
-    const w2sX = (x: number) => (x - view.cx) * view.ppm + canvas.width / 2
-    const w2sY = (y: number) => (y - view.cy) * view.ppm + canvas.height / 2
-    const s2wX = (sx: number) => (sx - canvas.width / 2) / view.ppm + view.cx
-    const s2wY = (sy: number) => (sy - canvas.height / 2) / view.ppm + view.cy
+    // The camera lives in map/camera now — the view type, the clamp and the
+    // four transforms, which is the first piece of this file that a second pane
+    // can use without taking the rest of it (CONSOLE.md step 6).
+    const clampView = () =>
+      clamp2d(view, canvas, S.map!.WORLD, { x: S.map!.fob.x, y: S.map!.fob.y - 2000 })
+    const { w2sX, w2sY, s2wX, s2wY } = xform(view, canvas)
 
     function pickUnit(wx: number, wy: number): Unit | null {
       const pickR = 18 / view.ppm
