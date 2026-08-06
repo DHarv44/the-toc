@@ -46,6 +46,8 @@ import {
   drawAmbientDroneRoutes, drawAmbientRoutes, drawMarchTable,
   drawSelectedDroneRoutes, drawSelectedRoutes,
 } from './layers/routes'
+import { drawDebris, drawHill, drawPontoons, drawStructures } from './layers/places'
+import { drawDrones, drawImpacts } from './layers/air'
 
 type Pick2 = { kind: 'unit'; obj: Unit } | { kind: 'drone'; obj: Drone }
 
@@ -886,193 +888,18 @@ export default function MapView() {
       drawSelectedRoutes(frame, selectedFriendlies())
       drawSelectedDroneRoutes(frame, selectedDrones())
 
-      // King of the Hill objective: control zone tinted by holder, clocks above
-      if (S.hill) {
-        const h = S.hill
-        const hx = w2sX(h.x), hy = w2sY(h.y), hr = h.r * view.ppm
-        const col = h.holder === 'friend' ? '63,157,255' : h.holder === 'hostile' ? '255,88,68' : '200,200,200'
-        ctx.beginPath()
-        ctx.arc(hx, hy, hr, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${col},0.08)`
-        ctx.fill()
-        ctx.setLineDash([9, 6])
-        ctx.strokeStyle = `rgba(${col},0.75)`
-        ctx.lineWidth = 2
-        ctx.stroke()
-        ctx.setLineDash([])
-        const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
-        ctx.font = 'bold 10px Consolas, monospace'
-        ctx.textAlign = 'center'
-        ctx.fillStyle = `rgba(${col},0.95)`
-        ctx.fillText(
-          `OBJ ${h.holder === 'friend' ? '— HELD' : h.holder === 'hostile' ? '— ENEMY HELD' : '— CONTESTED'}`,
-          hx, hy - hr - 18)
-        ctx.font = '9px Consolas, monospace'
-        ctx.fillStyle = night ? 'rgba(160,200,235,0.9)' : 'rgba(30,40,60,0.85)'
-        ctx.fillText(`FRND ${mmss(h.holdFriend)} / ${mmss(h.target)} · ENY ${mmss(h.holdHostile)}`, hx, hy - hr - 6)
-        ctx.textAlign = 'left'
-      }
+      // THE SHEET'S FURNITURE is a layer — map/layers/places. Nothing here
+      // moves: the objective, the bridges, higher's CP, the authored graphics,
+      // the installations, and what the fight has left on the ground.
+      drawHill(frame)
+      drawPontoons(frame)
+      drawStructures(frame)
+      drawDebris(frame)
 
-      // pontoon bridges laid by engineers
-      if (S.pontoons.length) {
-        const { GRID, CELL } = S.map!
-        for (const i of S.pontoons) {
-          const gx = i % GRID, gy = (i / GRID) | 0
-          const x = w2sX(gx * CELL), y = w2sY(gy * CELL)
-          const sz = CELL * view.ppm
-          ctx.fillStyle = '#b8a67e'
-          ctx.fillRect(x, y, sz, sz)
-          ctx.strokeStyle = '#26221c'
-          ctx.lineWidth = 1
-          ctx.strokeRect(x - 1, y - 1, sz + 2, sz + 2)
-        }
-      }
-
-      // DIVISION MAIN — higher HQ as a place on the map (campaign, inert).
-      // Deep rear, bottom-left: it does nothing, it is simply there.
-      if (S.campaign?.divHq) {
-        const d = S.campaign.divHq
-        drawStructure(ctx, w2sX(d.x), w2sY(d.y), {
-          side: 'friend', kind: 'HQ', label: 'DIV MAIN · 1CD',
-          building: false, progress: 1, hpFrac: 1,
-        })
-      }
-
-      // structures (friendly always; hostile once spotted or fog off)
-      // CONTROL MEASURES the scenario authored — the same operational graphic
-      // the builder drew, under the symbols where a graphic belongs
-      if (S.scenarioPlaces) {
-        for (const [name, p] of S.scenarioPlaces) {
-          drawPlace(ctx, w2sX(p.x), w2sY(p.y), {
-            name, dim: true,
-            ...(p.r != null ? { rPx: p.r * view.ppm } : {}),
-          })
-        }
-      }
-      for (const s of S.structures) {
-        if (s.side === 'hostile' && S.fogEnabled && !S.structContacts.has(s.id)) continue
-        drawStructure(ctx, w2sX(s.x), w2sY(s.y), {
-          side: s.side, kind: s.kind,
-          label: s.side === 'friend' && s.kind === 'FOB'
-            ? `${s.label} · S:${Math.floor(s.stock || 0)}`
-            : s.label,
-          building: s.buildT > 0,
-          progress: s.buildT > 0 ? 1 - s.buildT / STRUCTURES[s.kind].buildTime : 1,
-          hpFrac: s.hp / s.maxHp,
-          // a division main and your own CP are the same box until the size
-          // marker says otherwise — mark anything that is not yours
-          echelon: s.side === 'friend' && s.formation && s.formation !== S.chair
-            ? markOf(playerPack(), s.formation) : undefined,
-          patch: s.side === 'friend' && s.formation && s.formation !== S.chair
-            ? patchOf(playerPack(), s.formation) : undefined,
-        })
-      }
-
-      // wrecks
-      ctx.strokeStyle = night ? 'rgba(180,170,160,0.5)' : 'rgba(60,55,50,0.55)'
-      ctx.lineWidth = 1.5
-      for (const wk of S.wrecks) {
-        const age = S.t - wk.t
-        if (age > 90) continue
-        const x = w2sX(wk.x), y = w2sY(wk.y)
-        ctx.globalAlpha = Math.max(0.15, 1 - age / 90)
-        ctx.beginPath()
-        ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5)
-        ctx.moveTo(x - 5, y + 5); ctx.lineTo(x + 5, y - 5)
-        ctx.stroke()
-      }
-      ctx.globalAlpha = 1
-
-      // smoke screens
-      for (const sm of S.smoke) {
-        const age = S.t - sm.t
-        const fade = Math.min(1, Math.max(0, (75 - age) / 15)) // fade out last 15 s
-        const grow = Math.min(1, 0.4 + age / 8)
-        const x = w2sX(sm.x), y = w2sY(sm.y)
-        const r = sm.r * grow * view.ppm
-        const grad = ctx.createRadialGradient(x, y, r * 0.2, x, y, r)
-        grad.addColorStop(0, `rgba(200,200,205,${0.5 * fade})`)
-        grad.addColorStop(1, `rgba(170,170,178,0)`)
-        ctx.fillStyle = grad
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // Fire-mission impacts only. A called-for-fire mission is a reported event and
-      // belongs on the BFT; individual cannon strikes (im.gun) are not, and are drawn
-      // in the UAS feed instead.
-      for (const im of S.impacts) {
-        if (im.gun) continue
-        const age = S.t - im.t
-        if (age > 4) continue
-        ctx.strokeStyle = `rgba(200,80,30,${1 - age / 4})`
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.arc(w2sX(im.x), w2sY(im.y), 4 + age * 10 * view.ppm * 30, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-
-      // Rounds in flight are deliberately NOT drawn here. This is a Blue Force Tracker,
-      // not a gun camera — it plots what the network reports, and individual cannon
-      // rounds aren't reported. Tracers belong to the UAS feed, which is the only place
-      // the player sees actual ground truth (DroneView renders them).
-
-      // drones: orbit rings + icons
-      for (const d of S.drones) {
-        const spec = DRONE_TYPES[d.type]
-        const sel = ui.feeds.some(f => f.droneId === d.id) || ui.selectedIds.includes(d.id)
-        if (d.state === 'onstation') {
-          ctx.setLineDash([4, 4])
-          // the tethered aerostat holds a fixed point — no orbit ring, just its sensor arc
-          if (spec.src !== 'tether') {
-            ctx.strokeStyle = sel ? 'rgba(255,215,80,0.6)' : 'rgba(60,140,220,0.4)'
-            ctx.beginPath()
-            ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.orbitR * (d.orbitMul || 1) * view.ppm, 0, Math.PI * 2)
-            ctx.stroke()
-          }
-          ctx.strokeStyle = 'rgba(60,140,220,0.18)'
-          ctx.beginPath()
-          ctx.arc(w2sX(d.tx), w2sY(d.ty), spec.sight * (d.sightMul || 1) * view.ppm, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.setLineDash([])
-        }
-        // sensor lock marker: small orange target diamond at the locked point
-        if (d.lock) {
-          const lx = w2sX(d.lock.x), ly = w2sY(d.lock.y)
-          ctx.strokeStyle = 'rgba(255,170,60,0.85)'
-          ctx.lineWidth = 1.5
-          ctx.beginPath()
-          ctx.moveTo(lx, ly - 7); ctx.lineTo(lx + 7, ly); ctx.lineTo(lx, ly + 7); ctx.lineTo(lx - 7, ly)
-          ctx.closePath()
-          ctx.stroke()
-          ctx.beginPath()
-          ctx.moveTo(lx, ly - 3); ctx.lineTo(lx, ly + 3)
-          ctx.moveTo(lx - 3, ly); ctx.lineTo(lx + 3, ly)
-          ctx.stroke()
-        }
-        // overwatch tether to the assigned unit
-        if (d.followId) {
-          const fu = S.units.find(x => x.id === d.followId)
-          if (fu) {
-            ctx.strokeStyle = 'rgba(90,200,170,0.5)'
-            ctx.setLineDash([3, 5])
-            ctx.beginPath()
-            ctx.moveTo(w2sX(d.x), w2sY(d.y))
-            ctx.lineTo(w2sX(fu.x), w2sY(fu.y))
-            ctx.stroke()
-            ctx.setLineDash([])
-          }
-        }
-        {
-          const hdg = (d.state === 'transit' || d.state === 'rtb' || d.state === 'striking')
-            ? Math.atan2((d.state === 'rtb' ? d.oy : d.state === 'striking' ? d.sy! : d.ty) - d.y,
-                         (d.state === 'rtb' ? d.ox : d.state === 'striking' ? d.sx! : d.tx) - d.x)
-            // nose points along the tangent; gunships turn the other way (left-hand orbit)
-            : d.angle + (spec.gunship ? -Math.PI / 2 : Math.PI / 2)
-          drawDroneIcon(ctx, w2sX(d.x), w2sY(d.y), hdg, d.label, sel, d.type)
-        }
-      }
+      // THE AIR PICTURE is a layer — map/layers/air. Impacts, then the aircraft
+      // with their orbits, locks and overwatch tethers.
+      drawImpacts(frame)
+      drawDrones(frame, new Set(ui.feeds.map(fd => fd.droneId).filter((x): x is number => x != null)))
 
       // In-contact indicator: 0 when clear, rising toward 1 on each shot fired, so the
       // symbol's ring strobes with the unit's own gunfire and settles to a steady red
