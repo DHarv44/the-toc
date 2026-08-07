@@ -71,13 +71,14 @@ export function alongRoad(
 
 /** THE WIRE'S TARGET SIZE by structure kind, in half-extents (m, along the
  *  gate axis × across it) — one source for the footprint, the facility
- *  layout and the anatomy zoom gate. Realism-ordered: an airfield needs its
- *  strip, a FOB houses a battalion and SPRAWLS, a command post is a tight
- *  deliberate compound, an OP is a hole in the ground with a radio. */
+ *  layout and the anatomy zoom gate. The HQ is the game's main base and
+ *  draws the biggest ground compound (commander's call 2026-08-07); a FOB
+ *  is the smaller forward foothold; an airfield needs its strip; an OP is
+ *  a hole in the ground with a radio. */
 export function kindExtents(kind: StructureTypeKey): readonly [number, number] {
   return kind === 'AFLD' ? [640, 400]
-    : kind === 'FOB' ? [500, 380]
-      : kind === 'HQ' ? [320, 240] : [90, 65]
+    : kind === 'HQ' ? [500, 380]
+      : kind === 'FOB' ? [320, 240] : [90, 65]
 }
 
 /** Where each facility SITS. The default layout is spec-read, never
