@@ -7,6 +7,7 @@ import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
 import { connectStructureToRoads } from '../../world/access'
+import { roadSpot } from '../../world/pack/roadGraph'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
@@ -110,17 +111,55 @@ export function deployUnit(
 // Rally point for a unit fielded at a site: a spot just clear of the base, facing the
 // map interior. Successive units fan left/right of that bearing so a production queue
 // spreads out instead of stacking on one grid square.
+/** THE MOTOR POOL LINE.
+ *
+ *  A fielded unit used to fan out ~340 m into open ground on an arc — every
+ *  base grew a loose ring of vics in the dirt, and getting any of them onto a
+ *  road meant a slow cross-country crawl first. A real base parks its
+ *  vehicles ON THE ROAD THAT SERVES IT: the motor pool is a line down the
+ *  access track (or the road the base was sited on), first vehicle at the
+ *  head, each next one taking the next slot, offset off the lane so the road
+ *  itself stays open. A unit ordered out is already standing ON a network
+ *  edge — the router snaps at zero metres and it rides straight out.
+ *
+ *  The old arc survives only as the fallback for a base with no road at all
+ *  (a roadless map, a spur that could not be laid). */
 function rallyPoint(st: Structure, mob: Mobility): Vec2 {
   st.rallySeq = (st.rallySeq || 0) + 1
-  const toward = Math.atan2(S.map!.WORLD / 2 - st.y, S.map!.WORLD / 2 - st.x)
+  const k = st.rallySeq - 1
+  const m = S.map!
+  const spot = roadSpot(m, st.x, st.y)
+  if (spot && spot.dist < 450 && spot.pts.length >= 2) {
+    const total = spot.cum[spot.cum.length - 1]!
+    // park DOWN the lane from the base's own doorstep: slots every 35 m from
+    // 40 m out, running toward whichever end of the edge has the room
+    const fwd = (total - spot.at) >= spot.at
+    const want = 40 + (k % 10) * 35
+    const s = fwd ? Math.min(total, spot.at + want) : Math.max(0, spot.at - want)
+    // arc position → point + tangent on the polyline
+    let seg = 1
+    while (seg < spot.cum.length - 1 && spot.cum[seg]! < s) seg++
+    const a = spot.pts[seg - 1]!, b = spot.pts[seg]!
+    const segLen = spot.cum[seg]! - spot.cum[seg - 1]!
+    const t = segLen > 0 ? (s - spot.cum[seg - 1]!) / segLen : 0
+    const px = a.x + (b.x - a.x) * t, py = a.y + (b.y - a.y) * t
+    const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    // off the right shoulder of the direction of travel, lane kept clear
+    const side = fwd ? 1 : -1
+    const x = clampWorld(S.map, px + ((b.y - a.y) / L) * 16 * side)
+    const y = clampWorld(S.map, py - ((b.x - a.x) / L) * 16 * side)
+    if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
+  }
+  // no road serves this base — the old dispersed arc, better than stacking
+  const toward = Math.atan2(m.WORLD / 2 - st.y, m.WORLD / 2 - st.x)
   const n = st.rallySeq
   const spread = Math.ceil(n / 2) * (n % 2 ? 1 : -1) * 0.3
   for (const rad of [340, 460, 600, 780]) {
     const x = clampWorld(S.map, st.x + Math.cos(toward + spread) * rad)
     const y = clampWorld(S.map, st.y + Math.sin(toward + spread) * rad)
-    if (isFinite(S.map!.moveFactor(x, y, mob))) return { x, y }
+    if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
   }
-  return nearestLand(S.map!, st.x + Math.cos(toward) * 340, st.y + Math.sin(toward) * 340, mob)
+  return nearestLand(m, st.x + Math.cos(toward) * 340, st.y + Math.sin(toward) * 340, mob)
 }
 
 // Field a ground unit from a specific installation — the one-click flow. The unit is

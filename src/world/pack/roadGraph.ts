@@ -67,6 +67,29 @@ export function roadGraphOf(map: WorldMap): Graph {
   return g
 }
 
+/** THE NETWORK CHANGED — an access track was laid, a pontoon bridge went in.
+ *  Drop the cached graph so the next route rebuilds over the new polylines.
+ *  Without this, runtime roads were DECORATIVE: stamped into the raster,
+ *  drawn on the sheet, and invisible to the router that everything drives by.
+ *  Rebuilds are placement-rate events, not per-tick — the cost is fine. */
+export function invalidateRoadGraph(map: WorldMap): void {
+  graphs.delete(map)
+}
+
+/** The nearest drivable spot on the network to (x,y): the edge's polyline,
+ *  the arc position of the closest point on it, and how far away it is.
+ *  Exposed for the MOTOR POOL — fielding parks units along the road that
+ *  serves the base, and this is how it finds that road. */
+export function roadSpot(map: WorldMap, x: number, y: number):
+{ pts: Vec2[]; cum: number[]; at: number; dist: number } | null {
+  const g = roadGraphOf(map)
+  if (!g.edges.length) return null
+  const n = nearestOnNetwork(g, x, y)
+  if (!n) return null
+  const e = g.edges[n.edge]!
+  return { pts: e.pts, cum: e.cum, at: n.at, dist: Math.sqrt(n.distSq) }
+}
+
 function build(map: WorldMap): Graph {
   const key = (p: Vec2) =>
     (Math.round(p.x * QUANT) * 0x400000) + Math.round(p.y * QUANT)

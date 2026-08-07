@@ -4,6 +4,7 @@
 // generation — and fixed to read map.CELL on the way out (the old code used
 // the generator's 50 m constant, which misaligned on pack ground).
 import { MinHeap } from './minheap'
+import { invalidateRoadGraph } from './pack/roadGraph'
 import {
   R_TRACK, T_FOREST, T_URBAN, T_WATER,
   type Vec2, type WorldMap,
@@ -114,8 +115,24 @@ export function planAccessTrack(map: WorldMap, x: number, y: number): Vec2[] | n
     elev, terr, GRID, Infinity, // Infinity waterCost: a dirt path can't cross water
   )
   if (cellPath.length < 2) return null
+  // trackAstar returns goal-first: raw[0] is the ROAD end, raw[last] the site
   const raw: Vec2[] = cellPath.map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
   let pts = chaikin(chaikin(raw))
+  // JOIN THE NETWORK FOR REAL. The junction graph connects edges only where
+  // polyline vertices COINCIDE (quantized to half a metre) — a track that
+  // merely ends NEAR a road is an island the router can see but never leave.
+  // So the road end is snapped onto the nearest actual VERTEX of an existing
+  // polyline: shared vertex → junction → the track is a drivable on-ramp.
+  const roadEnd = raw[0]!
+  let vBest: Vec2 | null = null
+  let vd = (CELL * 3) * (CELL * 3)  // a vertex within a few cells, or nothing
+  for (const r of map.roads) {
+    for (const p of r.pts) {
+      const d = (p.x - roadEnd.x) * (p.x - roadEnd.x) + (p.y - roadEnd.y) * (p.y - roadEnd.y)
+      if (d < vd) { vd = d; vBest = p }
+    }
+  }
+  if (vBest) pts = [{ x: vBest.x, y: vBest.y }, ...pts]
   // smoothing must not cut a corner across water — fall back to the raw line
   const crossesWater = (ps: Vec2[]): boolean => {
     for (let s = 0; s < ps.length - 1; s++) {
@@ -142,6 +159,8 @@ export function connectStructureToRoads(map: WorldMap, x: number, y: number): vo
   const pts = planAccessTrack(map, x, y)
   if (!pts) return
   roads.push({ cls: R_TRACK, pts })
+  // the network just changed: the router's cached junction graph is stale
+  invalidateRoadGraph(map)
   // stamp the raster (never downgrade a higher-class road at the junction)
   for (let s = 0; s < pts.length - 1; s++) {
     const p = pts[s]!, q = pts[s + 1]!

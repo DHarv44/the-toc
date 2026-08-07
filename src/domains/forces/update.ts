@@ -8,6 +8,8 @@
 // re-baselined after the cutover.)
 import { S } from '../../engine/state'
 import { findPath } from '../../world/pathfinding'
+import { connectStructureToRoads } from '../../world/access'
+import { invalidateRoadGraph } from '../../world/pack/roadGraph'
 import type { Vec2 } from '../../world/WorldMap'
 import { grid } from '../../lib/format'
 import { locRef } from '../../world/ref'
@@ -180,10 +182,31 @@ export function movementUpdate(dt: number): void {
     if (u.bridging) {
       u.bridging.t -= dt
       if (u.bridging.t <= 0) {
-        for (const i of u.bridging.cells) {
+        const m = S.map!
+        const cells = u.bridging.cells
+        // ON-RAMPS FIRST, deck second: spurs from each bank to the existing
+        // network are planned BEFORE the deck cells become "road", or the
+        // planner would see the bridge itself as the network and connect the
+        // bridge to the bridge. (One bank may fail its spur — nearest network
+        // across the water, no dry route — and that bank simply gets none.)
+        const center = (i: number): Vec2 =>
+          ({ x: (i % m.GRID + 0.5) * m.CELL, y: ((i / m.GRID | 0) + 0.5) * m.CELL })
+        if (cells.length >= 2) {
+          const a = center(cells[0]!), b = center(cells[cells.length - 1]!)
+          connectStructureToRoads(m, a.x, a.y)
+          connectStructureToRoads(m, b.x, b.y)
+        }
+        for (const i of cells) {
           // class 2 (road): a pontoon deck carries traffic at paved-road speed,
           // matching the pre-hierarchy behavior where any road cell did
-          if (!S.map!.road[i]) { S.map!.road[i] = 2; S.pontoons.push(i) }
+          if (!m.road[i]) { m.road[i] = 2; S.pontoons.push(i) }
+        }
+        // the deck as a POLYLINE, so the router can actually drive the bridge
+        // it used to detour around: cell centres, which are exactly the spurs'
+        // own endpoint coordinates — shared vertices, real junctions
+        if (cells.length >= 2) {
+          m.roads.push({ cls: 2, pts: cells.map(center) })
+          invalidateRoadGraph(m)
         }
         toast(u.label + ' — PONTOON BRIDGE ESTABLISHED')
         u.bridging = null
