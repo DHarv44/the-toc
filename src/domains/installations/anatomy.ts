@@ -253,6 +253,7 @@ export function footprintAt(
   const STEP_MAX = 2.2
   const rawR: number[] = []
   const climb: number[] = []
+  const stopped: boolean[] = []
   const step = CELL / 2
   const e0 = elev[Math.max(0, at(x, y))] ?? 0
   for (let i = 0; i < N; i++) {
@@ -263,11 +264,12 @@ export function footprintAt(
       * (i === 0 ? 1 : 0.85 + 0.3 * h(i))
     const ca = Math.cos(a), sa = Math.sin(a)
     let r = er
+    let hit = false
     let acc = 0
     let prevE = e0
     for (let d = 30; d <= er; d += step) {
       const idx = at(x + ca * d, y + sa * d)
-      if (idx < 0) { r = d - step; break }
+      if (idx < 0) { r = d - step; hit = true; break }
       const t = terr[idx]!
       const e = elev[idx]!
       // the fence stops AT water, built-up blocks, real roads (the spur's
@@ -276,6 +278,7 @@ export function footprintAt(
       if (t === T_WATER || t === T_URBAN || road[idx]! > R_TRACK
           || Math.abs(e - e0) > BAND || Math.abs(e - prevE) > STEP_MAX) {
         r = d - step * 0.5
+        hit = true
         break
       }
       acc += Math.abs(e - prevE)
@@ -283,6 +286,7 @@ export function footprintAt(
     }
     rawR.push(Math.max(MIN_R, r))
     climb.push(acc)
+    stopped.push(hit)
   }
   // contour hugging: the steepest rays pull in relative to the flattest —
   // normalised against this base's own spread, so elevation units don't matter
@@ -293,20 +297,29 @@ export function footprintAt(
   })
   // corner posts, joined by STRAIGHT runs — engineers build a wall in
   // straight sections between corners the terrain dictated; no smoothing,
-  // organic comes from where the corners LANDED, geometric from the runs
+  // organic comes from where the corners LANDED, geometric from the runs.
+  // A STOPPED ray's post never smooths back OUT past its own stop: the
+  // neighbor averaging once dragged a road-stopped post 20 m across the road
+  // its ray halted at, because its free neighbors reached three times as far.
   const raw: Vec2[] = []
   for (let i = 0; i < N; i++) {
-    const r = i === 0 ? rr[0]!
+    const avg = i === 0 ? rr[0]!
       : (rr[(i + N - 1) % N]! + rr[i]! * 2 + rr[(i + 1) % N]!) / 4
+    const r = stopped[i] ? Math.min(avg, rr[i]!) : avg
     const a = gate + (i / N) * Math.PI * 2
     raw.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r })
   }
-  // merge near-collinear corners so three posts on one line become one run
+  // merge near-collinear corners so three posts on one line become one run —
+  // but NEVER a stopped post. A post the terrain dictated is where the wall
+  // must turn: a straight road once read as "three posts on one line", the
+  // merge deleted the middle ones, and the surviving long chord bulged the
+  // fence across the road every stopped ray had halted at.
   const poly: Vec2[] = raw.filter((p, i) => {
+    if (i === 0 || stopped[i]) return true
     const a = raw[(i + N - 1) % N]!, b = raw[(i + 1) % N]!
     const cross = (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
     const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
-    return i === 0 || Math.abs(cross / len) > 8  // >8 m off the chord = a real corner
+    return Math.abs(cross / len) > 8  // >8 m off the chord = a real corner
   })
   return { poly, gate: { x: raw[0]!.x, y: raw[0]!.y } }
 }
