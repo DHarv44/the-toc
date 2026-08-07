@@ -225,46 +225,55 @@
   "drones": {
     "SHADOW": {
       "key": "SHADOW", "name": "RQ-7 Shadow", "abbr": "SHD", "src": "airfield", "cost": 350,
+      "glyph": "twinboom",
       "speed": 45, "alt": 550, "sight": 1500, "endurance": 600, "orbitR": 420,
       "maxActive": 3, "cooldown": 120
     },
     "SENTINEL": {
       "key": "SENTINEL", "name": "RQ-4 Sentinel", "abbr": "SEN", "src": "airfield", "cost": 650,
+      "glyph": "hale",
       "speed": 55, "alt": 1250, "sight": 2600, "endurance": 1200, "orbitR": 700,
       "maxActive": 2, "cooldown": 240
     },
     "VIPER": {
       "key": "VIPER", "name": "MQ-1 Viper", "abbr": "VPR", "src": "airfield", "cost": 900,
+      "glyph": "ucav",
       "speed": 42, "alt": 650, "sight": 1500, "endurance": 720, "orbitR": 450,
       "weapons": { "ammo": 2, "range": 2200, "dmg": 55, "blast": 70, "flight": 7 },
       "maxActive": 2, "cooldown": 300
     },
     "RAVEN": {
       "key": "RAVEN", "name": "RQ-11 Raven", "abbr": "RVN", "src": "field", "cost": 75,
+      "glyph": "handlaunch",
       "speed": 18, "alt": 200, "sight": 800, "endurance": 300, "orbitR": 150, "ctrlRange": 3000
     },
     "QUAD": {
       "key": "QUAD", "name": "RQ-28 Quadcopter", "abbr": "QD", "src": "field", "cost": 40,
+      "glyph": "quad",
       "speed": 14, "alt": 90, "sight": 700, "endurance": 360, "orbitR": 60, "ctrlRange": 2000,
       "hover": true
     },
     "SWITCHBLADE": {
       "key": "SWITCHBLADE", "name": "Switchblade LM", "abbr": "SWB", "src": "field", "cost": 150,
+      "glyph": "lm",
       "speed": 32, "alt": 250, "sight": 600, "endurance": 240, "orbitR": 120, "ctrlRange": 4000,
       "kamikaze": { "dmg": 50, "blast": 85 }
     },
     "AEROSTAT": {
       "key": "AEROSTAT", "name": "PTDS Aerostat", "abbr": "BLN", "src": "tether", "cost": 600,
+      "glyph": "aerostat",
       "speed": 0, "alt": 950, "sight": 2400, "endurance": null, "orbitR": 50, "tetherRange": 500
     },
     "AH64": {
       "key": "AH64", "name": "AH-64 Apache Team", "abbr": "AWT", "src": "airfield", "cost": 1200,
+      "glyph": "rotary",
       "speed": 60, "alt": 60, "sight": 2200, "endurance": 1200, "orbitR": 300,
       "maxActive": 1, "cooldown": 600, "hover": true,
       "weapons": { "ammo": 16, "range": 2600, "dmg": 60, "blast": 45, "flight": 5 }
     },
     "SPECTRE": {
       "key": "SPECTRE", "name": "AC-130 Spectre", "abbr": "SPC", "src": "airfield", "cost": 1500,
+      "glyph": "gunship4",
       "speed": 36, "alt": 1100, "sight": 2000, "endurance": 900, "orbitR": 850,
       "maxActive": 1, "cooldown": 900,
       "gunship": {

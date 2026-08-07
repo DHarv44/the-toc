@@ -6,7 +6,7 @@
 import type { Side } from '../engine/GameState'
 import type { UnitGlyph } from '../domains/forces/catalog'
 import type { StructureTypeKey } from '../domains/installations/catalog'
-import type { DroneTypeKey } from '../domains/air/catalog'
+import { DRONE_TYPES, type DroneTypeKey } from '../domains/air/catalog'
 
 type Ctx2D = CanvasRenderingContext2D
 
@@ -522,9 +522,11 @@ function bulbNose(ctx: Ctx2D, y: number, r: number): void {
   ctx.beginPath(); ctx.ellipse(0, y, r, r * 1.15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
 }
 
+// Airframe SILHOUETTE VOCABULARY — the engine ships the shapes, the pack's
+// drone noun picks one by name (`glyph`), the same split as ground-unit glyphs.
 const AIRFRAMES: Record<string, (ctx: Ctx2D) => void> = {
-  // RQ-7 Shadow: twin-boom pusher, straight mid-wing
-  SHADOW(ctx) {
+  // twin-boom pusher, straight mid-wing (RQ-7 class)
+  twinboom(ctx) {
     wing(ctx, 10, -1, 3, 1.6)
     ctx.lineWidth = 1.2
     ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-4, 8); ctx.moveTo(4, 0); ctx.lineTo(4, 8); ctx.stroke() // booms
@@ -533,29 +535,29 @@ const AIRFRAMES: Record<string, (ctx: Ctx2D) => void> = {
     fuse(ctx, -6, 3, 2.6)
     ctx.beginPath(); ctx.moveTo(-2.6, 3.6); ctx.lineTo(2.6, 3.6); ctx.stroke()                               // pusher prop
   },
-  // RQ-4 Sentinel: high-altitude, very long slender wings, bulbous nose, V-tail
-  SENTINEL(ctx) {
+  // high-altitude endurance: very long slender wings, bulbous nose, V-tail (RQ-4 class)
+  hale(ctx) {
     wing(ctx, 15, -1, 4, 1)
     fuse(ctx, -7, 7, 3)
     bulbNose(ctx, -6.5, 2.6)
     ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(-5, 9.5); ctx.moveTo(0, 6); ctx.lineTo(5, 9.5); ctx.stroke() // V-tail
   },
-  // MQ-1 Viper: armed, swept slender wings, bulbous nose, inverted-V tail + wing pylons
-  VIPER(ctx) {
+  // armed UCAV: swept slender wings, bulbous nose, inverted-V tail + wing pylons (MQ-1 class)
+  ucav(ctx) {
     wing(ctx, 12, -1, 3, 1, 3)
     fuse(ctx, -8, 7, 2.4)
     bulbNose(ctx, -7, 2.3)
     ctx.beginPath(); ctx.moveTo(0, 5.5); ctx.lineTo(-4.5, 10); ctx.moveTo(0, 5.5); ctx.lineTo(4.5, 10); ctx.stroke() // inverted-V tail
     ctx.beginPath(); ctx.arc(-6, 1.5, 1, 0, Math.PI * 2); ctx.arc(6, 1.5, 1, 0, Math.PI * 2); ctx.fill()             // wing pylons (munitions)
   },
-  // RQ-11 Raven: tiny hand-launched straight-wing
-  RAVEN(ctx) {
+  // tiny hand-launched straight-wing (RQ-11 class)
+  handlaunch(ctx) {
     wing(ctx, 6.5, -0.5, 2.2, 1.4)
     fuse(ctx, -4.5, 4, 1.8)
     ctx.beginPath(); ctx.moveTo(-3, 4); ctx.lineTo(3, 4); ctx.stroke() // tailplane
   },
-  // Switchblade: tube-launched loitering munition — slim body, cruciform fins
-  SWITCHBLADE(ctx) {
+  // tube-launched loitering munition — slim body, cruciform fins (Switchblade class)
+  lm(ctx) {
     ctx.beginPath()                                     // pointed missile body
     ctx.moveTo(0, -9.5); ctx.lineTo(1.1, -6); ctx.lineTo(1.1, 8); ctx.lineTo(-1.1, 8); ctx.lineTo(-1.1, -6)
     ctx.closePath(); ctx.fill(); ctx.stroke()
@@ -564,8 +566,8 @@ const AIRFRAMES: Record<string, (ctx: Ctx2D) => void> = {
     ctx.beginPath(); ctx.moveTo(-3.2, 6); ctx.lineTo(3.2, 6); ctx.stroke()     // tail fins
     ctx.lineWidth = 1
   },
-  // AC-130 Spectre: 4-engine gunship — wide wing, quad nacelles, port-side battery
-  SPECTRE(ctx) {
+  // 4-engine gunship — wide wing, quad nacelles, port-side battery (AC-130 class)
+  gunship4(ctx) {
     wing(ctx, 15, -2, 4.5, 2)
     for (const ex of [-10.5, -6, 6, 10.5]) {            // 4 engine nacelles
       ctx.beginPath(); ctx.rect(ex - 0.9, -4.5, 1.8, 3); ctx.fill(); ctx.stroke()
@@ -577,6 +579,30 @@ const AIRFRAMES: Record<string, (ctx: Ctx2D) => void> = {
     ctx.beginPath()
     for (const gy of [-1, 1.5, 4]) { ctx.moveTo(-1.8, gy); ctx.lineTo(-5.5, gy) }
     ctx.stroke()
+    ctx.lineWidth = 1
+  },
+  // attack helicopter — slim fuselage, tail boom + tail rotor, stub-wing
+  // pylons, main rotor disc over everything (AH-64 class)
+  rotary(ctx) {
+    fuse(ctx, -6, 4, 2.4)
+    ctx.lineWidth = 1.2
+    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, 10); ctx.stroke()             // tail boom
+    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(3, 10); ctx.stroke()            // tail rotor
+    ctx.beginPath(); ctx.moveTo(-5, 0.5); ctx.lineTo(5, 0.5); ctx.stroke()         // stub wings
+    ctx.beginPath(); ctx.arc(-4, 2, 1, 0, Math.PI * 2); ctx.arc(4, 2, 1, 0, Math.PI * 2); ctx.fill() // pylons
+    ctx.beginPath(); ctx.arc(0, -1, 8, 0, Math.PI * 2); ctx.stroke()               // main rotor disc
+    ctx.lineWidth = 1
+  },
+  // small quadcopter — X frame, four rotor discs, square body
+  quad(ctx) {
+    ctx.lineWidth = 1.2
+    ctx.beginPath()
+    ctx.moveTo(-4, -4); ctx.lineTo(4, 4); ctx.moveTo(-4, 4); ctx.lineTo(4, -4)     // X arms
+    ctx.stroke()
+    for (const [rx, ry] of [[-4, -4], [4, -4], [-4, 4], [4, 4]] as const) {
+      ctx.beginPath(); ctx.arc(rx, ry, 2.4, 0, Math.PI * 2); ctx.stroke()          // rotor discs
+    }
+    ctx.beginPath(); ctx.rect(-1.6, -1.6, 3.2, 3.2); ctx.fill(); ctx.stroke()      // body
     ctx.lineWidth = 1
   },
 }
@@ -601,11 +627,14 @@ export function drawDroneIcon(
   ctx.strokeStyle = '#0a3a66'
   ctx.lineWidth = 1
   ctx.lineJoin = 'round'
-  if (type === 'AEROSTAT') {
+  // the PACK's drone noun names its silhouette; unknown/missing reads as the
+  // generic twin-boom UAV rather than nothing
+  const glyph = DRONE_TYPES[type]?.glyph ?? type
+  if (glyph === 'aerostat') {
     drawAerostat(ctx)
   } else {
     ctx.rotate(heading + Math.PI / 2)
-    ;(AIRFRAMES[type] || AIRFRAMES['SHADOW']!)(ctx)
+    ;(AIRFRAMES[glyph] || AIRFRAMES['twinboom']!)(ctx)
   }
   ctx.restore()
   if (label) {

@@ -84,6 +84,8 @@ export interface DroneType {
   ctrlRange?: number        // field-launched: max distance from controlling unit
   tetherRange?: number      // tethered: max mooring distance from the FOB/HQ
   hover?: boolean           // rotary/quad: holds at the anchor instead of flying a pattern
+  glyph?: string            // airframe silhouette (map/symbols.ts vocabulary): twinboom, hale,
+                            // ucav, handlaunch, lm, gunship4, rotary, quad, aerostat
   weapons?: DroneWeapons
   kamikaze?: KamikazeSpec
   gunship?: GunshipSpec
