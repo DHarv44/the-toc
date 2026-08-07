@@ -23,6 +23,7 @@ import { fireMission } from '../domains/fires/orders'
 import { setMarchOrder, clearMarchOrder, marchPlan } from '../domains/movement/march'
 import { layHazard } from '../domains/hazards/update'
 import { taskOrganize } from '../domains/forces/teams'
+import { orderEscort, releaseEscort } from '../domains/forces/escort'
 import { orderClearRoute } from '../domains/control/routes'
 import { fieldUnitDrone } from '../domains/air/orders'
 // sandbox scripting: standing an OPFOR platoon up on demand is how a drill gets
@@ -36,7 +37,7 @@ if (typeof window !== 'undefined') {
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     spawnEnemy,
     setMarchOrder, clearMarchOrder, marchPlan, layHazard,
-    taskOrganize, orderClearRoute, fieldUnitDrone,
+    taskOrganize, orderClearRoute, fieldUnitDrone, orderEscort, releaseEscort,
     reveal: () => { S.fogEnabled = false },
     fog: (on: boolean) => { S.fogEnabled = on },
     setSpeed: (x: number) => { S.speed = x },

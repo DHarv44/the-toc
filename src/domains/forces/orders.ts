@@ -220,6 +220,7 @@ export function orderMove(
 ): void {
   const u = S.units.find(u => u.id === unitId)
   if (!u) return
+  u.escortId = null   // a manual move re-tasks an escort off its duty
   autoRemount(u)
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1]! : u
@@ -273,6 +274,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   if (!u) return
   const e = S.units.find(x => x.id === enemyId && x.side !== u.side)
   if (!e) return
+  u.escortId = null   // a manual attack re-tasks an escort off its duty
   autoRemount(u)
   const p = findPath(S.map!, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
@@ -344,7 +346,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
 
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined; u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined; u.escortId = null; u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {

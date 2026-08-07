@@ -11,6 +11,7 @@
 import { S } from '../../engine/state'
 import type { Roe, Team, Unit, WeaponsControl } from '../../engine/GameState'
 import { orderHold, orderMount, orderRoe, orderDefend, orderWeapons } from '../../domains/forces/orders'
+import { orderEscort, releaseEscort } from '../../domains/forces/escort'
 import { underPlayerCommand } from '../../domains/forces/command'
 import {
   disbandTeam, formTeam, joinTeam, leaveTeam, teamById, teamOf, teamUnits,
@@ -125,6 +126,23 @@ export default function ContextMenu() {
             : `FIRE MISSION… (${Math.floor(u.ammo ?? 0)} RDS)`,
           () => ui.setMode('target'), close, u.missionCooldown > 0 || (u.ammo ?? 0) < 1)}
         {type.canBridge && item('PONTOON BRIDGE…', () => ui.setMode('bridge'), close)}
+        {/* ESCORT: the selected elements take guard duty on the clicked one —
+            a supply run finally gets its protection. The clicked unit's own
+            release row shows when IT is the one on duty. */}
+        {(() => {
+          const escorts = ui.selectedIds
+            .filter(id => id !== u.id)
+            .map(id => S.units.find(x => x.id === id))
+            .filter((x): x is Unit => !!x && x.strength > 0 && x.side === 'friend' && underPlayerCommand(x))
+          return escorts.length > 0 && u.side === 'friend'
+            ? item(
+              `ESCORT ${u.label}${u.convoy ? "'S SUPPLY RUN" : ''} — ${escorts.length} ELEMENT${escorts.length === 1 ? '' : 'S'}`,
+              () => orderEscort(escorts.map(x => x.id), u.id), close)
+            : null
+        })()}
+        {u.escortId != null && item(
+          `RELEASE FROM ESCORT (${S.units.find(x => x.id === u.escortId)?.label ?? 'WARD LOST'})`,
+          () => releaseEscort(u.id), close)}
         {u.soldiers.length > 0 && item('PERSONNEL ROSTER…', () => ui.openRoster(u.id), close)}
         {item('CENTER MAP', () => { const v = winView(); if (v) { v.cx = u.x; v.cy = u.y } }, close)}
         <TaskOrgBlock clicked={u} close={close} />

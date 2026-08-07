@@ -41,8 +41,13 @@ export function addStructure(
     facilities: side === 'friend' && kind === 'HQ' ? ['MOTORPOOL', 'AID'] : [],
   }
   S.structures.push(s)
-  // a forward base off the network gets a dirt access track to the nearest road
-  if (kind === 'FOB' && S.map) connectStructureToRoads(S.map, x, y)
+  // A BASE OFF THE NETWORK GETS A DIRT ACCESS TRACK to the nearest road —
+  // every base, both sides: nobody sites a command post, forward base or OP
+  // that its own trucks cannot reach, and the engineers cutting the track in
+  // is exactly what stands one up. (Was FOB-only; HQs and OPs sat roadless.)
+  if ((kind === 'HQ' || kind === 'FOB' || kind === 'OP') && S.map) {
+    connectStructureToRoads(S.map, x, y)
+  }
   return s
 }
 

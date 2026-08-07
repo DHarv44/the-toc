@@ -620,6 +620,11 @@ export interface Unit {
   /** ROUTE CLEARANCE in progress: the NamedRoute id this element is sweeping
    *  (eod-capable types only — domains/control/routes) */
   clearing?: number
+  /** ESCORT DUTY: the unit id this element is guarding — it trails its ward
+   *  wherever the ward goes (a convoy's protection is the headline case) and
+   *  fights off its own drills when contact comes. Any manual order releases
+   *  the duty. See domains/forces/escort. */
+  escortId?: number | null
 }
 
 // --- installations --------------------------------------------------------

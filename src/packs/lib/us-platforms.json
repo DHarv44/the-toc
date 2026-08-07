@@ -107,6 +107,7 @@
       "key": "AT", "name": "ATGM Team", "abbr": "AT", "cat": "ARMOR", "mob": "foot", "speed": 3.0,
       "sight": 1000, "range": 2000, "dpsSoft": 0.6, "dpsHard": 4.6, "soft": 1.0,
       "cost": 200, "veh": 0, "troops": 8, "glyph": "at", "carries": ["SWITCHBLADE"],
+      "carrier": { "name": "M1167 TOW Carrier", "mob": "wheeled", "speed": 13, "veh": 2, "soft": 0.65, "fireMul": 0.9 },
       "def": { "time": 75, "factor": 0.45, "name": "CONCEALED POSITIONS" }
     },
     "SCT": {
@@ -125,6 +126,7 @@
       "key": "MOR", "name": "Mortar Section", "abbr": "MO", "cat": "FIRES", "mob": "foot", "speed": 3.0,
       "sight": 600, "range": 300, "dpsSoft": 1.4, "dpsHard": 0.4, "soft": 0.9,
       "cost": 250, "veh": 0, "troops": 9, "glyph": "mor",
+      "carrier": { "name": "HMMWV Prime Mover", "mob": "wheeled", "speed": 13, "veh": 2, "soft": 0.65, "fireMul": 0.4 },
       "indirect": { "range": 3000, "salvo": 4, "dmg": 14, "cooldown": 20, "flight": 8, "load": 48, "scatter": 45, "blast": 90 },
       "def": { "time": 75, "factor": 0.5, "name": "GUN PITS" }
     },
@@ -199,14 +201,14 @@
     },
     "ARM": { "unit": "ARM", "vehicles": [{ "type": "ABRAMS", "n": 4 }], "dismounts": [] },
     "AT": {
-      "unit": "AT", "vehicles": [],
+      "unit": "AT", "vehicles": [{ "type": "HMMWV", "n": 2 }],
       "dismounts": [
         { "kind": "RIFLEMAN", "n": 3 }, { "kind": "ATGM_GUNNER", "n": 4 }, { "kind": "LEADER", "n": 1 }
       ]
     },
     "SCT": { "unit": "SCT", "vehicles": [{ "type": "HMMWV", "n": 3 }], "dismounts": [] },
     "CAV": { "unit": "CAV", "vehicles": [{ "type": "CFV", "n": 4 }], "dismounts": [{ "kind": "SCOUT", "n": 6 }] },
-    "MOR": { "unit": "MOR", "vehicles": [], "dismounts": [{ "kind": "MORTARMAN", "n": 8 }, { "kind": "LEADER", "n": 1 }] },
+    "MOR": { "unit": "MOR", "vehicles": [{ "type": "HMMWV", "n": 2 }], "dismounts": [{ "kind": "MORTARMAN", "n": 8 }, { "kind": "LEADER", "n": 1 }] },
     "ARTY": { "unit": "ARTY", "vehicles": [{ "type": "SP155", "n": 3 }], "dismounts": [] },
     "ENG": {
       "unit": "ENG", "vehicles": [{ "type": "ESV", "n": 3 }],
