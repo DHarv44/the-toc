@@ -90,6 +90,15 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
         : undefined)
     const s = addStructure(st.side, st.kind, p.x, p.y, label, !st.building, st.formation)
     if (st.stock != null) s.stock = st.stock
+    // AUTHORED anatomy: the author dragged facilities to these spots in the
+    // builder (metre offsets from the anchor) — pre-fill what the lazy
+    // default layout would otherwise derive; unauthored keys still derive.
+    if (st.fac) {
+      s.facPts = {}
+      for (const [k, o] of Object.entries(st.fac)) {
+        s.facPts[k] = { x: p.x + o.dx, y: p.y + o.dy }
+      }
+    }
     if (st.side === 'hostile' && st.intel === 'known') S.structContacts.add(s.id)
     // assets the author sited here are already emplaced and operational — the
     // same effects a delivered one applies (facility/tether/unlock), through

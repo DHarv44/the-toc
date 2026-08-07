@@ -46,6 +46,11 @@ export interface ScenarioStructure {
    *  section on the FOB, a SHADOW orbit at the CP. Authored quantities are
    *  authored — difficulty never scales them. */
   assets?: { asset: string; qty: number }[]
+  /** AUTHORED facility positions inside the wire, as METRE offsets from the
+   *  anchor (map-size independent; they travel with the base when it moves).
+   *  Keys are facility catalog keys; a facility with no entry gets the
+   *  engine's default layout (installations/anatomy). */
+  fac?: Record<string, { dx: number; dy: number }>
   /** display name — CP GARRYOWEN energy; absent = the engine's default label */
   label?: string
   /** under construction at H-hour (absent = complete) */

@@ -75,6 +75,15 @@ with a radius.
 
 ### Facilities as 2525 anatomy
 
+> **SHIPPED (step 4, 2026-08-06) — author-placed facilities:** a facility
+> plate on the selected base is a HANDLE in the builder — drag the motor
+> pool / aid station where you want it. Authored spots save as METRE
+> offsets from the anchor (`ScenarioStructure.fac`, they travel with the
+> base when it moves; one drag = one undo step) and applyScenario pre-fills
+> Structure.facPts from them at H-hour — unauthored facilities still get
+> the default derived layout. Verified end-to-end: drag → JSON → PLAY →
+> in-game facPts at the exact authored offset.
+
 Facilities already exist as DATA (`facilities: string[]` + effect specs —
 the C-RAM pattern). They gain a POSITION inside the footprint:
 

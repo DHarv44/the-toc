@@ -82,6 +82,10 @@ export interface SheetProps {
   onDragBy: (dx: number, dy: number) => void
   /** a handle was dragged: a unit's heading (radians) or a zone's radius (m) */
   onHandle: (id: number, patch: { heading?: number; r?: number }) => void
+  /** a facility plate drag began (one undo step per drag, like beginDrag) */
+  onFacStart: () => void
+  /** a facility plate of the selected base was dragged to anchor+(dx,dy) m */
+  onFac: (id: number, key: string, dx: number, dy: number) => void
   /** right-click — the parent opens the context menu at these screen coords */
   onContext: (sx: number, sy: number, id: number | null) => void
 }
@@ -218,10 +222,27 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       return null
     }
 
+    // A FACILITY PLATE IS A HANDLE on the selected base: grab the motor pool
+    // and put it where you want it inside the wire. Single-selection
+    // affordance, same as the heading knob — and only when the anatomy is
+    // legible (the wires prop is already zoom-gated at draw time, but the
+    // hit must respect it too or invisible plates would swallow clicks).
+    const facAt = (sx: number, sy: number): { id: number; key: string } | null => {
+      const { sel, wires } = propsRef.current
+      if (sel.length !== 1 || 70 * view.ppm < 24) return null
+      const w = wires.find(x => x.id === sel[0])
+      if (!w) return null
+      for (const [key, p] of Object.entries(w.facs)) {
+        if (Math.hypot(w2sX(p.x) - sx, w2sY(p.y) - sy) < 10) return { id: w.id, key }
+      }
+      return null
+    }
+
     // ---- pointer state ----
     let pan: { sx: number; sy: number; cx: number; cy: number } | null = null
     let drag: { started: boolean; lastX: number; lastY: number } | null = null
     let grab: { id: number; kind: 'rot' | 'rad'; started: boolean } | null = null
+    let facGrab: { id: number; key: string; started: boolean } | null = null
     let marquee: { x0: number; y0: number; x1: number; y1: number; add: boolean } | null = null
     let space = false
     // where the cursor is over the sheet — the carried item rides it
@@ -250,6 +271,8 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       // a handle beats everything under it — it is drawn on top for a reason
       const h = handleAt(sx, sy)
       if (h) { grab = { ...h, started: false }; return }
+      const fa = facAt(sx, sy)
+      if (fa) { facGrab = { ...fa, started: false }; return }
 
       const add = ev.shiftKey || ev.ctrlKey || ev.metaKey
       const e = hit(sx, sy)
@@ -286,6 +309,14 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
         }
         return
       }
+      if (facGrab) {
+        if (!facGrab.started) { facGrab.started = true; propsRef.current.onFacStart() }
+        const w = propsRef.current.wires.find(x => x.id === facGrab!.id)
+        if (!w) return
+        propsRef.current.onFac(facGrab.id, facGrab.key,
+          s2wX(mX(ev)) - w.anchor.x, s2wY(mY(ev)) - w.anchor.y)
+        return
+      }
       if (drag) {
         if (!drag.started) { drag.started = true; propsRef.current.onDragStart() }
         // MOVE BY DELTA, not to a point: the whole selection travels together
@@ -315,10 +346,10 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       // A DROP PLACES. The palette hands the cursor something and releasing it
       // over the sheet puts it down — no armed mode to forget about, and no
       // stray click can stamp a second one.
-      if (propsRef.current.carry && !pan && !drag && !grab) {
+      if (propsRef.current.carry && !pan && !drag && !grab && !facGrab) {
         propsRef.current.onDrop(s2wX(mX(ev)), s2wY(mY(ev)))
       }
-      pan = null; drag = null; grab = null; marquee = null
+      pan = null; drag = null; grab = null; facGrab = null; marquee = null
       void ev
     }
     const wheel = (ev: WheelEvent) => {

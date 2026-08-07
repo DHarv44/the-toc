@@ -31,7 +31,7 @@ import type { MissionScript, ScenarioSide, ScenarioSpec } from '../../scenario/t
 import {
   type Doc, type EditorState, type Entity, type Extras, type Sel,
   emptyEditor, openEditor, freshId, dirty, markSaved, carryOf, inKeyOrder,
-  place, update, moveLive, beginDrag, remove, select, selected, duplicate, arrange,
+  place, update, moveLive, facLive, beginDrag, remove, select, selected, duplicate, arrange,
   selEntity, selIds, selMission, oneEntity, toggleId, setDoc, setMissions, undo, redo,
 } from '../../scenario/edit'
 import {
@@ -157,10 +157,14 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       const plan = tracks.find(t => t.id === e.id)?.pts ?? null
       const gate = gatewardAt(world.map, e.x, e.y, plan)
       const fp = footprintAt(world.map, e.x, e.y, e.kind, gate)
+      // default layout first, the author's dragged spots on top of it
+      const facs = layoutFacilitiesAt(
+        world.map, e.x, e.y, organicFacilities(e.side, e.kind), gate)
+      for (const [k, o] of Object.entries(e.fac ?? {})) {
+        facs[k] = { x: e.x + o.dx, y: e.y + o.dy }
+      }
       return [{
-        id: e.id, poly: fp.poly, gate: fp.gate, anchor: { x: e.x, y: e.y },
-        facs: layoutFacilitiesAt(
-          world.map, e.x, e.y, organicFacilities(e.side, e.kind), gate),
+        id: e.id, poly: fp.poly, gate: fp.gate, anchor: { x: e.x, y: e.y }, facs,
       }]
     })
   }, [world, entities, tracks])
@@ -697,6 +701,8 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
                 onDragStart={() => setEd(beginDrag)}
                 onDragBy={(dx, dy) => setEd(s => moveLive(s, selIds(s.sel), dx, dy))}
                 onHandle={(id, patch) => setEd(s => update(s, [id], patch))}
+                onFacStart={() => setEd(beginDrag)}
+                onFac={(id, key, dx, dy) => setEd(s => facLive(s, id, key, dx, dy))}
                 onContext={(x, y, id) => {
                   if (id != null) setEd(s => (selIds(s.sel).includes(id) ? s : select(s, oneEntity(id))))
                   setMenu({ x, y, id })

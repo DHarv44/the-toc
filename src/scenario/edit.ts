@@ -217,6 +217,26 @@ export function moveLive(
   }
 }
 
+/** Move ONE FACILITY of a structure WITHOUT an undo snapshot — plate drags
+ *  stream through here; the drag START takes the snapshot (beginDrag), so
+ *  one drag = one undo step, same as moving the base itself. Offsets are
+ *  metres from the anchor, rounded whole — clean JSON, and nobody places an
+ *  aid station to the centimetre. */
+export function facLive(
+  s: EditorState, id: number, key: string, dx: number, dy: number,
+): EditorState {
+  return {
+    ...s,
+    doc: {
+      ...s.doc,
+      entities: s.doc.entities.map(e =>
+        (e.id === id && e.ent === 'structure'
+          ? { ...e, fac: { ...e.fac, [key]: { dx: Math.round(dx), dy: Math.round(dy) } } }
+          : e)),
+    },
+  }
+}
+
 export function beginDrag(s: EditorState): EditorState {
   return { ...s, past: [...s.past.slice(-63), s.doc], future: [] }
 }
