@@ -85,6 +85,37 @@ function trackAstar(
   return path
 }
 
+// does any segment of this line pass over water? (smoothing must not cut a
+// corner across a river — callers fall back to the raw cell line)
+function lineCrossesWater(map: WorldMap, ps: Vec2[]): boolean {
+  const { GRID, CELL, terr } = map
+  for (let s = 0; s < ps.length - 1; s++) {
+    const p = ps[s]!, q = ps[s + 1]!
+    const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 4)))
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps
+      const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+      if (gx >= 0 && gy >= 0 && gx < GRID && gy < GRID && terr[gy * GRID + gx] === T_WATER) return true
+    }
+  }
+  return false
+}
+
+// nearest VERTEX of any existing road polyline within a few cells — the
+// junction rule: the graph joins edges only where vertices COINCIDE, so a
+// line that merely ends near a road is an island until it shares this vertex
+function nearestRoadVertex(map: WorldMap, p: Vec2): Vec2 | null {
+  let best: Vec2 | null = null
+  let bd = (map.CELL * 3) * (map.CELL * 3)
+  for (const r of map.roads) {
+    for (const q of r.pts) {
+      const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y)
+      if (d < bd) { bd = d; best = q }
+    }
+  }
+  return best
+}
+
 // PLAN the dirt access track from a structure site to the nearest existing
 // road of ANY class — pure compute, no mutation. Dry only (never crosses
 // water), Chaikin-smoothed. Returns null if the site already sits on the
@@ -118,36 +149,58 @@ export function planAccessTrack(map: WorldMap, x: number, y: number): Vec2[] | n
   // trackAstar returns goal-first: raw[0] is the ROAD end, raw[last] the site
   const raw: Vec2[] = cellPath.map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
   let pts = chaikin(chaikin(raw))
-  // JOIN THE NETWORK FOR REAL. The junction graph connects edges only where
-  // polyline vertices COINCIDE (quantized to half a metre) — a track that
-  // merely ends NEAR a road is an island the router can see but never leave.
-  // So the road end is snapped onto the nearest actual VERTEX of an existing
-  // polyline: shared vertex → junction → the track is a drivable on-ramp.
-  const roadEnd = raw[0]!
-  let vBest: Vec2 | null = null
-  let vd = (CELL * 3) * (CELL * 3)  // a vertex within a few cells, or nothing
-  for (const r of map.roads) {
-    for (const p of r.pts) {
-      const d = (p.x - roadEnd.x) * (p.x - roadEnd.x) + (p.y - roadEnd.y) * (p.y - roadEnd.y)
-      if (d < vd) { vd = d; vBest = p }
-    }
-  }
+  // JOIN THE NETWORK FOR REAL: snap the road end onto the nearest actual
+  // VERTEX of an existing polyline — shared vertex → junction → the track is
+  // a drivable on-ramp (nearestRoadVertex above explains the rule).
+  const vBest = nearestRoadVertex(map, raw[0]!)
   if (vBest) pts = [{ x: vBest.x, y: vBest.y }, ...pts]
   // smoothing must not cut a corner across water — fall back to the raw line
-  const crossesWater = (ps: Vec2[]): boolean => {
-    for (let s = 0; s < ps.length - 1; s++) {
-      const p = ps[s]!, q = ps[s + 1]!
-      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 4)))
-      for (let k = 0; k <= steps; k++) {
-        const t = k / steps
-        const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
-        if (gx >= 0 && gy >= 0 && gx < GRID && gy < GRID && terr[gy * GRID + gx] === T_WATER) return true
-      }
-    }
-    return false
-  }
-  if (crossesWater(pts)) pts = raw
+  if (lineCrossesWater(map, pts)) pts = raw
   return pts
+}
+
+/** PLAN A NEW ROAD LINE between two arbitrary points — the route an engineer
+ *  element will BUILD (domains/forces/roadworks). Dry, slope-averse,
+ *  Chaikin-smoothed, and BOTH ends vertex-snap to the existing network when
+ *  close, so a finished road is a drivable junction-to-junction edge and not
+ *  an island. Runs from `from` outward (the engineer starts at from). */
+export function planRoadLine(map: WorldMap, from: Vec2, to: Vec2): Vec2[] | null {
+  const { GRID, CELL, elev, terr } = map
+  const g = (v: number) => Math.max(1, Math.min(GRID - 2, Math.floor(v / CELL)))
+  const cellPath = trackAstar(
+    { gx: g(from.x), gy: g(from.y) }, { gx: g(to.x), gy: g(to.y) },
+    elev, terr, GRID, Infinity, // a built road gets no bridge either
+  )
+  if (cellPath.length < 2) return null
+  // trackAstar returns goal-first — reverse so the line runs from the builder
+  const raw: Vec2[] = cellPath
+    .map(i => ({ x: (i % GRID + 0.5) * CELL, y: ((i / GRID | 0) + 0.5) * CELL }))
+    .reverse()
+  let pts = chaikin(chaikin(raw))
+  if (lineCrossesWater(map, pts)) pts = raw
+  const s0 = nearestRoadVertex(map, pts[0]!)
+  if (s0) pts = [{ x: s0.x, y: s0.y }, ...pts]
+  const s1 = nearestRoadVertex(map, pts[pts.length - 1]!)
+  if (s1) pts = [...pts, { x: s1.x, y: s1.y }]
+  return pts
+}
+
+/** Stamp a polyline into the road raster as R_TRACK (never downgrading a
+ *  higher class), from segment `from` on — the engineer stamps as they go,
+ *  so completed segments are priced and routable while the rest is dirt. */
+export function stampTrack(map: WorldMap, pts: Vec2[], from = 0): void {
+  const { GRID, CELL, road } = map
+  for (let s = Math.max(0, from); s < pts.length - 1; s++) {
+    const p = pts[s]!, q = pts[s + 1]!
+    const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps
+      const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
+      if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) continue
+      const i = gy * GRID + gx
+      if (road[i]! < R_TRACK) road[i] = R_TRACK
+    }
+  }
 }
 
 // The base's OWN access spur: the track laid by connectStructureToRoads ends
@@ -169,22 +222,11 @@ export function structureSpur(map: WorldMap, x: number, y: number): Vec2[] | nul
 // exact BFT, the drone feed — are cached per map, so a runtime path shows
 // only after a rebuild.)
 export function connectStructureToRoads(map: WorldMap, x: number, y: number): void {
-  const { GRID, CELL, road, roads } = map
   const pts = planAccessTrack(map, x, y)
   if (!pts) return
-  roads.push({ cls: R_TRACK, pts })
+  map.roads.push({ cls: R_TRACK, pts })
   // the network just changed: the router's cached junction graph is stale
   invalidateRoadGraph(map)
   // stamp the raster (never downgrade a higher-class road at the junction)
-  for (let s = 0; s < pts.length - 1; s++) {
-    const p = pts[s]!, q = pts[s + 1]!
-    const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (CELL / 2)))
-    for (let k = 0; k <= steps; k++) {
-      const t = k / steps
-      const gx = Math.floor((p.x + (q.x - p.x) * t) / CELL), gy = Math.floor((p.y + (q.y - p.y) * t) / CELL)
-      if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) continue
-      const i = gy * GRID + gx
-      if (road[i]! < R_TRACK) road[i] = R_TRACK
-    }
-  }
+  stampTrack(map, pts)
 }

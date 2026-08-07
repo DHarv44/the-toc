@@ -232,6 +232,17 @@ const ROAD_STYLE: Record<PackRoad['cls'], { fill: string; casing?: string; dash?
 }
 const DRAW_ORDER: PackRoad['cls'][] = ['track', 'minor', 'secondary', 'primary', 'motorway']
 
+/** THE DIRT-TRACK INK, shared: baked tracks (paintRoads below) and the
+ *  runtime-roads overlay (map/layers/routes) set stroke with THIS, so a road
+ *  laid mid-war — a spur, a pontoon deck, an engineer's new route — is
+ *  drawn in exactly the ink an authored track bakes with. One style, one
+ *  road language, whenever the road appeared. */
+export function applyTrackInk(ctx: CanvasRenderingContext2D, ppm: number): void {
+  ctx.strokeStyle = ROAD_STYLE.track.fill
+  ctx.lineWidth = Math.max(0.7, ROAD_WIDTH_METRES.track * ppm)
+  ctx.setLineDash(ROAD_STYLE.track.dash ?? [])
+}
+
 function paintRoads(ctx: CanvasRenderingContext2D, g: Ground, f: Frame, ppm: number): void {
   ctx.save()
   ctx.lineCap = 'round'

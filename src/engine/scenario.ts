@@ -70,6 +70,7 @@ export function initGame(
   S.march = []
   S.routes = []
   S.msrs = []
+  S.engRoads = []
   S.measures = []
   S.hazards = []
   S.recoveries = []

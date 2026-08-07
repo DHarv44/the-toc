@@ -625,6 +625,12 @@ export interface Unit {
    *  fights off its own drills when contact comes. Any manual order releases
    *  the duty. See domains/forces/escort. */
   escortId?: number | null
+  /** ROADWORKS in progress (roadworks-spec platforms only): the element
+   *  crawls `pts` at build speed, laying real road behind it — `s` metres
+   *  built, `v` = next plan vertex to lay, `ri` = its S.engRoads polyline.
+   *  Any manual order suspends the job; what is built stays built.
+   *  (domains/forces/roadworks) */
+  roadwork?: { pts: { x: number; y: number }[]; cum: number[]; s: number; v: number; ri: number }
 }
 
 // --- installations --------------------------------------------------------
@@ -1040,6 +1046,11 @@ export interface GameState {
   teams: Team[]              // the task organization — named, durable groupings
   routes: ColumnRoute[]      // the shared polyline each column is marching on
   msrs: NamedRoute[]         // commissioned supply routes (MSR GREEN/RED status)
+  /** ENGINEER-BUILT ROADS: each entry is a polyline an engineer element laid
+   *  (or is still laying — the array GROWS behind the builder and is the
+   *  same array as its map.roads polyline). Serialized; restore re-pushes
+   *  them onto the fresh map and re-stamps the raster. */
+  engRoads: { x: number; y: number }[][]
   measures: ControlMeasure[] // phase lines, checkpoints, objectives
   recoveries: RecoveryJob[]  // disabled vehicles being hooked up right now
   hazards: Hazard[]          // mines/IEDs on the routes
@@ -1109,6 +1120,7 @@ export function createInitialState(): GameState {
     teams: [],
     routes: [],
     msrs: [],
+    engRoads: [],
     measures: [],
     recoveries: [],
     hazards: [],

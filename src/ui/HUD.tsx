@@ -111,6 +111,9 @@ export default function HUD() {
         <MapButton small active={ui.mode === 'clearroute'}
           title="Route clearance — select an engineer element, then click the route. They sweep it end to end and it goes GREEN."
           onClick={() => ui.setMode(ui.mode === 'clearroute' ? 'select' : 'clearroute')}>CLR</MapButton>
+        <MapButton small active={ui.mode === 'roadbuild'}
+          title="Road building — select an engineer element, then click where the road should reach. They crawl a planned dry line there, leaving real road behind them as they work. Slow: route construction is an operation. Any new order suspends the job; what is built stays built."
+          onClick={() => ui.setMode(ui.mode === 'roadbuild' ? 'select' : 'roadbuild')}>BLD</MapButton>
         {/* THE PEN — colour and weight for the next graphics, shown while a
             draw tool is armed (the commander's own markup style) */}
         {ui.mode.startsWith('measure:') && (

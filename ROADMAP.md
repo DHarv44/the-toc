@@ -219,6 +219,15 @@ views and the combat-group dashboard SHIPPED without it — `window.open` shares
 context, and the GPU-context rule made feeds safe via 2D mirrors. What remains behind
 the SharedWorker is only what genuinely needs a second sim client: true multiplayer.)*
 
+**Live-vector road rendering** *(discussed 2026-08-06)* — today the pack's road
+vectors BAKE into the terrain layer (fast: BAGHDAD is ~65k polylines) and
+runtime roads (spurs, pontoon decks, engineer-built routes) draw via a live
+overlay in the same shared track ink (`packRender.applyTrackInk`, `map.roads`
+past `roads0`). Unbaking everything — viewport cull + per-zoom LOD — becomes
+the right refactor the day roads MUTATE: engineer class upgrades (dirt →
+paved), battle damage/craters closing a route, seasonal ground. Do it with
+that feature, not speculatively.
+
 ---
 
 ## Design Laws

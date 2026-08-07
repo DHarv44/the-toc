@@ -99,6 +99,10 @@ export interface UnitType {
    *  returns mission-capable but flagged, and only real motorpool time clears
    *  it (domains/forces/casualties fieldRepairUpdate). */
   wrench?: { radius: number; secsPerVic: number }
+  /** ROAD BUILDING: this element can be tasked to build a new road — it
+   *  crawls the planned line at `speed` m/s, leaving real road behind it.
+   *  Pack noun; domains/forces/roadworks runs the verb. */
+  roadworks?: { speed: number }
 }
 
 // The registry: EMPTY until packs/install.ts populates it (which happens at

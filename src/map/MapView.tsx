@@ -35,6 +35,7 @@ import { addMeasure, isLine, measureLabel, removeMeasure } from '../domains/cont
 import {
   commissionRoute, distToMsr, msrLabel, orderClearRoute, removeMsr,
 } from '../domains/control/routes'
+import { orderBuildRoad } from '../domains/forces/roadworks'
 import { toast } from '../domains/comms/radio'
 import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
 import { useUI } from '../ui/store'
@@ -47,7 +48,7 @@ import { drawMeasures } from './layers/measures'
 import { drawBackdrop, drawControlField, drawTerrain } from './layers/terrain'
 import {
   drawAmbientDroneRoutes, drawAmbientRoutes, drawMarchTable, drawMsrs,
-  drawSelectedDroneRoutes, drawSelectedRoutes,
+  drawRuntimeRoads, drawSelectedDroneRoutes, drawSelectedRoutes,
 } from './layers/routes'
 import { drawDebris, drawHill, drawPontoons, drawStructures } from './layers/places'
 import { drawDrones, drawEvacBirds, drawImpacts } from './layers/air'
@@ -503,6 +504,16 @@ export default function MapView() {
         useUI.setState({ mode: 'select' })
         return
       }
+      // ROAD BUILDING: click where the new road should reach — the selected
+      // engineer element crawls a dry planned line there, leaving real road
+      // behind it as it works (domains/forces/roadworks)
+      if (ui.mode === 'roadbuild') {
+        const eng = selectedFriendlies().find(u => UNIT_TYPES[u.type]?.roadworks)
+        if (!eng) { toast('SELECT AN ENGINEER ELEMENT FIRST'); return }
+        orderBuildRoad(eng.id, wx, wy)
+        useUI.setState({ mode: 'select' })
+        return
+      }
 
       // modal placement modes place on left-click
       if (ui.mode.startsWith('deploy:')) {
@@ -797,6 +808,7 @@ export default function MapView() {
 
       // ROUTES are a layer — map/layers/routes. The faint traces first, so the
       // command graphics and the control measures draw over them.
+      drawRuntimeRoads(frame)   // spurs/pontoons/engineer roads: real ground first
       drawMsrs(frame)
       drawAmbientRoutes(frame)
       // CONTROL MEASURES are a layer — map/layers/measures. Still drawn here,

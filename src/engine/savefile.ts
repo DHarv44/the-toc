@@ -31,7 +31,9 @@ import { makeRng } from './rng'
 import type { GameState } from './GameState'
 import type { Vec2 } from '../world/WorldMap'
 import { buildGameMap, type MapRef } from '../world/mapref'
-import { connectStructureToRoads } from '../world/access'
+import { connectStructureToRoads, stampTrack } from '../world/access'
+import { invalidateRoadGraph } from '../world/pack/roadGraph'
+import { R_TRACK } from '../world/WorldMap'
 import { installActivePacks, activePack } from '../packs'
 import { activeScenario, setActiveScenario } from './campaign'
 import type { ScenarioSpec } from '../scenario/types'
@@ -119,6 +121,15 @@ export async function restoreGame(json: string): Promise<void> {
       connectStructureToRoads(map, st.x, st.y)
     }
   }
+  // engineer-built roads back onto the fresh map: EVERY entry re-pushes (even
+  // a one-point stub, so a mid-build roadwork's `ri` still points at the SAME
+  // array and the element keeps building where it left off), finished
+  // stretches re-stamp, and the router re-junctions once at the end
+  for (const pts of S.engRoads ?? (S.engRoads = [])) {
+    map.roads.push({ cls: R_TRACK, pts })
+    if (pts.length >= 2) stampTrack(map, pts)
+  }
+  invalidateRoadGraph(map)
   relinkRosters(S)
   S.map = map
   // restored PAUSED: the commander gets the picture back before the war moves

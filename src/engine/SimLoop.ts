@@ -15,6 +15,7 @@ import {
 } from '../domains/forces/update'
 import { hazardUpdate } from '../domains/hazards/update'
 import { escortUpdate } from '../domains/forces/escort'
+import { roadworkUpdate } from '../domains/forces/roadworks'
 import { routeClearUpdate } from '../domains/control/routes'
 import { recoveryUpdate } from '../domains/forces/recovery'
 import { supportUpdate } from '../domains/support/requests'
@@ -51,6 +52,7 @@ export function tick(dt: number): void {
   supplyUpdate(dt)        // lifts netted against upkeep, both sides
   constructionUpdate(dt)  // construction + garrison reconstitution
   escortUpdate()          // escorts re-path onto their wards BEFORE movement runs
+  roadworkUpdate(dt)      // engineers crawl their line, leaving road behind
   movementUpdate(dt)      // columns, movement, convoy, bridging, dig progress
   routeClearUpdate()      // EOD sweeps disarm BEFORE hazards check for triggers
   hazardUpdate()          // mines/IEDs: the lead vic finds them, not the unit

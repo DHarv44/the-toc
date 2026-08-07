@@ -142,6 +142,7 @@
       "sight": 700, "range": 450, "dpsSoft": 2.2, "dpsHard": 1.0, "soft": 0.6,
       "cost": 300, "veh": 3, "troops": 16, "glyph": "eng", "canBridge": true,
       "eod": { "radius": 60 },
+      "roadworks": { "speed": 1.6 },
       "def": { "time": 45, "factor": 0.5, "name": "PREPARED POSITIONS" }
     },
     "SIG": {

@@ -64,6 +64,11 @@ export interface WorldMap {
   terr: Uint8Array
   road: Uint8Array          // road class per cell (0 = none, else RoadClass)
   roads: RoadPoly[]
+  /** how many of `roads` are BAKED ground vectors (packRender draws those
+   *  into the terrain layer once). Everything past this index appeared at
+   *  runtime — access spurs, pontoon decks, engineer-built roads — and is
+   *  drawn live by the runtime-roads pass (map/layers/routes). */
+  roads0: number
   bridges: BridgeSpan[]
   features: MapFeature[]
   waterSurf: Float32Array

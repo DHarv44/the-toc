@@ -46,7 +46,8 @@ export function mapFromPack(ground: Ground, sidecar: PackMapSidecar): WorldMap {
   }
 
   const map: WorldMap = {
-    GRID, CELL, WORLD, elev, terr, road, roads, bridges: [], features, waterSurf, slope, towns,
+    GRID, CELL, WORLD, elev, terr, road, roads, roads0: roads.length,
+    bridges: [], features, waterSurf, slope, towns,
     ground, // the opened pack rides along: the exact renderer draws from it
     sat: !!sidecar?.sat, // content decides whether orthoimagery exists here
     seed: 0, // nothing regenerates from it; identity is map.ref

@@ -12,8 +12,9 @@ import type { Sheaf } from '../domains/fires/orders'
 export type UiMode = 'select' | 'target' | 'bridge' | 'garrison'
   | `measure:${string}` | `deploy:${string}` | `build:${string}`
   // named routes: `msr` drags a commission (the router solves it along roads),
-  // `clearroute` sends the selected engineer element to sweep a clicked route
-  | 'msr' | 'clearroute'
+  // `clearroute` sends the selected engineer element to sweep a clicked route,
+  // `roadbuild` sends it to BUILD a new road to the clicked point
+  | 'msr' | 'clearroute' | 'roadbuild'
 export type CmdMode = 'move' | 'attack'
 /** The left wall's pages: the commander's own console, the staff's four, and
  *  the dev pack viewer. */

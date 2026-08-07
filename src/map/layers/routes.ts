@@ -11,6 +11,7 @@
 import { S } from '../../engine/state'
 import type { Drone, Unit } from '../../engine/GameState'
 import { MARCH_INTERVAL, marchPlan } from '../../domains/movement/march'
+import { applyTrackInk } from '../packRender'
 import type { Frame } from '../frame'
 
 /** COMMISSIONED MSRs — infrastructure, not intent, so they draw wider and
@@ -46,6 +47,48 @@ export function drawMsrs(f: Frame): void {
     ctx.fillText(label, x, y - 10)
     ctx.restore()
   }
+}
+
+/** RUNTIME ROADS — everything the war has added to the network since the
+ *  terrain was baked: access spurs, pontoon decks, engineer-built roads
+ *  (map.roads past roads0). packRender only bakes the pack's own vectors,
+ *  so without this pass a road you BUILT was priced and routable but
+ *  invisible — the worst kind of real. Drawn in the ground's dirt-track
+ *  language, under the symbology, plus the still-unbuilt remainder of any
+ *  active roadworks as a faint dashed intent line. */
+export function drawRuntimeRoads(f: Frame): void {
+  const { ctx } = f
+  const m = S.map
+  if (!m) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  // the baked track's exact ink (packRender.applyTrackInk) — one road
+  // language, whenever the road appeared; night lifts it like the terrain
+  applyTrackInk(ctx, f.view.ppm)
+  if (f.night) ctx.strokeStyle = 'rgba(158,132,96,0.75)'
+  for (let i = m.roads0; i < m.roads.length; i++) {
+    const r = m.roads[i]!
+    if (r.pts.length < 2) continue
+    ctx.beginPath()
+    ctx.moveTo(f.w2sX(r.pts[0]!.x), f.w2sY(r.pts[0]!.y))
+    for (let k = 1; k < r.pts.length; k++) ctx.lineTo(f.w2sX(r.pts[k]!.x), f.w2sY(r.pts[k]!.y))
+    ctx.stroke()
+  }
+  // the part of the line that exists only as a plan, ahead of the blade
+  ctx.setLineDash([6, 7])
+  ctx.lineWidth = Math.max(1, 3 * f.view.ppm)
+  ctx.strokeStyle = f.night ? 'rgba(158,132,96,0.4)' : 'rgba(122,98,66,0.45)'
+  for (const u of S.units) {
+    const rw = u.roadwork
+    if (!rw || u.side !== 'friend') continue
+    ctx.beginPath()
+    ctx.moveTo(f.w2sX(u.x), f.w2sY(u.y))
+    for (let k = rw.v; k < rw.pts.length; k++) ctx.lineTo(f.w2sX(rw.pts[k]!.x), f.w2sY(rw.pts[k]!.y))
+    ctx.stroke()
+  }
+  ctx.setLineDash([])
+  ctx.restore()
 }
 
 /** Every friendly mover that is NOT selected: a thin line and a small arrow. */
