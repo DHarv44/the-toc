@@ -1184,7 +1184,7 @@ units take it without hesitation — both playtest engineers died this way.
   from the AI's own moves until *Symmetric Fog* gives it an honest picture too.
   Combat groups (escorted moves) are the deeper fix.
 
-### Team Tasking & EXECUTE ⬜ *(user 2026-08-06 — console step 7, the one never started; NEEDS DESIGN DISCUSSION before build)*
+### Team Tasking & EXECUTE ⬜ *(user 2026-08-06 — console step 7; DESIGN WRITEUP READY 2026-08-07: `src/TASKING.md` — discuss its eight open calls, then build)*
 The step `src/CONSOLE.md` ends on: a team is given an **objective/task**, the
 commander presses **EXECUTE**, and the team builds its route to the objective and
 does it — on its own.
