@@ -212,7 +212,7 @@
         "gate": true,
         "hints": [
           { "text": "CONTACT — the garrison is fixed on the map. TASK-ORGANIZE: how you fight this is YOUR call. Platoons selected together move and fight as one BATTLE GROUP (it shows up in the BATTLE GROUPS rail on the left). Pick the platoons you want on the assault.",
-            "action": "DRAG a box (or SHIFT-CLICK) to select TWO OR MORE of your platoons.",
+            "action": "DRAG a box (or CTRL-CLICK) to select TWO OR MORE of your platoons.",
             "anchor": { "kind": "force-box", "exclude": ["SCT"] } }
         ],
         "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }
@@ -222,7 +222,7 @@
         "gate": true,
         "hints": [
           { "text": "SET FOR THE ASSAULT — you are about to plan the attack on OBJ KEATON in one sitting: a route up, a shake-out short of the town, and the assault itself.\n\nAn assault is ONE order to ONE force. Anything you leave out of the selection stays exactly where it is standing.",
-            "action": "DRAG a box around your assault force (or SHIFT-CLICK each platoon).",
+            "action": "DRAG a box around your assault force (or CTRL-CLICK each platoon).",
             "anchor": { "kind": "force-box", "exclude": ["SCT"] } }
         ],
         "done": { "kind": "group-selected", "min": 2, "exclude": ["SCT"] }

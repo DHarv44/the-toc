@@ -93,9 +93,13 @@
                 "text": "Both platoons are formed up at the CP.",
                 "action": "CLOSE THE CONSOLE.",
                 "anchor": { "kind": "ui", "sel": "console-close" } },
-              { "text": "Platoons fight as a team — one callsign on the net, one order from you.",
-                "action": "BOX-SELECT BOTH PLATOONS — PRESS G.",
-                "anchor": { "kind": "unit", "type": "CAV" } }
+              { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2 } },
+                "text": "Platoons fight as a team — one callsign on the net, one order from you.",
+                "action": "DRAG A BOX AROUND BOTH PLATOONS (OR CTRL-CLICK EACH).",
+                "anchor": { "kind": "force-box" } },
+              { "text": "Both platoons under the cursor.",
+                "action": "PRESS G (OR RIGHT-CLICK ONE → FORM NEW TEAM).",
+                "anchor": { "kind": "force-box", "pad": 60 } }
             ],
             "done": { "kind": "team-formed", "min": 2 }
           },
@@ -113,8 +117,8 @@
             "hints": [
               { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2 } },
                 "text": "March complete.",
-                "action": "SELECT THE TEAM — BOX-SELECT OR CLICK ITS BAR CHIP.",
-                "anchor": { "kind": "unit", "type": "CAV" } },
+                "action": "DRAG A BOX AROUND THE TEAM (OR CLICK ITS CHIP IN THE BOTTOM BAR).",
+                "anchor": { "kind": "force-box" } },
               { "text": "They refit, rearm, and absorb replacements in garrison.",
                 "action": "PRESS Y (RTB).",
                 "anchor": { "kind": "ui", "sel": "rtb" } }
