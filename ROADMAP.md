@@ -121,6 +121,15 @@ four-wall room, team stations, S-shop consoles, the RTS dock, pop-out, the map-l
 decomposition. The new Now is the user's 2026-08-06 list: make the FIGHT right —
 attacking, the AI, recovery — and stand up SKIRMISH as a real front door.)*
 
+### Discuss next *(added 2026-08-06, pre-compact)*
+**Base footprints & anatomy** — `src/BASES.md` is the discussion doc: bases
+get a smart road-derived POLYGON with a GATE, facilities become placed 2525
+anatomy (motor pool, aid station…) that rolls up at distance like teams, the
+motor pool moves INSIDE THE WIRE (the shipped nearest-road parking can put
+vics under fire — the user's critique), authors get a road tool, and the
+in-game engineer gets a rotate/size polygon preview. Six open calls at the
+doc's foot.
+
 ### Now — the fight
 1. **Attack honors the order of march (+ attack rework)** — bug first: when a team
    attacks, the scout runs way ahead even though it is 3rd in line — attack movement
