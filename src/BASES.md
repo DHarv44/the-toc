@@ -107,6 +107,17 @@ the C-RAM pattern). They gain a POSITION inside the footprint:
 
 ### Author-added roads
 
+> **SHIPPED (2026-08-07), scenario-level as recommended:** the builder's
+> Control-measures palette carries a ROAD tool — click waypoints, dbl-click
+> (or right-click) commits; right-click an authored road while the tool is
+> armed to delete it; Ctrl+Z unbuilds the last. Stored as
+> `situation.engineerRoads` (norm polylines) and laid at H-hour through the
+> SAME machinery an in-game road-building engineer uses (S.engRoads: ends
+> junction-snapped, raster-stamped, router re-junctioned, serialized), drawn
+> in the shared track ink. This is also the KABUL patch path until it is
+> re-exported with road vectors. In-game roadworks shipped alongside
+> (engineers crawl a planned line leaving real road behind — see roadworks).
+
 The builder gains a ROAD tool: draw a polyline, pick a class (track/road),
 ends SNAP to existing network vertices so junctions form (the same
 coincident-vertex rule the engine enforces). The open call is where they

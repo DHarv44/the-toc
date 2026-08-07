@@ -31,11 +31,11 @@ import type { MissionScript, ScenarioSide, ScenarioSpec } from '../../scenario/t
 import {
   type Doc, type EditorState, type Entity, type Extras, type Sel,
   emptyEditor, openEditor, freshId, dirty, markSaved, carryOf, inKeyOrder,
-  place, update, moveLive, facLive, beginDrag, remove, select, selected, duplicate, arrange,
+  place, update, moveLive, facLive, addRoad, removeRoad, beginDrag, remove, select, selected, duplicate, arrange,
   selEntity, selIds, selMission, oneEntity, toggleId, setDoc, setMissions, undo, redo,
 } from '../../scenario/edit'
 import {
-  entitiesFromSituation, situationFromEntities, saveScenario,
+  entitiesFromSituation, roadsFromSituation, situationFromEntities, saveScenario,
 } from '../../scenario/io'
 import { referencedPlaces, renamePlaceRefs, isBuiltinPlace } from '../../scenario/content'
 import { planAccessTrack } from '../../world/access'
@@ -103,6 +103,9 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   // WHAT THE CURSOR IS CARRYING. Not an armed mode — you pick a row up and put
   // it down, and if you let go anywhere else it is simply dropped.
   const [carry, setCarry] = useState<Armed>(null)
+  // the ROAD being drawn: waypoints accumulate while the ROAD item is
+  // carried; dbl-click (or right-click) commits it as ONE undoable road
+  const [roadDraft, setRoadDraft] = useState<{ x: number; y: number }[]>([])
   const [menu, setMenu] = useState<{ x: number; y: number; id: number | null } | null>(null)
   const [world, setWorld] = useState<{ map: WorldMap; ground: Ground } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -283,7 +286,7 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       } else if (mod && (ev.key.toLowerCase() === 'y' || (ev.key.toLowerCase() === 'z' && ev.shiftKey))) {
         ev.preventDefault(); setEd(redo)
       } else if (ev.key === 'Escape') {
-        setCarry(null); setMenu(null)
+        setCarry(null); setMenu(null); setRoadDraft([])
       }
     }
     window.addEventListener('keydown', key)
@@ -309,6 +312,12 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   const onDrop = (wx: number, wy: number) => {
     const armed = carry
     if (!armed || !world) return
+    // a ROAD accumulates waypoints and STAYS on the cursor — a polyline is
+    // many clicks; dbl-click / right-click commits it (commitRoad below)
+    if (armed.ent === 'road') {
+      setRoadDraft(d => [...d, { x: wx, y: wy }])
+      return
+    }
     setCarry(null)
     // friendly entities are stamped with the formation the palette is placing
     // as; the player's own chair is the default and stays unwritten
@@ -402,6 +411,7 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       player: chair,
       ...(e.spec.fog === false ? { fog: false } : {}),
       entities: [],
+      roads: [],
       missions: e.spec.missions ?? [],
       extras: pickExtras(e.spec),
       carry: carryOf(e.spec),
@@ -419,7 +429,9 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       // the ground arrives after the document — fold the situation in as a
       // LOAD, not an edit, so the freshly opened scenario is not born dirty
       setEd(s => openEditor({
-        ...s.doc, entities: entitiesFromSituation(e.spec.situation, g),
+        ...s.doc,
+        entities: entitiesFromSituation(e.spec.situation, g),
+        roads: roadsFromSituation(e.spec.situation, g),
       }))
     })
     setScreen('editor')
@@ -438,7 +450,8 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
     setOwnerPack(cfg.packId)
     setEd(openEditor({
       name: cfg.name.toUpperCase(), type: cfg.type, sides, player: chair,
-      entities: [], missions: cfg.type === 'campaign' ? [newMission(1)] : [],
+      entities: [], roads: [],
+      missions: cfg.type === 'campaign' ? [newMission(1)] : [],
       extras: {}, carry: {}, keyOrder: [],
     }))
     setFormation(chair)
@@ -459,8 +472,10 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       const ms = e.spec.missions ?? []
       const ents = entitiesFromSituation(e.spec.situation, world.ground)
       const staged = stagePlaces(ms, ents)
-      setEd(s => select(setDoc(s, { missions: ms, entities: [...ents, ...staged] }),
-        ms.length ? { k: 'mission', m: 0 } : null))
+      setEd(s => select(setDoc(s, {
+        missions: ms, entities: [...ents, ...staged],
+        roads: roadsFromSituation(e.spec.situation, world.ground),
+      }), ms.length ? { k: 'mission', m: 0 } : null))
       setMsg(`PORTED ${e.spec.name}${staged.length ? ` · ${staged.length} PLACES NEED ANCHORING` : ''}`)
     } else {
       const src = e.spec.missions?.[Number(idx)]
@@ -502,7 +517,7 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       type: doc.type, name: doc.name.trim() || id, map: mapRef,
       sides: doc.sides, player: doc.player,
       ...(doc.fog === false ? { fog: false } : {}),
-      situation: situationFromEntities(doc.entities, world.ground),
+      situation: situationFromEntities(doc.entities, world.ground, doc.roads),
       ...(doc.missions.length ? { missions: doc.missions } : {}),
       ...doc.extras,
     } as ScenarioSpec, doc.keyOrder)
@@ -578,7 +593,16 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   const carryLabel = (a: NonNullable<Armed>): string =>
     a.ent === 'structure' ? a.kind
       : a.ent === 'unit' ? (UNIT_TYPES[a.type]?.abbr ?? a.type)
+      : a.ent === 'road' ? 'ROAD'
       : a.zone ? 'ZONE' : 'POINT'
+
+  // finish the road on the cursor: two points make a road, fewer make a
+  // cancelled sketch; either way the cursor is emptied
+  const commitRoad = () => {
+    if (roadDraft.length >= 2) setEd(s => addRoad(s, roadDraft))
+    setRoadDraft([])
+    setCarry(null)
+  }
 
   const addMission = () => setEd(s => select(
     setMissions(s, ms => [...ms, newMission(ms.length + 1)]),
@@ -686,6 +710,10 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
               <SheetCanvas ref={sheetRef}
                 map={world.map} ground={world.ground}
                 entities={entities} tracks={tracks} wires={wires} ghosts={ghosts}
+                roads={doc.roads}
+                roadDraft={carry?.ent === 'road' ? roadDraft : null}
+                onRoadCommit={commitRoad}
+                onRoadRemove={i => setEd(s => removeRoad(s, i))}
                 sel={selIds(ed.sel)}
                 carry={carry ? { label: carryLabel(carry) } : null}
                 night={night} sat={sat} playerFormation={player}

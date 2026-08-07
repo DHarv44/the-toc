@@ -9,6 +9,9 @@ import type { GameState, Unit, Roe, WeaponsControl } from './GameState'
 import type { ScenarioSpec, ScenarioUnit } from '../scenario/types'
 import type { UnitTypeKey } from '../domains/forces/catalog'
 import { frameOf, normToWorld } from '../world/pack/frame'
+import { R_TRACK } from '../world/WorldMap'
+import { nearestRoadVertex, stampTrack } from '../world/access'
+import { invalidateRoadGraph } from '../world/pack/roadGraph'
 import { addStructure, deployUnit } from '../domains/installations/orders'
 import { spawnEnemy } from '../domains/forces/factory'
 import { orderMove } from '../domains/forces/orders'
@@ -79,6 +82,25 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
     const pt = w(p)
     return [p.name, { x: pt.x, y: pt.y, ...(p.r != null ? { r: p.r } : {}) }]
   }))
+
+  // AUTHOR-DRAWN ROADS, laid BEFORE the structures so a base sited on one
+  // gates onto it. Through the same machinery an in-game road-building
+  // element uses: ends junction-snapped onto the network, pushed to
+  // S.engRoads (serialized — restore re-lays them for free) and the map,
+  // stamped into the raster, and the router re-junctioned once.
+  const m = S.map!
+  for (const line of sit.engineerRoads ?? []) {
+    if (line.length < 2) continue
+    let pts = line.map(p => w(p))
+    const s0 = nearestRoadVertex(m, pts[0]!)
+    if (s0) pts = [{ x: s0.x, y: s0.y }, ...pts]
+    const s1 = nearestRoadVertex(m, pts[pts.length - 1]!)
+    if (s1) pts = [...pts, { x: s1.x, y: s1.y }]
+    S.engRoads.push(pts)
+    m.roads.push({ cls: R_TRACK, pts })
+    stampTrack(m, pts)
+  }
+  if (sit.engineerRoads?.length) invalidateRoadGraph(m)
 
   for (const st of sit.structures) {
     const p = w(st)

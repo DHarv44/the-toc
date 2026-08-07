@@ -25,7 +25,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { WorldMap } from '../../world/WorldMap'
 import type { Ground } from '../../world/pack/loadGround'
-import { packLayerFor, TERRAIN_PX } from '../../map/packRender'
+import { applyTrackInk, packLayerFor, TERRAIN_PX } from '../../map/packRender'
 import { terrainOrtho } from '../../map/terrainOrtho'
 import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
@@ -50,6 +50,15 @@ export interface SheetProps {
   /** planned FOB access tracks (world/access planAccessTrack) — the exact
    *  dirt road the game will lay at H-hour, previewed */
   tracks: { id: number; pts: { x: number; y: number }[] }[]
+  /** AUTHOR-DRAWN ROADS (world metres) — laid by engineers before H-hour,
+   *  drawn in the shared track ink so they read as the roads they become */
+  roads: { x: number; y: number }[][]
+  /** waypoints of the road being drawn (null = the ROAD tool is not armed) */
+  roadDraft: { x: number; y: number }[] | null
+  /** finish the draft (dbl-click / right-click with points down) */
+  onRoadCommit: () => void
+  /** delete authored road i (right-click near it while the tool is armed) */
+  onRoadRemove: (i: number) => void
   /** base anatomy preview (installations/anatomy) — the same footprint, gate
    *  and facility layout the game derives at H-hour */
   wires: {
@@ -252,11 +261,41 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
     const enter = () => { cursor.on = true }
     const leave = () => { cursor.on = false }
 
+    // distance from a screen point to authored road i, in px — the ROAD
+    // tool's delete affordance needs to know which road you meant
+    const roadAt = (sx: number, sy: number): number | null => {
+      let best: number | null = null, bd = 12
+      propsRef.current.roads.forEach((line, i) => {
+        for (let k = 0; k + 1 < line.length; k++) {
+          const ax = w2sX(line[k]!.x), ay = w2sY(line[k]!.y)
+          const bx = w2sX(line[k + 1]!.x), by = w2sY(line[k + 1]!.y)
+          const dx = bx - ax, dy = by - ay
+          const len2 = dx * dx + dy * dy
+          let t = len2 > 0 ? ((sx - ax) * dx + (sy - ay) * dy) / len2 : 0
+          t = t < 0 ? 0 : t > 1 ? 1 : t
+          const d = Math.hypot(sx - (ax + dx * t), sy - (ay + dy * t))
+          if (d < bd) { bd = d; best = i }
+        }
+      })
+      return best
+    }
+
     const down = (ev: PointerEvent) => {
       canvas.setPointerCapture(ev.pointerId)
       // RMB is the CONTEXT MENU, not the camera. Middle-drag and Space+drag
       // pan; both are standard, and neither costs the right button.
       if (ev.button === 2) {
+        // ROAD tool armed: right-click FINISHES the draft, or with nothing
+        // drawn yet, deletes the authored road under the cursor
+        const draft = propsRef.current.roadDraft
+        if (draft != null) {
+          if (draft.length) propsRef.current.onRoadCommit()
+          else {
+            const i = roadAt(mX(ev), mY(ev))
+            if (i != null) propsRef.current.onRoadRemove(i)
+          }
+          return
+        }
         const e = hit(mX(ev), mY(ev))
         propsRef.current.onContext(ev.clientX, ev.clientY, e?.id ?? null)
         return
@@ -362,7 +401,11 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       view.cy = wy - (mY(ev) - canvas.height / 2) / view.ppm
     }
     const ctxMenu = (ev: Event) => ev.preventDefault()
+    const dbl = () => {
+      if (propsRef.current.roadDraft != null) propsRef.current.onRoadCommit()
+    }
 
+    canvas.addEventListener('dblclick', dbl)
     canvas.addEventListener('pointerdown', down)
     canvas.addEventListener('pointermove', move)
     canvas.addEventListener('pointerup', up)
@@ -400,7 +443,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       ctx.lineWidth = 2
       ctx.strokeRect(w2sX(0), w2sY(0), map.WORLD * view.ppm, map.WORLD * view.ppm)
 
-      const { entities, sel, tracks, wires } = propsRef.current
+      const { entities, sel, tracks, wires, roads, roadDraft } = propsRef.current
       // FOB access tracks first — under the symbols, styled like the sheet's
       // own dirt tracks so the preview reads as the road it will become
       ctx.lineCap = 'round'
@@ -415,6 +458,37 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
         for (let i = 1; i < t.pts.length; i++) ctx.lineTo(w2sX(t.pts[i]!.x), w2sY(t.pts[i]!.y))
         ctx.stroke()
         ctx.setLineDash([])
+      }
+      // AUTHOR-DRAWN ROADS in the baked track's exact ink — they ARE roads
+      // at H-hour, so they read as roads on the bench
+      applyTrackInk(ctx, view.ppm)
+      for (const line of roads) {
+        if (line.length < 2) continue
+        ctx.beginPath()
+        ctx.moveTo(w2sX(line[0]!.x), w2sY(line[0]!.y))
+        for (let i = 1; i < line.length; i++) ctx.lineTo(w2sX(line[i]!.x), w2sY(line[i]!.y))
+        ctx.stroke()
+      }
+      ctx.setLineDash([])
+      // the draft on the cursor: bright, with a rubber band to the pointer
+      if (roadDraft?.length) {
+        ctx.strokeStyle = 'rgba(255,214,126,0.9)'
+        ctx.lineWidth = 2
+        ctx.setLineDash([7, 5])
+        ctx.beginPath()
+        ctx.moveTo(w2sX(roadDraft[0]!.x), w2sY(roadDraft[0]!.y))
+        for (let i = 1; i < roadDraft.length; i++) {
+          ctx.lineTo(w2sX(roadDraft[i]!.x), w2sY(roadDraft[i]!.y))
+        }
+        if (cursor.on) ctx.lineTo(cursor.x, cursor.y)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = '#ffd67e'
+        for (const p of roadDraft) {
+          ctx.beginPath()
+          ctx.arc(w2sX(p.x), w2sY(p.y), 3, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
       // BASE ANATOMY under the symbols too — the same footprint, gate and
       // facility layout the game derives at H-hour, in the game's own
@@ -675,6 +749,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
 
     return () => {
       cancelAnimationFrame(raf)
+      canvas.removeEventListener('dblclick', dbl)
       canvas.removeEventListener('pointerdown', down)
       canvas.removeEventListener('pointermove', move)
       canvas.removeEventListener('pointerup', up)

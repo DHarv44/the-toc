@@ -47,6 +47,9 @@ export interface Doc {
   /** fog of war (absent = the engine's default, which is on) */
   fog?: boolean
   entities: Entity[]
+  /** AUTHOR-DRAWN ROADS, in WORLD metres on the bench (norm on disk —
+   *  scenario/io converts both ways, like entity coordinates) */
+  roads: { x: number; y: number }[][]
   missions: MissionScript[]
   extras: Extras
   /** EVERY KEY OF THE LOADED FILE THIS TOOL DOES NOT MODEL, carried through
@@ -146,7 +149,7 @@ export interface EditorState {
 export const emptyDoc = (): Doc => ({
   name: 'NEW SCENARIO', type: 'attack-defend',
   sides: { friend: '', hostile: '' }, player: '',
-  entities: [], missions: [], extras: {}, carry: {}, keyOrder: [],
+  entities: [], roads: [], missions: [], extras: {}, carry: {}, keyOrder: [],
 })
 
 /** Open a document on the bench: clean history, nothing dirty. */
@@ -215,6 +218,25 @@ export function moveLive(
       entities: s.doc.entities.map(e => (set.has(e.id) ? { ...e, x: e.x + dx, y: e.y + dy } : e)),
     },
   }
+}
+
+/** Commit an author-drawn road (one undo step — Ctrl+Z is how you unbuild
+ *  the last one). Two points minimum; anything shorter is a click, not a
+ *  road. */
+export function addRoad(s: EditorState, pts: { x: number; y: number }[]): EditorState {
+  // the dbl-click that ends the road also clicks — collapse waypoints that
+  // landed on top of each other so the file carries the line, not the gesture
+  const clean = pts.filter((p, i) =>
+    i === 0 || Math.hypot(p.x - pts[i - 1]!.x, p.y - pts[i - 1]!.y) > 15)
+  if (clean.length < 2) return s
+  return push(s, { ...s.doc, roads: [...s.doc.roads, clean] })
+}
+
+/** Delete one authored road (right-click near it while the ROAD tool is
+ *  armed). */
+export function removeRoad(s: EditorState, i: number): EditorState {
+  if (i < 0 || i >= s.doc.roads.length) return s
+  return push(s, { ...s.doc, roads: s.doc.roads.filter((_, k) => k !== i) })
 }
 
 /** Move ONE FACILITY of a structure WITHOUT an undo snapshot — plate drags

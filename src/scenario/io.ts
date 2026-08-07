@@ -27,6 +27,12 @@ export function entitiesFromSituation(sit: ScenarioSituation, ground: Ground): E
   ]
 }
 
+/** The situation's author-drawn roads, in world metres for the bench. */
+export function roadsFromSituation(sit: ScenarioSituation, ground: Ground): { x: number; y: number }[][] {
+  const f = frameOf(ground.files.manifest)
+  return (sit.engineerRoads ?? []).map(line => line.map(p => normToWorld(f, p.x, p.y)))
+}
+
 // Norm coords are written at SIX decimal places. The round trip through
 // world metres and back is not bit-exact — a coordinate that went in as
 // 0.1144 comes back as 0.11440000000000002 — so opening a scenario and
@@ -36,7 +42,10 @@ export function entitiesFromSituation(sit: ScenarioSituation, ground: Ground): E
 // noise floor of the conversion.
 const fix6 = (v: number) => Number(v.toFixed(6))
 
-export function situationFromEntities(entities: Entity[], ground: Ground): ScenarioSituation {
+export function situationFromEntities(
+  entities: Entity[], ground: Ground,
+  roads: { x: number; y: number }[][] = [],
+): ScenarioSituation {
   const f = frameOf(ground.files.manifest)
   const n = (p: { x: number; y: number }) => {
     const { nx, ny } = worldToNorm(f, p.x, p.y)
@@ -57,7 +66,11 @@ export function situationFromEntities(entities: Entity[], ground: Ground): Scena
       places.push({ ...rest, ...n(e) })
     }
   }
-  return { structures, units, ...(places.length ? { places } : {}) }
+  return {
+    structures, units,
+    ...(places.length ? { places } : {}),
+    ...(roads.length ? { engineerRoads: roads.map(line => line.map(p => n(p))) } : {}),
+  }
 }
 
 /** Write a scenario through the dev route (pack-io) — dev-only, like every

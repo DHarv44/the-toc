@@ -108,6 +108,13 @@ export interface ScenarioSituation {
   structures: ScenarioStructure[]
   units: ScenarioUnit[]
   places?: ScenarioPlace[]
+  /** AUTHOR-DRAWN ROADS (norm coords) — dirt tracks the engineers have
+   *  already cut when the war starts. Laid at H-hour through the same
+   *  machinery an in-game road-building element uses (S.engRoads: pushed,
+   *  stamped, junction-snapped, serialized), so they are real to the router
+   *  and the raster from the first tick. Also the way a road-poor map gets
+   *  roads a scenario needs without touching the ground pack. */
+  engineerRoads?: { x: number; y: number }[][]
 }
 
 /** One MISSION — a script arc with a conclusion: objectives are its phases,

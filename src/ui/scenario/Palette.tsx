@@ -28,6 +28,8 @@ export type Armed =
   | { ent: 'structure'; kind: StructureTypeKey }
   | { ent: 'unit'; type: string }
   | { ent: 'place'; zone: boolean }
+  // the ROAD tool: clicks accumulate waypoints, dbl-click/right-click commits
+  | { ent: 'road' }
   | null
 
 /** A draggable row. Pressing it picks the item up; the drop is the sheet's. */
@@ -113,6 +115,10 @@ export default function Palette({
           onPick={() => onCarry({ ent: 'place', zone: false })} />
         <Item label="ZONE" sub="named area" held={held({ ent: 'place', zone: true })}
           onPick={() => onCarry({ ent: 'place', zone: true })} />
+        <Item label="ROAD" sub="dirt track — click waypoints, dbl-click ends"
+          note="laid by engineers before H-hour; right-click one to remove it"
+          held={held({ ent: 'road' })}
+          onPick={() => onCarry({ ent: 'road' })} />
       </Section>
 
       <Box px={8} py={8}>
