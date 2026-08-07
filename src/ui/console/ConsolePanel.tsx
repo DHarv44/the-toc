@@ -23,6 +23,7 @@
 import type { ReactNode } from 'react'
 import { Box, Group, ActionIcon, Text } from '@mantine/core'
 import { FZ, TOPBAR_H } from '../styles'
+import { TUT } from '../tutTargets'
 import { useUI } from '../store'
 import Column from '../shell/Column'
 
@@ -40,7 +41,7 @@ export default function ConsolePanel({ title, children }: {
         title={full ? 'Dock to the left wall' : 'Fill the screen'}
         onClick={() => ui.setConsoleFull(!full)}>{full ? '❐' : '▢'}</ActionIcon>
       <ActionIcon size="md" variant="default" style={icon} title="Close"
-        onClick={() => ui.setConsole(null)}>×</ActionIcon>
+        data-tut={TUT.consoleClose} onClick={() => ui.setConsole(null)}>×</ActionIcon>
     </Group>
   )
 

@@ -31,6 +31,8 @@ export const TUT = {
   garrisonList: 'garrison-list',
   // the COMMAND console's GARRISON tab alone (call-up rings the whole strip)
   garrisonTab: 'garrison-tab',
+  // the console shell's close button (any open console)
+  consoleClose: 'console-close',
   // the structure tray (bottom bar): a base's QRF picker chip
   qrfTab: 'qrf-tab',
   // the selection tray's order verbs
@@ -80,6 +82,7 @@ export const TUT_TARGETS: { id: TutTargetId; where: string; what: string }[] = [
   { id: TUT.callUp, where: 'Rails', what: 'The CALL UP picker' },
   { id: TUT.garrisonList, where: 'Rails', what: 'The garrison list' },
   { id: TUT.garrisonTab, where: 'Command console', what: 'The GARRISON tab alone' },
+  { id: TUT.consoleClose, where: 'Console shell', what: 'The ✕ that closes the open console' },
   { id: TUT.qrfTab, where: 'Structure tray', what: 'A base\'s QRF picker chip' },
   { id: TUT.uasRaven, where: 'Selection tray', what: '⊕ RAVEN — launch the hand UAV' },
   { id: TUT.buildFob, where: 'Selection tray', what: 'BUILD FOB' },

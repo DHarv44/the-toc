@@ -91,7 +91,8 @@
             "hints": [
               { "when": { "kind": "rail-open", "rail": "command" },
                 "text": "Both platoons are formed up at the CP.",
-                "action": "CLOSE THE CONSOLE (✕, TOP RIGHT)." },
+                "action": "CLOSE THE CONSOLE.",
+                "anchor": { "kind": "ui", "sel": "console-close" } },
               { "text": "Platoons fight as a team — one callsign on the net, one order from you.",
                 "action": "BOX-SELECT BOTH PLATOONS — PRESS G.",
                 "anchor": { "kind": "unit", "type": "CAV" } }
