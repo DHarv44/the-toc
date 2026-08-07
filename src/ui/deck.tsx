@@ -395,7 +395,22 @@ function objectiveSlide(o: RuntimeObjective): Slide {
 export function operationDeck(): Slide[] {
   const objs = operation().objectives
   const end = S.campaign ? revealedEnd(S.campaign.objIdx) : objs.length
-  return objs.slice(0, end).map(objectiveSlide)
+  const slides = objs.slice(0, end).map(objectiveSlide)
+  if (slides.length) return slides
+  // An objective-less mission (a training evolution) still briefs: one OPORD
+  // slide from the operation's own authored words — title, the CP on the map,
+  // the brief as bullet lines. The deck never faces the commander blank.
+  const op = operation()
+  return [{
+    title: () => op.name,
+    frame: () => { const hq = playerHq(); return { cx: hq.x, cy: hq.y, span: 6000 } },
+    body: (i) => { drawHq(i) },
+    bullets: () => op.brief
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 6),
+  }]
 }
 
 // ---------------------------------------------------------------------------

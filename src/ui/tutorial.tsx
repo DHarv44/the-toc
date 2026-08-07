@@ -572,6 +572,10 @@ export default function TutorialOverlay() {
   if (!tip && c.tutStep >= _steps.length) return null
   const hint = tip ?? hintFor(_steps[c.tutStep]!, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route)
+  // The opening VTC owns the screen: cards WAIT for ACKNOWLEDGE — a hint about
+  // the map is noise while higher is talking. The exception is a lesson about
+  // the call itself (a vtc-* anchor), which has to ride over it.
+  if (!c.briefed && !hint.targetSel?.startsWith('vtc-')) return null
 
   // Map-anchored instruction → the card offers CENTER ON MAP instead of
   // stealing the camera. The old auto-center yanked the view to the anchor the
