@@ -8,8 +8,17 @@
 // route: on a road the cell version prices the same speed but measures
 // shorter (cell centres chord the real curves), so any tie-breaker hands the
 // stair-step garbage a win over the clean geometry. Tried it. Never again.
-// A field-waypoint order that circles via the road instead of crossing the
-// field is the accepted cost until a rule exists that cannot regress this.
+//
+// THE SIDESTEP RULE is the one exception, and it is built so it cannot
+// regress that: it involves no cell A* and no time estimate — nothing the
+// chorded-cell pathology can exploit. A SHORT hop (≤ SIDESTEP_MAX) whose
+// network route is an OBJECTIVELY huge detour (> DETOUR_K × the straight
+// line, measured including the drive to the on-ramp) goes STRAIGHT, and only
+// if the straight line is passable for the mobility every metre of the way —
+// water still forces the bridge. On-road trips measure a ratio near 1 and
+// never trigger; long cross-country marches stay on network reasoning; and a
+// supply CONVOY never leaves the road no matter the ratio, because that is
+// doctrine, not arithmetic.
 //
 // The optional `profile` is doctrine, not a mode: supply convoys over-prefer
 // arterials beyond raw time.
@@ -18,13 +27,38 @@ import { type Vec2, type WorldMap } from './WorldMap'
 import type { Mobility } from './mobility'
 import { routeOnRoads, type RouteProfile } from './pack/roadGraph'
 
+const SIDESTEP_MAX = 500  // a tactical repositioning, not a march
+const DETOUR_K = 2.5      // network travel beyond this multiple of the hop is absurd
+
+// every sampled metre of the straight line drivable for this mobility
+function straightPassable(
+  map: WorldMap, sx: number, sy: number, tx: number, ty: number, mob: Mobility,
+): boolean {
+  const n = Math.max(1, Math.ceil(Math.hypot(tx - sx, ty - sy) / (map.CELL / 2)))
+  for (let k = 0; k <= n; k++) {
+    if (!isFinite(map.moveFactor(sx + (tx - sx) * (k / n), sy + (ty - sy) * (k / n), mob))) return false
+  }
+  return true
+}
+
 export function findPath(
   map: WorldMap, sx: number, sy: number, tx: number, ty: number,
   mob: Mobility, profile: RouteProfile = 'fastest',
 ): Vec2[] | null {
   if (map.ground) {
     const road = routeOnRoads(map, sx, sy, tx, ty, mob, profile)
-    if (road) return road
+    if (road) {
+      const straight = Math.hypot(tx - sx, ty - sy)
+      if (profile === 'fastest' && straight > 0 && straight <= SIDESTEP_MAX) {
+        // total travel the network answer actually costs, on-ramp drive included
+        let travel = 0, px = sx, py = sy
+        for (const p of road) { travel += Math.hypot(p.x - px, p.y - py); px = p.x; py = p.y }
+        if (travel > straight * DETOUR_K && straightPassable(map, sx, sy, tx, ty, mob)) {
+          return [{ x: tx, y: ty }]
+        }
+      }
+      return road
+    }
   }
   return findPathCells(map, sx, sy, tx, ty, mob)
 }
