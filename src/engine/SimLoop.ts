@@ -26,6 +26,7 @@ import { pipelineUpdate } from '../domains/forces/pipeline'
 import { assetsUpdate } from '../domains/assets/update'
 import { interceptUpdate } from '../domains/installations/intercept'
 import { qrfUpdate } from '../domains/defense/qrf'
+import { taskingUpdate } from '../domains/command/tasking'
 import { directFireUpdate, ballisticsUpdate } from '../domains/fires/update'
 import { airUpdate } from '../domains/air/update'
 import { updateContacts } from '../domains/intel/sensing'
@@ -52,6 +53,7 @@ export function tick(dt: number): void {
   supplyUpdate(dt)        // lifts netted against upkeep, both sides
   constructionUpdate(dt)  // construction + garrison reconstitution
   escortUpdate()          // escorts re-path onto their wards BEFORE movement runs
+  taskingUpdate(dt)       // team commanders run their taskings (TASKING.md)
   roadworkUpdate(dt)      // engineers crawl their line, leaving road behind
   movementUpdate(dt)      // columns, movement, convoy, bridging, dig progress
   routeClearUpdate()      // EOD sweeps disarm BEFORE hazards check for triggers

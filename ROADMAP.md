@@ -1184,7 +1184,7 @@ units take it without hesitation — both playtest engineers died this way.
   from the AI's own moves until *Symmetric Fog* gives it an honest picture too.
   Combat groups (escorted moves) are the deeper fix.
 
-### Team Tasking & EXECUTE ⬜ *(user 2026-08-06 — console step 7; DESIGN WRITEUP READY 2026-08-07: `src/TASKING.md` — discuss its eight open calls, then build)*
+### Team Tasking & EXECUTE 🟡 *(all eight TASKING.md calls ruled 2026-08-07; ENGINE v1 SHIPPED same day — utility kernel shared with the OPFOR (domains/command), SEIZE end-to-end (route-aware approach → assault at contact short of the objective → consolidate → auto-chain DEFEND), 50% break-off FAILED, member detach on manual orders, net readback; verified in the sandbox. OPEN: the station TASKING block + EXECUTE button, map context-menu entry, SCREEN/ESCORT/RECON. NOTE: SEIZE cannot beat ANY defended objective until "maneuver beats mass" is tuned — the balance item is now load-bearing.)*
 The step `src/CONSOLE.md` ends on: a team is given an **objective/task**, the
 commander presses **EXECUTE**, and the team builds its route to the objective and
 does it — on its own.

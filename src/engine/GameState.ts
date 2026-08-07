@@ -633,6 +633,33 @@ export interface Unit {
   roadwork?: { pts: { x: number; y: number }[]; cum: number[]; s: number; v: number; ri: number }
 }
 
+// --- taskings (TASKING.md) -------------------------------------------------
+
+export type TaskKind = 'SEIZE' | 'DEFEND' | 'SCREEN' | 'ESCORT' | 'RECON'
+
+/** A team's live tasking: WHAT and WHERE, plus where its commander is in the
+ *  scheme. The task fixes the phases; the utility layer chooses within them
+ *  (domains/command). `detached` are members pulled off by manual orders —
+ *  the tasking continues without them. */
+export interface Tasking {
+  id: number
+  teamId: number
+  task: TaskKind
+  obj: { x: number; y: number; r: number }
+  state: 'moving' | 'actions' | 'done' | 'failed'
+  /** team strength total at EXECUTE — the failure threshold's baseline */
+  initStr: number
+  detached: number[]
+  /** a GREEN named route's exit, adopted for the approach (call 7) */
+  via?: { x: number; y: number } | null
+  /** true on a DEFEND auto-chained from a completed SEIZE (call 4) */
+  chained?: boolean
+  phaseT: number
+  nextDecT?: number          // commander decision cadence (S.rng jittered)
+  nextFiresT?: number        // rolled window for the team's own tubes
+  lastDecision?: { t: number; id: string; scores: Record<string, number> }
+}
+
 // --- installations --------------------------------------------------------
 
 export interface Structure {
@@ -1046,6 +1073,10 @@ export interface GameState {
   teams: Team[]              // the task organization — named, durable groupings
   routes: ColumnRoute[]      // the shared polyline each column is marching on
   msrs: NamedRoute[]         // commissioned supply routes (MSR GREEN/RED status)
+  /** LIVE TASKINGS (TASKING.md): one per team at most — the objective, the
+   *  task, and where the team-commander AI is in executing it. Serialized;
+   *  the engine (domains/command/tasking) picks a restored one straight up. */
+  taskings: Tasking[]
   /** ENGINEER-BUILT ROADS: each entry is a polyline an engineer element laid
    *  (or is still laying — the array GROWS behind the builder and is the
    *  same array as its map.roads polyline). Serialized; restore re-pushes
@@ -1120,6 +1151,7 @@ export function createInitialState(): GameState {
     teams: [],
     routes: [],
     msrs: [],
+    taskings: [],
     engRoads: [],
     measures: [],
     recoveries: [],

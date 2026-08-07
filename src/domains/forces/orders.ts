@@ -16,6 +16,7 @@ import { marchPlan, setMarchOrder } from '../movement/march'
 import { setRoute } from '../movement/route'
 import { deriveElements } from './casualties'
 import { suspendRoadwork } from './roadworks'
+import { taskingDetach } from '../command/hooks'
 import { netRadio, radio, toast } from '../comms/radio'
 
 export const COLUMN_GAP = 65     // metres a follower holds behind the vic ahead of it
@@ -227,6 +228,7 @@ export function orderMove(
   if (!u) return
   u.escortId = null   // a manual move re-tasks an escort off its duty
   suspendRoadwork(u)  // and takes a road-building element off the job
+  taskingDetach(u)    // and detaches it from its team's tasking (no-op when the tasking itself is issuing)
   autoRemount(u)
   x = clampWorld(S.map, x); y = clampWorld(S.map, y)
   const from = (append && u.path.length) ? u.path[u.path.length - 1]! : u
@@ -282,6 +284,7 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   if (!e) return
   u.escortId = null   // a manual attack re-tasks an escort off its duty
   suspendRoadwork(u)
+  taskingDetach(u)
   autoRemount(u)
   const p = findPath(S.map!, u.x, u.y, e.x, e.y, effStats(u).mob)
   if (!p) { if (u.side === 'friend') toast('ROUTE IMPASSABLE'); return }
@@ -405,7 +408,7 @@ export function removeWaypoint(unitId: number, legIndex: number): void {
 
 export function orderHold(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
-  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined; u.escortId = null; suspendRoadwork(u); u.state = 'hold' }
+  if (u) { u.path = []; u.legs = []; u.bridging = null; u.heldRoute = null; u.breaking = false; u.resumeDest = undefined; u.breakRetried = undefined; u.coverSought = undefined; u.convoy = null; u.attackId = null; u.attackMove = false; u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined; u.escortId = null; suspendRoadwork(u); taskingDetach(u); u.state = 'hold' }
 }
 
 export function orderMount(unitId: number, mounted: boolean): void | null {

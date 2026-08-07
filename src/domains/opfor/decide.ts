@@ -19,6 +19,7 @@ import type { Vec2 } from '../../world/WorldMap'
 import { UNIT_TYPES } from '../forces/catalog'
 import { orderDefend, orderMove } from '../forces/orders'
 import { fireMission } from '../fires/orders'
+import { type UtilityAction, clamp01, decideBest } from '../command/utility'
 
 interface CmdCtx {
   grp: Battlegroup
@@ -30,20 +31,11 @@ interface CmdCtx {
   defNearObj: number                   // player units defending near the objective
 }
 
-interface Consideration {
-  name: string
-  w: number
-  eval(c: CmdCtx): number
-}
-
-interface CmdAction {
-  id: string
-  available(c: CmdCtx): boolean
-  considerations: Consideration[]
-  execute(c: CmdCtx): void
-}
-
-const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
+// the decision machinery itself — considerations, actions, scoring — is the
+// shared UTILITY KERNEL (domains/command/utility): one engine, pointed at
+// either side. This file keeps only what is OPFOR: the actions and their
+// context.
+type CmdAction = UtilityAction<CmdCtx>
 
 // hard availability gate, not a consideration: a commander does not drop
 // rounds where his own people are (mirror of the friendly DANGER CLOSE rule)
@@ -265,16 +257,7 @@ export function commanderDecide(grp: Battlegroup, mem: Unit[]): void {
     tgt: guns.length ? pickTarget(guns, grp) : null,
     defNearObj,
   }
-  let best: CmdAction | null = null
-  let bs = 0.3 // action floor: below this, doing nothing beats doing something
-  const scores: Record<string, number> = {}
-  for (const a of ACTIONS) {
-    if (!a.available(ctx)) { scores[a.id] = 0; continue }
-    let s = 1
-    for (const k of a.considerations) s *= Math.pow(clamp01(k.eval(ctx)), k.w)
-    scores[a.id] = s
-    if (s > bs) { bs = s; best = a }
-  }
+  const { best, scores } = decideBest(ACTIONS, ctx, 0.3)
   grp.lastDecision = { t: S.t, id: best ? best.id : 'NONE', scores }
   best?.execute(ctx)
 }

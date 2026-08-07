@@ -125,6 +125,9 @@ export async function restoreGame(json: string): Promise<void> {
   // a one-point stub, so a mid-build roadwork's `ri` still points at the SAME
   // array and the element keeps building where it left off), finished
   // stretches re-stamp, and the router re-junctions once at the end
+  // saves written before these existed restore to empty, not to whatever the
+  // previous session left in S
+  if (!('taskings' in (state as object)) || !S.taskings) S.taskings = []
   for (const pts of S.engRoads ?? (S.engRoads = [])) {
     map.roads.push({ cls: R_TRACK, pts })
     if (pts.length >= 2) stampTrack(map, pts)
