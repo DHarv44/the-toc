@@ -1148,6 +1148,14 @@
       "atoLead": 120,
       "delivers": {
         "window": "AH64"
+      },
+      "crew": {
+        "billets": [
+          ["CW3", "Air Mission Commander"],
+          ["CW2", "Copilot Gunner"],
+          ["CW2", "Pilot"],
+          ["WO1", "Copilot Gunner"]
+        ]
       }
     },
     "SPECTRE": {

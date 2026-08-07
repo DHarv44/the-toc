@@ -29,7 +29,8 @@ export function drawDustwun(f: Frame): void {
     if (site.side !== 'friend') continue
     const age = Math.floor((S.t - site.t) / 60)
     drawUnitSymbol(f.ctx, f.w2sX(site.x), f.w2sY(site.y), {
-      side: 'friend', glyph: UNIT_TYPES[site.type].glyph, stale: true,
+      // downed aircrew sites carry no ground unit type — people on foot
+      side: 'friend', glyph: UNIT_TYPES[site.type]?.glyph ?? 'inf', stale: true,
       label: `${site.label} DUSTWUN ${age}M`, showStrength: false,
     })
   }

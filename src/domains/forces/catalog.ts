@@ -103,6 +103,10 @@ export interface UnitType {
    *  crawls the planned line at `speed` m/s, leaving real road behind it.
    *  Pack noun; domains/forces/roadworks runs the verb. */
   roadworks?: { speed: number }
+  /** ANTI-AIR: this element engages airframes flying at or below `alt` metres
+   *  within `range`, at `dps` weight of fire. Pack noun (small arms on rifle
+   *  platoons, MANPADS on ATGM teams); domains/air/threat runs the verb. */
+  aa?: { range: number; alt: number; dps: number }
 }
 
 // The registry: EMPTY until packs/install.ts populates it (which happens at

@@ -86,6 +86,7 @@ export interface DroneType {
   hover?: boolean           // rotary/quad: holds at the anchor instead of flying a pattern
   glyph?: string            // airframe silhouette (map/symbols.ts vocabulary): twinboom, hale,
                             // ucav, handlaunch, lm, gunship4, rotary, quad, aerostat
+  hp?: number               // airframe toughness vs ground fire (domains/air/threat.ts)
   weapons?: DroneWeapons
   kamikaze?: KamikazeSpec
   gunship?: GunshipSpec

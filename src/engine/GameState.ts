@@ -761,6 +761,8 @@ export interface Drone {
   tilt?: number              // aerostat turret depression
   scanMul?: number           // aerostat sweep-speed setting
   lastSpotT?: number
+  hp?: number                // airframe damage state (domains/air/threat.ts; set on first hit)
+  underFireT?: number        // last sim time ground fire reached it
   // gunship suite (set at deploy when the spec has one)
   gunSel?: string
   fireMode?: GunFireMode

@@ -29,6 +29,7 @@ import { qrfUpdate } from '../domains/defense/qrf'
 import { taskingUpdate } from '../domains/command/tasking'
 import { directFireUpdate, ballisticsUpdate } from '../domains/fires/update'
 import { airUpdate } from '../domains/air/update'
+import { airThreatUpdate } from '../domains/air/threat'
 import { updateContacts } from '../domains/intel/sensing'
 import { enemyAI } from '../domains/opfor/ai'
 import { toast } from '../domains/comms/radio'
@@ -80,6 +81,7 @@ export function tick(dt: number): void {
   MODES[S.mode].update?.(S, dt) // mode logic (e.g. hill control clocks), pre-checkEnd
   checkMatchEnd()         // the active mode's win/lose check, right after deaths
   airUpdate(dt)           // drone state machines
+  airThreatUpdate(dt)     // ground fire vs low airframes (break-off, shootdown, DUSTWUN)
   updateContacts()
   enemyAI(dt)
   S.version++
