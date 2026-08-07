@@ -43,33 +43,50 @@
             "id": "garrison",
             "hints": [
               { "text": "The force sits in garrison until you call it up.",
-                "action": "OPEN THE GARRISON TAB." }
+                "action": "OPEN THE GARRISON TAB.",
+                "anchor": { "kind": "ui", "sel": "call-up" } }
             ],
             "done": { "kind": "callup-open" }
           },
           {
             "id": "recon",
             "hints": [
-              { "text": "Recon leads — scouts find the enemy so the main body doesn't.",
-                "action": "RECON → A TROOP → CALL UP A PLATOON.",
-                "anchor": { "kind": "ui", "sel": "callup-cat-RECON" } }
+              { "when": { "kind": "not", "of": { "kind": "callup-base" } },
+                "text": "This is everything still in barracks.",
+                "action": "CLICK CP RANGE TO OPEN IT.",
+                "anchor": { "kind": "ui", "sel": "callup-base-HQ" } },
+              { "when": { "kind": "not", "of": { "kind": "callup-cat", "cat": "RECON" } },
+                "text": "Recon leads — scouts find the enemy so the main body doesn't.",
+                "action": "CLICK RECON.",
+                "anchor": { "kind": "ui", "sel": "callup-cat-RECON" } },
+              { "text": "A Troop's platoons stand ready.",
+                "action": "A TROOP → CLICK A PLATOON. IT FORMS UP AT THE CP.",
+                "anchor": { "kind": "ui", "sel": "field-CAV" } }
             ],
             "done": { "kind": "fielded", "type": "CAV", "min": 1 }
           },
           {
             "id": "infantry",
             "hints": [
-              { "text": "Rifles follow the eyes.",
-                "action": "INFANTRY → CALL UP A RIFLE PLATOON.",
-                "anchor": { "kind": "ui", "sel": "callup-cat-INFANTRY" } }
+              { "when": { "kind": "not", "of": { "kind": "callup-cat", "cat": "INFANTRY" } },
+                "text": "Rifles follow the eyes.",
+                "action": "CLICK INFANTRY.",
+                "anchor": { "kind": "ui", "sel": "callup-cat-INFANTRY" } },
+              { "text": "Any rifle company will do.",
+                "action": "PICK A COMPANY → CLICK A PLATOON.",
+                "anchor": { "kind": "ui", "sel": "field-INF" } }
             ],
             "done": { "kind": "fielded", "min": 2 }
           },
           {
             "id": "team",
             "hints": [
+              { "when": { "kind": "rail-open", "rail": "command" },
+                "text": "Both platoons are formed up at the CP.",
+                "action": "CLOSE THE CONSOLE (✕, TOP RIGHT)." },
               { "text": "Platoons fight as a team — one callsign on the net, one order from you.",
-                "action": "BOX-SELECT BOTH ON THE MAP — PRESS G." }
+                "action": "BOX-SELECT BOTH PLATOONS — PRESS G.",
+                "anchor": { "kind": "unit", "type": "CAV" } }
             ],
             "done": { "kind": "team-formed", "min": 2 }
           },
@@ -85,8 +102,12 @@
           {
             "id": "rtb",
             "hints": [
-              { "text": "March complete. Send them home — they refit, rearm, and absorb replacements in garrison.",
-                "action": "SELECT THE TEAM — PRESS Y (RTB).",
+              { "when": { "kind": "not", "of": { "kind": "group-selected", "min": 2 } },
+                "text": "March complete.",
+                "action": "SELECT THE TEAM — BOX-SELECT OR CLICK ITS BAR CHIP.",
+                "anchor": { "kind": "unit", "type": "CAV" } },
+              { "text": "They refit, rearm, and absorb replacements in garrison.",
+                "action": "PRESS Y (RTB).",
                 "anchor": { "kind": "ui", "sel": "rtb" } }
             ],
             "done": { "kind": "not", "of": { "kind": "fielded", "min": 1 } }
@@ -94,9 +115,13 @@
           {
             "id": "qrf",
             "hints": [
-              { "text": "Last drill: every base stands a quick reaction force — kitted at the wire, launches on contact without an order. Good work, Commander.",
-                "action": "CP RANGE → QRF → STAND UP THE RIFLE PLATOON.",
-                "anchor": { "kind": "struct", "struct": "HQ" } }
+              { "when": { "kind": "not", "of": { "kind": "selected-struct", "struct": "HQ" } },
+                "text": "Last drill: every base stands a quick reaction force.",
+                "action": "CLICK CP RANGE.",
+                "anchor": { "kind": "struct", "struct": "HQ" } },
+              { "text": "Kitted at the wire — launches on contact without an order. Good work, Commander.",
+                "action": "QRF → DEDICATE AN ELEMENT.",
+                "anchor": { "kind": "ui", "sel": "qrf-tab" } }
             ],
             "done": { "kind": "qrf-standing", "min": 2 }
           }

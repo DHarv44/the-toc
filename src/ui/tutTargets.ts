@@ -29,6 +29,8 @@ export const TUT = {
   railForces: 'rail-forces',
   callUp: 'call-up',
   garrisonList: 'garrison-list',
+  // the structure tray (bottom bar): a base's QRF picker chip
+  qrfTab: 'qrf-tab',
   // the selection tray's order verbs
   uasRaven: 'uas-raven',
   buildFob: 'build-fob',
@@ -75,6 +77,7 @@ export const TUT_TARGETS: { id: TutTargetId; where: string; what: string }[] = [
   { id: TUT.railForces, where: 'Rails', what: 'The FORCES rail strip (collapsed edge)' },
   { id: TUT.callUp, where: 'Rails', what: 'The CALL UP picker' },
   { id: TUT.garrisonList, where: 'Rails', what: 'The garrison list' },
+  { id: TUT.qrfTab, where: 'Structure tray', what: 'A base\'s QRF picker chip' },
   { id: TUT.uasRaven, where: 'Selection tray', what: '⊕ RAVEN — launch the hand UAV' },
   { id: TUT.buildFob, where: 'Selection tray', what: 'BUILD FOB' },
   { id: TUT.rtb, where: 'Selection tray', what: 'RTB — return to base' },

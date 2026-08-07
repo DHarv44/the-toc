@@ -542,6 +542,7 @@ function StructureTray({ st }: { st: Structure }) {
               } }}>
               <Popover.Target>
                 <button onClick={() => setOpen(o => (o === c.key ? null : c.key))}
+                  data-tut={c.key === 'QRF' ? TUT.qrfTab : undefined}
                   title={`${c.label} — ${c.note ?? c.n}`}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
