@@ -1,0 +1,112 @@
+{
+  "type": "campaign",
+  "name": "PLAYTEST BATCH",
+  "map": "1cd/baghdad",
+  "sides": {
+    "friend": "1cd",
+    "hostile": "opfor"
+  },
+  "player": "2-8 CAV",
+  "operation": "SHAKEDOWN",
+  "situation": {
+    "structures": [
+      {
+        "side": "friend",
+        "kind": "HQ",
+        "label": "CP SABER",
+        "fac": {
+          "MOTORPOOL": { "dx": 160, "dy": -90 }
+        },
+        "x": 0.235544,
+        "y": 0.529939
+      },
+      {
+        "side": "friend",
+        "kind": "FOB",
+        "label": "FOB WRENCH",
+        "x": 0.2,
+        "y": 0.56
+      }
+    ],
+    "units": [
+      { "side": "friend", "type": "SCT",  "x": 0.245, "y": 0.526 },
+      { "side": "friend", "type": "INF",  "x": 0.247, "y": 0.53 },
+      { "side": "friend", "type": "MECH", "x": 0.249, "y": 0.534 },
+      { "side": "friend", "type": "ARM",  "x": 0.251, "y": 0.53 },
+      { "side": "friend", "type": "MOR",  "x": 0.247, "y": 0.537 },
+      { "side": "friend", "type": "ENG",  "x": 0.243, "y": 0.534 },
+      { "side": "friend", "type": "MED",  "x": 0.241, "y": 0.53 },
+      { "side": "hostile", "type": "INF", "dug": true, "intel": "suspected", "x": 0.318, "y": 0.512 },
+      { "side": "hostile", "type": "INF", "dug": true, "intel": "suspected", "x": 0.322, "y": 0.516 },
+      { "side": "hostile", "type": "SCT", "intel": "suspected", "x": 0.295, "y": 0.52 }
+    ],
+    "places": [
+      { "name": "OBJ BULLDOG", "r": 700, "x": 0.32, "y": 0.514 }
+    ],
+    "engineerRoads": [
+      [
+        { "x": 0.243, "y": 0.541 },
+        { "x": 0.254, "y": 0.547 },
+        { "x": 0.266, "y": 0.545 }
+      ]
+    ]
+  },
+  "missions": [
+    {
+      "id": "shakedown",
+      "name": "SHAKEDOWN — SEIZE OBJ BULLDOG",
+      "brief": "TASK FORCE, THIS IS HIGHER. This operation is a SHAKEDOWN of everything that just came out of the shop — read this brief as your test card. ONE: look at CP SABER zoomed in. The wire, the gate posts, the AID STATION plate — and the MOTOR POOL sitting exactly where the author dragged it, northeast of the CP. Field a platoon from the CP and watch it park in rows at that motor pool, then order it out and confirm it hops straight onto a road. TWO: the dirt track running southeast of the CP was drawn by the scenario author — the engineers cut it before H-hour. Drive something down it. THREE: select your ENGINEER platoon, press BLD on the map rail, and click a point a klick or two out — watch them crawl and leave road behind them. Give them a different order mid-build and confirm the road stops where it stops. FOUR: press G on your maneuver platoons to task-organize a team, open the march board, and while they are MOVING change the lead — the column must reshuffle NOW, not on the next order. FIVE: right-click a spotted enemy with the whole team selected — they must close in march order and deploy together, and you should hear DEPLOYING TO ASSAULT on the net. SIX: the two suspected positions on OBJ BULLDOG are DUG IN FACING YOU. Attack them frontally and expect to bleed; send an element wide onto their flank and it should bite — fortifications only protect what they face now, and a suppressed defender shoots with his head down. SEVEN: when a fight goes bad, watch the 9-line and recovery traffic do its work. Send up what feels wrong. HIGHER OUT.",
+      "objectives": [
+        {
+          "id": "clear",
+          "label": "CLEAR OBJ BULLDOG",
+          "kind": "clear-area",
+          "zone": {
+            "place": "OBJ BULLDOG",
+            "r": 700
+          }
+        },
+        {
+          "id": "fob",
+          "label": "ESTABLISH A FOB ON BULLDOG",
+          "kind": "build",
+          "structKind": "FOB",
+          "zone": {
+            "place": "OBJ BULLDOG",
+            "r": 800
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "id": "h-hour",
+          "when": {
+            "kind": "objective-active",
+            "objective": "clear"
+          },
+          "do": [
+            {
+              "kind": "set-allow",
+              "field": true,
+              "support": true,
+              "drone": true
+            },
+            {
+              "kind": "opfor-objective",
+              "place": "OBJ BULLDOG"
+            },
+            {
+              "kind": "radio",
+              "radio": {
+                "from": "NET",
+                "text": "SHAKEDOWN IS A LIVE-FIRE TEST CARD — WORK THE LIST IN THE BRIEF AND SEND UP WHAT BREAKS.",
+                "cat": "move",
+                "at": "ctx"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

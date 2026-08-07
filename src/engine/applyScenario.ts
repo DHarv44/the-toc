@@ -21,9 +21,16 @@ import { drawSlotIn } from '../packs/org'
 import { playerPack } from '../packs'
 import { defaultStructureLabel } from '../packs/orgquery'
 
-function applyUnitAttrs(unit: Unit, u: ScenarioUnit): void {
+function applyUnitAttrs(S: GameState, unit: Unit, u: ScenarioUnit): void {
   if (u.heading != null) unit.heading = u.heading
-  if (u.dug) { unit.posture = 'dig'; unit.digT = 1 } // fortified BEFORE H-hour
+  if (u.dug) {
+    unit.posture = 'dig'; unit.digT = 1 // fortified BEFORE H-hour
+    // works dug before the war FACE THE WAR: an authored heading is the
+    // authored threat axis, else the enemy's base is the threat
+    // (fortifications are directional — elements.postureFactor)
+    const threat = unit.side === 'hostile' ? S.map!.fob : S.map!.enemyBase
+    unit.digFacing = u.heading ?? Math.atan2(threat.y - unit.y, threat.x - unit.x)
+  }
   if (u.roe) unit.roe = u.roe as Roe
   if (u.weapons) unit.weapons = u.weapons as WeaponsControl
 }
@@ -175,5 +182,5 @@ export function applyScenario(S: GameState, spec: ScenarioSpec): void {
 
   // authored attributes LAST: the author's explicit heading/dug/ROE/weapons
   // outlive any default the factory or group formation set
-  for (const { unit, authored } of placed) applyUnitAttrs(unit, authored)
+  for (const { unit, authored } of placed) applyUnitAttrs(S, unit, authored)
 }
