@@ -1,7 +1,7 @@
 {
   "type": "campaign",
   "name": "MOVEMENT SCHOOL",
-  "map": "1cd/baghdad",
+  "map": "1cd/fort-hood-training-range",
   "sides": {
     "friend": "1cd",
     "hostile": "opfor"
@@ -14,13 +14,13 @@
         "side": "friend",
         "kind": "HQ",
         "label": "CP RANGE",
-        "x": 0.2355,
-        "y": 0.5299
+        "x": 0.57,
+        "y": 0.55
       }
     ],
     "units": [],
     "places": [
-      { "name": "OBJ RALLY", "r": 300, "x": 0.285, "y": 0.52 }
+      { "name": "OBJ RALLY", "r": 300, "x": 0.512, "y": 0.492 }
     ]
   },
   "missions": [
