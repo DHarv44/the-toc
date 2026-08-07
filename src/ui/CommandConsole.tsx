@@ -69,7 +69,7 @@ export default function CommandConsole() {
           tabs={[
             { key: 'overview', label: 'OVERVIEW' },
             { key: 'installations', label: 'INSTALLATIONS' },
-            { key: 'garrison', label: 'GARRISON' },
+            { key: 'garrison', label: 'GARRISON', tut: TUT.garrisonTab },
             { key: 'actions', label: 'ACTIONS' },
           ]} />
       </div>

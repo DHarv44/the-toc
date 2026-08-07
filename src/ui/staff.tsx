@@ -245,6 +245,7 @@ export interface StaffTab {
   label: string
   dot?: number    // unread count — draws the red bubble on the tab corner
   right?: boolean // pushed to the far end of the strip (the reports tab)
+  tut?: string    // published tutorial anchor id — the ring lands on THIS tab
 }
 
 export function StaffTabs({ tabs, active, onTab }: {
@@ -256,7 +257,7 @@ export function StaffTabs({ tabs, active, onTab }: {
     <Group gap={6} pt={12}>
       {tabs.map(t => (
         <UnstyledButton key={t.key} onClick={() => onTab(t.key)} px={16} py={6}
-          ml={t.right ? 'auto' : undefined}
+          data-tut={t.tut} ml={t.right ? 'auto' : undefined}
           style={{
             position: 'relative',
             border: `1px solid ${active === t.key ? '#3d5a75' : '#22303d'}`,

@@ -44,7 +44,7 @@
             "hints": [
               { "text": "The force sits in garrison until you call it up.",
                 "action": "OPEN THE GARRISON TAB.",
-                "anchor": { "kind": "ui", "sel": "call-up" } }
+                "anchor": { "kind": "ui", "sel": "garrison-tab" } }
             ],
             "done": { "kind": "callup-open" }
           },
