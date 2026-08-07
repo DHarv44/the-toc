@@ -6,7 +6,7 @@ import type { Vec2 } from '../../world/WorldMap'
 import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
-import { connectStructureToRoads } from '../../world/access'
+import { connectStructureToRoads, structureSpur } from '../../world/access'
 import { roadSpot } from '../../world/pack/roadGraph'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
@@ -108,6 +108,87 @@ export function deployUnit(
   return u
 }
 
+// The GATE bearing: which way "out" is for a base — down its own access spur
+// if it has one, toward the road that serves it otherwise, toward the map
+// interior as a last resort. Facility layout and the motor pool both orient
+// on it, so a fielded vic is already pointed at the way onto the network.
+function gateward(st: Structure): number {
+  const m = S.map!
+  const spur = structureSpur(m, st.x, st.y)
+  if (spur && spur.length >= 2) {
+    const p = spur[Math.max(0, spur.length - 4)]!
+    return Math.atan2(p.y - st.y, p.x - st.x)
+  }
+  const spot = roadSpot(m, st.x, st.y)
+  if (spot && spot.dist < 450 && spot.pts.length >= 2) {
+    const p = alongRoad(spot, spot.at)
+    return Math.atan2(p.y - st.y, p.x - st.x)
+  }
+  return Math.atan2(m.WORLD / 2 - st.y, m.WORLD / 2 - st.x)
+}
+
+// arc position s on a roadSpot polyline -> point + unit tangent
+function alongRoad(
+  spot: { pts: Vec2[]; cum: number[]; at: number },
+  s: number,
+): { x: number; y: number; tx: number; ty: number } {
+  let seg = 1
+  while (seg < spot.cum.length - 1 && spot.cum[seg]! < s) seg++
+  const a = spot.pts[seg - 1]!, b = spot.pts[seg]!
+  const segLen = spot.cum[seg]! - spot.cum[seg - 1]!
+  const t = segLen > 0 ? (s - spot.cum[seg - 1]!) / segLen : 0
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
+  return {
+    x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+    tx: (b.x - a.x) / L, ty: (b.y - a.y) / L,
+  }
+}
+
+/** BASE ANATOMY: where each facility SITS. Every facility is the base's own
+ *  — it lives in st.facilities, gets a position inside the wire, and rolls up
+ *  into the base symbol when the map zooms out. The default layout is spec-
+ *  read, never name-read: the facility whose spec REPAIRS VEHICLES is the
+ *  motor pool of this base, whatever the pack calls it, and it sits on the
+ *  gate bearing so parked vics face the way out. Everything else rings the
+ *  CP. Lazy: computed on first ask, rides the save, author-overridable later
+ *  (BASES.md). */
+export function facilityPoints(st: Structure): Record<string, { x: number; y: number }> {
+  const m = S.map
+  const fac = st.facilities ?? []
+  if (!m || !fac.length) return st.facPts ?? {}
+  const pts = (st.facPts ??= {})
+  const missing = fac.filter(k => !pts[k])
+  if (!missing.length) return pts
+  const gate = gateward(st)
+  let ring = 0
+  for (const k of missing) {
+    const spec = FACILITIES[k]
+    const park = !!spec?.effects.repair
+    const ang = park ? gate : gate + [2.2, -2.2, Math.PI, 1.1, -1.1][ring++ % 5]!
+    const p = nearestLand(m, st.x + Math.cos(ang) * (park ? 95 : 70),
+      st.y + Math.sin(ang) * (park ? 95 : 70))
+    pts[k] = { x: p.x, y: p.y }
+  }
+  return pts
+}
+
+// The motor pool HARDSTAND: rows of parked vehicles beside the repair-effect
+// facility, inside the wire, faced out the gate. Null when the base runs no
+// such facility.
+function poolSlot(st: Structure, mob: Mobility, k: number): Vec2 | null {
+  const m = S.map!
+  const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
+  if (!key) return null
+  const fp = facilityPoints(st)[key]
+  if (!fp) return null
+  const g = gateward(st)
+  const fx = Math.cos(g), fy = Math.sin(g)
+  const col = (k % 4) - 1.5, row = Math.floor(k / 4) % 3
+  const x = clampWorld(S.map, fp.x - fy * col * 20 + fx * (row * 24 - 24))
+  const y = clampWorld(S.map, fp.y + fx * col * 20 + fy * (row * 24 - 24))
+  return isFinite(m.moveFactor(x, y, mob)) ? { x, y } : null
+}
+
 // Rally point for a unit fielded at a site: a spot just clear of the base, facing the
 // map interior. Successive units fan left/right of that bearing so a production queue
 // spreads out instead of stacking on one grid square.
@@ -128,26 +209,47 @@ function rallyPoint(st: Structure, mob: Mobility): Vec2 {
   st.rallySeq = (st.rallySeq || 0) + 1
   const k = st.rallySeq - 1
   const m = S.map!
+  // 1) the motor pool hardstand — the base RUNS a vehicle-repair facility,
+  //    and that is where its vehicles live: inside the wire, faced at the gate
+  const pool = poolSlot(st, mob, k)
+  if (pool) return pool
+  // 2) the base's OWN access spur — its private driveway. NOT "the nearest
+  //    road": the nearest road can be an MSR under enemy observation, the
+  //    spur starts at the base and belongs to it.
+  const spur = structureSpur(m, st.x, st.y)
+  if (spur) {
+    const want = 40 + (k % 10) * 35
+    let acc = 0
+    for (let i = spur.length - 1; i > 0; i--) {
+      const a = spur[i]!, b = spur[i - 1]!
+      const seg = Math.hypot(b.x - a.x, b.y - a.y)
+      if (acc + seg >= want) {
+        const t = (want - acc) / seg
+        const px = a.x + (b.x - a.x) * t, py = a.y + (b.y - a.y) * t
+        const L = seg || 1
+        // off the shoulder, the driveway itself kept clear
+        const x = clampWorld(S.map, px + ((b.y - a.y) / L) * 10)
+        const y = clampWorld(S.map, py - ((b.x - a.x) / L) * 10)
+        if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
+        break
+      }
+      acc += seg
+    }
+  }
+  // 3) the base sits practically ON a road — that road IS its doorstep,
+  //    park down the lane (a distant "nearest road" no longer qualifies)
   const spot = roadSpot(m, st.x, st.y)
-  if (spot && spot.dist < 450 && spot.pts.length >= 2) {
+  if (spot && spot.dist < 150 && spot.pts.length >= 2) {
     const total = spot.cum[spot.cum.length - 1]!
-    // park DOWN the lane from the base's own doorstep: slots every 35 m from
-    // 40 m out, running toward whichever end of the edge has the room
+    // slots every 35 m from 40 m out, toward whichever end has the room
     const fwd = (total - spot.at) >= spot.at
     const want = 40 + (k % 10) * 35
     const s = fwd ? Math.min(total, spot.at + want) : Math.max(0, spot.at - want)
-    // arc position → point + tangent on the polyline
-    let seg = 1
-    while (seg < spot.cum.length - 1 && spot.cum[seg]! < s) seg++
-    const a = spot.pts[seg - 1]!, b = spot.pts[seg]!
-    const segLen = spot.cum[seg]! - spot.cum[seg - 1]!
-    const t = segLen > 0 ? (s - spot.cum[seg - 1]!) / segLen : 0
-    const px = a.x + (b.x - a.x) * t, py = a.y + (b.y - a.y) * t
-    const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const p = alongRoad(spot, s)
     // off the right shoulder of the direction of travel, lane kept clear
     const side = fwd ? 1 : -1
-    const x = clampWorld(S.map, px + ((b.y - a.y) / L) * 16 * side)
-    const y = clampWorld(S.map, py - ((b.x - a.x) / L) * 16 * side)
+    const x = clampWorld(S.map, p.x + p.ty * 16 * side)
+    const y = clampWorld(S.map, p.y - p.tx * 16 * side)
     if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
   }
   // no road serves this base — the old dispersed arc, better than stacking
@@ -231,6 +333,13 @@ export function fieldSlot(
     toast(`${sl.name.toUpperCase()} RELEASED FROM QRF — DEPLOYED`)
   }
 
+  if (opts?.qrfLaunch) {
+    // the reaction force forms AT the wire — qrfUpdate vectors it onto the
+    // threat the moment this returns; sending it to the motor pool first
+    // would march the QRF away from the base it is answering for
+    netRadio(u, 'contact', `${sl.lin.toUpperCase()} — QRF ROLLING FROM ${st.label}`, u.x, u.y)
+    return u
+  }
   const r = rallyPoint(st, mob)
   netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
   orderMove(u.id, r.x, r.y)

@@ -656,6 +656,9 @@ export interface Structure {
   // vehicles, the aid station returns casualties to duty, for units resting
   // in radius. HQs have the full set by default; FOBs build them out.
   facilities?: string[]
+  // where each facility SITS inside the base (lazy default layout, author-
+  // overridable later) — the repair facility's spot is where vics park
+  facPts?: Record<string, { x: number; y: number }>
   intBudget?: number         // point-defense engagement budget (intercept spec rof)
   lastIntT?: number          // last intercept engagement (radio throttle)
   qrfT?: number              // last QRF launch re-evaluation (throttle)

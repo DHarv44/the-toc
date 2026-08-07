@@ -150,6 +150,20 @@ export function planAccessTrack(map: WorldMap, x: number, y: number): Vec2[] | n
   return pts
 }
 
+// The base's OWN access spur: the track laid by connectStructureToRoads ends
+// at the site (planAccessTrack builds road-end-first), so a structure's
+// private driveway is the R_TRACK polyline whose last vertex sits on it.
+// Returns null for a base with no spur (sited on the network, or roadless).
+export function structureSpur(map: WorldMap, x: number, y: number): Vec2[] | null {
+  const tol = (map.CELL * 1.5) * (map.CELL * 1.5)
+  for (const r of map.roads) {
+    if (r.cls !== R_TRACK || r.pts.length < 2) continue
+    const p = r.pts[r.pts.length - 1]!
+    if ((p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) < tol) return r.pts
+  }
+  return null
+}
+
 // Lay the planned track for real: pushed to map.roads and stamped into the
 // raster so pricing and the raster fallbacks pick it up. (Baked layers — the
 // exact BFT, the drone feed — are cached per map, so a runtime path shows

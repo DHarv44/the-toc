@@ -432,6 +432,65 @@ export function drawStructure(ctx: Ctx2D, x: number, y: number, opts: StructureS
   ctx.restore()
 }
 
+// A FACILITY inside a base: small plate at its real position, drawn only when
+// the map is zoomed in far enough for base anatomy to be legible (the caller
+// gates that; zoomed out, facilities roll up into the base symbol the way a
+// team rolls up into its plate). The glyph is chosen by the facility's EFFECT
+// — the engine knows the repair/aid/intercept verbs, never a system's name;
+// the label is the pack's own noun.
+export interface FacilitySymbolOpts {
+  name: string
+  effects: { repair?: unknown; aid?: unknown; intercept?: unknown }
+  label?: boolean   // room for the noun under the plate (higher zoom)
+}
+export function drawFacility(ctx: Ctx2D, x: number, y: number, opts: FacilitySymbolOpts): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.fillStyle = 'rgba(110,160,205,0.55)'
+  ctx.strokeStyle = COLORS.friendEdge
+  ctx.lineWidth = 1.2
+  ctx.fillRect(-8, -6, 16, 12)
+  ctx.strokeRect(-8, -6, 16, 12)
+  ctx.strokeStyle = '#dce8f2'
+  ctx.fillStyle = '#dce8f2'
+  ctx.lineWidth = 1.5
+  if (opts.effects.aid) {
+    // medical cross
+    ctx.beginPath()
+    ctx.moveTo(0, -4); ctx.lineTo(0, 4)
+    ctx.moveTo(-4, 0); ctx.lineTo(4, 0)
+    ctx.stroke()
+  } else if (opts.effects.repair) {
+    // maintenance: the 2525 wrench-across-the-frame
+    ctx.beginPath()
+    ctx.moveTo(-4, 0); ctx.lineTo(4, 0)
+    ctx.moveTo(-4, -3); ctx.lineTo(-4, 3)
+    ctx.moveTo(4, -3); ctx.lineTo(4, 3)
+    ctx.stroke()
+  } else if (opts.effects.intercept) {
+    // point defense: dome arc over the ground line
+    ctx.beginPath()
+    ctx.arc(0, 3, 5, Math.PI, 0)
+    ctx.moveTo(-6, 3); ctx.lineTo(6, 3)
+    ctx.stroke()
+  } else {
+    ctx.beginPath()
+    ctx.arc(0, 0, 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  if (opts.label) {
+    ctx.font = 'bold 8px Consolas, monospace'
+    ctx.fillStyle = '#1a2530'
+    ctx.strokeStyle = 'rgba(240,245,250,0.8)'
+    ctx.lineWidth = 2.5
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+    const t = opts.name.toUpperCase()
+    ctx.strokeText(t, 0, 15)
+    ctx.fillText(t, 0, 15)
+  }
+  ctx.restore()
+}
+
 // --- per-airframe UAS silhouettes ----------------------------------------
 // All drawn top-down, nose toward -y. The wing()/fuse() helpers keep the
 // planforms consistent; each type varies span, engines, tail and body so the

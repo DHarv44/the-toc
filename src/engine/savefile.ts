@@ -110,8 +110,14 @@ export async function restoreGame(json: string): Promise<void> {
   S.structContacts = new Set(f.structContacts)
   S.scenarioPlaces = f.scenarioPlaces ? new Map(f.scenarioPlaces) : null
   S.rng = f.rngState != null ? makeRng(0, f.rngState) : null
+  // re-lay every base's access spur on the fresh map (roads are runtime
+  // mutations, not serialized) — was FOB-only, but HQs and OPs get spurs at
+  // placement too, and the motor pool / rally logic parks on the base's OWN
+  // spur, so a restored HQ without one would fall back to the dispersal arc
   for (const st of S.structures) {
-    if (st.kind === 'FOB') connectStructureToRoads(map, st.x, st.y)
+    if (st.kind === 'HQ' || st.kind === 'FOB' || st.kind === 'OP') {
+      connectStructureToRoads(map, st.x, st.y)
+    }
   }
   relinkRosters(S)
   S.map = map

@@ -119,6 +119,15 @@ who want hand-tuned compounds build them in Eden.
 
 1. **Interim pool fix now** (park on the base's own spur, inside the deploy
    zone) or hold the shipped behaviour until polygons land?
+   **RULED 2026-08-06, SHIPPED (step 1):** facilities link to their owning
+   HQ/FOB and get real positions inside the wire (lazy default layout, the
+   repair-effect facility on the gate bearing — spec-read, never name-read).
+   A base WITH a motor pool parks fielded vics in formation rows at the
+   facility's own 2525; a base without one parks down its OWN access spur;
+   "nearest road" only survives as the doorstep case (< 150 m). QRF launches
+   skip the rally entirely and form at the wire. Facility plates draw when
+   zoomed in and roll up into the base symbol when zoomed out, the team
+   convention. Main goal held: a parked vic enters the network in metres.
 2. **Footprint data home**: polygon + facility offsets in scenario data,
    auto-generated at runtime for player-placed FOBs — agreed?
 3. **Roads**: scenario-level `engineerRoads` (recommended) vs editing the

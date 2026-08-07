@@ -6,10 +6,11 @@
 // are the sheet's furniture: a commander reads them to orient, not to command.
 // Drawn under the symbology, over the ground.
 import { S } from '../../engine/state'
-import { STRUCTURES } from '../../domains/installations/catalog'
+import { STRUCTURES, FACILITIES } from '../../domains/installations/catalog'
+import { facilityPoints } from '../../domains/installations/orders'
 import { markOf, patchOf } from '../../packs/orgquery'
 import { playerPack } from '../../packs'
-import { drawPlace, drawStructure } from '../symbols'
+import { drawPlace, drawStructure, drawFacility } from '../symbols'
 import type { Frame } from '../frame'
 
 /** KING OF THE HILL: the control zone tinted by whoever holds it, with both
@@ -104,6 +105,25 @@ export function drawStructures(f: Frame): void {
       patch: s.side === 'friend' && s.formation && s.formation !== S.chair
         ? patchOf(playerPack(), s.formation) : undefined,
     })
+  }
+  // BASE ANATOMY: zoomed in close enough that a 70 m offset is legible, a
+  // friendly base shows its facilities as their own plates at their real
+  // positions — the motor pool is a PLACE, and it is where the vehicles are.
+  // Below that zoom they roll up into the base symbol, the team convention.
+  const anatomyPx = 70 * f.view.ppm
+  if (anatomyPx >= 24) {
+    for (const s of S.structures) {
+      if (s.side !== 'friend' || s.buildT > 0 || !s.facilities?.length) continue
+      const pts = facilityPoints(s)
+      for (const k of s.facilities) {
+        const p = pts[k]
+        const spec = FACILITIES[k]
+        if (!p || !spec) continue
+        drawFacility(ctx, f.w2sX(p.x), f.w2sY(p.y), {
+          name: spec.name, effects: spec.effects, label: anatomyPx >= 48,
+        })
+      }
+    }
   }
 }
 
