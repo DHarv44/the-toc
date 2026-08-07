@@ -431,6 +431,10 @@ export interface PackAsset {
   refitTime?: number      // CL VII clock when an instance is destroyed (s)
   delivers: AssetDelivery
   crew?: AssetCrewRecipe  // attach-and-live-here assets: real ATT org slots
+  /** capability unlock this ask REQUIRES on the TOC's net before division
+   *  entertains it — USAF fast air declares "CAS" (the ALO team delivers it);
+   *  the division's own attack aviation declares nothing */
+  needs?: string
 }
 
 // --- models (pack ART) ------------------------------------------------------

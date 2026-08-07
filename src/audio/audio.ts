@@ -405,6 +405,8 @@ const AMBIENT: Record<string, AmbientSpec> = {
   VIPER:       { base: 82,  harm: [1, 2],      wave: 'sawtooth', cutoff: 900,  noise: 0.35, wob: [7, 0.12],  gain: 0.085 },
   // AH-64: muffled turbine under the four-blade rotor slap — the wob IS the aircraft
   AH64:        { base: 40,  harm: [1, 2, 3],   wave: 'sawtooth', cutoff: 400,  noise: 0.45, wob: [13, 0.55], gain: 0.13 },
+  // A-10: twin high-bypass turbofans — smooth whine and hiss, almost no pulse
+  A10:         { base: 110, harm: [1, 1.5, 2], wave: 'triangle', cutoff: 1300, noise: 0.65, wob: [3, 0.06],  gain: 0.1 },
   // small electric fliers: high, quiet motor buzz
   RAVEN:       { base: 124, harm: [1, 2],      wave: 'triangle', cutoff: 780,  noise: 0.3,  wob: [9, 0.1],   gain: 0.055 },
   // RQ-28 quadcopter: thin multirotor whir, faster flutter than the Raven's prop

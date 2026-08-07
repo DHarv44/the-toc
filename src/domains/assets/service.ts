@@ -139,9 +139,16 @@ export function relevance(kind: string): { ok: boolean; reason: string } {
       || (S.campaign.objIdx ?? 0) >= 2
     if (!holding) return { ok: false, reason: 'NO ESTABLISHED PERIMETER TO MOOR IT — HOLD GROUND FIRST' }
   }
-  if (d.window && !hasUnlock('CAS')) {
-    // the more fundamental failure first: no controller, no conversation
-    return { ok: false, reason: 'NO JTAC ON YOUR NET — REQUEST THE ALO TEAM' }
+  if (def.needs && !hasUnlock(def.needs)) {
+    // the more fundamental failure first: no controller, no conversation.
+    // WHICH asks need an enabler is pack data (PackAsset.needs) — USAF fast
+    // air declares CAS; the division's own attack aviation declares nothing
+    return {
+      ok: false,
+      reason: def.needs === 'CAS'
+        ? 'NO JTAC ON YOUR NET — REQUEST THE ALO TEAM'
+        : `${def.needs} CONTROL NOT ON YOUR NET — REQUEST THE ENABLING TEAM`,
+    }
   }
   if (d.orbit === 'VIPER' || d.window) {
     // strike air wants a target picture: live contacts on the COP

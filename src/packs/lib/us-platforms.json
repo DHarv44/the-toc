@@ -276,6 +276,18 @@
       "maxActive": 1, "cooldown": 600, "hover": true,
       "weapons": { "ammo": 16, "range": 2600, "dmg": 60, "blast": 45, "flight": 5 }
     },
+    "A10": {
+      "key": "A10", "name": "A-10 Warthog Pair", "abbr": "HOG", "src": "airfield", "cost": 1000,
+      "glyph": "jet", "hp": 300,
+      "speed": 90, "alt": 700, "sight": 1800, "endurance": 600, "orbitR": 700,
+      "maxActive": 1, "cooldown": 900,
+      "gunship": {
+        "order": ["GAU8"],
+        "weapons": {
+          "GAU8": { "name": "30mm GAU-8 Avenger", "short": "30mm", "kind": "gun", "rof": 60, "dmg": 24, "blast": 9, "disp": 14, "muzzleV": 1010, "flash": 1.2, "range": 3400, "burst": [80, 140], "gap": 6, "ap": 3.0, "ammo": 1150 }
+        }
+      }
+    },
     "SPECTRE": {
       "key": "SPECTRE", "name": "AC-130 Spectre", "abbr": "SPC", "src": "airfield", "cost": 1500,
       "glyph": "gunship4", "hp": 400,

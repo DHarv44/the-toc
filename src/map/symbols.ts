@@ -581,6 +581,20 @@ const AIRFRAMES: Record<string, (ctx: Ctx2D) => void> = {
     ctx.stroke()
     ctx.lineWidth = 1
   },
+  // straight-wing attack jet — wide wing, twin aft nacelles above the
+  // fuselage, twin vertical tails, the nose gun (A-10 class)
+  jet(ctx) {
+    wing(ctx, 12, -1, 4, 2.2)
+    fuse(ctx, -9, 8, 3)
+    for (const ex of [-2.6, 2.6]) {                     // twin aft nacelles
+      ctx.beginPath(); ctx.rect(ex - 1, 3.5, 2, 3.2); ctx.fill(); ctx.stroke()
+    }
+    ctx.beginPath(); ctx.moveTo(-4.5, 8); ctx.lineTo(-4.5, 10.8); ctx.moveTo(4.5, 8); ctx.lineTo(4.5, 10.8); ctx.stroke() // twin tails
+    ctx.beginPath(); ctx.moveTo(-4.8, 8.2); ctx.lineTo(4.8, 8.2); ctx.stroke()  // tailplane
+    ctx.lineWidth = 1.4
+    ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, -11.5); ctx.stroke()      // the gun
+    ctx.lineWidth = 1
+  },
   // attack helicopter — slim fuselage, tail boom + tail rotor, stub-wing
   // pylons, main rotor disc over everything (AH-64 class)
   rotary(ctx) {

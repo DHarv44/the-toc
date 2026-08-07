@@ -1169,8 +1169,25 @@
       ],
       "windowLen": 900,
       "atoLead": 180,
+      "needs": "CAS",
       "delivers": {
         "window": "SPECTRE"
+      }
+    },
+    "A10": {
+      "name": "A-10 CAS Window",
+      "from": "74 FS",
+      "echelon": "USAF",
+      "sortie": true,
+      "callsigns": [
+        "HAWG",
+        "BOAR"
+      ],
+      "windowLen": 900,
+      "atoLead": 240,
+      "needs": "CAS",
+      "delivers": {
+        "window": "A10"
       }
     },
     "AIRLIFT": {
