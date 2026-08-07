@@ -31,6 +31,7 @@ import type {
   DisabledPolicy, MarchColumnType, Roe, Soldier, Unit, WeaponsControl,
 } from '../engine/GameState'
 import { pushDisabled, strandedIn, wreckerIn } from '../domains/movement/recovery'
+import { reformMarch } from '../domains/forces/orders'
 import {
   MARCH_INTERVAL, marchMoving, marchPlan, marchSecurity, marchState,
   setMarchOrder, clearMarchOrder,
@@ -331,6 +332,9 @@ function ColumnBoard({ gid, members }: { gid: number; members: Unit[] }) {
     if (j < 0 || j >= full.length) return
     const v = [...full]; const t = v[i]!; v[i] = v[j]!; v[j] = t
     write(v, undefined, { authored: true })
+    // a column already on a route re-forms NOW — an order of march you can
+    // rewrite but the column ignores until the next order is not an order
+    reformMarch(gid)
   }
 
   // WHAT THE COLUMN IS ACTUALLY ON, which is a different question from what it

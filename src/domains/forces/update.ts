@@ -382,7 +382,7 @@ export function drillsUpdate(dt: number): void {
               const ids = S.units
                 .filter(v => v.groupId === u.groupId && v.attackId === u.attackId && v.strength > 0)
                 .map(v => v.id)
-              if (ids.length > 1) orderGroupAttack(ids, u.attackId)
+              if (ids.length > 1) orderGroupAttack(ids, u.attackId, u.groupId)
               else {
                 const p = findPath(S.map!, u.x, u.y, tgt.x, tgt.y, effStats(u).mob)
                 if (p) { u.path = p; u.legs = [{ x: tgt.x, y: tgt.y, n: p.length }] }

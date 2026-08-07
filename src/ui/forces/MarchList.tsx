@@ -27,6 +27,7 @@ import { useRef, useState } from 'react'
 import type { Unit } from '../../engine/GameState'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import { marchPlan, setMarchOrder } from '../../domains/movement/march'
+import { reformMarch } from '../../domains/forces/orders'
 import { liftState } from '../../domains/forces/loadplan'
 import { hardness } from '../../domains/forces/elements'
 import { centerView } from '../../map/view'
@@ -102,6 +103,9 @@ export default function MarchList({ gid, members }: { gid: number; members: Unit
       ...(cur?.disabled ? { disabled: cur.disabled } : {}),
       authored: true,
     })
+    // a column already on a route re-forms NOW — an order of march you can
+    // rewrite but the column ignores until the next order is not an order
+    reformMarch(gid)
   }
 
   return (

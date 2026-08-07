@@ -62,6 +62,10 @@ function autoRemount(u: Unit): void {
 export function orderGroupMove(
   unitIds: number[], x: number, y: number,
   append = false, attack = false,
+  // keep marching under THIS gid — a re-form (reformMarch, a formation
+  // attack re-check) must not mint a fresh id for an ad-hoc group, or the
+  // authored order of march keyed on the old one is silently thrown away
+  gidOverride: number | null = null,
 ): number | null {
   const units = unitIds
     .map(id => S.units.find(u => u.id === id))
@@ -72,7 +76,7 @@ export function orderGroupMove(
   // already exists is what used to throw its order of march away every time it
   // was given a new destination — the plan is keyed on the gid (movement/march)
   // and the gid changed. A named task organization has one for life.
-  const own = groupGid(units)
+  const own = gidOverride ?? groupGid(units)
   // Appending keeps each unit's own multi-leg waypoint queue — a shared column route
   // collapses the legs into one, which would renumber the player's waypoints out from
   // under them. Columns form on a fresh order.
@@ -303,7 +307,9 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
  *  slots held, authored order obeyed), every element carries the designated
  *  target, and the assault release happens per-element at close range
  *  (drillsUpdate) — approach as a column, deploy to assault. */
-export function orderGroupAttack(unitIds: number[], enemyId: number): void {
+export function orderGroupAttack(
+  unitIds: number[], enemyId: number, gidOverride: number | null = null,
+): void {
   const e = S.units.find(x => x.id === enemyId)
   if (!e) return
   const units = unitIds
@@ -311,7 +317,7 @@ export function orderGroupAttack(unitIds: number[], enemyId: number): void {
     .filter((u): u is Unit => !!u && u.strength > 0 && u.side !== e.side)
   if (!units.length) return
   if (units.length === 1) { orderAttack(units[0]!.id, enemyId); return }
-  const gid = orderGroupMove(units.map(u => u.id), e.x, e.y, false, true)
+  const gid = orderGroupMove(units.map(u => u.id), e.x, e.y, false, true, gidOverride)
   if (gid == null) return
   for (const u of units) {
     u.attackId = enemyId
@@ -321,6 +327,28 @@ export function orderGroupAttack(unitIds: number[], enemyId: number): void {
   netRadio(lead, 'contact',
     `FORMATION ATTACK — ${UNIT_TYPES[e.type].name.toUpperCase()}, ${locRef(S.map!, e.x, e.y)}`,
     e.x, e.y)
+}
+
+/** RE-FORM A MARCHING COLUMN onto its existing objective after the order of
+ *  march was rewritten (the S3 board / march list drag). Changing the lead
+ *  used to change the BOARD and not the column — the slots were settled at
+ *  issue and nobody read the new plan until the next order. Re-issues the
+ *  same move (or formation attack) under the SAME gid, so the authored
+ *  order is read back and the column pays for the reshuffle now. A group
+ *  that is not currently marching has nothing to re-form — the next order
+ *  reads the plan anyway. */
+export function reformMarch(gid: number): void {
+  const units = S.units.filter(u => u.groupId === gid && u.strength > 0 && u.colIdx != null)
+  if (units.length < 2) return
+  const lead = units.find(u => u.colIdx === 0) ?? units[0]!
+  const dest = lead.legs.length ? lead.legs[lead.legs.length - 1]! : null
+  if (!dest) return
+  const atk = units.find(u => u.attackId != null)?.attackId ?? null
+  if (atk != null) {
+    orderGroupAttack(units.map(u => u.id), atk, gid)
+  } else {
+    orderGroupMove(units.map(u => u.id), dest.x, dest.y, false, lead.attackMove, gid)
+  }
 }
 
 export function removeLastWaypoint(unitId: number): void {
