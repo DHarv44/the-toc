@@ -90,14 +90,65 @@ export function roadSpot(map: WorldMap, x: number, y: number):
   return { pts: e.pts, cum: e.cum, at: n.at, dist: Math.sqrt(n.distSq) }
 }
 
+// A drawn stroke ends this close to another road = the author meant a
+// junction. OSM ways share exact vertices; hand-authored maps do not, and
+// without this weld an authored network is hundreds of one-road islands the
+// router cannot cross (Fort Hood shipped as 122 components — every route
+// off the local road fell back to the cell A* and drew a straight line).
+const WELD_TOL = 16
+
+/** T-JUNCTION WELD, endpoints only. Where a polyline's END lands within
+ *  WELD_TOL of another polyline, move the endpoint onto that line and insert
+ *  the same point as a vertex there — the quantized keys now coincide and
+ *  pass 1 sees a junction. Mid-line crossings are deliberately NOT welded:
+ *  two ways crossing without a shared vertex is an overpass, and connecting
+ *  it would break the one rule the graph is built on. */
+function weldEndpoints(roads: { pts: Vec2[]; cls: RoadClass }[]): void {
+  for (let ri = 0; ri < roads.length; ri++) {
+    const pts = roads[ri]!.pts
+    for (const end of [0, pts.length - 1]) {
+      const p = pts[end]!
+      let best: { rj: number; seg: number; t: number; x: number; y: number; d: number } | null = null
+      for (let rj = 0; rj < roads.length; rj++) {
+        if (rj === ri) continue
+        const q = roads[rj]!.pts
+        for (let s = 0; s + 1 < q.length; s++) {
+          const a = q[s]!, b = q[s + 1]!
+          const vx = b.x - a.x, vy = b.y - a.y
+          const L2 = vx * vx + vy * vy
+          const t = L2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / L2)) : 0
+          const x = a.x + vx * t, y = a.y + vy * t
+          const d = Math.hypot(p.x - x, p.y - y)
+          if (d <= WELD_TOL && (!best || d < best.d)) best = { rj, seg: s, t, x, y, d }
+        }
+      }
+      if (!best || best.d === 0) continue
+      const joint = { x: best.x, y: best.y }
+      pts[end] = joint
+      // insert the joint into the other line unless it already sits on a vertex
+      const q = roads[best.rj]!.pts
+      const a = q[best.seg]!, b = q[best.seg + 1]!
+      if (Math.hypot(a.x - joint.x, a.y - joint.y) > 0.5
+        && Math.hypot(b.x - joint.x, b.y - joint.y) > 0.5) {
+        q.splice(best.seg + 1, 0, joint)
+      }
+    }
+  }
+}
+
 function build(map: WorldMap): Graph {
   const key = (p: Vec2) =>
     (Math.round(p.x * QUANT) * 0x400000) + Math.round(p.y * QUANT)
 
+  // work on copies: the weld inserts joints, and map.roads is the sheet's
+  // drawing data — the graph does not get to edit the map
+  const roads = map.roads.map(r => ({ pts: r.pts.map(p => ({ x: p.x, y: p.y })), cls: r.cls }))
+  weldEndpoints(roads)
+
   // pass 1 — how many polyline vertices land on each quantized point. A count
   // above 1 is two ways meeting: a junction.
   const count = new Map<number, number>()
-  for (const r of map.roads) {
+  for (const r of roads) {
     for (const p of r.pts) {
       const k = key(p)
       count.set(k, (count.get(k) ?? 0) + 1)
@@ -119,7 +170,7 @@ function build(map: WorldMap): Graph {
 
   // pass 2 — cut each polyline at its junctions; each piece is one edge
   const edges: Edge[] = []
-  for (const r of map.roads) {
+  for (const r of roads) {
     let runPts: Vec2[] = [r.pts[0]!]
     for (let i = 1; i < r.pts.length; i++) {
       const p = r.pts[i]!
