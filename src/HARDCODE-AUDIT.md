@@ -85,15 +85,26 @@
 ## Platform behavior constants
 13. **Aerostat scan rate** — `air/orders.ts` AEROSTAT_SCAN_RATE is platform
     data → DroneType field.
-14. **MED treatment rates** — `forces/update.ts` 0.7 (MED nearby) / 0.35
-    (dug-in medic) are unit capabilities → unit-type/pack fields (the aid
-    facility rate already moved to specs).
+14. **PARTLY DONE** (2026-08-06) — **MED treatment rates**: the forward-care
+    aura is spec-driven now (`UnitType.aid { radius, rate }`, pack data — the
+    engine check that NAMED the MED type is gone, and `wrench`/`eod` shipped
+    on the same pattern). STILL ENGINE-SIDE: the 0.35 dug-in buddy-aid rate
+    (a platoon's own medic working from a hole) in forces/update.ts.
 15. **Crew-billet vehicle fallback** — `crewBillet(veh ?? 'HMMWV')` default
     references a US vehicle key.
 16. **Asset service fallbacks** — DEFAULT_SETUP/DEFAULT_WINDOW/
     DEFAULT_ATO_LEAD/REFIT_TIME in `assets/service.ts` are acceptable as
     fallbacks but every 1CD asset should carry explicit values (CRAM +
     SPECTRE do; fill in the rest).
+18. **The STRUCTURE catalog never migrated** (noted 2026-08-06) — `STRUCTURES`
+    (installations/catalog) is not among the registries the pack installer
+    fills: kinds (HQ/FOB/OP/AFLD/…), display names, HP, build times, deploy
+    zones are all engine-native, and every `kind === 'FOB'`-style check in the
+    engine is a noun leaning on that. When it moves pack-side, convert the
+    kind-list checks to SPEC FLAGS on the structure entry — first customer:
+    the access-track check in installations/orders (`HQ|FOB|OP` → a plain
+    `access: true` on any structure whose trucks need a road). Same treatment
+    for `launchesDrones`-style capabilities already on the spec.
 
 ## Audio (rule set by user)
 17. **Any future system sound = spec params, never a hardcoded clip choice**
