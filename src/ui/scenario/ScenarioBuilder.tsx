@@ -124,17 +124,21 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
   const benchM = selMission(ed.sel) ?? 0
   const benchMission = missions[benchM]
 
-  // FOB access tracks: the exact dirt road the game lays at H-hour, planned by
-  // the SAME function (world/access). Keyed on cell-quantized FOB positions so
-  // a drag recomputes on cell crossings, not every pointer event.
+  // Base access tracks: the exact dirt road the game lays at H-hour, planned
+  // by the SAME function (world/access) for the same kinds addStructure
+  // connects (HQ/FOB/OP — was FOB-only on both sides of this seam). Keyed on
+  // cell-quantized positions so a drag recomputes on cell crossings, not
+  // every pointer event — MOVE a base and its track re-plans with it.
+  const hasTrack = (e: (typeof entities)[number]): boolean =>
+    e.ent === 'structure' && (e.kind === 'HQ' || e.kind === 'FOB' || e.kind === 'OP')
   const fobKey = entities
-    .filter(e => e.ent === 'structure' && e.kind === 'FOB')
+    .filter(hasTrack)
     .map(e => `${e.id}:${Math.round(e.x / 50)}:${Math.round(e.y / 50)}`)
     .join('|')
   const tracks = useMemo(() => {
     if (!world) return []
     return entities
-      .filter(e => e.ent === 'structure' && e.kind === 'FOB')
+      .filter(hasTrack)
       .map(e => ({ id: e.id, pts: planAccessTrack(world.map, e.x, e.y) }))
       .filter((t): t is { id: number; pts: { x: number; y: number }[] } => t.pts != null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
