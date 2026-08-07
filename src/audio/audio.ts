@@ -403,8 +403,12 @@ const AMBIENT: Record<string, AmbientSpec> = {
   SENTINEL:    { base: 150, harm: [1, 1.5],    wave: 'triangle', cutoff: 1500, noise: 0.6,  wob: [2, 0.08],  gain: 0.08 },
   // MQ-1 Viper: the iconic pusher-prop buzz
   VIPER:       { base: 82,  harm: [1, 2],      wave: 'sawtooth', cutoff: 900,  noise: 0.35, wob: [7, 0.12],  gain: 0.085 },
+  // AH-64: muffled turbine under the four-blade rotor slap — the wob IS the aircraft
+  AH64:        { base: 56,  harm: [1, 2, 3.5], wave: 'sawtooth', cutoff: 520,  noise: 0.45, wob: [13, 0.55], gain: 0.12 },
   // small electric fliers: high, quiet motor buzz
   RAVEN:       { base: 124, harm: [1, 2],      wave: 'triangle', cutoff: 780,  noise: 0.3,  wob: [9, 0.1],   gain: 0.055 },
+  // RQ-28 quadcopter: thin multirotor whir, faster flutter than the Raven's prop
+  QUAD:        { base: 178, harm: [1, 2],      wave: 'triangle', cutoff: 1200, noise: 0.25, wob: [16, 0.2],  gain: 0.05 },
   SWITCHBLADE: { base: 150, harm: [1, 2],      wave: 'triangle', cutoff: 900,  noise: 0.3,  wob: [11, 0.1],  gain: 0.055 },
   // tethered balloon: no engine, just wind
   AEROSTAT:    { base: 0,   harm: [],          wave: 'sine',     cutoff: 420,  noise: 0.7,  wob: [0.6, 0.18], gain: 0.05 },

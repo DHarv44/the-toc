@@ -83,6 +83,7 @@ export interface DroneType {
   cooldown?: number
   ctrlRange?: number        // field-launched: max distance from controlling unit
   tetherRange?: number      // tethered: max mooring distance from the FOB/HQ
+  hover?: boolean           // rotary/quad: holds at the anchor instead of flying a pattern
   weapons?: DroneWeapons
   kamikaze?: KamikazeSpec
   gunship?: GunshipSpec

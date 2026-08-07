@@ -73,7 +73,9 @@ export function airUpdate(dt: number): void {
           // current distance becomes the starting radius, then spiral to standard
           d.angle = Math.atan2(d.y - d.ty, d.x - d.tx)
           d.orbR = Math.max(dist, 25)
-          radio(d.label, 'move', `ON STATION — ORBIT ESTABLISHED GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
+          radio(d.label, 'move', spec.hover
+            ? `ON STATION — HOLDING GRID ${grid(d.tx, d.ty)}`
+            : `ON STATION — ORBIT ESTABLISHED GRID ${grid(d.tx, d.ty)}`, d.tx, d.ty)
         }
       } else { d.x += (dx / dist) * spec.speed * dt; d.y += (dy / dist) * spec.speed * dt }
     } else if (d.state === 'onstation') {
@@ -96,6 +98,20 @@ export function airUpdate(dt: number): void {
           // sweep-speed setting (slow/med/fast).
           d.scanAngle = (d.scanAngle || 0) + dt * AEROSTAT_SCAN_RATE * (d.scanMul || 1)
         }
+      } else if (spec.hover) {
+        // rotary/quad airframes HOLD at the anchor rather than flying a pattern:
+        // drift onto it (the anchor moves under follow/retask), then face the
+        // work — the sensor lock if one is held, else the approach heading
+        const dx = d.tx - d.x, dy = d.ty - d.y
+        const dist = Math.hypot(dx, dy)
+        if (dist > 4) {
+          const step = Math.min(dist, spec.speed * dt)
+          d.x += (dx / dist) * step; d.y += (dy / dist) * step
+          d.angle = Math.atan2(dy, dx)
+        } else if (d.lock) {
+          d.angle = Math.atan2(d.lock.y - d.y, d.lock.x - d.x)
+        }
+        d.orbR = 0
       } else {
         const oR = spec.orbitR * (d.orbitMul || 1)
         if (d.orbR == null) d.orbR = oR

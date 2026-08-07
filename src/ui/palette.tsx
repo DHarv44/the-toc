@@ -447,10 +447,11 @@ export function buildItems(u: Unit): PaletteItem[] {
 
 export function deployHint(mode: string): string {
   if (mode.startsWith('deploy:DRONE:')) {
-    const src = (DRONE_TYPES as Record<string, DroneType | undefined>)[mode.slice(13)]?.src
-    return src === 'field' ? 'CLICK AN ORBIT POINT NEAR THE CARRYING UNIT'
-      : src === 'tether' ? 'CLICK THIS FOB / HQ TO RAISE THE AEROSTAT (1 PER SITE)'
-      : 'CLICK THE MAP TO SET THE ORBIT POINT (LAUNCHES FROM AIRFIELD)'
+    const dt = (DRONE_TYPES as Record<string, DroneType | undefined>)[mode.slice(13)]
+    const point = dt?.hover ? 'HOLDING POINT' : 'ORBIT POINT'
+    return dt?.src === 'field' ? `CLICK A ${point} NEAR THE CARRYING UNIT`
+      : dt?.src === 'tether' ? 'CLICK THIS FOB / HQ TO RAISE THE AEROSTAT (1 PER SITE)'
+      : `CLICK THE MAP TO SET THE ${point} (LAUNCHES FROM AIRFIELD)`
   }
   if (mode.startsWith('deploy:')) return 'CLICK INSIDE THE DEPLOY ZONE'
   if (mode.startsWith('build:')) return mode === 'build:OP' ? 'PLACE NEAR FRIENDLY FORCES' : 'PLACE NEAR AN ACTIVE BASE'

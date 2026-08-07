@@ -72,8 +72,8 @@ export function drawDrones(f: Frame, feedIds: Set<number>): void {
     const sel = feedIds.has(d.id) || f.sel.has(d.id)
     if (d.state === 'onstation') {
       ctx.setLineDash([4, 4])
-      // a tethered aerostat holds a fixed point — no orbit ring, just its arc
-      if (spec.src !== 'tether') {
+      // a tethered aerostat or hovering airframe holds a fixed point — no orbit ring
+      if (spec.src !== 'tether' && !spec.hover) {
         ctx.strokeStyle = sel ? 'rgba(255,215,80,0.6)' : 'rgba(60,140,220,0.4)'
         ctx.beginPath()
         ctx.arc(f.w2sX(d.tx), f.w2sY(d.ty),

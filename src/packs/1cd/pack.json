@@ -1135,6 +1135,21 @@
         ]
       }
     },
+    "AH64": {
+      "name": "Apache Weapons Team",
+      "from": "1-227 AVN",
+      "echelon": "DIV",
+      "sortie": true,
+      "callsigns": [
+        "CRAZYHORSE",
+        "VAMPIRE"
+      ],
+      "windowLen": 1200,
+      "atoLead": 120,
+      "delivers": {
+        "window": "AH64"
+      }
+    },
     "SPECTRE": {
       "name": "AC-130 CAS Window",
       "from": "4 SOS",
