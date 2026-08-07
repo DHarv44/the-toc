@@ -229,7 +229,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
     // hit must respect it too or invisible plates would swallow clicks).
     const facAt = (sx: number, sy: number): { id: number; key: string } | null => {
       const { sel, wires } = propsRef.current
-      if (sel.length !== 1 || 70 * view.ppm < 24) return null
+      if (sel.length !== 1 || 150 * view.ppm < 24) return null
       const w = wires.find(x => x.id === sel[0])
       if (!w) return null
       for (const [key, p] of Object.entries(w.facs)) {
@@ -419,7 +419,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       // BASE ANATOMY under the symbols too — the same footprint, gate and
       // facility layout the game derives at H-hour, in the game's own
       // graded-earth language, at the same legibility gate as the BFT
-      if (70 * view.ppm >= 24) {
+      if (150 * view.ppm >= 24) {
         const nightSheet = propsRef.current.night
         for (const w of wires) {
           ctx.beginPath()

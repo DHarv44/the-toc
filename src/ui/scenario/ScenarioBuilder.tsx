@@ -159,7 +159,7 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       const fp = footprintAt(world.map, e.x, e.y, e.kind, gate)
       // default layout first, the author's dragged spots on top of it
       const facs = layoutFacilitiesAt(
-        world.map, e.x, e.y, organicFacilities(e.side, e.kind), gate)
+        world.map, e.x, e.y, organicFacilities(e.side, e.kind), gate, e.kind)
       for (const [k, o] of Object.entries(e.fac ?? {})) {
         facs[k] = { x: e.x + o.dx, y: e.y + o.dy }
       }

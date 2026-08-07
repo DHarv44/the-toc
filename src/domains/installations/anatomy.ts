@@ -69,21 +69,36 @@ export function alongRoad(
   }
 }
 
+/** THE WIRE'S TARGET SIZE by structure kind, in half-extents (m, along the
+ *  gate axis × across it) — one source for the footprint, the facility
+ *  layout and the anatomy zoom gate. Realism-ordered: an airfield needs its
+ *  strip, a FOB houses a battalion and SPRAWLS, a command post is a tight
+ *  deliberate compound, an OP is a hole in the ground with a radio. */
+export function kindExtents(kind: StructureTypeKey): readonly [number, number] {
+  return kind === 'AFLD' ? [640, 400]
+    : kind === 'FOB' ? [500, 380]
+      : kind === 'HQ' ? [320, 240] : [90, 65]
+}
+
 /** Where each facility SITS. The default layout is spec-read, never
  *  name-read: the facility whose spec REPAIRS VEHICLES is the motor pool of
  *  this base, whatever the pack calls it, and it sits on the gate bearing so
- *  parked vics face the way out. Everything else rings the CP. */
+ *  parked vics face the way out. Everything else rings the CP. Distances
+ *  scale with the kind's wire so a big base spreads its anatomy instead of
+ *  huddling it at the flagpole. */
 export function layoutFacilitiesAt(
   map: WorldMap, x: number, y: number, fac: readonly string[], gate: number,
+  kind: StructureTypeKey,
 ): Record<string, Vec2> {
+  const [hl] = kindExtents(kind)
   const pts: Record<string, Vec2> = {}
   let ring = 0
   for (const k of fac) {
     const spec = FACILITIES[k]
     const park = !!spec?.effects.repair
     const ang = park ? gate : gate + [2.2, -2.2, Math.PI, 1.1, -1.1][ring++ % 5]!
-    const p = nearestLand(map, x + Math.cos(ang) * (park ? 95 : 70),
-      y + Math.sin(ang) * (park ? 95 : 70))
+    const r = park ? hl * 0.55 : hl * 0.42
+    const p = nearestLand(map, x + Math.cos(ang) * r, y + Math.sin(ang) * r)
     pts[k] = { x: p.x, y: p.y }
   }
   return pts
@@ -99,7 +114,7 @@ export function facilityPoints(st: Structure): Record<string, { x: number; y: nu
   const pts = (st.facPts ??= {})
   const missing = fac.filter(k => !pts[k])
   if (!missing.length) return pts
-  Object.assign(pts, layoutFacilitiesAt(m, st.x, st.y, missing, gateward(st)))
+  Object.assign(pts, layoutFacilitiesAt(m, st.x, st.y, missing, gateward(st), st.kind))
   return pts
 }
 
@@ -138,11 +153,9 @@ export function footprintAt(
   map: WorldMap, x: number, y: number, kind: StructureTypeKey, gate: number,
 ): { poly: Vec2[]; gate: Vec2 } {
   const { GRID, CELL, terr, elev, road } = map
-  const [hl, hw] = kind === 'HQ' ? [165, 125]
-    : kind === 'FOB' ? [140, 108]
-      : kind === 'AFLD' ? [185, 120] : [60, 45]
+  const [hl, hw] = kindExtents(kind)
   const N = 12       // corner posts — a wall is built in straight runs
-  const MIN_R = 45   // the CP itself is always inside its own wire
+  const MIN_R = 60   // the CP itself is always inside its own wire
   const seed = Math.round(x / 10) * 73856093 ^ Math.round(y / 10) * 19349663
   const h = (i: number): number => {
     const s = Math.sin(seed * 0.0001 + i * 78.233) * 43758.5453

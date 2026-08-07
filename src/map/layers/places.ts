@@ -106,11 +106,11 @@ export function drawStructures(f: Frame): void {
         ? patchOf(playerPack(), s.formation) : undefined,
     })
   }
-  // BASE ANATOMY: zoomed in close enough that a 70 m offset is legible, a
+  // BASE ANATOMY: zoomed in close enough that a ~150 m offset is legible, a
   // friendly base shows its facilities as their own plates at their real
   // positions — the motor pool is a PLACE, and it is where the vehicles are.
   // Below that zoom they roll up into the base symbol, the team convention.
-  const anatomyPx = 70 * f.view.ppm
+  const anatomyPx = 150 * f.view.ppm
   if (anatomyPx >= 24) {
     for (const s of S.structures) {
       if (s.side !== 'friend' || s.buildT > 0) continue
