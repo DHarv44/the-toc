@@ -56,6 +56,75 @@
       "id": "shakedown",
       "name": "SHAKEDOWN — SEIZE OBJ BULLDOG",
       "brief": "TASK FORCE, THIS IS HIGHER. This operation is a SHAKEDOWN of everything that just came out of the shop — read this brief as your test card. ONE: look at CP SABER zoomed in. The wire, the gate posts, the AID STATION plate — and the MOTOR POOL sitting exactly where the author dragged it, northeast of the CP. Field a platoon from the CP and watch it park in rows at that motor pool, then order it out and confirm it hops straight onto a road. TWO: the dirt track running southeast of the CP was drawn by the scenario author — the engineers cut it before H-hour. Drive something down it. THREE: select your ENGINEER platoon, press BLD on the map rail, and click a point a klick or two out — watch them crawl and leave road behind them. Give them a different order mid-build and confirm the road stops where it stops. FOUR: press G on your maneuver platoons to task-organize a team, open the march board, and while they are MOVING change the lead — the column must reshuffle NOW, not on the next order. FIVE: right-click a spotted enemy with the whole team selected — they must close in march order and deploy together, and you should hear DEPLOYING TO ASSAULT on the net. SIX: the two suspected positions on OBJ BULLDOG are DUG IN FACING YOU. Attack them frontally and expect to bleed; send an element wide onto their flank and it should bite — fortifications only protect what they face now, and a suppressed defender shoots with his head down. SEVEN: when a fight goes bad, watch the 9-line and recovery traffic do its work. Send up what feels wrong. HIGHER OUT.",
+      "tutorial": {
+        "steps": [
+          {
+            "id": "anatomy",
+            "hints": [
+              { "text": "THE BASE HAS A SHAPE NOW — zoom in on CP SABER: the wire, the gate posts, the AID STATION plate, and the MOTOR POOL sitting northeast of the CP exactly where the scenario author dragged it. Zoom out and it all rolls up into one symbol. When you have looked, CALL UP a cavalry platoon — and watch where it parks.",
+                "action": "OPEN the COMMAND console and CALL UP a CAV platoon from CP SABER.",
+                "anchor": { "kind": "struct", "struct": "HQ" } }
+            ],
+            "done": { "kind": "fielded", "type": "CAV", "min": 1 }
+          },
+          {
+            "id": "motor-pool",
+            "hints": [
+              { "text": "THE MOTOR POOL IS A PLACE — your new platoon is parking in rows at the motor pool, inside the wire, faced at the gate. Now order it somewhere a few klicks out: it should hop straight onto a road within metres, not crawl cross-country. On the way, find the dirt track running SOUTHEAST of the CP — the author drew that one; the engineers cut it before H-hour.",
+                "action": "RIGHT-CLICK a point 2-3 klicks out with the CAV platoon selected.",
+                "anchor": { "kind": "unit", "type": "CAV" } }
+            ],
+            "done": { "kind": "column-has-orders", "types": ["CAV"] }
+          },
+          {
+            "id": "roadworks",
+            "hints": [
+              { "when": { "kind": "not", "of": { "kind": "selected-only", "type": "ENG" } },
+                "text": "ENGINEERS BUILD ROADS NOW — select your engineer platoon. You are going to have them cut a brand-new route.",
+                "action": "LEFT-CLICK the ENG platoon.",
+                "anchor": { "kind": "unit", "type": "ENG" } },
+              { "text": "CUT A ROUTE — press BLD on the map rail, then click a point a klick or two out. The platoon crawls the line slowly and leaves REAL road behind it — routable, visible, permanent. Interrupt them with any other order later and the road simply ends where it ends.",
+                "action": "PRESS BLD, then CLICK where the road should reach." }
+            ],
+            "done": { "kind": "mode-is", "mode": "roadbuild" }
+          },
+          {
+            "id": "team-up",
+            "hints": [
+              { "text": "TASK-ORGANIZE — while the engineers work, box-select your INF, MECH, ARM and MOR platoons and press G to form a team. The team is who you will command from here on.",
+                "action": "SELECT the maneuver platoons and PRESS G." }
+            ],
+            "done": { "kind": "group-selected", "min": 3 }
+          },
+          {
+            "id": "march-and-scout",
+            "hints": [
+              { "text": "THE ORDER OF MARCH IS LIVE — move the team somewhere and open the march board. While the column is ROLLING, change the lead serial: the column must reshuffle immediately, not on the next order. Then push your SCOUTS east toward OBJ BULLDOG on BREAK — there is a hostile scout wandering the approaches, and the two positions on the objective are only SUSPECTED until someone sees them.",
+                "action": "MOVE the team, SWAP the lead on the march board, then PUSH the scouts east until something is SPOTTED.",
+                "anchor": { "kind": "point", "place": "OBJ BULLDOG" } }
+            ],
+            "done": { "kind": "enemy-spotted" }
+          },
+          {
+            "id": "formation-attack",
+            "hints": [
+              { "text": "FORMATION ATTACK — contact. RIGHT-CLICK the spotted enemy with the whole team selected: they close IN MARCH ORDER and deploy together at the assault — listen for DEPLOYING TO ASSAULT on the net. Nobody queues behind a burning lead any more.",
+                "action": "RIGHT-CLICK the spotted enemy with the team selected.",
+                "anchor": { "kind": "spotted-enemy" } }
+            ],
+            "done": { "kind": "attack-ordered" }
+          },
+          {
+            "id": "bulldog",
+            "hints": [
+              { "text": "OBJ BULLDOG — the two dug-in platoons FACE YOU, and their works only protect what they face: a frontal attack will bleed, an element swung wide onto their FLANK or REAR bites through, and a suppressed defender shoots with his head down. Fix them from the front, flank them, and clear the objective. When the fight turns ugly, watch the 9-line and recovery traffic work. Send up everything that feels wrong.",
+                "action": "CLEAR OBJ BULLDOG — fix frontal, assault from a flank.",
+                "anchor": { "kind": "point", "place": "OBJ BULLDOG" } }
+            ],
+            "done": { "kind": "area-clear", "place": "OBJ BULLDOG", "r": 700 }
+          }
+        ]
+      },
       "objectives": [
         {
           "id": "clear",
