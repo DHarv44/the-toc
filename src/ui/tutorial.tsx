@@ -623,14 +623,35 @@ export default function TutorialOverlay() {
   }
 
   if (hint.targetSel) {
-    const els = Array.from(document.querySelectorAll(`[data-tut="${hint.targetSel}"]`))
-    const el = els[0]
-    for (const other of els.slice(1)) {
-      const o = other.getBoundingClientRect()
-      extraRings.push({ left: o.left - 5, top: o.top - 5, width: o.width + 10, height: o.height + 10 })
+    // `sel` may name SEVERAL published ids, comma-separated — "click any of
+    // these" rings whichever of them exist right now (ids contain spaces, so
+    // the comma is the separator)
+    const els = hint.targetSel.split(',')
+      .flatMap(s => Array.from(document.querySelectorAll(`[data-tut="${s.trim()}"]`)))
+    // MERGE ADJACENT RECTS: consecutive rows of one list ring as ONE box — a
+    // stack of per-row rings reads as horizontal dividers slicing the group.
+    // Disjoint clusters (the deck's thumbnails vs its arrows) stay separate.
+    const rects = els.map(e => e.getBoundingClientRect()).sort((a, b) => a.top - b.top)
+    const clusters: { left: number; top: number; right: number; bottom: number }[] = []
+    for (const o of rects) {
+      const c = clusters[clusters.length - 1]
+      const xOverlap = c ? Math.min(c.right, o.right) - Math.max(c.left, o.left) : 0
+      if (c && o.top - c.bottom <= 14 && xOverlap > Math.min(c.right - c.left, o.width) * 0.6) {
+        c.left = Math.min(c.left, o.left); c.top = Math.min(c.top, o.top)
+        c.right = Math.max(c.right, o.right); c.bottom = Math.max(c.bottom, o.bottom)
+      } else {
+        clusters.push({ left: o.left, top: o.top, right: o.right, bottom: o.bottom })
+      }
     }
-    if (el) {
-      const r = el.getBoundingClientRect()
+    for (const c of clusters.slice(1)) {
+      extraRings.push({ left: c.left - 5, top: c.top - 5, width: (c.right - c.left) + 10, height: (c.bottom - c.top) + 10 })
+    }
+    const first = clusters[0]
+    if (first) {
+      const r = {
+        left: first.left, top: first.top, right: first.right, bottom: first.bottom,
+        width: first.right - first.left, height: first.bottom - first.top,
+      }
       ring = { left: r.left - 5, top: r.top - 5, width: r.width + 10, height: r.height + 10 }
       const vw = window.innerWidth, vh = window.innerHeight
       const short = r.height < 90 // a button/row — TALL boxes (a whole list) always get a side callout

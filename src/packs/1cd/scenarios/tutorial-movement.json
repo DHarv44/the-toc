@@ -78,11 +78,11 @@
                 "anchor": { "kind": "ui", "sel": "callup-cat-INFANTRY" } },
               { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "INFANTRY" } },
                 "text": "The rifle companies.",
-                "action": "CLICK A CO · 1-506 IN.",
-                "anchor": { "kind": "ui", "sel": "callup-co-INFANTRY-A CO" } },
+                "action": "CLICK ANY COMPANY.",
+                "anchor": { "kind": "ui", "sel": "callup-co-INFANTRY-A CO,callup-co-INFANTRY-B CO,callup-co-INFANTRY-C CO" } },
               { "text": "Rifles up.",
-                "action": "CLICK A RIFLE PLATOON.",
-                "anchor": { "kind": "ui", "sel": "field-INF" } }
+                "action": "CLICK A PLATOON.",
+                "anchor": { "kind": "ui", "sel": "field-INF,field-STRY,field-MECH" } }
             ],
             "done": { "kind": "fielded", "min": 2 }
           },
