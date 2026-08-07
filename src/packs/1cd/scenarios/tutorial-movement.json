@@ -59,8 +59,12 @@
                 "text": "Recon leads — scouts find the enemy so the main body doesn't.",
                 "action": "CLICK RECON.",
                 "anchor": { "kind": "ui", "sel": "callup-cat-RECON" } },
+              { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "RECON" } },
+                "text": "A Troop holds the battalion's scouts.",
+                "action": "CLICK A TRP · 1-7 CAV.",
+                "anchor": { "kind": "ui", "sel": "callup-co-RECON-A TRP" } },
               { "text": "A Troop's platoons stand ready.",
-                "action": "A TROOP → CLICK A PLATOON. IT FORMS UP AT THE CP.",
+                "action": "CLICK A PLATOON. IT FORMS UP AT THE CP.",
                 "anchor": { "kind": "ui", "sel": "field-CAV" } }
             ],
             "done": { "kind": "fielded", "type": "CAV", "min": 1 }
@@ -72,8 +76,12 @@
                 "text": "Rifles follow the eyes.",
                 "action": "CLICK INFANTRY.",
                 "anchor": { "kind": "ui", "sel": "callup-cat-INFANTRY" } },
-              { "text": "Any rifle company will do.",
-                "action": "PICK A COMPANY → CLICK A PLATOON.",
+              { "when": { "kind": "not", "of": { "kind": "callup-co", "cat": "INFANTRY" } },
+                "text": "The rifle companies.",
+                "action": "CLICK A CO · 1-506 IN.",
+                "anchor": { "kind": "ui", "sel": "callup-co-INFANTRY-A CO" } },
+              { "text": "Rifles up.",
+                "action": "CLICK A RIFLE PLATOON.",
                 "anchor": { "kind": "ui", "sel": "field-INF" } }
             ],
             "done": { "kind": "fielded", "min": 2 }
