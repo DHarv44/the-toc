@@ -9,6 +9,7 @@ import { clampWorld, nearestLand } from '../../world/place'
 import { connectStructureToRoads, structureSpur } from '../../world/access'
 import { roadSpot } from '../../world/pack/roadGraph'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
+import { alongRoad, poolSlot } from './anatomy'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { commandsStructure } from '../forces/command'
@@ -106,87 +107,6 @@ export function deployUnit(
   const u = newUnit(typeKey, 'friend', x, y, opts)
   S.units.push(u)
   return u
-}
-
-// The GATE bearing: which way "out" is for a base — down its own access spur
-// if it has one, toward the road that serves it otherwise, toward the map
-// interior as a last resort. Facility layout and the motor pool both orient
-// on it, so a fielded vic is already pointed at the way onto the network.
-function gateward(st: Structure): number {
-  const m = S.map!
-  const spur = structureSpur(m, st.x, st.y)
-  if (spur && spur.length >= 2) {
-    const p = spur[Math.max(0, spur.length - 4)]!
-    return Math.atan2(p.y - st.y, p.x - st.x)
-  }
-  const spot = roadSpot(m, st.x, st.y)
-  if (spot && spot.dist < 450 && spot.pts.length >= 2) {
-    const p = alongRoad(spot, spot.at)
-    return Math.atan2(p.y - st.y, p.x - st.x)
-  }
-  return Math.atan2(m.WORLD / 2 - st.y, m.WORLD / 2 - st.x)
-}
-
-// arc position s on a roadSpot polyline -> point + unit tangent
-function alongRoad(
-  spot: { pts: Vec2[]; cum: number[]; at: number },
-  s: number,
-): { x: number; y: number; tx: number; ty: number } {
-  let seg = 1
-  while (seg < spot.cum.length - 1 && spot.cum[seg]! < s) seg++
-  const a = spot.pts[seg - 1]!, b = spot.pts[seg]!
-  const segLen = spot.cum[seg]! - spot.cum[seg - 1]!
-  const t = segLen > 0 ? (s - spot.cum[seg - 1]!) / segLen : 0
-  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
-  return {
-    x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
-    tx: (b.x - a.x) / L, ty: (b.y - a.y) / L,
-  }
-}
-
-/** BASE ANATOMY: where each facility SITS. Every facility is the base's own
- *  — it lives in st.facilities, gets a position inside the wire, and rolls up
- *  into the base symbol when the map zooms out. The default layout is spec-
- *  read, never name-read: the facility whose spec REPAIRS VEHICLES is the
- *  motor pool of this base, whatever the pack calls it, and it sits on the
- *  gate bearing so parked vics face the way out. Everything else rings the
- *  CP. Lazy: computed on first ask, rides the save, author-overridable later
- *  (BASES.md). */
-export function facilityPoints(st: Structure): Record<string, { x: number; y: number }> {
-  const m = S.map
-  const fac = st.facilities ?? []
-  if (!m || !fac.length) return st.facPts ?? {}
-  const pts = (st.facPts ??= {})
-  const missing = fac.filter(k => !pts[k])
-  if (!missing.length) return pts
-  const gate = gateward(st)
-  let ring = 0
-  for (const k of missing) {
-    const spec = FACILITIES[k]
-    const park = !!spec?.effects.repair
-    const ang = park ? gate : gate + [2.2, -2.2, Math.PI, 1.1, -1.1][ring++ % 5]!
-    const p = nearestLand(m, st.x + Math.cos(ang) * (park ? 95 : 70),
-      st.y + Math.sin(ang) * (park ? 95 : 70))
-    pts[k] = { x: p.x, y: p.y }
-  }
-  return pts
-}
-
-// The motor pool HARDSTAND: rows of parked vehicles beside the repair-effect
-// facility, inside the wire, faced out the gate. Null when the base runs no
-// such facility.
-function poolSlot(st: Structure, mob: Mobility, k: number): Vec2 | null {
-  const m = S.map!
-  const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
-  if (!key) return null
-  const fp = facilityPoints(st)[key]
-  if (!fp) return null
-  const g = gateward(st)
-  const fx = Math.cos(g), fy = Math.sin(g)
-  const col = (k % 4) - 1.5, row = Math.floor(k / 4) % 3
-  const x = clampWorld(S.map, fp.x - fy * col * 20 + fx * (row * 24 - 24))
-  const y = clampWorld(S.map, fp.y + fx * col * 20 + fy * (row * 24 - 24))
-  return isFinite(m.moveFactor(x, y, mob)) ? { x, y } : null
 }
 
 // Rally point for a unit fielded at a site: a spot just clear of the base, facing the

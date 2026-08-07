@@ -7,7 +7,7 @@
 // Drawn under the symbology, over the ground.
 import { S } from '../../engine/state'
 import { STRUCTURES, FACILITIES } from '../../domains/installations/catalog'
-import { facilityPoints } from '../../domains/installations/orders'
+import { facilityPoints, footprintOf } from '../../domains/installations/anatomy'
 import { markOf, patchOf } from '../../packs/orgquery'
 import { playerPack } from '../../packs'
 import { drawPlace, drawStructure, drawFacility } from '../symbols'
@@ -113,7 +113,40 @@ export function drawStructures(f: Frame): void {
   const anatomyPx = 70 * f.view.ppm
   if (anatomyPx >= 24) {
     for (const s of S.structures) {
-      if (s.side !== 'friend' || s.buildT > 0 || !s.facilities?.length) continue
+      if (s.side !== 'friend' || s.buildT > 0) continue
+      // THE WIRE first, under the plates: the compound is GROUND, not
+      // symbology — graded earth inside the fence, shaded the way the urban
+      // blocks are (a quiet dark wash with a firm edge, lifted at night per
+      // the debris rule), the gate marked on the bearing everything leaves by
+      if (s.kind !== 'OP') {
+        const w = footprintOf(s)
+        ctx.save()
+        ctx.beginPath()
+        w.poly.forEach((p, i) => {
+          const sx = f.w2sX(p.x), sy = f.w2sY(p.y)
+          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+        })
+        ctx.closePath()
+        ctx.fillStyle = f.night ? 'rgba(200,205,210,0.10)' : 'rgba(88,86,80,0.28)'
+        ctx.fill()
+        ctx.strokeStyle = f.night ? 'rgba(180,200,220,0.4)' : 'rgba(62,60,54,0.5)'
+        ctx.lineWidth = 1.3
+        ctx.stroke()
+        // the gate: a solid post pair astride the opening
+        const gx = f.w2sX(w.gate.x), gy = f.w2sY(w.gate.y)
+        const ang = Math.atan2(w.gate.y - s.y, w.gate.x - s.x) + Math.PI / 2
+        const px = Math.cos(ang) * 5, py = Math.sin(ang) * 5
+        ctx.strokeStyle = f.night ? 'rgba(180,225,255,0.95)' : 'rgba(25,50,80,0.9)'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(gx + px - py * 0.6, gy + py + px * 0.6)
+        ctx.lineTo(gx + px + py * 0.6, gy + py - px * 0.6)
+        ctx.moveTo(gx - px - py * 0.6, gy - py + px * 0.6)
+        ctx.lineTo(gx - px + py * 0.6, gy - py - px * 0.6)
+        ctx.stroke()
+        ctx.restore()
+      }
+      if (!s.facilities?.length) continue
       const pts = facilityPoints(s)
       for (const k of s.facilities) {
         const p = pts[k]

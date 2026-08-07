@@ -39,6 +39,17 @@ of facilities. They should have a SHAPE and an ANATOMY.
 
 ### The footprint polygon
 
+> **SHIPPED (step 2 v1, 2026-08-06):** auto-proposed ORGANIC footprint that
+> READS THE GROUND — each perimeter ray marches the map and stops at water,
+> built-up blocks and real roads (the fence snaps to the road it sits
+> beside; the base's own spur doesn't bound it), steep rays pull in
+> relative to flat ones, small per-base deterministic wobble, Chaikin
+> curves. Gate = the perimeter point on the gate bearing. Derived lazily
+> (installations/anatomy.ts), cached on the structure, riding the save;
+> drawn as graded-earth shading (urban-block language) with gate posts at
+> anatomy zoom. Still open from the sketch: snapping to a full CLOSED RING
+> of roads (city-block compounds), and polygon-aware effect radii.
+
 A base becomes `{ anchor, polygon: Vec2[], gate: Vec2 }` instead of a point
 with a radius.
 

@@ -659,6 +659,9 @@ export interface Structure {
   // where each facility SITS inside the base (lazy default layout, author-
   // overridable later) — the repair facility's spot is where vics park
   facPts?: Record<string, { x: number; y: number }>
+  // THE WIRE: footprint polygon + gate, auto-proposed on the gate bearing
+  // (installations/anatomy.ts) — the base's shape, not its reach
+  wire?: { poly: { x: number; y: number }[]; gate: { x: number; y: number } }
   intBudget?: number         // point-defense engagement budget (intercept spec rof)
   lastIntT?: number          // last intercept engagement (radio throttle)
   qrfT?: number              // last QRF launch re-evaluation (throttle)
