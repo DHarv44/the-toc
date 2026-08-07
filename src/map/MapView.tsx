@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react'
 import { S } from '../engine/state'
 import type { ControlMeasure, MeasureKind, Unit, Drone, Structure } from '../engine/GameState'
 import {
-  orderMove, orderGroupMove, orderAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
+  orderMove, orderGroupMove, orderGroupAttack, removeLastWaypoint, removeWaypoint, orderConvoy, orderBridge,
 } from '../domains/forces/orders'
 import { deployUnit, deployStructure, orderReturnToGarrison } from '../domains/installations/orders'
 import { deployDrone, orderDroneMove, droneDropWp, removeDroneWaypoint } from '../domains/air/orders'
@@ -422,7 +422,9 @@ export default function MapView() {
         const selD = selectedDrones()
         if (!sel.length && !selD.length) return
         const enemy = pickEnemy(wx, wy)
-        if (enemy && sel.length) { sel.forEach(u => orderAttack(u.id, enemy.id, null)); return }
+        // a formation attack closes in march order (task #59) — one call, one
+        // column, assault release at close range; a single element pursues
+        if (enemy && sel.length) { orderGroupAttack(sel.map(u => u.id), enemy.id); return }
         issueMoves(sel, wx, wy, e.shiftKey, ui.cmdMode === 'attack')
         selD.forEach((d, k) => {
           orderDroneMove(d.id, wx + (k % 2) * 300 - 150 * (k > 0 ? 1 : 0), wy + Math.floor(k / 2) * 300, e.shiftKey)

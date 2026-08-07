@@ -295,6 +295,34 @@ export function orderAttack(unitId: number, enemyId: number, groupId: number | n
   netRadio(u, 'contact', `ATTACKING ${UNIT_TYPES[e.type].name.toUpperCase()} — ${locRef(S.map!, e.x, e.y)}`, e.x, e.y)
 }
 
+/** FORMATION ATTACK (task #59): a multi-element attack used to fan out into
+ *  independent orderAttack calls — every element pathed straight at the
+ *  target on its own, and the order of march was thrown away the moment it
+ *  mattered most. A formation ordered to destroy something now CLOSES IN
+ *  MARCH ORDER: the column machinery drives the approach (one shared route,
+ *  slots held, authored order obeyed), every element carries the designated
+ *  target, and the assault release happens per-element at close range
+ *  (drillsUpdate) — approach as a column, deploy to assault. */
+export function orderGroupAttack(unitIds: number[], enemyId: number): void {
+  const e = S.units.find(x => x.id === enemyId)
+  if (!e) return
+  const units = unitIds
+    .map(id => S.units.find(u => u.id === id))
+    .filter((u): u is Unit => !!u && u.strength > 0 && u.side !== e.side)
+  if (!units.length) return
+  if (units.length === 1) { orderAttack(units[0]!.id, enemyId); return }
+  const gid = orderGroupMove(units.map(u => u.id), e.x, e.y, false, true)
+  if (gid == null) return
+  for (const u of units) {
+    u.attackId = enemyId
+    u.attackRepathT = 8
+  }
+  const lead = units.find(u => u.colIdx === 0) ?? units[0]!
+  netRadio(lead, 'contact',
+    `FORMATION ATTACK — ${UNIT_TYPES[e.type].name.toUpperCase()}, ${locRef(S.map!, e.x, e.y)}`,
+    e.x, e.y)
+}
+
 export function removeLastWaypoint(unitId: number): void {
   const u = S.units.find(u => u.id === unitId)
   if (!u || !u.legs || !u.legs.length) return

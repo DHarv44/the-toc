@@ -25,6 +25,7 @@ import {
 import { solveColumns } from '../movement/column'
 import { msrBetween, msrPathTo, msrLabel } from '../control/routes'
 import { teamOf } from './teams'
+import { orderGroupAttack } from './orders'
 import { stationUpdate, stationSweep } from '../movement/station'
 import { trailUpdate } from '../fires/expendables'
 import { netRadio, radio, toast } from '../comms/radio'
@@ -327,6 +328,11 @@ export function movementUpdate(dt: number): void {
   stationSweep()
 }
 
+// A column member on a formation attack breaks out of the column and pursues
+// on its own inside this range — the assault deployment. Beyond it, march
+// order holds (task #59).
+const ASSAULT_RELEASE = 800
+
 // mission resumption: contact clear and neighborhood quiet → continue movement.
 // side-agnostic: friendly and hostile units execute the identical drill code.
 export function drillsUpdate(dt: number): void {
@@ -346,6 +352,44 @@ export function drillsUpdate(dt: number): void {
       } else if (u.targetId === u.attackId) {
         // in engagement range of the designated target: stand and fight
         u.path = []; u.legs = []
+      } else if (u.colIdx != null && u.leadId != null) {
+        // COLUMN DISCIPLINE ON THE APPROACH (task #59): a formation attack
+        // closes in march order along its shared route — an element does NOT
+        // repath itself at the target, because that is what used to dissolve
+        // the column the moment it formed. It holds its slot until the
+        // assault: its own release range, OR the moment ANY element of the
+        // formation is ENGAGED with the objective — action on contact, the
+        // whole column shakes out and fights. Without that second trigger
+        // the lead halted at weapons range and fought alone while three
+        // platoons station-kept politely behind it, out of range.
+        const dist = Math.hypot(tgt.x - u.x, tgt.y - u.y)
+        const engaged = S.units.some(v =>
+          v.groupId != null && v.groupId === u.groupId && v.targetId === u.attackId)
+        if (dist < ASSAULT_RELEASE || (engaged && dist < 3000)) {
+          u.groupId = null; u.colIdx = null; u.leadId = null; u.colS = undefined
+          u.colStop = undefined
+          u.attackRepathT = 0    // deploy NOW, not in eight seconds
+          netRadio(u, 'contact', 'DEPLOYING TO ASSAULT', u.x, u.y)
+        } else if (u.colIdx === 0) {
+          // the LEAD watches the target for the whole column: if it has
+          // displaced off the route's objective, re-form the column onto its
+          // new position (march order survives — the plan rides the gid)
+          u.attackRepathT -= dt
+          if (u.attackRepathT <= 0 && !u.targetId) {
+            u.attackRepathT = 8
+            const end = u.legs.length ? u.legs[u.legs.length - 1]! : null
+            if (!end || Math.hypot(end.x - tgt.x, end.y - tgt.y) > 400) {
+              const ids = S.units
+                .filter(v => v.groupId === u.groupId && v.attackId === u.attackId && v.strength > 0)
+                .map(v => v.id)
+              if (ids.length > 1) orderGroupAttack(ids, u.attackId)
+              else {
+                const p = findPath(S.map!, u.x, u.y, tgt.x, tgt.y, effStats(u).mob)
+                if (p) { u.path = p; u.legs = [{ x: tgt.x, y: tgt.y, n: p.length }] }
+              }
+            }
+          }
+        }
       } else {
         u.attackRepathT -= dt
         if (u.attackRepathT <= 0 && !u.targetId) {

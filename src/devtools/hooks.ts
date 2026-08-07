@@ -16,7 +16,7 @@ import {
   airAvailability, unitAvailability, forceCount, forceCap, incomePerMin, upkeepPerMin,
 } from '../domains/economy/economy'
 import {
-  orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount,
+  orderMove, orderGroupMove, orderAttack, orderGroupAttack, newMoveGroup, orderHold, orderMount,
   orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, removeLastWaypoint,
 } from '../domains/forces/orders'
 import { fireMission } from '../domains/fires/orders'
@@ -38,7 +38,7 @@ if (typeof window !== 'undefined') {
     orderMove, orderGroupMove, orderAttack, newMoveGroup, orderHold, orderMount, orderRoe, orderDefend, orderWeapons, orderBridge, orderConvoy, convertToHq, removeLastWaypoint, fireMission,
     spawnEnemy,
     setMarchOrder, clearMarchOrder, marchPlan, layHazard,
-    taskOrganize, orderClearRoute, fieldUnitDrone, orderEscort, releaseEscort, orderBuildRoad,
+    taskOrganize, orderClearRoute, fieldUnitDrone, orderEscort, releaseEscort, orderBuildRoad, orderGroupAttack,
     reveal: () => { S.fogEnabled = false },
     fog: (on: boolean) => { S.fogEnabled = on },
     setSpeed: (x: number) => { S.speed = x },
