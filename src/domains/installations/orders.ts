@@ -6,10 +6,9 @@ import type { Vec2 } from '../../world/WorldMap'
 import { T_WATER } from '../../world/WorldMap'
 import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
-import { connectStructureToRoads, structureSpur } from '../../world/access'
-import { roadSpot } from '../../world/pack/roadGraph'
+import { connectStructureToRoads } from '../../world/access'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
-import { alongRoad, organicFacilities, poolSlot } from './anatomy'
+import { gateward, organicFacilities, poolSlot, scatterSlot } from './anatomy'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { commandsStructure } from '../forces/command'
@@ -110,79 +109,19 @@ export function deployUnit(
   return u
 }
 
-// Rally point for a unit fielded at a site: a spot just clear of the base, facing the
-// map interior. Successive units fan left/right of that bearing so a production queue
-// spreads out instead of stacking on one grid square.
-/** THE MOTOR POOL LINE.
+/** WHERE A FIELDED VIC IS BORN — standing in it, not driving to it.
  *
- *  A fielded unit used to fan out ~340 m into open ground on an arc — every
- *  base grew a loose ring of vics in the dirt, and getting any of them onto a
- *  road meant a slow cross-country crawl first. A real base parks its
- *  vehicles ON THE ROAD THAT SERVES IT: the motor pool is a line down the
- *  access track (or the road the base was sited on), first vehicle at the
- *  head, each next one taking the next slot, offset off the lane so the road
- *  itself stays open. A unit ordered out is already standing ON a network
- *  edge — the router snaps at zero metres and it rides straight out.
- *
- *  The old arc survives only as the fallback for a base with no road at all
- *  (a roadless map, a spur that could not be laid). */
-function rallyPoint(st: Structure, mob: Mobility): Vec2 {
+ *  This used to be a rally point: spawn at the flagpole, then a move order to
+ *  the motor pool, the access spur, or the road shoulder. Every call-up was a
+ *  vic materializing at the CP and shuffling off, and the fallbacks staged
+ *  vehicles on the road outside the wire — which is not where a base keeps
+ *  its vehicles (commander's call 2026-08-07). A base with a motor pool
+ *  parks in its rows; a base without one disperses vics around the compound,
+ *  inside the wire. Nobody drives anywhere on spawn. */
+function spawnPoint(st: Structure, mob: Mobility): Vec2 {
   st.rallySeq = (st.rallySeq || 0) + 1
   const k = st.rallySeq - 1
-  const m = S.map!
-  // 1) the motor pool hardstand — the base RUNS a vehicle-repair facility,
-  //    and that is where its vehicles live: inside the wire, faced at the gate
-  const pool = poolSlot(st, mob, k)
-  if (pool) return pool
-  // 2) the base's OWN access spur — its private driveway. NOT "the nearest
-  //    road": the nearest road can be an MSR under enemy observation, the
-  //    spur starts at the base and belongs to it.
-  const spur = structureSpur(m, st.x, st.y)
-  if (spur) {
-    const want = 40 + (k % 10) * 35
-    let acc = 0
-    for (let i = spur.length - 1; i > 0; i--) {
-      const a = spur[i]!, b = spur[i - 1]!
-      const seg = Math.hypot(b.x - a.x, b.y - a.y)
-      if (acc + seg >= want) {
-        const t = (want - acc) / seg
-        const px = a.x + (b.x - a.x) * t, py = a.y + (b.y - a.y) * t
-        const L = seg || 1
-        // off the shoulder, the driveway itself kept clear
-        const x = clampWorld(S.map, px + ((b.y - a.y) / L) * 10)
-        const y = clampWorld(S.map, py - ((b.x - a.x) / L) * 10)
-        if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
-        break
-      }
-      acc += seg
-    }
-  }
-  // 3) the base sits practically ON a road — that road IS its doorstep,
-  //    park down the lane (a distant "nearest road" no longer qualifies)
-  const spot = roadSpot(m, st.x, st.y)
-  if (spot && spot.dist < 150 && spot.pts.length >= 2) {
-    const total = spot.cum[spot.cum.length - 1]!
-    // slots every 35 m from 40 m out, toward whichever end has the room
-    const fwd = (total - spot.at) >= spot.at
-    const want = 40 + (k % 10) * 35
-    const s = fwd ? Math.min(total, spot.at + want) : Math.max(0, spot.at - want)
-    const p = alongRoad(spot, s)
-    // off the right shoulder of the direction of travel, lane kept clear
-    const side = fwd ? 1 : -1
-    const x = clampWorld(S.map, p.x + p.ty * 16 * side)
-    const y = clampWorld(S.map, p.y - p.tx * 16 * side)
-    if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
-  }
-  // no road serves this base — the old dispersed arc, better than stacking
-  const toward = Math.atan2(m.WORLD / 2 - st.y, m.WORLD / 2 - st.x)
-  const n = st.rallySeq
-  const spread = Math.ceil(n / 2) * (n % 2 ? 1 : -1) * 0.3
-  for (const rad of [340, 460, 600, 780]) {
-    const x = clampWorld(S.map, st.x + Math.cos(toward + spread) * rad)
-    const y = clampWorld(S.map, st.y + Math.sin(toward + spread) * rad)
-    if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
-  }
-  return nearestLand(m, st.x + Math.cos(toward) * 340, st.y + Math.sin(toward) * 340, mob)
+  return poolSlot(st, mob, k) ?? scatterSlot(st, mob, k)
 }
 
 // Field a ground unit from a specific installation — the one-click flow. The unit is
@@ -205,13 +144,11 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   // units are NOT bought with supply (P5): the cap and the finite org limit
   // the force; supply sustains it (upkeep, munitions, structures)
   const mob = type.carrier ? type.carrier.mob : type.mob
-  const spawn = nearestLand(S.map!, st.x, st.y, mob)
+  const spawn = spawnPoint(st, mob)
   const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)
+  u.heading = gateward(st)   // parked in the row, nose out the gate
   S.units.push(u)
-
-  const r = rallyPoint(st, mob)
-  netRadio(u, 'move', `FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
-  orderMove(u.id, r.x, r.y)
+  netRadio(u, 'move', `FIELDED AT ${st.label}`, u.x, u.y)
   return u
 }
 
@@ -245,8 +182,13 @@ export function fieldSlot(
   if (av.capped) return toast(`FORCE AT CAPACITY — ${av.used}/${av.max} FIELDED`)
 
   const mob = type.carrier ? type.carrier.mob : type.mob
-  const spawn = nearestLand(S.map!, st.x, st.y, mob)
+  // the QRF forms AT the wire (qrfUpdate vectors it onto the threat the moment
+  // this returns); everyone else is born standing in the motor pool
+  const spawn = opts?.qrfLaunch
+    ? nearestLand(S.map!, st.x, st.y, mob)
+    : spawnPoint(st, mob)
   const u = newUnit(sl.type, 'friend', spawn.x, spawn.y, { slot: sl })
+  if (!opts?.qrfLaunch) u.heading = gateward(st)
   S.units.push(u)
   // out the gate = off the duty roster (unless this IS the reaction)
   if (sl.qrf && !opts?.qrfLaunch) {
@@ -255,15 +197,10 @@ export function fieldSlot(
   }
 
   if (opts?.qrfLaunch) {
-    // the reaction force forms AT the wire — qrfUpdate vectors it onto the
-    // threat the moment this returns; sending it to the motor pool first
-    // would march the QRF away from the base it is answering for
     netRadio(u, 'contact', `${sl.lin.toUpperCase()} — QRF ROLLING FROM ${st.label}`, u.x, u.y)
     return u
   }
-  const r = rallyPoint(st, mob)
-  netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label} — MOVING TO RALLY`, u.x, u.y)
-  orderMove(u.id, r.x, r.y)
+  netRadio(u, 'move', `${sl.lin.toUpperCase()} FIELDED AT ${st.label}`, u.x, u.y)
   return u
 }
 

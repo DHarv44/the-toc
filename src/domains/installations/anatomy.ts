@@ -81,24 +81,47 @@ export function kindExtents(kind: StructureTypeKey): readonly [number, number] {
       : kind === 'FOB' ? [320, 240] : [90, 65]
 }
 
+/** How far the wire actually reaches from the anchor along a bearing — the
+ *  fence is terrain-bounded (it stops at roads, water, built-up blocks), so
+ *  anything laid out inside the compound has to ask the POLYGON, not the
+ *  ellipse the polygon started from. */
+function wireReach(poly: Vec2[], x: number, y: number, ang: number): number {
+  const dx = Math.cos(ang), dy = Math.sin(ang)
+  let best = Infinity
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!, b = poly[(i + 1) % poly.length]!
+    const ex = b.x - a.x, ey = b.y - a.y
+    const den = dx * ey - dy * ex
+    if (Math.abs(den) < 1e-9) continue
+    const t = ((a.x - x) * ey - (a.y - y) * ex) / den   // along the ray
+    const s = ((a.x - x) * dy - (a.y - y) * dx) / den   // along the edge
+    if (t > 0 && s >= 0 && s <= 1) best = Math.min(best, t)
+  }
+  return best
+}
+
 /** Where each facility SITS. The default layout is spec-read, never
  *  name-read: the facility whose spec REPAIRS VEHICLES is the motor pool of
  *  this base, whatever the pack calls it, and it sits on the gate bearing so
  *  parked vics face the way out. Everything else rings the CP. Distances
- *  scale with the kind's wire so a big base spreads its anatomy instead of
- *  huddling it at the flagpole. */
+ *  scale with the kind's wire — and are CLAMPED INSIDE the actual fence,
+ *  which the terrain may have pulled well short of the ideal ellipse (a
+ *  fence that snapped to a road once left the motor pool parked on the
+ *  wrong side of it). */
 export function layoutFacilitiesAt(
   map: WorldMap, x: number, y: number, fac: readonly string[], gate: number,
   kind: StructureTypeKey,
 ): Record<string, Vec2> {
   const [hl] = kindExtents(kind)
+  const wire = footprintAt(map, x, y, kind, gate)
   const pts: Record<string, Vec2> = {}
   let ring = 0
   for (const k of fac) {
     const spec = FACILITIES[k]
     const park = !!spec?.effects.repair
     const ang = park ? gate : gate + [2.2, -2.2, Math.PI, 1.1, -1.1][ring++ % 5]!
-    const r = park ? hl * 0.55 : hl * 0.42
+    const ideal = park ? hl * 0.55 : hl * 0.42
+    const r = Math.min(ideal, wireReach(wire.poly, x, y, ang) * (park ? 0.62 : 0.7))
     const p = nearestLand(map, x + Math.cos(ang) * r, y + Math.sin(ang) * r)
     pts[k] = { x: p.x, y: p.y }
   }
@@ -121,7 +144,9 @@ export function facilityPoints(st: Structure): Record<string, { x: number; y: nu
 
 // The motor pool HARDSTAND: rows of parked vehicles beside the repair-effect
 // facility, inside the wire, faced out the gate. Null when the base runs no
-// such facility.
+// such facility. Rows fill front-to-back and grow TOWARD the CP without
+// bound — a big call-up extends the lot into the compound instead of
+// double-parking on slot thirteen.
 export function poolSlot(st: Structure, mob: Mobility, k: number): Vec2 | null {
   const m = S.map!
   const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
@@ -130,10 +155,38 @@ export function poolSlot(st: Structure, mob: Mobility, k: number): Vec2 | null {
   if (!fp) return null
   const g = gateward(st)
   const fx = Math.cos(g), fy = Math.sin(g)
-  const col = (k % 4) - 1.5, row = Math.floor(k / 4) % 3
-  const x = clampWorld(S.map, fp.x - fy * col * 20 + fx * (row * 24 - 24))
-  const y = clampWorld(S.map, fp.y + fx * col * 20 + fy * (row * 24 - 24))
+  const col = (k % 4) - 1.5, row = Math.floor(k / 4)
+  const x = clampWorld(S.map, fp.x - fy * col * 20 + fx * (24 - row * 24))
+  const y = clampWorld(S.map, fp.y + fx * col * 20 + fy * (24 - row * 24))
   return isFinite(m.moveFactor(x, y, mob)) ? { x, y } : null
+}
+
+/** The hardstand PAD under the motor pool — position and orientation for the
+ *  sheet to draw a parking apron, so the lot reads as a place even when it
+ *  stands empty. Null when the base runs no repair facility. */
+export function poolPad(st: Structure): { x: number; y: number; ang: number } | null {
+  const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
+  if (!key) return null
+  const fp = facilityPoints(st)[key]
+  return fp ? { x: fp.x, y: fp.y, ang: gateward(st) } : null
+}
+
+/** Where a vic stands on a base that runs NO motor pool: dispersed around the
+ *  compound, inside the wire — never staged on the spur or the road. Golden-
+ *  angle spread off the gate bearing so successive elements scatter instead
+ *  of stacking, deterministic in k so preview and H-hour agree. */
+export function scatterSlot(st: Structure, mob: Mobility, k: number): Vec2 {
+  const m = S.map!
+  const [hl, hw] = kindExtents(st.kind)
+  const g = gateward(st)
+  for (let j = 0; j < 6; j++) {
+    const ang = g + 2.399963 * (k + 1 + j * 7)
+    const rf = 0.3 + 0.35 * (((k + j) * 0.618) % 1)
+    const x = clampWorld(S.map, st.x + Math.cos(ang) * hl * rf)
+    const y = clampWorld(S.map, st.y + Math.sin(ang) * hw * rf)
+    if (isFinite(m.moveFactor(x, y, mob))) return { x, y }
+  }
+  return nearestLand(m, st.x, st.y, mob)
 }
 
 /** THE WIRE: the base's footprint polygon and its gate. Auto-proposed and

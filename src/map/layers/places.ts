@@ -7,7 +7,7 @@
 // Drawn under the symbology, over the ground.
 import { S } from '../../engine/state'
 import { STRUCTURES, FACILITIES } from '../../domains/installations/catalog'
-import { facilityPoints, footprintOf } from '../../domains/installations/anatomy'
+import { facilityPoints, footprintOf, poolPad } from '../../domains/installations/anatomy'
 import { markOf, patchOf } from '../../packs/orgquery'
 import { playerPack } from '../../packs'
 import { drawPlace, drawStructure, drawFacility } from '../symbols'
@@ -147,6 +147,36 @@ export function drawStructures(f: Frame): void {
         ctx.restore()
       }
       if (!s.facilities?.length) continue
+      // THE HARDSTAND: a parking apron with painted stalls under the motor
+      // pool, so the lot reads as a place even when it stands empty — and a
+      // parked row of vics reads as PARKED, not as a huddle in the dirt
+      const pad = poolPad(s)
+      if (pad) {
+        const fx = Math.cos(pad.ang), fy = Math.sin(pad.ang)
+        const ppm = f.view.ppm
+        const cx = f.w2sX(pad.x), cy = f.w2sY(pad.y)
+        // pad frame: ±44 m across the stalls, ±38 m along the gate axis
+        const ax = 38 * ppm, aw = 44 * ppm
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(Math.atan2(fy, fx))
+        ctx.fillStyle = f.night ? 'rgba(210,215,220,0.09)' : 'rgba(70,70,66,0.30)'
+        ctx.fillRect(-ax, -aw, ax * 2, aw * 2)
+        ctx.strokeStyle = f.night ? 'rgba(190,205,220,0.35)' : 'rgba(50,50,46,0.45)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(-ax, -aw, ax * 2, aw * 2)
+        // painted stall lines: five separators for the four columns, running
+        // down the gate axis (slots sit at ±10 m, ±30 m across)
+        ctx.beginPath()
+        for (let c = -2; c <= 2; c++) {
+          const off = c * 20 * ppm
+          ctx.moveTo(-ax * 0.85, off)
+          ctx.lineTo(ax * 0.85, off)
+        }
+        ctx.strokeStyle = f.night ? 'rgba(190,205,220,0.22)' : 'rgba(200,200,190,0.35)'
+        ctx.stroke()
+        ctx.restore()
+      }
       const pts = facilityPoints(s)
       for (const k of s.facilities) {
         const p = pts[k]
