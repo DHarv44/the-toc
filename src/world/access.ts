@@ -104,7 +104,7 @@ function lineCrossesWater(map: WorldMap, ps: Vec2[]): boolean {
 // nearest VERTEX of any existing road polyline within a few cells — the
 // junction rule: the graph joins edges only where vertices COINCIDE, so a
 // line that merely ends near a road is an island until it shares this vertex
-function nearestRoadVertex(map: WorldMap, p: Vec2): Vec2 | null {
+export function nearestRoadVertex(map: WorldMap, p: Vec2): Vec2 | null {
   let best: Vec2 | null = null
   let bd = (map.CELL * 3) * (map.CELL * 3)
   for (const r of map.roads) {
