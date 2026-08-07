@@ -106,9 +106,16 @@ export function directFireUpdate(dt: number): void {
       const fp = unitFirepower(u, et.soft)
       let dps = fp.dpsSoft * et.soft + fp.dpsHard * (1 - et.soft)
       dps *= COVER_DEF[TERR_NAME[S.map!.terr[S.map!.cellAt(tgt.x, tgt.y)]!]!]
-      dps *= postureFactor(tgt)
+      // fortifications protect what they FACE — direct fire carries the
+      // attacker's aspect, so a flanked position is a position half-lost
+      dps *= postureFactor(tgt, u)
       if (et.soft < 0.3 && at.soft >= 0.7 && concealment(S.map!, u.x, u.y) < 1 && tdist < 400) dps *= 2.2
       if (u.state === 'moving') dps *= 0.6
+      // SUPPRESSION (maneuver-beats-mass): a shooter that is itself under
+      // fire shoots with its head down. Symmetric — this is what makes
+      // support-by-fire a real tactic: the fixing element halves the
+      // defenders' output while the assault closes.
+      if (S.t - (u.underFireT ?? -999) < 5) dps *= 0.55
       // observed fire: a friendly UAV watching the target walks rounds onto it —
       // every friendly gun on that target hits ~30% harder. Drones are friendly
       // only, so this is a player edge for now (OPFOR UAS is future work).

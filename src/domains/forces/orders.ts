@@ -454,6 +454,16 @@ export function orderDefend(unitId: number, on: boolean): void {
     u.posture = 'dig'
     u.digT = 0
     u.dugRadioed = false
+    // the works face the THREAT: the nearest living enemy if one is on the
+    // map, else the way the element is already looking. Recorded once at
+    // dig time — a position is built against an axis, it does not rotate.
+    let foe: Unit | null = null, fd = 4000
+    for (const e of S.units) {
+      if (e.side === u.side || e.strength <= 0) continue
+      const d = Math.hypot(e.x - u.x, e.y - u.y)
+      if (d < fd) { fd = d; foe = e }
+    }
+    u.digFacing = foe ? Math.atan2(foe.y - u.y, foe.x - u.x) : u.heading
     u.path = []; u.legs = []; u.heldRoute = null; u.state = 'hold'
     netRadio(u, 'move', `ESTABLISHING DEFENSE — ${def.name}`, u.x, u.y)
   } else if (!on && u.posture === 'dig') {

@@ -31,12 +31,25 @@ export function effStats(u: Unit): UnitType {
   return u.mounted ? v.mtd : v.dis
 }
 
-// damage taken multiplier for a prepared defender
-export function postureFactor(t: Unit): number {
+// Damage taken multiplier for a prepared defender. FORTIFICATIONS FACE A
+// THREAT (maneuver-beats-mass): positions are dug against the axis recorded
+// at dig time (u.digFacing), and the works only protect what they face —
+// full benefit inside the frontal arc, half from a flank, none from the
+// rear. Callers with no aspect (indirect fire, blast — the rounds come from
+// above) get the full benefit, which is what overhead cover is for.
+export function postureFactor(t: Unit, from?: Vec2): number {
   if (t.posture !== 'dig' || !t.digT) return 1
   const def = UNIT_TYPES[t.type].def
   if (!def) return 1
-  return 1 - (1 - def.factor) * t.digT
+  let aspect = 1
+  if (from && t.digFacing != null) {
+    let d = Math.atan2(from.y - t.y, from.x - t.x) - t.digFacing
+    while (d > Math.PI) d -= Math.PI * 2
+    while (d < -Math.PI) d += Math.PI * 2
+    const a = Math.abs(d)
+    aspect = a <= Math.PI / 3 ? 1 : a <= (2 * Math.PI) / 3 ? 0.5 : 0
+  }
+  return 1 - (1 - def.factor) * t.digT * aspect
 }
 
 // --- movement formations ---------------------------------------------------

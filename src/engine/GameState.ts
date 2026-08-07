@@ -625,6 +625,11 @@ export interface Unit {
    *  fights off its own drills when contact comes. Any manual order releases
    *  the duty. See domains/forces/escort. */
   escortId?: number | null
+  /** which way the fortifications FACE — the threat axis recorded when the
+   *  element dug in. The works protect their frontal arc fully, a flank by
+   *  half, the rear not at all (elements.postureFactor) — flanking a
+   *  prepared position is how maneuver beats mass. */
+  digFacing?: number
   /** ROADWORKS in progress (roadworks-spec platforms only): the element
    *  crawls `pts` at build speed, laying real road behind it — `s` metres
    *  built, `v` = next plan vertex to lay, `ri` = its S.engRoads polyline.
@@ -652,6 +657,9 @@ export interface Tasking {
   detached: number[]
   /** a GREEN named route's exit, adopted for the approach (call 7) */
   via?: { x: number; y: number } | null
+  /** members detached on a flanking hook (the SEIZE commander's FLANK
+   *  action) — spent when they arrive or die */
+  flankIds?: number[]
   /** true on a DEFEND auto-chained from a completed SEIZE (call 4) */
   chained?: boolean
   phaseT: number

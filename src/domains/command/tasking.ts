@@ -166,6 +166,46 @@ function pickTeamTarget(guns: Unit[], tk: Tasking): (Vec2 & { n: number }) | nul
 
 const TK_ACTIONS: UtilityAction<TkCtx>[] = [
   {
+    // FIX AND FLANK — the OPFOR commander's own scheme, pointed our way:
+    // against a defended objective, the fastest slice of the team hooks wide
+    // onto the position's FLANK while the rest press the axis. Fortifications
+    // face a threat now (elements.postureFactor), so the hook is not
+    // theater — the works protect half as much from the side and nothing
+    // from behind. Two orderMove legs a player could have clicked.
+    id: 'FLANK',
+    available: c => c.tk.task === 'SEIZE' && c.tk.state === 'actions'
+      && !(c.tk.flankIds ?? []).length && c.mem.length >= 3
+      && knownHostilesNear(c.tk.obj, c.tk.obj.r + KNOWN_R + FIGHT_R).length >= 1
+      && (() => {
+        const d = Math.hypot(c.cen.x - c.tk.obj.x, c.cen.y - c.tk.obj.y)
+        return d > 500 && d < 3200
+      })(),
+    considerations: [
+      { name: 'defenders', w: 1, eval: c => knownHostilesNear(c.tk.obj, c.tk.obj.r + KNOWN_R + FIGHT_R).length / 2 },
+      { name: 'strength', w: 0.5, eval: c => clamp01(c.mem.reduce((s, u) => s + u.strength, 0) / c.tk.initStr / 0.7) },
+    ],
+    execute: c => {
+      const obj = c.tk.obj
+      const sorted = [...c.mem].sort((a, b) => UNIT_TYPES[b.type].speed - UNIT_TYPES[a.type].speed)
+      const nFlank = Math.max(1, Math.min(2, Math.floor(c.mem.length * 0.4)))
+      const flankers = sorted.slice(0, nFlank)
+      const side = S.rng!() < 0.5 ? 1 : -1
+      const ax = obj.x - c.cen.x, ay = obj.y - c.cen.y
+      const L = Math.hypot(ax, ay) || 1
+      const px = (-ay / L) * side, py = (ax / L) * side
+      const mx = c.cen.x + ax * 0.55 + px * 1200, my = c.cen.y + ay * 0.55 + py * 1200
+      withTaskingIssue(() => {
+        for (const u of flankers) {
+          orderMove(u.id, mx, my, false, false, null)
+          orderMove(u.id, obj.x + px * 250, obj.y + py * 250, true, true, null)
+        }
+      })
+      c.tk.flankIds = flankers.map(u => u.id)
+      const team = teamOfTasking(c.tk)
+      if (team) radio(team.name, 'move', `${flankers.length} ELEMENT${flankers.length > 1 ? 'S' : ''} HOOKING ONTO THE FLANK`, obj.x, obj.y)
+    },
+  },
+  {
     // the team's OWN tubes prep the objective — utility-gated (call 2), with
     // the same danger-close bar and a rolled refire window so friendly prep
     // has no countable rhythm either
@@ -253,9 +293,25 @@ export function taskingUpdate(_dt: number): void {
     } else {
       // actions on: SEIZE clears what it knows about, then consolidates
       if (tk.task === 'SEIZE') {
+        // a spent hook frees the commander to scheme again (mirrors the
+        // OPFOR): flankers dead or arrived → the ids clear, and the next
+        // formation attack pulls them in from wherever they now stand
+        if (tk.flankIds?.length) {
+          const flk = tk.flankIds
+            .map(id => mem.find(u => u.id === id))
+            .filter((u): u is Unit => !!u)
+          if (!flk.length || flk.every(u => !u.path.length)) tk.flankIds = []
+        }
         const defenders = knownHostilesNear(tk.obj, tk.obj.r + KNOWN_R + FIGHT_R)
+        const hooking = (tk.flankIds ?? []).some(id => {
+          const f = mem.find(u => u.id === id)
+          return f && f.path.length > 0
+        })
         if (!defenders.length) {
           finish(tk, team, mem)
+        } else if (hooking) {
+          // the base of fire holds the axis while the hook swings — do not
+          // re-column the team mid-maneuver
         } else if (!mem.some(u => u.attackId != null)) {
           // current target died (the drill holds the team) — next one
           const tgt = defenders.sort((a, b) =>
