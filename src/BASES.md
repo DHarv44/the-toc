@@ -39,16 +39,20 @@ of facilities. They should have a SHAPE and an ANATOMY.
 
 ### The footprint polygon
 
-> **SHIPPED (step 2 v1, 2026-08-06):** auto-proposed ORGANIC footprint that
-> READS THE GROUND — each perimeter ray marches the map and stops at water,
-> built-up blocks and real roads (the fence snaps to the road it sits
-> beside; the base's own spur doesn't bound it), steep rays pull in
-> relative to flat ones, small per-base deterministic wobble, Chaikin
-> curves. Gate = the perimeter point on the gate bearing. Derived lazily
-> (installations/anatomy.ts), cached on the structure, riding the save;
-> drawn as graded-earth shading (urban-block language) with gate posts at
-> anatomy zoom. Still open from the sketch: snapping to a full CLOSED RING
-> of roads (city-block compounds), and polygon-aware effect radii.
+> **SHIPPED (step 2 v1, 2026-08-06):** auto-proposed footprint that READS
+> THE GROUND and is built LIKE A WALL — 12 corner posts marched out across
+> the actual map (each ray stops at water, built-up blocks and real roads;
+> the fence snaps to the road it sits beside; the base's own spur doesn't
+> bound it; steep rays pull in relative to flat ones; small deterministic
+> wobble seeded on QUANTIZED POSITION so builder preview and H-hour derive
+> the identical shape), joined by STRAIGHT runs with near-collinear posts
+> merged — organic corners, geometric fence. Gate = the perimeter point on
+> the gate bearing. Derived lazily (installations/anatomy.ts pure *At cores
+> + cached Structure wrappers), riding the save; drawn as graded-earth
+> shading (urban-block language) with gate posts at anatomy zoom, in-game
+> AND as a live scenario-builder preview (wires prop, same functions).
+> Still open from the sketch: snapping to a full CLOSED RING of roads
+> (city-block compounds), and polygon-aware effect radii.
 
 A base becomes `{ anchor, polygon: Vec2[], gate: Vec2 }` instead of a point
 with a radius.

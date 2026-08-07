@@ -9,7 +9,7 @@ import { clampWorld, nearestLand } from '../../world/place'
 import { connectStructureToRoads, structureSpur } from '../../world/access'
 import { roadSpot } from '../../world/pack/roadGraph'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
-import { alongRoad, poolSlot } from './anatomy'
+import { alongRoad, organicFacilities, poolSlot } from './anatomy'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { commandsStructure } from '../forces/command'
@@ -39,8 +39,9 @@ export function addStructure(
     income: spec.income, launchesDrones: !!spec.launchesDrones,
     stock: spec.stock0 || 0,
     // an HQ has the full facility set organically — motorpool, aid station,
-    // the works; FOBs start bare and BUY their build-outs
-    facilities: side === 'friend' && kind === 'HQ' ? ['MOTORPOOL', 'AID'] : [],
+    // the works; FOBs start bare and BUY their build-outs (one rule, shared
+    // with the builder preview: anatomy.organicFacilities)
+    facilities: organicFacilities(side, kind),
   }
   S.structures.push(s)
   // A BASE OFF THE NETWORK GETS A DIRT ACCESS TRACK to the nearest road —

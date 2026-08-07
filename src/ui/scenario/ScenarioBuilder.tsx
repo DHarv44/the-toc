@@ -39,6 +39,9 @@ import {
 } from '../../scenario/io'
 import { referencedPlaces, renamePlaceRefs, isBuiltinPlace } from '../../scenario/content'
 import { planAccessTrack } from '../../world/access'
+import {
+  footprintAt, gatewardAt, layoutFacilitiesAt, organicFacilities,
+} from '../../domains/installations/anatomy'
 import { MapButton, MapControlStack } from '../MapControls'
 import { DATA_FONT, field, INK, TextBtn, UI_FONT } from './panel'
 import SheetCanvas, { type SheetHandle } from './SheetCanvas'
@@ -143,6 +146,24 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
       .filter((t): t is { id: number; pts: { x: number; y: number }[] } => t.pts != null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, fobKey])
+
+  // Base anatomy preview: THE SAME derivation the game runs at H-hour
+  // (installations/anatomy — footprint seeded on quantized position, gate on
+  // the planned track's bearing), so what the author sees IS what gets built.
+  const wires = useMemo(() => {
+    if (!world) return []
+    return entities.flatMap(e => {
+      if (e.ent !== 'structure' || e.side !== 'friend' || e.kind === 'OP') return []
+      const plan = tracks.find(t => t.id === e.id)?.pts ?? null
+      const gate = gatewardAt(world.map, e.x, e.y, plan)
+      const fp = footprintAt(world.map, e.x, e.y, e.kind, gate)
+      return [{
+        id: e.id, poly: fp.poly, gate: fp.gate, anchor: { x: e.x, y: e.y },
+        facs: layoutFacilitiesAt(
+          world.map, e.x, e.y, organicFacilities(e.side, e.kind), gate),
+      }]
+    })
+  }, [world, entities, tracks])
 
   // TASK ORG on the sheet: what the formation being placed already has, and
   // where the author has over-committed a formation beyond its real strength
@@ -660,7 +681,7 @@ export default function ScenarioBuilder({ onExit, onPlay }: {
             <>
               <SheetCanvas ref={sheetRef}
                 map={world.map} ground={world.ground}
-                entities={entities} tracks={tracks} ghosts={ghosts}
+                entities={entities} tracks={tracks} wires={wires} ghosts={ghosts}
                 sel={selIds(ed.sel)}
                 carry={carry ? { label: carryLabel(carry) } : null}
                 night={night} sat={sat} playerFormation={player}

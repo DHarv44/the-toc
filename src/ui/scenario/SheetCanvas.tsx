@@ -29,7 +29,8 @@ import { packLayerFor, TERRAIN_PX } from '../../map/packRender'
 import { terrainOrtho } from '../../map/terrainOrtho'
 import { frameOf } from '../../world/pack/frame'
 import { frameImagery } from '../../world/pack/imagery'
-import { drawUnitSymbol, drawStructure, drawPlace } from '../../map/symbols'
+import { drawUnitSymbol, drawStructure, drawPlace, drawFacility } from '../../map/symbols'
+import { FACILITIES } from '../../domains/installations/catalog'
 import { PACKS, playerPack } from '../../packs'
 import { markOf, patchOf } from '../../packs/orgquery'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
@@ -49,6 +50,15 @@ export interface SheetProps {
   /** planned FOB access tracks (world/access planAccessTrack) — the exact
    *  dirt road the game will lay at H-hour, previewed */
   tracks: { id: number; pts: { x: number; y: number }[] }[]
+  /** base anatomy preview (installations/anatomy) — the same footprint, gate
+   *  and facility layout the game derives at H-hour */
+  wires: {
+    id: number
+    poly: { x: number; y: number }[]
+    gate: { x: number; y: number }
+    anchor: { x: number; y: number }
+    facs: Record<string, { x: number; y: number }>
+  }[]
   /** every selected entity */
   sel: number[]
   /** the shared map-control toggles — same semantics as the game's BFT */
@@ -359,7 +369,7 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
       ctx.lineWidth = 2
       ctx.strokeRect(w2sX(0), w2sY(0), map.WORLD * view.ppm, map.WORLD * view.ppm)
 
-      const { entities, sel, tracks } = propsRef.current
+      const { entities, sel, tracks, wires } = propsRef.current
       // FOB access tracks first — under the symbols, styled like the sheet's
       // own dirt tracks so the preview reads as the road it will become
       ctx.lineCap = 'round'
@@ -374,6 +384,44 @@ const SheetCanvas = forwardRef<SheetHandle, SheetProps>(function SheetCanvas(p, 
         for (let i = 1; i < t.pts.length; i++) ctx.lineTo(w2sX(t.pts[i]!.x), w2sY(t.pts[i]!.y))
         ctx.stroke()
         ctx.setLineDash([])
+      }
+      // BASE ANATOMY under the symbols too — the same footprint, gate and
+      // facility layout the game derives at H-hour, in the game's own
+      // graded-earth language, at the same legibility gate as the BFT
+      if (70 * view.ppm >= 24) {
+        const nightSheet = propsRef.current.night
+        for (const w of wires) {
+          ctx.beginPath()
+          w.poly.forEach((p, i) => {
+            const sx = w2sX(p.x), sy = w2sY(p.y)
+            if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+          })
+          ctx.closePath()
+          ctx.fillStyle = nightSheet ? 'rgba(200,205,210,0.10)' : 'rgba(88,86,80,0.28)'
+          ctx.fill()
+          ctx.strokeStyle = nightSheet ? 'rgba(180,200,220,0.4)' : 'rgba(62,60,54,0.5)'
+          ctx.lineWidth = 1.3
+          ctx.stroke()
+          // gate posts astride the opening
+          const gx = w2sX(w.gate.x), gy = w2sY(w.gate.y)
+          const ang = Math.atan2(w.gate.y - w.anchor.y, w.gate.x - w.anchor.x) + Math.PI / 2
+          const px = Math.cos(ang) * 5, py = Math.sin(ang) * 5
+          ctx.strokeStyle = nightSheet ? 'rgba(180,225,255,0.95)' : 'rgba(25,50,80,0.9)'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(gx + px - py * 0.6, gy + py + px * 0.6)
+          ctx.lineTo(gx + px + py * 0.6, gy + py - px * 0.6)
+          ctx.moveTo(gx - px - py * 0.6, gy - py + px * 0.6)
+          ctx.lineTo(gx - px + py * 0.6, gy - py - px * 0.6)
+          ctx.stroke()
+          for (const [k, p] of Object.entries(w.facs)) {
+            const spec = FACILITIES[k]
+            if (!spec) continue
+            drawFacility(ctx, w2sX(p.x), w2sY(p.y), {
+              name: spec.name, effects: spec.effects, label: 70 * view.ppm >= 48,
+            })
+          }
+        }
       }
       // GHOSTS UNDER THE SITUATION. Everything here happens LATER — an
       // objective's area, the troops a trigger will spawn, where the OPFOR
