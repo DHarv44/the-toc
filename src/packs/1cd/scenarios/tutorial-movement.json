@@ -1,0 +1,107 @@
+{
+  "type": "campaign",
+  "name": "MOVEMENT SCHOOL",
+  "map": "1cd/baghdad",
+  "sides": {
+    "friend": "1cd",
+    "hostile": "opfor"
+  },
+  "player": "2-8 CAV",
+  "operation": "MOVEMENT SCHOOL",
+  "situation": {
+    "structures": [
+      {
+        "side": "friend",
+        "kind": "HQ",
+        "label": "CP RANGE",
+        "x": 0.2355,
+        "y": 0.5299
+      }
+    ],
+    "units": [],
+    "places": [
+      { "name": "OBJ RALLY", "r": 300, "x": 0.285, "y": 0.52 }
+    ]
+  },
+  "missions": [
+    {
+      "id": "movement-school",
+      "name": "MOVEMENT SCHOOL",
+      "brief": "TASK FORCE, THIS IS HIGHER. MOVEMENT SCHOOL — no enemy on this range. Six short drills: field a recon platoon and a rifle platoon, team them, march them to OBJ RALLY, bring them home, and stand up the QRF. The training cards on your screen walk you through each one. ACKNOWLEDGE and begin.",
+      "tutorial": {
+        "steps": [
+          {
+            "id": "command",
+            "hints": [
+              { "text": "Commander {commander} — welcome to Movement School. Your battalion is run from the COMMAND console.",
+                "action": "OPEN COMMAND — LEFT RAIL.",
+                "anchor": { "kind": "ui", "sel": "rail-forces" } }
+            ],
+            "done": { "kind": "rail-open", "rail": "command" }
+          },
+          {
+            "id": "garrison",
+            "hints": [
+              { "text": "The force sits in garrison until you call it up.",
+                "action": "OPEN THE GARRISON TAB." }
+            ],
+            "done": { "kind": "callup-open" }
+          },
+          {
+            "id": "recon",
+            "hints": [
+              { "text": "Recon leads — scouts find the enemy so the main body doesn't.",
+                "action": "RECON → A TROOP → CALL UP A PLATOON.",
+                "anchor": { "kind": "ui", "sel": "callup-cat-RECON" } }
+            ],
+            "done": { "kind": "fielded", "type": "CAV", "min": 1 }
+          },
+          {
+            "id": "infantry",
+            "hints": [
+              { "text": "Rifles follow the eyes.",
+                "action": "INFANTRY → CALL UP A RIFLE PLATOON.",
+                "anchor": { "kind": "ui", "sel": "callup-cat-INFANTRY" } }
+            ],
+            "done": { "kind": "fielded", "min": 2 }
+          },
+          {
+            "id": "team",
+            "hints": [
+              { "text": "Platoons fight as a team — one callsign on the net, one order from you.",
+                "action": "BOX-SELECT BOTH ON THE MAP — PRESS G." }
+            ],
+            "done": { "kind": "team-formed", "min": 2 }
+          },
+          {
+            "id": "move",
+            "hints": [
+              { "text": "RIGHT-CLICK moves the team — it forms a column and takes the best route. SHIFT-RIGHT-CLICK queues waypoints. H halts in place.",
+                "action": "MOVE THE TEAM TO OBJ RALLY.",
+                "anchor": { "kind": "point", "place": "OBJ RALLY" } }
+            ],
+            "done": { "kind": "column-routed", "types": ["CAV"], "place": "OBJ RALLY", "r": 400 }
+          },
+          {
+            "id": "rtb",
+            "hints": [
+              { "text": "March complete. Send them home — they refit, rearm, and absorb replacements in garrison.",
+                "action": "SELECT THE TEAM — PRESS Y (RTB).",
+                "anchor": { "kind": "ui", "sel": "rtb" } }
+            ],
+            "done": { "kind": "not", "of": { "kind": "fielded", "min": 1 } }
+          },
+          {
+            "id": "qrf",
+            "hints": [
+              { "text": "Last drill: every base stands a quick reaction force — kitted at the wire, launches on contact without an order. Good work, Commander.",
+                "action": "CP RANGE → QRF → STAND UP THE RIFLE PLATOON.",
+                "anchor": { "kind": "struct", "struct": "HQ" } }
+            ],
+            "done": { "kind": "qrf-standing", "min": 2 }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -83,6 +83,9 @@ export default function ScriptInspector({
                     onPatchMission({
                       brief: v.brief, frago: v.frago,
                       objectives: v.objectives ?? [], triggers: v.triggers ?? [],
+                      // tutorial rides the raw editor too — spinning up a
+                      // training scenario IS editing this section
+                      tutorial: v.tutorial,
                     })
                     setRawErr(null); setRaw(null)
                   } catch (e) { setRawErr(String((e as Error).message ?? e)) }
@@ -104,6 +107,7 @@ export default function ScriptInspector({
           right={<TextBtn title="Edit the whole script as JSON" onClick={() => {
             setRaw(JSON.stringify({
               brief: mission.brief, frago: mission.frago, objectives, triggers,
+              ...(mission.tutorial ? { tutorial: mission.tutorial } : {}),
             }, null, 2))
             setRawErr(null)
           }}>JSON</TextBtn>} />

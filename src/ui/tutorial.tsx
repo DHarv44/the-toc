@@ -350,6 +350,11 @@ function evalCond(cond: TutCondition, ui: UIState): boolean {
       return S.structures.some(st => st.side === 'friend' && st.kind === cond.struct)
     case 'convoy-running':
       return S.units.some(u => u.side === 'friend' && !!u.convoy)
+    case 'team-formed':
+      // a REAL team, not a box-selection — the G lesson grades the press
+      return S.teams.some(t => t.members.length >= (cond.min ?? 2))
+    case 'qrf-standing':
+      return (S.org?.slots.filter(sl => sl.qrf).length ?? 0) >= (cond.min ?? 1)
     case 'not':
       return !evalCond(cond.of, ui)
     case 'all':
@@ -420,6 +425,11 @@ function dwellExpired(key: string, secs: number): boolean {
 // key shape as the dwell clock, cleared with it on a new campaign.
 const _nextDone = new Set<string>()
 
+// curriculum text may address the player: {commander} resolves to the name
+// they gave the splash — the tutorial talks TO its commander, not at a screen
+const sub = (s: string): string =>
+  s.replaceAll('{commander}', S.campaign?.commander ?? 'COMMANDER')
+
 function hintFor(step: TutStep, ui: UIState): TutorialHint {
   for (let i = 0; i < step.hints.length; i++) {
     const v = step.hints[i]!
@@ -428,7 +438,7 @@ function hintFor(step: TutStep, ui: UIState): TutorialHint {
     if (v.dwell && dwellExpired(key, v.dwell)) continue
     if (v.next && _nextDone.has(key)) continue
     if (v.hide) return { text: '', hidden: true }
-    const h = applyAnchor({ text: v.text ?? '', action: v.action }, v.anchor)
+    const h = applyAnchor({ text: sub(v.text ?? ''), action: v.action ? sub(v.action) : undefined }, v.anchor)
     if (v.next) h.nextKey = key
     return h
   }
@@ -549,7 +559,9 @@ export default function TutorialOverlay() {
   }, [])
 
   if (!c || !c.tutorial || c.complete) return null
-  if (ui.console) return null // a staff console owns the column; cues point at the map
+  // NO console gate: curricula teach console flows (the garrison drill, the
+  // QRF stand-up), so the cards ride over an open console — a ui-anchored ring
+  // lands on the control it names, and an unanchored card sits bottom-centre.
   // The OPENING VTC is the curriculum's first classroom — the overlay rides over
   // it (z 108/109 clears the call's 105). Every LATER order window owns the
   // screen alone: by then the player knows what a call is.
@@ -561,9 +573,10 @@ export default function TutorialOverlay() {
   const hint = tip ?? hintFor(_steps[c.tutStep]!, ui)
   if (hint.hidden) return null // no cue this frame (e.g. platoon is en route)
 
-  // Map-anchored instruction → bring the player's eyes THERE first: center
-  // (and zoom in if the view is wide) on the target, once per step/cue — the
-  // player can still pan freely afterwards.
+  // Map-anchored instruction → the card offers CENTER ON MAP instead of
+  // stealing the camera. The old auto-center yanked the view to the anchor the
+  // instant a step popped — mid-drag, mid-selection, 8 km from the platoons
+  // the player was working — so pointing the eyes is now the PLAYER's click.
   const mapTarget = hint.targetPoint
     ?? (hint.targetUnit != null ? (() => { const u = S.units.find(x => x.id === hint.targetUnit); return u ? { x: u.x, y: u.y } : undefined })() : undefined)
     ?? (hint.targetBox ? { x: (hint.targetBox.x0 + hint.targetBox.x1) / 2, y: (hint.targetBox.y0 + hint.targetBox.y1) / 2 } : undefined)
@@ -571,14 +584,15 @@ export default function TutorialOverlay() {
   if (centerKey !== _centeredKey) {
     _centeredKey = centerKey
     tutorialCue() // a new instruction popped — soft chime (master mute respects it)
-    // a BOX frames a group: fit its whole span (with air around it) so every
-    // unit the cue is talking about is on screen. A point/unit gets the
-    // generic close-up. Either way `minZoom` only zooms IN — never back out.
+  }
+  // a BOX frames a group: fit its whole span; a point/unit gets the generic
+  // close-up. `minZoom` only zooms IN — never back out.
+  const centerOnMap = mapTarget ? () => {
     const span = hint.targetBox
       ? Math.max(1800, Math.max(hint.targetBox.x1 - hint.targetBox.x0, hint.targetBox.y1 - hint.targetBox.y0) * 1.9)
       : 4200
-    if (mapTarget) centerView(mapTarget, { minZoom: zoomFor(span) })
-  }
+    centerView(mapTarget, { minZoom: zoomFor(span) })
+  } : null
 
   // resolve the ring target: a DOM element, a map unit/point, or nothing.
   // `lift` bottom-anchors the callout (translateY(-100%)) so a box pointing
@@ -704,6 +718,14 @@ export default function TutorialOverlay() {
   const isMapCircle = hint.targetUnit != null || hint.targetPoint != null
 
   const skip = () => { if (S.campaign) { S.campaign.tutorial = false; if (S.speed === 0) S.speed = 1 } }
+  // skip ONE step: advance past the current lesson; the tick effect re-pauses
+  // if the next step gates. The reactive casualty warning is not a step.
+  const skipStep = () => {
+    if (!S.campaign) return
+    S.campaign.tutStep++
+    if (S.speed === 0) S.speed = 1
+    useUI.setState(s => ({ tick: s.tick + 1 }))
+  }
   const bottom = callout.left < 0
 
   return (
@@ -802,12 +824,28 @@ export default function TutorialOverlay() {
               fontSize: 12.5, fontWeight: 'bold', letterSpacing: 0.6, color: RING_A,
             }}>▶ {hint.action}</div>
           )}
+          {/* CENTER ON MAP: the card names ground; pointing the camera at it is
+              the player's click, never the tutorial's (no more mid-drag yanks) */}
+          {centerOnMap && (
+            <button onClick={centerOnMap}
+              style={{ marginTop: 8, background: 'rgba(126,200,255,0.1)',
+                border: `1px solid ${ACCENT}66`, borderRadius: 3, cursor: 'pointer',
+                color: ACCENT, fontFamily: 'inherit', fontSize: 10, fontWeight: 'bold',
+                letterSpacing: 1.2, padding: '3px 10px' }}>⌖ CENTER ON MAP</button>
+          )}
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={skip}
               onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0 }}>SKIP TUTORIAL</button>
+            {!tip && (
+              <button onClick={skipStep}
+                onMouseEnter={e => { e.currentTarget.style.color = '#9ab8d0' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#4a6478' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#4a6478', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1.5, padding: 0 }}>SKIP STEP ▸</button>
+            )}
             {/* a read-and-continue beat: nothing to DO but understand it, so the
                 player says when they are done reading. Bumping the UI tick makes
                 the chain fall through this frame instead of on the next pump. */}

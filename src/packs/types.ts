@@ -615,6 +615,8 @@ export type TutCondition =
   | { kind: 'dug-in'; place: PlaceRef; r: number; exclude?: UnitTypeKey[] }
   | { kind: 'structure-built'; struct: StructureTypeKey }
   | { kind: 'convoy-running' }
+  | { kind: 'team-formed'; min?: number }            // a TEAM exists with >= min members (default 2)
+  | { kind: 'qrf-standing'; min?: number }           // >= min garrison slots standing QRF (default 1)
   | { kind: 'not'; of: TutCondition }
   | { kind: 'all'; of: TutCondition[] }
 
