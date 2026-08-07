@@ -36,10 +36,9 @@ import {
   CommandCard, Pick, Seg, btnGhost, one, optBtn, trayShell,
   type CmdSlot,
 } from './tray/controls'
-import TaskOrgSeg from './tray/TaskOrgSeg'
 import FormSelect from './tray/FormSelect'
 import ContextMenu from './menus/ContextMenu'
-import { elementActions } from './forces/actions'
+import { elementActions, runTaskOrganize, taskOrgLabel } from './forces/actions'
 import { protectionInfo, winView } from './mapUtil'
 
 
@@ -348,6 +347,20 @@ export function SelectionTray() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#54708a', fontSize: FZ.label, letterSpacing: 1 }}>{count} SELECTED</span>
         <div style={{ flex: 1, height: 1, background: '#1e2c3a' }} />
+        {/* TASK ORGANIZATION IS AN ACT ON THE SELECTION, NOT AN ORDER TO THE
+            FORCE — it changes what is on the net, not what happens on the
+            ground. So it lives up here with ROSTER and CLEAR, the other
+            selection-as-a-set controls, and not among the card's battlefield
+            verbs. The label is what G would do (FORM TEAM / JOIN BRAVO), so
+            the button names its consequence and teaches its hotkey. */}
+        {(() => {
+          const lbl = taskOrgLabel(units)
+          return lbl && (
+            <button data-tut={TUT.formTeam} style={{ ...optBtn(false), color: '#7ec8ff' }}
+              title="Task organize the selection into one callsign — hotkey G. Right-click an element for the explicit menu."
+              onClick={() => runTaskOrganize(units.map(u => u.id))}>⚑ {lbl} (G)</button>
+          )
+        })()}
         <button style={{ ...optBtn(roster), color: '#7c92a6' }}
           title={roster ? 'Hide the roster' : 'Show the elements'}
           onClick={() => setRoster(r => !r)}>{roster ? '▾' : '▸'} ROSTER</button>
@@ -444,13 +457,15 @@ export function SelectionTray() {
           labelled not. A row of height is the cheaper of the two. */}
       {units.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-          {/* THE TASK ORG ZONE IS GONE. FORM / JOIN / DETACH and the door to a
-              team lived here because the dock was once the only surface that
-              knew about teams. Forming is `G` or the right-click menu, which is
-              where the elements you mean are; everything else about a team is
-              its station. A dock that grows a column of buttons whenever the
-              selection happens to be organised is the dock re-labelling itself,
-              which is the thing the fixed card exists to prevent. */}
+          {/* THE TASK ORG ZONE IS STILL GONE from this row. FORM / JOIN /
+              DETACH lived here as a column of buttons that came and went with
+              the selection — the dock re-labelling itself, which the fixed
+              card exists to prevent. Forming now has exactly three mouths:
+              the G key, the FORM TEAM button in the selection header (an act
+              on the selection belongs with ROSTER and CLEAR, not among the
+              battlefield verbs), and the right-click menu for the ambiguous
+              merges the fast path refuses. Everything else about a team is
+              its station. */}
 
           {/* ZONE 1 — THE COMMAND CARD. Fixed grid, printed hotkeys. */}
           <CommandCard slots={cardSlots} />

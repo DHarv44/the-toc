@@ -37,7 +37,8 @@ import {
 } from '../domains/control/routes'
 import { orderBuildRoad } from '../domains/forces/roadworks'
 import { toast } from '../domains/comms/radio'
-import { leaveTeam, taskOrganize, teamById, teamOf } from '../domains/forces/teams'
+import { leaveTeam, teamOf } from '../domains/forces/teams'
+import { runTaskOrganize } from '../ui/forces/actions'
 import { useUI } from '../ui/store'
 import { clampView as clamp2d, xform, type View } from './camera'
 import { makeFrame } from './frame'
@@ -409,9 +410,13 @@ export default function MapView() {
         // right-click ON a friendly unit opens its context menu (per-unit orders),
         // as it did before — the unit is a thing you interact with, not an order
         // target. Ground / hostiles below are the move / attack targets.
+        //
+        // A unit already IN the selection keeps the selection: the menu's task-org
+        // rows act on it (form, attach-with-counts), and collapsing to one unit
+        // here was silently making every one of those rows unreachable.
         const fu = pickUnit(wx, wy)
         if (fu) {
-          ui.setSelected([fu.id])
+          if (!ui.selectedIds.includes(fu.id)) ui.setSelected([fu.id])
           ui.openMenu({ x: mX(e), y: mY(e), unitId: fu.id })
           return
         }
@@ -696,13 +701,7 @@ export default function MapView() {
           toast(`${held.length} DETACHED`)
           return
         }
-        const r = taskOrganize(sel.map(u => u.id))
-        if (r.kind === 'formed') toast(`${r.team!.name} TASK ORGANIZED`)
-        else if (r.kind === 'joined') toast(`${r.n} ATTACHED TO ${r.team!.name}`)
-        else if (r.kind === 'ambiguous') {
-          const names = (r.teams ?? []).map(id => teamById(id)?.name ?? '?').join(' AND ')
-          toast(`SELECTION SPANS ${names} — RIGHT-CLICK TO CHOOSE`)
-        } else toast('ALREADY ONE TEAM — ADD WHAT IS JOINING IT, OR SHIFT+G TO DETACH')
+        runTaskOrganize(sel.map(u => u.id))
       }
     }
     function onKeyUp(e: KeyboardEvent) { heldKeys.delete(e.key.toLowerCase()) }

@@ -98,8 +98,8 @@
                 "action": "DRAG A BOX AROUND BOTH PLATOONS (OR CTRL-CLICK EACH).",
                 "anchor": { "kind": "force-box" } },
               { "text": "Both platoons under the cursor.",
-                "action": "PRESS G (OR RIGHT-CLICK ONE → FORM NEW TEAM).",
-                "anchor": { "kind": "force-box", "pad": 60 } }
+                "action": "PRESS G — OR CLICK FORM TEAM.",
+                "anchor": { "kind": "ui", "sel": "form-team" } }
             ],
             "done": { "kind": "team-formed", "min": 2 }
           },

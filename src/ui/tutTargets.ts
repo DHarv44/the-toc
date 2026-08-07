@@ -35,6 +35,8 @@ export const TUT = {
   consoleClose: 'console-close',
   // the structure tray (bottom bar): a base's QRF picker chip
   qrfTab: 'qrf-tab',
+  // the selection dock's header — FORM TEAM / JOIN, the visible face of G
+  formTeam: 'form-team',
   // the selection tray's order verbs
   uasRaven: 'uas-raven',
   buildFob: 'build-fob',
@@ -84,6 +86,7 @@ export const TUT_TARGETS: { id: TutTargetId; where: string; what: string }[] = [
   { id: TUT.garrisonTab, where: 'Command console', what: 'The GARRISON tab alone' },
   { id: TUT.consoleClose, where: 'Console shell', what: 'The ✕ that closes the open console' },
   { id: TUT.qrfTab, where: 'Structure tray', what: 'A base\'s QRF picker chip' },
+  { id: TUT.formTeam, where: 'Selection dock header', what: 'FORM TEAM / JOIN — task organize the selection' },
   { id: TUT.uasRaven, where: 'Selection tray', what: '⊕ RAVEN — launch the hand UAV' },
   { id: TUT.buildFob, where: 'Selection tray', what: 'BUILD FOB' },
   { id: TUT.rtb, where: 'Selection tray', what: 'RTB — return to base' },

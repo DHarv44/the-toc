@@ -17,6 +17,9 @@ import type { Unit } from '../../engine/GameState'
 import { UNIT_TYPES } from '../../domains/forces/catalog'
 import { DRONE_TYPES } from '../../domains/air/catalog'
 import { orderHold, orderMount, orderDefend } from '../../domains/forces/orders'
+import { taskOrganize, teamById, teamOf } from '../../domains/forces/teams'
+import { underPlayerCommand } from '../../domains/forces/command'
+import { toast } from '../../domains/comms/radio'
 import { orderReturnToGarrison } from '../../domains/installations/orders'
 import { fieldUnitDrone } from '../../domains/air/orders'
 import { S } from '../../engine/state'
@@ -114,6 +117,44 @@ export function elementActions(units: Unit[], ui: UIState): Action[] {
       title: 'Reassign garrison: click a friendly base — they stand down there and it becomes home',
       on: () => set('garrison') },
   ]
+}
+
+/** THE ONE MOUTH FOR THE ONE VERB. The G key and the dock's FORM TEAM button
+ *  both organize a selection through this, so the outcomes — and the words the
+ *  commander hears about them — cannot drift apart. */
+export function runTaskOrganize(unitIds: number[]): void {
+  const r = taskOrganize(unitIds)
+  if (r.kind === 'formed') toast(`${r.team!.name} TASK ORGANIZED`)
+  else if (r.kind === 'joined') toast(`${r.n} ATTACHED TO ${r.team!.name}`)
+  else if (r.kind === 'ambiguous') {
+    const names = (r.teams ?? []).map(id => teamById(id)?.name ?? '?').join(' AND ')
+    toast(`SELECTION SPANS ${names} — RIGHT-CLICK AN ELEMENT TO CHOOSE`)
+  } else toast('ALREADY ONE TEAM — ADD WHAT IS JOINING IT, OR SHIFT+G TO DETACH')
+}
+
+/** What G would DO with this selection, so the dock can put it on a button
+ *  before it is pressed. Mirrors taskOrganize's own reading rung for rung.
+ *  Null when the press would change nothing — fewer than two elements, the
+ *  selection already one whole team, or a tie between teams that only the
+ *  right-click menu may resolve. A button that could only apologize is worse
+ *  than no button. */
+export function taskOrgLabel(units: Unit[]): string | null {
+  const mine = units.filter(u => u.strength > 0 && underPlayerCommand(u))
+  if (mine.length < 2) return null
+  const count = new Map<number, number>()
+  for (const u of mine) {
+    const t = teamOf(u)
+    if (t) count.set(t.id, (count.get(t.id) ?? 0) + 1)
+  }
+  let destId: number | null = null, best = 0
+  for (const [id, n] of count) if (n > best) { best = n; destId = id }
+  if (destId != null && [...count.values()].filter(n => n === best).length > 1) return null
+  if (destId != null) {
+    const dest = teamById(destId)
+    const joining = mine.filter(u => teamOf(u)?.id !== destId)
+    return dest && joining.length ? `JOIN ${dest.name}` : null
+  }
+  return mine.filter(u => !teamOf(u)).length >= 2 ? 'FORM TEAM' : null
 }
 
 /** EVERYTHING ELSE THIS ENGINEER COULD BUILD. The card has one cell for work,
