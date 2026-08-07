@@ -8,7 +8,7 @@ import type { Mobility } from '../../world/mobility'
 import { clampWorld, nearestLand } from '../../world/place'
 import { connectStructureToRoads } from '../../world/access'
 import { STRUCTURES, FACILITIES, type StructureTypeKey, type FacilityKey } from './catalog'
-import { gateward, organicFacilities, poolSlot, scatterSlot } from './anatomy'
+import { gateward, organicFacilities, poolPad, poolSlot, scatterSlot } from './anatomy'
 import { UNIT_TYPES, type UnitTypeKey } from '../forces/catalog'
 import { newUnit } from '../forces/factory'
 import { commandsStructure } from '../forces/command'
@@ -146,7 +146,8 @@ export function fieldUnit(typeKey: UnitTypeKey, structId: number): Unit | null {
   const mob = type.carrier ? type.carrier.mob : type.mob
   const spawn = spawnPoint(st, mob)
   const u = newUnit(typeKey, 'friend', spawn.x, spawn.y)
-  u.heading = gateward(st)   // parked in the row, nose out the gate
+  // parked in the row: nose the way the lot faces (road, contour, or gate)
+  u.heading = poolPad(st)?.ang ?? gateward(st)
   S.units.push(u)
   netRadio(u, 'move', `FIELDED AT ${st.label}`, u.x, u.y)
   return u
@@ -188,7 +189,7 @@ export function fieldSlot(
     ? nearestLand(S.map!, st.x, st.y, mob)
     : spawnPoint(st, mob)
   const u = newUnit(sl.type, 'friend', spawn.x, spawn.y, { slot: sl })
-  if (!opts?.qrfLaunch) u.heading = gateward(st)
+  if (!opts?.qrfLaunch) u.heading = poolPad(st)?.ang ?? gateward(st)
   S.units.push(u)
   // out the gate = off the duty roster (unless this IS the reaction)
   if (sl.qrf && !opts?.qrfLaunch) {

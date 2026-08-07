@@ -142,18 +142,41 @@ export function facilityPoints(st: Structure): Record<string, { x: number; y: nu
   return pts
 }
 
+/** Which way the parked row FACES. Engineers do not grade a hardstand at a
+ *  bearing the ground ignores: beside a road the vics nose toward the lane
+ *  they will roll onto; on open ground the rows lie ALONG the contour so a
+ *  parked line stands level, noses downhill; dead-flat ground defers to the
+ *  gate. One function, used by the slots, the pad and the spawn heading, so
+ *  the drawing and the parking cannot disagree. */
+export function poolFacing(map: WorldMap, fp: Vec2, gate: number): number {
+  const spot = roadSpot(map, fp.x, fp.y)
+  if (spot && spot.dist < 140 && spot.pts.length >= 2) {
+    const p = alongRoad(spot, spot.at)
+    // the perpendicular to the lane that points AT the lane
+    const perp = Math.atan2(p.ty, p.tx) + Math.PI / 2
+    const toRoad = Math.atan2(p.y - fp.y, p.x - fp.x)
+    const off = Math.atan2(Math.sin(perp - toRoad), Math.cos(perp - toRoad))
+    return Math.abs(off) <= Math.PI / 2 ? perp : perp + Math.PI
+  }
+  const h = map.CELL
+  const gx = map.elevAt(fp.x + h, fp.y) - map.elevAt(fp.x - h, fp.y)
+  const gy = map.elevAt(fp.x, fp.y + h) - map.elevAt(fp.x, fp.y - h)
+  if (Math.hypot(gx, gy) > 0.6) return Math.atan2(-gy, -gx)   // nose downhill
+  return gate
+}
+
 // The motor pool HARDSTAND: rows of parked vehicles beside the repair-effect
-// facility, inside the wire, faced out the gate. Null when the base runs no
-// such facility. Rows fill front-to-back and grow TOWARD the CP without
-// bound — a big call-up extends the lot into the compound instead of
-// double-parking on slot thirteen.
+// facility, inside the wire, faced per poolFacing. Null when the base runs
+// no such facility. Rows fill front-to-back and grow BEHIND the facing
+// without bound — a big call-up extends the lot instead of double-parking
+// on slot thirteen.
 export function poolSlot(st: Structure, mob: Mobility, k: number): Vec2 | null {
   const m = S.map!
   const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
   if (!key) return null
   const fp = facilityPoints(st)[key]
   if (!fp) return null
-  const g = gateward(st)
+  const g = poolFacing(m, fp, gateward(st))
   const fx = Math.cos(g), fy = Math.sin(g)
   const col = (k % 4) - 1.5, row = Math.floor(k / 4)
   const x = clampWorld(S.map, fp.x - fy * col * 20 + fx * (24 - row * 24))
@@ -168,7 +191,7 @@ export function poolPad(st: Structure): { x: number; y: number; ang: number } | 
   const key = (st.facilities ?? []).find(f => FACILITIES[f]?.effects.repair)
   if (!key) return null
   const fp = facilityPoints(st)[key]
-  return fp ? { x: fp.x, y: fp.y, ang: gateward(st) } : null
+  return fp ? { x: fp.x, y: fp.y, ang: poolFacing(S.map!, fp, gateward(st)) } : null
 }
 
 /** Where a vic stands on a base that runs NO motor pool: dispersed around the
@@ -219,9 +242,19 @@ export function footprintAt(
     const gx = Math.floor(px / CELL), gy = Math.floor(py / CELL)
     return (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) ? -1 : gy * GRID + gx
   }
+  // THE COMPOUND SITS ON ONE BENCH OF GROUND. A ray that climbs a mesa or
+  // drops off an escarpment leaves the ground the CP stands on, and the wall
+  // does not follow it — the first cut only trimmed steep rays RELATIVE to
+  // the flattest, which let a fence march 300 m up a plateau because every
+  // ray was climbing together. BAND is the net elevation the compound may
+  // span (gameplay units, the range mobility is tuned against); STEP_MAX is
+  // a single half-cell rise no engineer walls across.
+  const BAND = 4.5
+  const STEP_MAX = 2.2
   const rawR: number[] = []
   const climb: number[] = []
   const step = CELL / 2
+  const e0 = elev[Math.max(0, at(x, y))] ?? 0
   for (let i = 0; i < N; i++) {
     const phi = (i / N) * Math.PI * 2
     const a = gate + phi
@@ -231,19 +264,22 @@ export function footprintAt(
     const ca = Math.cos(a), sa = Math.sin(a)
     let r = er
     let acc = 0
-    let prevE = elev[Math.max(0, at(x, y))] ?? 0
+    let prevE = e0
     for (let d = 30; d <= er; d += step) {
       const idx = at(x + ca * d, y + sa * d)
       if (idx < 0) { r = d - step; break }
       const t = terr[idx]!
-      // the fence stops AT water, built-up blocks, and real roads (the
-      // spur's R_TRACK raster is the base's own and doesn't bound it)
-      if (t === T_WATER || t === T_URBAN || road[idx]! > R_TRACK) {
+      const e = elev[idx]!
+      // the fence stops AT water, built-up blocks, real roads (the spur's
+      // R_TRACK raster is the base's own and doesn't bound it) — and at
+      // ground that leaves the anchor's bench or turns scarp-steep
+      if (t === T_WATER || t === T_URBAN || road[idx]! > R_TRACK
+          || Math.abs(e - e0) > BAND || Math.abs(e - prevE) > STEP_MAX) {
         r = d - step * 0.5
         break
       }
-      acc += Math.abs(elev[idx]! - prevE)
-      prevE = elev[idx]!
+      acc += Math.abs(e - prevE)
+      prevE = e
     }
     rawR.push(Math.max(MIN_R, r))
     climb.push(acc)
